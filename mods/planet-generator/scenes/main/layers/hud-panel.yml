@@ -139,33 +139,37 @@
           children:
             - type: grid
               columns: ["1fr"]
-              rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto"]
+              rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto"]
               gap-y: 3
               children:
                 - { type: text, content: "VISUAL", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440" }
 
-                - { type: text,   id: ep-disp-label,        content: "  DISPLACEMENT   22%", grid-col: 1, grid-row: 2,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
-                - { type: vector, id: ep-disp-track,        grid-col: 1, grid-row: 3,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
-                - { type: vector, id: ep-disp-handle,       grid-col: 1, grid-row: 3,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+                - { type: text,   id: ep-subdiv-label,      content: "  RESOLUTION     32",  grid-col: 1, grid-row: 2,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-subdiv-track,      grid-col: 1, grid-row: 3,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-subdiv-handle,     grid-col: 1, grid-row: 3,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
-                - { type: text,   id: ep-coloring-label,    content: "  COLORING  [BIOME]",  grid-col: 1, grid-row: 4,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
-                - { type: vector, id: ep-coloring-track,    grid-col: 1, grid-row: 5,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
-                - { type: vector, id: ep-coloring-handle,   grid-col: 1, grid-row: 5,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+                - { type: text,   id: ep-disp-label,        content: "  DISPLACEMENT   22%", grid-col: 1, grid-row: 4,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-disp-track,        grid-col: 1, grid-row: 5,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-disp-handle,       grid-col: 1, grid-row: 5,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
-                - { type: text,   id: ep-rotspeed-label,    content: "  ROTATION       3.0", grid-col: 1, grid-row: 6,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
-                - { type: vector, id: ep-rotspeed-track,    grid-col: 1, grid-row: 7,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
-                - { type: vector, id: ep-rotspeed-handle,   grid-col: 1, grid-row: 7,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+                - { type: text,   id: ep-coloring-label,    content: "  COLORING  [BIOME]",  grid-col: 1, grid-row: 6,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-coloring-track,    grid-col: 1, grid-row: 7,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-coloring-handle,   grid-col: 1, grid-row: 7,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
-                - { type: text,   id: ep-sunaz-label,       content: "  SUN AZIMUTH    210", grid-col: 1, grid-row: 8,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
-                - { type: vector, id: ep-sunaz-track,       grid-col: 1, grid-row: 9,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
-                - { type: vector, id: ep-sunaz-handle,      grid-col: 1, grid-row: 9,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+                - { type: text,   id: ep-rotspeed-label,    content: "  ROTATION       3.0", grid-col: 1, grid-row: 8,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-rotspeed-track,    grid-col: 1, grid-row: 9,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-rotspeed-handle,   grid-col: 1, grid-row: 9,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
-                - { type: text,   id: ep-sunel-label,       content: "  SUN ELEVATION   40", grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
-                - { type: vector, id: ep-sunel-track,       grid-col: 1, grid-row: 11, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
-                - { type: vector, id: ep-sunel-handle,      grid-col: 1, grid-row: 11, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+                - { type: text,   id: ep-sunaz-label,       content: "  SUN AZIMUTH    210", grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-sunaz-track,       grid-col: 1, grid-row: 11, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-sunaz-handle,      grid-col: 1, grid-row: 11, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
-                - { type: text,   id: ep-ambient-label,     content: "  AMBIENT        12%", grid-col: 1, grid-row: 12, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
-                - { type: vector, id: ep-ambient-track,     grid-col: 1, grid-row: 13, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
-                - { type: vector, id: ep-ambient-handle,    grid-col: 1, grid-row: 13, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+                - { type: text,   id: ep-sunel-label,       content: "  SUN ELEVATION   40", grid-col: 1, grid-row: 12, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-sunel-track,       grid-col: 1, grid-row: 13, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-sunel-handle,      grid-col: 1, grid-row: 13, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
-                - { type: text, content: "↑↓ sel  ←→ adj", grid-col: 1, grid-row: 15, at: cc, font: "generic:1", fg: "#1a5c28" }
+                - { type: text,   id: ep-ambient-label,     content: "  AMBIENT        12%", grid-col: 1, grid-row: 14, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-ambient-track,     grid-col: 1, grid-row: 15, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-ambient-handle,    grid-col: 1, grid-row: 15, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text, content: "↑↓ sel  ←→ adj", grid-col: 1, grid-row: 17, at: cc, font: "generic:1", fg: "#1a5c28" }

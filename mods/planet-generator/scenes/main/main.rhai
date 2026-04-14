@@ -95,6 +95,7 @@ if !(local.initialized ?? false) {
 
 let tab      = local.tab      ?? 0;
 let sel      = local.sel      ?? 0;
+let dirty_ms = local.dirty_ms ?? -1.0;  // ms since last world-param change (-1 = clean)
 let seed     = local.seed     ?? 0.0;
 let ocean    = local.ocean    ?? 0.55;
 let cscale   = local.cscale   ?? 2.5;
@@ -108,6 +109,7 @@ let ice      = local.ice      ?? 1.0;
 let lapse    = local.lapse    ?? 0.6;
 let rain     = local.rain     ?? 0.4;
 let disp     = local.disp     ?? 0.22;
+let subdiv   = local.subdiv   ?? 32.0;  // sphere subdivisions (16-128)
 let coloring = local.coloring ?? 0.0;  // 0=biome, 1=elevation, 2=moisture
 let rotspeed = local.rotspeed ?? 3.0;
 let sunaz    = local.sunaz    ?? 210.0;
@@ -200,7 +202,7 @@ if !orbit_active {
     let dt = frame_ms.to_float() / 1000.0;
 
     // Tab-local param counts
-    let NUM_PARAMS = if tab == 0 { 5 } else if tab == 1 { 3 } else if tab == 2 { 4 } else { 6 };
+    let NUM_PARAMS = if tab == 0 { 5 } else if tab == 1 { 3 } else if tab == 2 { 4 } else { 7 };
 
     if input.just_pressed("Up")   { sel = (sel + NUM_PARAMS - 1) % NUM_PARAMS; local.sel = sel; }
     if input.just_pressed("Down") { sel = (sel + 1) % NUM_PARAMS; local.sel = sel; }
@@ -253,19 +255,23 @@ if !orbit_active {
     } else {
         // Visual
         if sel == 0 {
+            // subdivisions: step by powers of 2 (16, 32, 64, 128)
+            if input.just_pressed("Left")  { subdiv = (subdiv / 2.0).max(16.0); local.subdiv = subdiv; }
+            if input.just_pressed("Right") { subdiv = (subdiv * 2.0).min(128.0); local.subdiv = subdiv; }
+        } else if sel == 1 {
             if input.down("Left")  { disp = (disp - 0.2 * dt).max(0.0); local.disp = disp; }
             if input.down("Right") { disp = (disp + 0.2 * dt).min(0.6); local.disp = disp; }
-        } else if sel == 1 {
+        } else if sel == 2 {
             // cycle coloring modes: 0=biome, 1=elevation, 2=moisture
             if input.just_pressed("Left")  { coloring = (coloring - 1.0 + 3.0) % 3.0; local.coloring = coloring; }
             if input.just_pressed("Right") { coloring = (coloring + 1.0) % 3.0;        local.coloring = coloring; }
-        } else if sel == 2 {
+        } else if sel == 3 {
             if input.down("Left")  { rotspeed = (rotspeed - 2.0 * dt).max(0.0);  local.rotspeed = rotspeed; }
             if input.down("Right") { rotspeed = (rotspeed + 2.0 * dt).min(10.0); local.rotspeed = rotspeed; }
-        } else if sel == 3 {
+        } else if sel == 4 {
             if input.down("Left")  { sunaz = (sunaz - 60.0 * dt + 360.0) % 360.0; local.sunaz = sunaz; }
             if input.down("Right") { sunaz = (sunaz + 60.0 * dt) % 360.0;         local.sunaz = sunaz; }
-        } else if sel == 4 {
+        } else if sel == 5 {
             if input.down("Left")  { sunel = (sunel - 30.0 * dt).max(-10.0); local.sunel = sunel; }
             if input.down("Right") { sunel = (sunel + 30.0 * dt).min(85.0);  local.sunel = sunel; }
         } else {
@@ -280,7 +286,7 @@ let TRACK_W = 170.0;
 let TRACK_X = 4.0;
 
 // Selector arrows per tab
-let a = [" "," "," "," "," "," "];
+let a = [" "," "," "," "," "," "," "];
 if !orbit_active { a[sel] = ">"; }
 
 if tab == 0 {
@@ -315,13 +321,17 @@ if tab == 0 {
     scene.set("ep-rain-handle",       "position.x", (TRACK_X + rain * TRACK_W).round());
 } else {
     let coloring_name = if coloring < 0.5 { "BIOME" } else if coloring < 1.5 { "ELEV" } else { "MOIST" };
-    scene.set("ep-disp-label",     "text.content", `${a[0]} DISPLACEMENT   ${(disp * 100.0).round()}%`);
-    scene.set("ep-coloring-label", "text.content", `${a[1]} COLORING  [${coloring_name}]`);
-    scene.set("ep-rotspeed-label", "text.content", `${a[2]} ROTATION       ${(rotspeed * 10.0).round() / 10.0}`);
-    scene.set("ep-sunaz-label",    "text.content", `${a[3]} SUN AZIMUTH    ${sunaz.round()}`);
-    scene.set("ep-sunel-label",    "text.content", `${a[4]} SUN ELEVATION   ${sunel.round()}`);
-    scene.set("ep-ambient-label",  "text.content", `${a[5]} AMBIENT        ${(ambient * 100.0).round()}%`);
+    // log2 progress: 16→0, 32→1, 64→2, 128→3
+    let subdiv_frac = if subdiv < 24.0 { 0.0 } else if subdiv < 48.0 { 0.333 } else if subdiv < 96.0 { 0.666 } else { 1.0 };
+    scene.set("ep-subdiv-label",   "text.content", `${a[0]} RESOLUTION     ${subdiv.round()}`);
+    scene.set("ep-disp-label",     "text.content", `${a[1]} DISPLACEMENT   ${(disp * 100.0).round()}%`);
+    scene.set("ep-coloring-label", "text.content", `${a[2]} COLORING  [${coloring_name}]`);
+    scene.set("ep-rotspeed-label", "text.content", `${a[3]} ROTATION       ${(rotspeed * 10.0).round() / 10.0}`);
+    scene.set("ep-sunaz-label",    "text.content", `${a[4]} SUN AZIMUTH    ${sunaz.round()}`);
+    scene.set("ep-sunel-label",    "text.content", `${a[5]} SUN ELEVATION   ${sunel.round()}`);
+    scene.set("ep-ambient-label",  "text.content", `${a[6]} AMBIENT        ${(ambient * 100.0).round()}%`);
 
+    scene.set("ep-subdiv-handle",   "position.x", (TRACK_X + subdiv_frac * TRACK_W).round());
     scene.set("ep-disp-handle",     "position.x", (TRACK_X + disp / 0.6 * TRACK_W).round());
     scene.set("ep-coloring-handle", "position.x", (TRACK_X + coloring / 2.0 * TRACK_W).round());
     scene.set("ep-rotspeed-handle", "position.x", (TRACK_X + rotspeed / 10.0 * TRACK_W).round());
@@ -343,22 +353,75 @@ if ps.len() > 0 {
         `OCEAN ${ocean_pct}%  FOREST ${forest_pct}%  DESERT ${desert_pct}%  SNOW ${cold_pct}%`);
 }
 
-// ── Push world params to planet mesh ─────────────────────────────────────────
-let coloring_str = if coloring < 0.5 { "biome" } else if coloring < 1.5 { "elevation" } else { "moisture" };
-scene.set("planet-mesh", "world.seed",               seed);
-scene.set("planet-mesh", "world.ocean_fraction",     ocean);
-scene.set("planet-mesh", "world.continent_scale",    cscale);
-scene.set("planet-mesh", "world.continent_warp",     cwarp);
-scene.set("planet-mesh", "world.continent_octaves",  coct);
-scene.set("planet-mesh", "world.mountain_scale",          mscale);
-scene.set("planet-mesh", "world.mountain_strength",       mstr);
-scene.set("planet-mesh", "world.mountain_ridge_octaves",  mroct);
-scene.set("planet-mesh", "world.moisture_scale",          moisture);
-scene.set("planet-mesh", "world.ice_cap_strength",        ice);
-scene.set("planet-mesh", "world.lapse_rate",              lapse);
-scene.set("planet-mesh", "world.rain_shadow",             rain);
-scene.set("planet-mesh", "world.displacement_scale",      disp);
-scene.set("planet-mesh", "world.coloring",                coloring_str);
+// ── Push world params to planet mesh (throttled) ─────────────────────────────
+// Detect if any world-param changed this frame
+let prev_seed = local.prev_seed ?? seed;
+let prev_ocean = local.prev_ocean ?? ocean;
+let prev_cscale = local.prev_cscale ?? cscale;
+let prev_cwarp = local.prev_cwarp ?? cwarp;
+let prev_coct = local.prev_coct ?? coct;
+let prev_mscale = local.prev_mscale ?? mscale;
+let prev_mstr = local.prev_mstr ?? mstr;
+let prev_mroct = local.prev_mroct ?? mroct;
+let prev_moisture = local.prev_moisture ?? moisture;
+let prev_ice = local.prev_ice ?? ice;
+let prev_lapse = local.prev_lapse ?? lapse;
+let prev_rain = local.prev_rain ?? rain;
+let prev_disp = local.prev_disp ?? disp;
+let prev_subdiv = local.prev_subdiv ?? subdiv;
+let prev_coloring = local.prev_coloring ?? coloring;
+
+let world_changed = (seed != prev_seed) || (ocean != prev_ocean) || (cscale != prev_cscale)
+    || (cwarp != prev_cwarp) || (coct != prev_coct) || (mscale != prev_mscale)
+    || (mstr != prev_mstr) || (mroct != prev_mroct) || (moisture != prev_moisture)
+    || (ice != prev_ice) || (lapse != prev_lapse) || (rain != prev_rain)
+    || (disp != prev_disp) || (subdiv != prev_subdiv) || (coloring != prev_coloring);
+
+// Save current values as prev for next frame
+local.prev_seed = seed; local.prev_ocean = ocean; local.prev_cscale = cscale;
+local.prev_cwarp = cwarp; local.prev_coct = coct; local.prev_mscale = mscale;
+local.prev_mstr = mstr; local.prev_mroct = mroct; local.prev_moisture = moisture;
+local.prev_ice = ice; local.prev_lapse = lapse; local.prev_rain = rain;
+local.prev_disp = disp; local.prev_subdiv = subdiv; local.prev_coloring = coloring;
+
+if world_changed {
+    dirty_ms = dirty_ms + frame_ms.to_float();
+    local.dirty_ms = dirty_ms;
+} else if dirty_ms > 0.0 {
+    dirty_ms = dirty_ms + frame_ms.to_float();
+    local.dirty_ms = dirty_ms;
+}
+
+// Throttle: push world params at most once per THROTTLE_MS while adjusting,
+// and always push once after changes stop (flush pending).
+let THROTTLE_MS = 500.0;
+let should_push = (dirty_ms < 0.0)                      // first frame (initial load)
+    || (world_changed && dirty_ms >= THROTTLE_MS)        // periodic update while holding
+    || (!world_changed && dirty_ms > 0.0);               // flush final value on key release
+
+if should_push {
+    let coloring_str = if coloring < 0.5 { "biome" } else if coloring < 1.5 { "elevation" } else { "moisture" };
+    scene.set("planet-mesh", "world.seed",               seed);
+    scene.set("planet-mesh", "world.ocean_fraction",     ocean);
+    scene.set("planet-mesh", "world.continent_scale",    cscale);
+    scene.set("planet-mesh", "world.continent_warp",     cwarp);
+    scene.set("planet-mesh", "world.continent_octaves",  coct);
+    scene.set("planet-mesh", "world.mountain_scale",          mscale);
+    scene.set("planet-mesh", "world.mountain_strength",       mstr);
+    scene.set("planet-mesh", "world.mountain_ridge_octaves",  mroct);
+    scene.set("planet-mesh", "world.moisture_scale",          moisture);
+    scene.set("planet-mesh", "world.ice_cap_strength",        ice);
+    scene.set("planet-mesh", "world.lapse_rate",              lapse);
+    scene.set("planet-mesh", "world.rain_shadow",             rain);
+    scene.set("planet-mesh", "world.displacement_scale",      disp);
+    scene.set("planet-mesh", "world.subdivisions",            subdiv);
+    scene.set("planet-mesh", "world.coloring",                coloring_str);
+    dirty_ms = 0.0;
+    local.dirty_ms = 0.0;
+    if !world_changed { local.dirty_ms = -1.0; }  // fully clean after flush
+}
+
+// Visual-only params always update immediately (no mesh rebuild)
 scene.set("planet-mesh", "obj.rotation-speed",  rotspeed);
 scene.set("planet-mesh", "obj.ambient",          ambient);
 
