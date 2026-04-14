@@ -685,6 +685,7 @@ dependencies = [
  "engine-api",
  "engine-celestial",
  "engine-core",
+ "engine-events",
  "engine-game",
  "engine-gui",
  "engine-persistence",

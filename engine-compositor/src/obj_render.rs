@@ -52,8 +52,30 @@ fn current_prerender_frames<'a>() -> Option<&'a ObjPrerenderedFrames> {
 // Global OBJ mesh cache — parse once, reuse via Arc.
 static OBJ_MESH_CACHE: OnceLock<Mutex<HashMap<String, Arc<ObjMesh>>>> = OnceLock::new();
 
+/// Parse a terrain-plane URI query string into `TerrainParams`.
+///
+/// Query format: `amp=A&freq=F&oct=O&rough=R&sx=S&sz=Z`
+/// All parameters are optional — missing ones fall back to `TerrainParams::default()`.
+fn parse_terrain_params(query: &str) -> engine_mesh::primitives::TerrainParams {
+    let mut p = engine_mesh::primitives::TerrainParams::default();
+    for pair in query.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            match k {
+                "amp"   => { if let Ok(f) = v.parse::<f32>() { p.amplitude  = f.clamp(0.01, 10.0); } }
+                "freq"  => { if let Ok(f) = v.parse::<f32>() { p.frequency  = f.clamp(0.01, 16.0); } }
+                "oct"   => { if let Ok(n) = v.parse::<u8>()  { p.octaves    = n.clamp(1, 3); } }
+                "rough" => { if let Ok(f) = v.parse::<f32>() { p.roughness  = f.clamp(0.0, 1.0); } }
+                "sx"    => { if let Ok(f) = v.parse::<f32>() { p.seed_x     = f; } }
+                "sz"    => { if let Ok(f) = v.parse::<f32>() { p.seed_z     = f; } }
+                _ => {}
+            }
+        }
+    }
+    p
+}
+
 /// Get or load an OBJ mesh from cache.
-/// Supports the `cube-sphere://N` and `terrain-plane://N` URI schemes for procedurally generated meshes.
+/// Supports the `cube-sphere://N` and `terrain-plane://N[?params]` URI schemes for procedurally generated meshes.
 fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMesh>> {
     let cache = OBJ_MESH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
@@ -76,10 +98,12 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
         return Some(mesh_arc);
     }
 
-    // Handle procedural terrain-plane URI: terrain-plane://N
+    // Handle procedural terrain-plane URI: terrain-plane://N  or  terrain-plane://N?amp=A&freq=F&oct=O&rough=R&sx=S&sz=Z
     if let Some(rest) = path.strip_prefix("terrain-plane://") {
-        let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
-        let mesh = engine_mesh::primitives::terrain_plane(subdivisions);
+        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(64);
+        let params = parse_terrain_params(query);
+        let mesh = engine_mesh::primitives::terrain_plane(subdivisions, params);
         let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
         if let Ok(mut cache_lock) = cache.lock() {
             cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));

@@ -8,6 +8,7 @@ engine-api = { path = "../engine-api" }
 engine-celestial = { workspace = true }
 engine-core = { path = "../engine-core" }
 engine-animation = { path = "../engine-animation" }
+engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
 engine-gui = { workspace = true }
 engine-persistence = { path = "../engine-persistence" }

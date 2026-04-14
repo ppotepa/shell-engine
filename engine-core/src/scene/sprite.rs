@@ -192,7 +192,9 @@ pub enum Sprite {
         /// Optional per-sprite font mode override (e.g. ascii/raster).
         #[serde(default, rename = "force-font-mode")]
         force_font_mode: Option<String>,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
         bg_colour: Option<TermColour>,
@@ -272,7 +274,9 @@ pub enum Sprite {
         /// When true, scales the image to exactly fill its resolved draw area.
         #[serde(default, rename = "stretch-to-area")]
         stretch_to_area: bool,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         #[serde(default)]
         appear_at_ms: Option<u64>,
@@ -317,7 +321,9 @@ pub enum Sprite {
         row_span: u16,
         #[serde(default = "default_grid_span", rename = "col-span")]
         col_span: u16,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
         bg_colour: Option<TermColour>,
@@ -532,7 +538,9 @@ pub enum Sprite {
         night_light_intensity: Option<f32>,
         #[serde(default, rename = "draw-char")]
         draw_char: Option<String>,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
         bg_colour: Option<TermColour>,
@@ -661,7 +669,9 @@ pub enum Sprite {
         sun_dir_y: Option<f32>,
         #[serde(default, rename = "sun-dir-z")]
         sun_dir_z: Option<f32>,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         #[serde(default)]
         appear_at_ms: Option<u64>,
@@ -714,7 +724,9 @@ pub enum Sprite {
         shadow_x: i32,
         #[serde(default = "default_panel_shadow_y", rename = "shadow-y")]
         shadow_y: i32,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
         bg_colour: Option<TermColour>,
@@ -766,7 +778,9 @@ pub enum Sprite {
         gap_x: u16,
         #[serde(default, rename = "gap-y")]
         gap_y: u16,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         #[serde(default)]
         appear_at_ms: Option<u64>,
@@ -815,7 +829,9 @@ pub enum Sprite {
         gap: u16,
         #[serde(default)]
         direction: FlexDirection,
+        #[serde(default, rename = "align-x")]
         align_x: Option<HorizontalAlign>,
+        #[serde(default, rename = "align-y")]
         align_y: Option<VerticalAlign>,
         #[serde(default)]
         appear_at_ms: Option<u64>,

@@ -756,6 +756,7 @@ fn set_obj_property_recursive(
         match sprite {
             Sprite::Obj {
                 id: Some(id),
+                source,
                 scale,
                 yaw_deg,
                 pitch_deg,
@@ -764,6 +765,7 @@ fn set_obj_property_recursive(
                 surface_mode,
                 clip_y_min,
                 clip_y_max,
+                camera_distance,
                 world_x,
                 world_y,
                 world_z,
@@ -781,6 +783,22 @@ fn set_obj_property_recursive(
                 view_fwd_z,
                 ..
             } if id == sprite_id => match path {
+                "obj.source" => {
+                    let Some(next) = value.as_str() else { continue; };
+                    if source.as_str() != next {
+                        *source = next.to_string();
+                        *updated = true;
+                    }
+                }
+                "obj.camera-distance" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.3, 10.0);
+                        if camera_distance.map_or(true, |c| (c - next).abs() > f32::EPSILON) {
+                            *camera_distance = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
                 "obj.scale" => {
                     let Some(next) = json_value_to_f32(value) else {
                         continue;

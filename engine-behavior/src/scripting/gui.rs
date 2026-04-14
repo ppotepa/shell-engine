@@ -16,15 +16,21 @@ pub(crate) struct ScriptGuiApi {
     state: Option<Arc<GuiRuntimeState>>,
     mouse_x: f32,
     mouse_y: f32,
+    mouse_left_down: bool,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
 impl ScriptGuiApi {
     pub(crate) fn new(ctx: &BehaviorContext, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        let mouse_left_down = ctx.gui_state.as_ref().map(|s| {
+            use engine_events::MouseButton;
+            s.drag_button == Some(MouseButton::Left) && s.drag_widget.is_none()
+        }).unwrap_or(false);
         Self {
             state: ctx.gui_state.clone(),
             mouse_x: ctx.mouse_x,
             mouse_y: ctx.mouse_y,
+            mouse_left_down,
             queue,
         }
     }
@@ -80,6 +86,18 @@ impl ScriptGuiApi {
         self.mouse_y as rhai::INT
     }
 
+    fn mouse_x_f(&mut self) -> rhai::FLOAT {
+        self.mouse_x as rhai::FLOAT
+    }
+
+    fn mouse_y_f(&mut self) -> rhai::FLOAT {
+        self.mouse_y as rhai::FLOAT
+    }
+
+    fn mouse_left_down(&mut self) -> bool {
+        self.mouse_left_down
+    }
+
     fn set_panel_visible(&mut self, id: &str, visible: bool) -> bool {
         if let Ok(mut q) = self.queue.lock() {
             q.push(BehaviorCommand::SetProperty {
@@ -120,6 +138,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     });
     engine.register_get("mouse_x", |gui: &mut ScriptGuiApi| gui.mouse_x());
     engine.register_get("mouse_y", |gui: &mut ScriptGuiApi| gui.mouse_y());
+    engine.register_get("mouse_x_f", |gui: &mut ScriptGuiApi| gui.mouse_x_f());
+    engine.register_get("mouse_y_f", |gui: &mut ScriptGuiApi| gui.mouse_y_f());
+    engine.register_get("mouse_left_down", |gui: &mut ScriptGuiApi| gui.mouse_left_down());
     engine.register_fn(
         "set_panel_visible",
         |gui: &mut ScriptGuiApi, id: &str, visible: bool| gui.set_panel_visible(id, visible),

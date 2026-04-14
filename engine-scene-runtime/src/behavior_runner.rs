@@ -597,7 +597,8 @@ impl SceneRuntime {
                                 continue;
                             }
                         }
-                        "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
+                        "obj.source" | "obj.camera-distance" | "obj.scale" | "obj.yaw"
+                        | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
                         | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max"
                         | "obj.world.x" | "obj.world.y" | "obj.world.z" | "obj.cam.wx"
                         | "obj.cam.wy" | "obj.cam.wz" | "obj.view.rx" | "obj.view.ry"

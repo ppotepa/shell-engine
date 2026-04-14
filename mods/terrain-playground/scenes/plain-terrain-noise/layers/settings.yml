@@ -1,8 +1,7 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 # ── Settings Panel ───────────────────────────────────────────────────────────
 # Screen-space overlay, initially hidden. Toggle with [S].
-# Panel inner area: x=441 y=17 w=182 h=134  (border-width=1 + padding=8 = inset 9)
-# Grid row tops:  row1=17  row2=28  row3=39(pitch)  row4=54  row5=65(speed)  row7=80
+# Parameters: amplitude, frequency, octaves, roughness (terrain generation)
 - name: settings-panel
   z_index: 20
   ui: true
@@ -14,9 +13,9 @@
       align-y: top
       x: -8
       y: 8
-      width: 200
-      height: 100
-      padding: 8
+      width: 220
+      height: 190
+      padding: 10
       border-width: 1
       corner-radius: 2
       fg: "#44cc88"
@@ -29,49 +28,35 @@
       children:
         - type: grid
           columns: ["1fr"]
-          rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto"]
-          gap-y: 6
+          rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+          gap-y: 5
           children:
             # Row 1 — header
-            - { type: text, content: "SETTINGS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#44cc88" }
+            - { type: text, content: "TERRAIN PARAMS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#44cc88" }
 
-            # Row 2 — pitch label  ("> PITCH  -38°" when selected)
-            - { type: text, id: pitch-label, content: "  PITCH  -38°", grid-col: 1, grid-row: 2, at: cl, font: "generic:1", fg: "#aaccaa" }
+            # Row 2 — amplitude label
+            - { type: text, id: amp-label, content: "  AMPLITUDE  1.0", grid-col: 1, grid-row: 2, at: cl, x: 4, font: "generic:1", fg: "#aaccaa" }
+            # Row 3 — amplitude track + handle
+            - { type: vector, id: amp-track,   grid-col: 1, grid-row: 3, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a6e55" }
+            - { type: vector, id: amp-handle,  grid-col: 1, grid-row: 3, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#44cc88" }
 
-            # Row 3 — pitch track + handle
-            - type: vector
-              id: pitch-track
-              grid-col: 1
-              grid-row: 3
-              points: [[0, 4], [170, 4]]
-              stroke-width: 3
-              fg: "#2a6e55"
-            - type: vector
-              id: pitch-handle
-              grid-col: 1
-              grid-row: 3
-              points: [[0, 0], [0, 8]]
-              stroke-width: 2
-              fg: "#44cc88"
+            # Row 4 — frequency label
+            - { type: text, id: freq-label, content: "  FREQUENCY  1.0", grid-col: 1, grid-row: 4, at: cl, x: 4, font: "generic:1", fg: "#aaccaa" }
+            # Row 5 — frequency track + handle
+            - { type: vector, id: freq-track,  grid-col: 1, grid-row: 5, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a6e55" }
+            - { type: vector, id: freq-handle, grid-col: 1, grid-row: 5, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#44cc88" }
 
-            # Row 4 — speed label  ("> SPEED  5.0°/s" when selected)
-            - { type: text, id: speed-label, content: "  SPEED  5.0°/s", grid-col: 1, grid-row: 4, at: cl, font: "generic:1", fg: "#aaccaa" }
+            # Row 6 — octaves label
+            - { type: text, id: oct-label, content: "  OCTAVES    3", grid-col: 1, grid-row: 6, at: cl, x: 4, font: "generic:1", fg: "#aaccaa" }
+            # Row 7 — octaves track + handle
+            - { type: vector, id: oct-track,   grid-col: 1, grid-row: 7, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a6e55" }
+            - { type: vector, id: oct-handle,  grid-col: 1, grid-row: 7, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#44cc88" }
 
-            # Row 5 — speed track + handle
-            - type: vector
-              id: speed-track
-              grid-col: 1
-              grid-row: 5
-              points: [[0, 4], [170, 4]]
-              stroke-width: 3
-              fg: "#2a6e55"
-            - type: vector
-              id: speed-handle
-              grid-col: 1
-              grid-row: 5
-              points: [[0, 0], [0, 8]]
-              stroke-width: 2
-              fg: "#44cc88"
+            # Row 8 — roughness label
+            - { type: text, id: rough-label, content: "  ROUGHNESS  100%", grid-col: 1, grid-row: 8, at: cl, x: 4, font: "generic:1", fg: "#aaccaa" }
+            # Row 9 — roughness track + handle
+            - { type: vector, id: rough-track,  grid-col: 1, grid-row: 9,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a6e55" }
+            - { type: vector, id: rough-handle, grid-col: 1, grid-row: 9,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#44cc88" }
 
-            # Row 7 — footer hint
-            - { type: text, content: "↑↓ sel  ←→ adj  S close", grid-col: 1, grid-row: 7, at: cc, font: "generic:1", fg: "#2a6e55" }
+            # Row 11 — footer hint
+            - { type: text, content: "↑↓ sel  ←→ adj  S close", grid-col: 1, grid-row: 11, at: cc, font: "generic:1", fg: "#2a6e55" }
