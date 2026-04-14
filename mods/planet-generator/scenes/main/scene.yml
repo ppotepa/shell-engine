@@ -30,7 +30,37 @@ input:
   free-look-camera: {}
 gui:
   widgets:
-    # 7 multiplexed sliders — content/mapping changes per active tab in Rhai.
+    # ── Tab bar buttons (4 buttons spanning the full tab panel width) ──────────
+    # Panel outer: x=408..632, y=8..30. Buttons divide the full width.
+    - type: button
+      id: tab-btn-continents
+      sprite: tab-btn-continents
+      x: 408
+      y: 8
+      w: 57
+      h: 22
+    - type: button
+      id: tab-btn-mountains
+      sprite: tab-btn-mountains
+      x: 465
+      y: 8
+      w: 55
+      h: 22
+    - type: button
+      id: tab-btn-climate
+      sprite: tab-btn-climate
+      x: 520
+      y: 8
+      w: 55
+      h: 22
+    - type: button
+      id: tab-btn-visual
+      sprite: tab-btn-visual
+      x: 575
+      y: 8
+      w: 57
+      h: 22
+    # ── 7 multiplexed sliders — content/mapping changes per active tab in Rhai.
     # Coords: track starts at x=421, width=180. Handle base at same x=421.
     # hit-padding=6 gives ~20px tall click zone around each 8px handle.
     - type: slider

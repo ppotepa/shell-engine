@@ -149,17 +149,21 @@ let sunaz    = local.sunaz    ?? 210.0;
 let sunel    = local.sunel    ?? 40.0;
 let ambient  = local.ambient  ?? 0.12;
 
-// ── Tab switching (1/2/3/4) ───────────────────────────────────────────────────
-if input.just_pressed("1") { tab = 0; local.tab = 0; local.tab_sync_needed = true; }
-if input.just_pressed("2") { tab = 1; local.tab = 1; local.tab_sync_needed = true; }
-if input.just_pressed("3") { tab = 2; local.tab = 2; local.tab_sync_needed = true; }
-if input.just_pressed("4") { tab = 3; local.tab = 3; local.tab_sync_needed = true; }
+// ── Tab switching (keyboard: 1/2/3/4 — mouse: click tab button) ──────────────
+if input.just_pressed("1") || gui.button_clicked("tab-btn-continents") { tab = 0; local.tab = 0; local.tab_sync_needed = true; }
+if input.just_pressed("2") || gui.button_clicked("tab-btn-mountains")  { tab = 1; local.tab = 1; local.tab_sync_needed = true; }
+if input.just_pressed("3") || gui.button_clicked("tab-btn-climate")    { tab = 2; local.tab = 2; local.tab_sync_needed = true; }
+if input.just_pressed("4") || gui.button_clicked("tab-btn-visual")     { tab = 3; local.tab = 3; local.tab_sync_needed = true; }
 
-// Highlight active tab button
-scene.set("tab-btn-continents", "text.fg", if tab == 0 { "#aaffcc" } else { "#2a9440" });
-scene.set("tab-btn-mountains",  "text.fg", if tab == 1 { "#aaffcc" } else { "#2a9440" });
-scene.set("tab-btn-climate",    "text.fg", if tab == 2 { "#aaffcc" } else { "#2a9440" });
-scene.set("tab-btn-visual",     "text.fg", if tab == 3 { "#aaffcc" } else { "#2a9440" });
+// Highlight active tab: bright green = active, hover green = hovered, dim = inactive
+let tab_fg_0 = if tab == 0 { "#aaffcc" } else if gui.widget_hovered("tab-btn-continents") { "#66cc88" } else { "#2a9440" };
+let tab_fg_1 = if tab == 1 { "#aaffcc" } else if gui.widget_hovered("tab-btn-mountains")  { "#66cc88" } else { "#2a9440" };
+let tab_fg_2 = if tab == 2 { "#aaffcc" } else if gui.widget_hovered("tab-btn-climate")    { "#66cc88" } else { "#2a9440" };
+let tab_fg_3 = if tab == 3 { "#aaffcc" } else if gui.widget_hovered("tab-btn-visual")     { "#66cc88" } else { "#2a9440" };
+scene.set("tab-btn-continents", "text.fg", tab_fg_0);
+scene.set("tab-btn-mountains",  "text.fg", tab_fg_1);
+scene.set("tab-btn-climate",    "text.fg", tab_fg_2);
+scene.set("tab-btn-visual",     "text.fg", tab_fg_3);
 
 // ── Preset keys (F1-F7) ───────────────────────────────────────────────────────
 let preset_applied = false;
