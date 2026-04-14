@@ -30,5 +30,6 @@ pub use control::{
 pub use widget::GuiWidgetDef;
 
 /// Deprecated alias kept for backward compatibility.
+#[allow(deprecated)]
 #[deprecated(since = "0.0.0", note = "Use engine_events::InputEvent instead")]
 pub use events::GuiInputEvent;

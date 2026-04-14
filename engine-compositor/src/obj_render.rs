@@ -241,7 +241,7 @@ fn build_world_mesh(p: &engine_terrain::WorldGenParams) -> Arc<crate::obj_loader
         WorldShape::Sphere => {
             let base = cube_sphere(p.subdivisions);
             // Displace each vertex using the planet heightmap.
-            let mut verts: Vec<[f32; 3]> = base.vertices.iter().map(|v| {
+            let verts: Vec<[f32; 3]> = base.vertices.iter().map(|v| {
                 let cell = sample_planet_xyz(v, &planet);
                 let disp = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
                 let len = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]).sqrt().max(1e-6);

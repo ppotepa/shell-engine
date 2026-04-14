@@ -134,30 +134,6 @@ impl MenuState {
         self.cursor = ((self.cursor as isize + delta).rem_euclid(len)) as usize;
     }
 
-    /// → on mod: expand if collapsed, enter if already expanded.
-    /// → on scene: launch.
-    pub fn expand_or_launch(&mut self) -> MenuAction {
-        if self.filtered_indices.is_empty() {
-            return MenuAction::None;
-        }
-        let (mod_idx, scene_idx) = self.filtered_indices[self.cursor];
-        if scene_idx.is_some() {
-            return MenuAction::Launch;
-        }
-        if !self.expanded.contains(&mod_idx) {
-            self.expanded.insert(mod_idx);
-            self.rebuild_filter();
-            // Restore cursor to same mod after rebuild
-            for (i, &(m, s)) in self.filtered_indices.iter().enumerate() {
-                if m == mod_idx && s.is_none() {
-                    self.cursor = i;
-                    break;
-                }
-            }
-        }
-        MenuAction::Redraw
-    }
-
     /// Enter on mod row: expand if collapsed, launch if already expanded.
     /// Enter on scene: launch.
     pub fn enter_action(&mut self) -> MenuAction {
@@ -211,30 +187,6 @@ impl MenuState {
             _ => return MenuAction::None,
         }
         MenuAction::FlagsChanged
-    }
-
-    pub fn search_add_char(&mut self, c: char) {
-        self.search.push(c);
-        self.cursor = 0;
-        self.scroll = 0;
-        self.rebuild_filter();
-    }
-
-    pub fn search_backspace(&mut self) {
-        if self.search.pop().is_some() {
-            self.cursor = 0;
-            self.scroll = 0;
-            self.rebuild_filter();
-        }
-    }
-
-    pub fn search_clear(&mut self) {
-        if !self.search.is_empty() {
-            self.search.clear();
-            self.cursor = 0;
-            self.scroll = 0;
-            self.rebuild_filter();
-        }
     }
 
     pub fn get_selection(&self) -> Option<Selection> {
