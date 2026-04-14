@@ -18,6 +18,9 @@
 use crate::mesh::{compute_smooth_normals, normalize, Mesh};
 use crate::primitives::terrain_plane::TerrainParams;
 
+/// Per-face RGB color computed from vertex altitude, for use with `earth_terrain_sphere`.
+pub type FaceColors = Vec<[u8; 3]>;
+
 /// The (normal, right, up) tangent basis for each cube face in the order [+X, -X, +Y, -Y, +Z, -Z].
 const FACE_BASES: [([f32; 3], [f32; 3], [f32; 3]); 6] = [
     ([1.0,  0.0,  0.0], [0.0,  0.0, -1.0], [0.0,  1.0,  0.0]),
@@ -140,6 +143,88 @@ fn sphere_height(dir: [f32; 3], p: &TerrainParams) -> f32 {
     }
 
     h
+}
+
+/// Generate a terrain sphere with per-face altitude-based Earth-like colors.
+///
+/// The mesh geometry is identical to [`terrain_sphere`]; each face receives an
+/// RGB color sampled from the Earth palette based on the average radius of its
+/// three vertices relative to the displacement range.
+///
+/// Radius meaning:
+/// * `r < 1.0` — below sea level (ocean, blue gradient)
+/// * `r ≈ 1.0` — sea level / beach
+/// * `r > 1.0` — land (green → highland → rock → snow)
+///
+/// The returned `FaceColors` vector has one entry per face, in the same order as
+/// `mesh.faces`.  Pass them to `colored_mesh_to_obj_mesh` in engine-compositor.
+pub fn earth_terrain_sphere(subdivisions: u32, params: TerrainParams) -> (Mesh, FaceColors) {
+    let mesh = terrain_sphere(subdivisions, params.clone());
+    let amp = params.amplitude;
+    let colors: Vec<[u8; 3]> = mesh
+        .faces
+        .iter()
+        .map(|[a, b, c]| {
+            let ra = vertex_radius(&mesh.vertices[*a]);
+            let rb = vertex_radius(&mesh.vertices[*b]);
+            let rc = vertex_radius(&mesh.vertices[*c]);
+            let avg_r = (ra + rb + rc) / 3.0;
+            earth_altitude_color(avg_r, amp)
+        })
+        .collect();
+    (mesh, colors)
+}
+
+fn vertex_radius(v: &[f32; 3]) -> f32 {
+    (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+}
+
+/// Earth-like altitude colour gradient.
+///
+/// All thresholds are expressed as absolute sphere radius (sea level = 1.0).
+/// The max displacement at `amplitude = 1.0` is ~±0.22, so a pixel can reach
+/// radius 1.22 at its highest.  Thresholds scale linearly with `amplitude`.
+fn earth_altitude_color(r: f32, amplitude: f32) -> [u8; 3] {
+    let amp = amplitude.max(0.01);
+    let max_d = 0.22 * amp; // positive half of displacement range
+
+    if r < 1.0 {
+        // Ocean: dark deep → lighter shallow as we approach surface.
+        let depth = ((1.0 - r) / max_d).clamp(0.0, 1.0);
+        // deep ocean #0a1f4a → shallow ocean #1a5fa0
+        lerp_rgb([10, 31, 74], [26, 95, 160], 1.0 - depth)
+    } else {
+        let h = ((r - 1.0) / max_d).clamp(0.0, 1.0);
+        if h < 0.06 {
+            // Beach / sand
+            [194, 178, 120]
+        } else if h < 0.30 {
+            // Lowland green
+            let t = (h - 0.06) / 0.24;
+            lerp_rgb([58, 150, 50], [40, 110, 35], t)
+        } else if h < 0.55 {
+            // Highland / shrubland
+            let t = (h - 0.30) / 0.25;
+            lerp_rgb([100, 85, 55], [120, 100, 70], t)
+        } else if h < 0.80 {
+            // Rock / mountain
+            let t = (h - 0.55) / 0.25;
+            lerp_rgb([130, 118, 105], [165, 155, 145], t)
+        } else {
+            // Snow cap
+            let t = ((h - 0.80) / 0.20).min(1.0);
+            lerp_rgb([200, 200, 210], [240, 242, 248], t)
+        }
+    }
+}
+
+fn lerp_rgb(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
+    let t = t.clamp(0.0, 1.0);
+    [
+        (a[0] as f32 + (b[0] as f32 - a[0] as f32) * t).round() as u8,
+        (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t).round() as u8,
+        (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t).round() as u8,
+    ]
 }
 
 #[cfg(test)]

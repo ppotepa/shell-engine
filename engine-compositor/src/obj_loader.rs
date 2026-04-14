@@ -368,6 +368,43 @@ pub fn mesh_to_obj_mesh(mesh: &engine_mesh::Mesh) -> std::sync::Arc<ObjMesh> {
     })
 }
 
+/// Like [`mesh_to_obj_mesh`] but applies a pre-computed per-face color palette.
+///
+/// `colors` must have exactly one `[u8; 3]` entry per face in `mesh.faces`.
+/// Any extra entries are ignored; missing entries fall back to grey `[200, 200, 200]`.
+pub fn colored_mesh_to_obj_mesh(
+    mesh: &engine_mesh::Mesh,
+    colors: &[[u8; 3]],
+) -> std::sync::Arc<ObjMesh> {
+    use std::collections::HashSet;
+
+    let mut edges: HashSet<(usize, usize)> = HashSet::new();
+    let mut faces: Vec<ObjFace> = Vec::new();
+
+    for (fi, &[a, b, c]) in mesh.faces.iter().enumerate() {
+        let color = colors.get(fi).copied().unwrap_or([200, 200, 200]);
+        faces.push(ObjFace {
+            indices: [a, b, c],
+            color,
+            ka: [0.18, 0.18, 0.18],
+            ks: 0.05,
+            ns: 10.0,
+        });
+        for (x, y) in [(a, b), (b, c), (a, c)] {
+            edges.insert((x.min(y), x.max(y)));
+        }
+    }
+
+    std::sync::Arc::new(ObjMesh {
+        smooth_normals: mesh.normals.clone(),
+        vertices: mesh.vertices.clone(),
+        edges: edges.into_iter().collect(),
+        faces,
+        center: [0.0, 0.0, 0.0],
+        radius: 1.0,
+    })
+}
+
 fn parse_obj_vertex_index(token: &str, vertex_count: usize) -> Option<usize> {
     let raw = token.split('/').next()?.trim();
     let idx = raw.parse::<i64>().ok()?;

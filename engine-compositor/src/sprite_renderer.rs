@@ -1198,7 +1198,7 @@ fn render_obj_sprite(
     };
 
     let effective_source_buf: String;
-    let effective_source: &str = if (source.starts_with("terrain-plane://") || source.starts_with("terrain-sphere://"))
+    let effective_source: &str = if (source.starts_with("terrain-plane://") || source.starts_with("terrain-sphere://") || source.starts_with("earth-sphere://"))
         && (terrain_plane_amplitude.is_some()
             || terrain_plane_frequency.is_some()
             || terrain_plane_roughness.is_some()
@@ -1212,7 +1212,13 @@ fn render_obj_sprite(
             || terrain_plane_scale_x.is_some()
             || terrain_plane_scale_z.is_some())
     {
-        let scheme = if source.starts_with("terrain-sphere://") { "terrain-sphere" } else { "terrain-plane" };
+        let scheme = if source.starts_with("terrain-sphere://") {
+            "terrain-sphere"
+        } else if source.starts_with("earth-sphere://") {
+            "earth-sphere"
+        } else {
+            "terrain-plane"
+        };
         let mut params = parse_terrain_params_from_uri(source);
         if let Some(v) = terrain_plane_amplitude  { params.amplitude  = *v; }
         if let Some(v) = terrain_plane_frequency  { params.frequency  = *v; }

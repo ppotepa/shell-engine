@@ -138,6 +138,20 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
         return Some(mesh_arc);
     }
 
+    // Handle procedural earth-sphere URI: earth-sphere://N  or  earth-sphere://N?params
+    // Generates terrain-sphere geometry with altitude-based Earth-palette face colors baked in.
+    if let Some(rest) = path.strip_prefix("earth-sphere://") {
+        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
+        let params = parse_terrain_params(query);
+        let (mesh, colors) = engine_mesh::primitives::earth_terrain_sphere(subdivisions, params);
+        let mesh_arc = crate::obj_loader::colored_mesh_to_obj_mesh(&mesh, &colors);
+        if let Ok(mut cache_lock) = cache.lock() {
+            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
+        }
+        return Some(mesh_arc);
+    }
+
     // Not in cache, load from asset file.
     let mesh_arc = load_obj_mesh(asset_root, path)?;
 

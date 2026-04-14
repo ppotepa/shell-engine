@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: main
+  z_index: 0
+  sprites:
+    - type: obj
+      id: earth-mesh
+      source: "earth-sphere://32"
+      at: cc
+      width: 360
+      height: 360
+      scale: 1.0
+      yaw-deg: 0.0
+      pitch-deg: 0.0
+      roll-deg: 0.0
+      rotate-y-deg-per-sec: 4.0
+      ambient: 0.12
+      light-direction-x: -0.55
+      light-direction-y: 0.65
+      light-direction-z: -0.80
+      smooth-shading: true
+      prerender: false
+      camera-distance: 3.0
+      fov-degrees: 50
+      near-clip: 0.01
+
+    - type: text
+      id: earth-hud-title
+      content: "EARTH-LIKE PLANET"
+      x: 8
+      y: 344
+      at: bl
+
+    - type: text
+      id: earth-back-hint
+      content: "[ESC] BACK   [CTRL+F] FREE-LOOK   [S] PARAMS"
+      x: 8
+      y: 8
+      at: tl
