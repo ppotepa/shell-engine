@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+# ── Planet Generator Slider Controls (flat absolute-positioned sprites) ───────
+# All coordinates are absolute screen-space (render-size: 640x360).
+# Panel content area: x=[417..623], y=[41..273]. Track: x=[421..601], width=180.
+# Slot N layout: label_y=60+N*28, track_y=73+N*28, handle_top=69+N*28
+- name: hud-sliders
+  z_index: 12
+  ui: true
+  space: screen
+  sprites:
+    # ── Tab title (content updated by Rhai per active tab) ────────────────────
+    - { type: text, id: param-title, content: "CONTINENTS", x: 520, y: 48, at: cc, font: "generic:1", fg: "#2a9440" }
+
+    # ── Slot 0 ────────────────────────────────────────────────────────────────
+    - { type: text,   id: param-label-0,  content: "  SEED",    x: 421, y: 60,  font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-0,  x: 421, y: 73,  points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-0, x: 421, y: 69,  points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Slot 1 ────────────────────────────────────────────────────────────────
+    - { type: text,   id: param-label-1,  content: "  OCEAN",   x: 421, y: 88,  font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-1,  x: 421, y: 101, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-1, x: 421, y: 97,  points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Slot 2 ────────────────────────────────────────────────────────────────
+    - { type: text,   id: param-label-2,  content: "  CONTINENT SZ", x: 421, y: 116, font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-2,  x: 421, y: 129, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-2, x: 421, y: 125, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Slot 3 ────────────────────────────────────────────────────────────────
+    - { type: text,   id: param-label-3,  content: "  COAST CHAOS", x: 421, y: 144, font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-3,  x: 421, y: 157, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-3, x: 421, y: 153, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Slot 4 ────────────────────────────────────────────────────────────────
+    - { type: text,   id: param-label-4,  content: "  OCTAVES",  x: 421, y: 172, font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-4,  x: 421, y: 185, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-4, x: 421, y: 181, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Slot 5 (Climate row 4 / Visual rows 5+6) ──────────────────────────────
+    - { type: text,   id: param-label-5,  content: "  --",       x: 421, y: 200, font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-5,  x: 421, y: 213, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-5, x: 421, y: 209, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Slot 6 (Visual only) ──────────────────────────────────────────────────
+    - { type: text,   id: param-label-6,  content: "  --",       x: 421, y: 228, font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-6,  x: 421, y: 241, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-6, x: 421, y: 237, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
+    # ── Keyboard/mouse hint ───────────────────────────────────────────────────
+    - { type: text, id: param-hint, content: "drag sliders | F1-F7 presets | 1-4 tabs", x: 520, y: 258, at: cc, font: "generic:1", fg: "#1a5c28" }

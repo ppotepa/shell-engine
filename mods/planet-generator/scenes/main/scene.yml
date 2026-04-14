@@ -7,6 +7,7 @@ layers:
   - ref: planet
   - ref: hud-tabs
   - ref: hud-panel
+  - ref: hud-sliders
   - ref: hud-actions
   - ref: hud-presets
   - ref: hud-stats
@@ -27,6 +28,95 @@ input:
     distance-step: 0.2
     drag-sensitivity: 0.3
   free-look-camera: {}
+gui:
+  widgets:
+    # 7 multiplexed sliders — content/mapping changes per active tab in Rhai.
+    # Coords: track starts at x=421, width=180. Handle base at same x=421.
+    # hit-padding=6 gives ~20px tall click zone around each 8px handle.
+    - type: slider
+      id: param-0
+      sprite: param-track-0
+      handle: param-handle-0
+      x: 421
+      y: 69
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-1
+      sprite: param-track-1
+      handle: param-handle-1
+      x: 421
+      y: 97
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-2
+      sprite: param-track-2
+      handle: param-handle-2
+      x: 421
+      y: 125
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-3
+      sprite: param-track-3
+      handle: param-handle-3
+      x: 421
+      y: 153
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-4
+      sprite: param-track-4
+      handle: param-handle-4
+      x: 421
+      y: 181
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-5
+      sprite: param-track-5
+      handle: param-handle-5
+      x: 421
+      y: 209
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-6
+      sprite: param-track-6
+      handle: param-handle-6
+      x: 421
+      y: 237
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
 postfx:
   - name: crt-scan-glitch
     params:

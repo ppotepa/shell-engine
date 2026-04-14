@@ -3,11 +3,11 @@
 // F1-F7    → load preset (Earth / Mars / Ocean / Desert / Ice / Volcanic / Archipelago)
 // R        → randomize all params
 // Delete   → reset to Earth defaults
-// ↑ / ↓   → cycle selected parameter in current tab
-// ← / →   → adjust selected parameter
+// Mouse    → drag slider handles to adjust parameters
 // Ctrl+F   → toggle orbit / free-look camera (handled by engine)
 //
-// Pushes world.* params to "planet-mesh" via scene.set on every change.
+// 7 multiplexed slider slots: content remapped per active tab.
+// All gui widgets use min=0, max=1 (normalized). Rhai maps to/from param domains.
 
 // ── Preset definitions ────────────────────────────────────────────────────────
 fn preset_earth() {
@@ -19,7 +19,6 @@ fn preset_earth() {
         sunaz: 210.0, sunel: 40.0, ambient: 0.12
     }
 }
-
 fn preset_mars() {
     #{
         seed: 42.0, ocean: 0.05, cscale: 3.5, cwarp: 0.3, coct: 4.0,
@@ -29,7 +28,6 @@ fn preset_mars() {
         sunaz: 190.0, sunel: 30.0, ambient: 0.08
     }
 }
-
 fn preset_ocean() {
     #{
         seed: 7.0, ocean: 0.88, cscale: 1.5, cwarp: 1.2, coct: 3.0,
@@ -39,7 +37,6 @@ fn preset_ocean() {
         sunaz: 220.0, sunel: 50.0, ambient: 0.15
     }
 }
-
 fn preset_desert() {
     #{
         seed: 13.0, ocean: 0.15, cscale: 4.0, cwarp: 0.2, coct: 3.0,
@@ -49,7 +46,6 @@ fn preset_desert() {
         sunaz: 200.0, sunel: 25.0, ambient: 0.18
     }
 }
-
 fn preset_ice() {
     #{
         seed: 99.0, ocean: 0.45, cscale: 2.0, cwarp: 0.5, coct: 4.0,
@@ -59,7 +55,6 @@ fn preset_ice() {
         sunaz: 230.0, sunel: 15.0, ambient: 0.25
     }
 }
-
 fn preset_volcanic() {
     #{
         seed: 66.0, ocean: 0.3, cscale: 3.0, cwarp: 1.5, coct: 6.0,
@@ -69,7 +64,6 @@ fn preset_volcanic() {
         sunaz: 180.0, sunel: 35.0, ambient: 0.1
     }
 }
-
 fn preset_archipelago() {
     #{
         seed: 27.0, ocean: 0.75, cscale: 1.0, cwarp: 1.8, coct: 7.0,
@@ -80,22 +74,62 @@ fn preset_archipelago() {
     }
 }
 
+// ── Normalize/denormalize helpers (pure functions, no external state) ─────────
+fn seed_to_01(v)      { (v / 9999.0).max(0.0).min(1.0) }
+fn seed_from_01(v)    { v * 9999.0 }
+fn ocean_to_01(v)     { ((v - 0.01) / 0.98).max(0.0).min(1.0) }
+fn ocean_from_01(v)   { 0.01 + v * 0.98 }
+fn cscale_to_01(v)    { ((v - 0.5) / 9.5).max(0.0).min(1.0) }
+fn cscale_from_01(v)  { 0.5 + v * 9.5 }
+fn cwarp_to_01(v)     { (v / 2.0).max(0.0).min(1.0) }
+fn cwarp_from_01(v)   { v * 2.0 }
+fn coct_to_01(v)      { ((v - 1.0) / 7.0).max(0.0).min(1.0) }
+fn coct_from_01(v)    { (v * 7.0 + 1.0).round().max(1.0).min(8.0) }
+fn mscale_to_01(v)    { ((v - 1.0) / 14.0).max(0.0).min(1.0) }
+fn mscale_from_01(v)  { 1.0 + v * 14.0 }
+fn mstr_to_01(v)      { v.max(0.0).min(1.0) }
+fn mstr_from_01(v)    { v }
+fn mroct_to_01(v)     { ((v - 1.0) / 7.0).max(0.0).min(1.0) }
+fn mroct_from_01(v)   { (v * 7.0 + 1.0).round().max(1.0).min(8.0) }
+fn moisture_to_01(v)  { ((v - 0.5) / 7.5).max(0.0).min(1.0) }
+fn moisture_from_01(v){ 0.5 + v * 7.5 }
+fn ice_to_01(v)       { (v / 3.0).max(0.0).min(1.0) }
+fn ice_from_01(v)     { v * 3.0 }
+fn lapse_to_01(v)     { (v / 1.5).max(0.0).min(1.0) }
+fn lapse_from_01(v)   { v * 1.5 }
+fn rain_to_01(v)      { v.max(0.0).min(1.0) }
+fn rain_from_01(v)    { v }
+fn subdiv_to_01(v)    { if v < 24.0 { 0.0 } else if v < 48.0 { 0.333 } else if v < 96.0 { 0.667 } else { 1.0 } }
+fn subdiv_from_01(v)  { if v < 0.166 { 16.0 } else if v < 0.5 { 32.0 } else if v < 0.833 { 64.0 } else { 128.0 } }
+fn disp_to_01(v)      { (v / 0.6).max(0.0).min(1.0) }
+fn disp_from_01(v)    { v * 0.6 }
+fn coloring_to_01(v)  { (v / 2.0).max(0.0).min(1.0) }
+fn coloring_from_01(v){ (v * 2.0).round().max(0.0).min(2.0) }
+fn rotspeed_to_01(v)  { (v / 10.0).max(0.0).min(1.0) }
+fn rotspeed_from_01(v){ v * 10.0 }
+fn sunaz_to_01(v)     { (v / 360.0).max(0.0).min(1.0) }
+fn sunaz_from_01(v)   { v * 360.0 }
+fn sunel_to_01(v)     { ((v + 10.0) / 95.0).max(0.0).min(1.0) }
+fn sunel_from_01(v)   { v * 95.0 - 10.0 }
+fn ambient_to_01(v)   { (v / 0.5).max(0.0).min(1.0) }
+fn ambient_from_01(v) { v * 0.5 }
+
 // ── Persistent state ──────────────────────────────────────────────────────────
 if !(local.initialized ?? false) {
     local.initialized = true;
-    local.tab         = 0;
-    local.sel         = 0;
+    local.tab = 0;
     let p = preset_earth();
     local.seed = p.seed; local.ocean = p.ocean; local.cscale = p.cscale; local.cwarp = p.cwarp;
     local.coct = p.coct; local.mscale = p.mscale; local.mstr = p.mstr; local.mroct = p.mroct;
     local.moisture = p.moisture; local.ice = p.ice; local.lapse = p.lapse; local.rain = p.rain;
     local.disp = p.disp; local.coloring = p.coloring; local.rotspeed = p.rotspeed;
     local.sunaz = p.sunaz; local.sunel = p.sunel; local.ambient = p.ambient;
+    local.subdiv = 32.0;
+    local.tab_sync_needed = true;
 }
 
 let tab      = local.tab      ?? 0;
-let sel      = local.sel      ?? 0;
-let dirty_ms = local.dirty_ms ?? -1.0;  // ms since last world-param change (-1 = clean)
+let dirty_ms = local.dirty_ms ?? -1.0;
 let seed     = local.seed     ?? 0.0;
 let ocean    = local.ocean    ?? 0.55;
 let cscale   = local.cscale   ?? 2.5;
@@ -109,23 +143,18 @@ let ice      = local.ice      ?? 1.0;
 let lapse    = local.lapse    ?? 0.6;
 let rain     = local.rain     ?? 0.4;
 let disp     = local.disp     ?? 0.22;
-let subdiv   = local.subdiv   ?? 32.0;  // sphere subdivisions (16-128)
-let coloring = local.coloring ?? 0.0;  // 0=biome, 1=elevation, 2=moisture
+let subdiv   = local.subdiv   ?? 32.0;
+let coloring = local.coloring ?? 0.0;
 let rotspeed = local.rotspeed ?? 3.0;
 let sunaz    = local.sunaz    ?? 210.0;
 let sunel    = local.sunel    ?? 40.0;
 let ambient  = local.ambient  ?? 0.12;
 
 // ── Tab switching (1/2/3/4) ───────────────────────────────────────────────────
-if input.just_pressed("1") { tab = 0; sel = 0; local.tab = 0; local.sel = 0; }
-if input.just_pressed("2") { tab = 1; sel = 0; local.tab = 1; local.sel = 0; }
-if input.just_pressed("3") { tab = 2; sel = 0; local.tab = 2; local.sel = 0; }
-if input.just_pressed("4") { tab = 3; sel = 0; local.tab = 3; local.sel = 0; }
-
-scene.set("panel-continents", "visible", tab == 0);
-scene.set("panel-mountains",  "visible", tab == 1);
-scene.set("panel-climate",    "visible", tab == 2);
-scene.set("panel-visual",     "visible", tab == 3);
+if input.just_pressed("1") { tab = 0; local.tab = 0; local.tab_sync_needed = true; }
+if input.just_pressed("2") { tab = 1; local.tab = 1; local.tab_sync_needed = true; }
+if input.just_pressed("3") { tab = 2; local.tab = 2; local.tab_sync_needed = true; }
+if input.just_pressed("4") { tab = 3; local.tab = 3; local.tab_sync_needed = true; }
 
 // Highlight active tab button
 scene.set("tab-btn-continents", "text.fg", if tab == 0 { "#aaffcc" } else { "#2a9440" });
@@ -133,21 +162,76 @@ scene.set("tab-btn-mountains",  "text.fg", if tab == 1 { "#aaffcc" } else { "#2a
 scene.set("tab-btn-climate",    "text.fg", if tab == 2 { "#aaffcc" } else { "#2a9440" });
 scene.set("tab-btn-visual",     "text.fg", if tab == 3 { "#aaffcc" } else { "#2a9440" });
 
-// ── Preset keys (F1–F7) ───────────────────────────────────────────────────────
+// ── Preset keys (F1-F7) ───────────────────────────────────────────────────────
+let preset_applied = false;
 
-if input.just_pressed("F1") { let p = preset_earth();       local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-if input.just_pressed("F2") { let p = preset_mars();        local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-if input.just_pressed("F3") { let p = preset_ocean();       local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-if input.just_pressed("F4") { let p = preset_desert();      local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-if input.just_pressed("F5") { let p = preset_ice();         local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-if input.just_pressed("F6") { let p = preset_volcanic();    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-if input.just_pressed("F7") { let p = preset_archipelago(); local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct; local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain; local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed; local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.sel=0; }
-
-// Highlight active preset strip (F1=Earth, F2=Mars, ... F7=Archipelago)
+if input.just_pressed("F1") {
+    let p = preset_earth();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
+if input.just_pressed("F2") {
+    let p = preset_mars();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
+if input.just_pressed("F3") {
+    let p = preset_ocean();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
+if input.just_pressed("F4") {
+    let p = preset_desert();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
+if input.just_pressed("F5") {
+    let p = preset_ice();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
+if input.just_pressed("F6") {
+    let p = preset_volcanic();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
+if input.just_pressed("F7") {
+    let p = preset_archipelago();
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
+    local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
+    preset_applied = true;
+}
 
 // ── Randomize (R) ─────────────────────────────────────────────────────────────
 if !orbit_active && input.just_pressed("r") {
-    local.seed     = (seed * 1234.5 + 6789.0) % 9999.0;  // deterministic shuffle
+    local.seed     = (seed * 1234.5 + 6789.0) % 9999.0;
     local.ocean    = 0.2 + ((local.seed * 0.618) % 0.7);
     local.cscale   = 1.0 + ((local.seed * 0.382) % 9.0);
     local.cwarp    = (local.seed * 0.271) % 2.0;
@@ -164,20 +248,22 @@ if !orbit_active && input.just_pressed("r") {
     local.sunaz    = (local.seed * 0.431) % 360.0;
     local.sunel    = 10.0 + ((local.seed * 0.317) % 70.0);
     local.ambient  = 0.05 + ((local.seed * 0.211) % 0.25);
+    preset_applied = true;
 }
 
 // ── Reset to Earth defaults (Delete) ─────────────────────────────────────────
 if !orbit_active && input.just_pressed("Delete") {
     let p = preset_earth();
-    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp;
-    local.coct=p.coct; local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
+    local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
+    local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
     local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient;
-    local.tab = 0; local.sel = 0;
+    local.tab = 0; tab = 0;
+    preset_applied = true;
 }
 
-// Re-read after possible preset/randomize changes
+// Re-read local after possible preset changes
 seed     = local.seed     ?? seed;
 ocean    = local.ocean    ?? ocean;
 cscale   = local.cscale   ?? cscale;
@@ -191,185 +277,149 @@ ice      = local.ice      ?? ice;
 lapse    = local.lapse    ?? lapse;
 rain     = local.rain     ?? rain;
 disp     = local.disp     ?? disp;
+subdiv   = local.subdiv   ?? subdiv;
 coloring = local.coloring ?? coloring;
 rotspeed = local.rotspeed ?? rotspeed;
 sunaz    = local.sunaz    ?? sunaz;
 sunel    = local.sunel    ?? sunel;
 ambient  = local.ambient  ?? ambient;
 
-// ── Parameter adjustment (↑↓ ←→) ─────────────────────────────────────────────
-if !orbit_active {
-    let dt = frame_ms.to_float() / 1000.0;
-
-    // Tab-local param counts
-    let NUM_PARAMS = if tab == 0 { 5 } else if tab == 1 { 3 } else if tab == 2 { 4 } else { 7 };
-
-    if input.just_pressed("Up")   { sel = (sel + NUM_PARAMS - 1) % NUM_PARAMS; local.sel = sel; }
-    if input.just_pressed("Down") { sel = (sel + 1) % NUM_PARAMS; local.sel = sel; }
-
+// ── Sync slider widgets → local state (tab switch or preset) ──────────────────
+// When tab switches or preset fires, push current local values to gui sliders.
+// This updates the visual handle positions and gui internal state.
+let need_sync = preset_applied || (local.tab_sync_needed ?? false);
+if need_sync {
     if tab == 0 {
-        // Continents
-        if sel == 0 {
-            if input.just_pressed("Left")  { seed = (seed - 1.0).max(0.0);    local.seed = seed; }
-            if input.just_pressed("Right") { seed = (seed + 1.0).min(9999.0); local.seed = seed; }
-        } else if sel == 1 {
-            if input.down("Left")  { ocean = (ocean - 0.3 * dt).max(0.01); local.ocean = ocean; }
-            if input.down("Right") { ocean = (ocean + 0.3 * dt).min(0.99); local.ocean = ocean; }
-        } else if sel == 2 {
-            if input.down("Left")  { cscale = (cscale - 1.5 * dt).max(0.5);  local.cscale = cscale; }
-            if input.down("Right") { cscale = (cscale + 1.5 * dt).min(10.0); local.cscale = cscale; }
-        } else if sel == 3 {
-            if input.down("Left")  { cwarp = (cwarp - 0.8 * dt).max(0.0); local.cwarp = cwarp; }
-            if input.down("Right") { cwarp = (cwarp + 0.8 * dt).min(2.0); local.cwarp = cwarp; }
-        } else {
-            if input.just_pressed("Left")  { coct = (coct - 1.0).max(1.0); local.coct = coct; }
-            if input.just_pressed("Right") { coct = (coct + 1.0).min(8.0); local.coct = coct; }
-        }
+        gui.set_widget_value("param-0", seed_to_01(seed));
+        gui.set_widget_value("param-1", ocean_to_01(ocean));
+        gui.set_widget_value("param-2", cscale_to_01(cscale));
+        gui.set_widget_value("param-3", cwarp_to_01(cwarp));
+        gui.set_widget_value("param-4", coct_to_01(coct));
     } else if tab == 1 {
-        // Mountains
-        if sel == 0 {
-            if input.down("Left")  { mscale = (mscale - 3.0 * dt).max(1.0);  local.mscale = mscale; }
-            if input.down("Right") { mscale = (mscale + 3.0 * dt).min(15.0); local.mscale = mscale; }
-        } else if sel == 1 {
-            if input.down("Left")  { mstr = (mstr - 0.5 * dt).max(0.0); local.mstr = mstr; }
-            if input.down("Right") { mstr = (mstr + 0.5 * dt).min(1.0); local.mstr = mstr; }
-        } else {
-            if input.just_pressed("Left")  { mroct = (mroct - 1.0).max(1.0); local.mroct = mroct; }
-            if input.just_pressed("Right") { mroct = (mroct + 1.0).min(8.0); local.mroct = mroct; }
-        }
+        gui.set_widget_value("param-0", mscale_to_01(mscale));
+        gui.set_widget_value("param-1", mstr_to_01(mstr));
+        gui.set_widget_value("param-2", mroct_to_01(mroct));
     } else if tab == 2 {
-        // Climate
-        if sel == 0 {
-            if input.down("Left")  { moisture = (moisture - 1.5 * dt).max(0.5); local.moisture = moisture; }
-            if input.down("Right") { moisture = (moisture + 1.5 * dt).min(8.0); local.moisture = moisture; }
-        } else if sel == 1 {
-            if input.down("Left")  { ice = (ice - 0.8 * dt).max(0.0); local.ice = ice; }
-            if input.down("Right") { ice = (ice + 0.8 * dt).min(3.0); local.ice = ice; }
-        } else if sel == 2 {
-            if input.down("Left")  { lapse = (lapse - 0.4 * dt).max(0.0); local.lapse = lapse; }
-            if input.down("Right") { lapse = (lapse + 0.4 * dt).min(1.5); local.lapse = lapse; }
-        } else {
-            if input.down("Left")  { rain = (rain - 0.4 * dt).max(0.0); local.rain = rain; }
-            if input.down("Right") { rain = (rain + 0.4 * dt).min(1.0); local.rain = rain; }
-        }
+        gui.set_widget_value("param-0", moisture_to_01(moisture));
+        gui.set_widget_value("param-1", ice_to_01(ice));
+        gui.set_widget_value("param-2", lapse_to_01(lapse));
+        gui.set_widget_value("param-3", rain_to_01(rain));
     } else {
-        // Visual
-        if sel == 0 {
-            // subdivisions: step by powers of 2 (16, 32, 64, 128)
-            if input.just_pressed("Left")  { subdiv = (subdiv / 2.0).max(16.0); local.subdiv = subdiv; }
-            if input.just_pressed("Right") { subdiv = (subdiv * 2.0).min(128.0); local.subdiv = subdiv; }
-        } else if sel == 1 {
-            if input.down("Left")  { disp = (disp - 0.2 * dt).max(0.0); local.disp = disp; }
-            if input.down("Right") { disp = (disp + 0.2 * dt).min(0.6); local.disp = disp; }
-        } else if sel == 2 {
-            // cycle coloring modes: 0=biome, 1=elevation, 2=moisture
-            if input.just_pressed("Left")  { coloring = (coloring - 1.0 + 3.0) % 3.0; local.coloring = coloring; }
-            if input.just_pressed("Right") { coloring = (coloring + 1.0) % 3.0;        local.coloring = coloring; }
-        } else if sel == 3 {
-            if input.down("Left")  { rotspeed = (rotspeed - 2.0 * dt).max(0.0);  local.rotspeed = rotspeed; }
-            if input.down("Right") { rotspeed = (rotspeed + 2.0 * dt).min(10.0); local.rotspeed = rotspeed; }
-        } else if sel == 4 {
-            if input.down("Left")  { sunaz = (sunaz - 60.0 * dt + 360.0) % 360.0; local.sunaz = sunaz; }
-            if input.down("Right") { sunaz = (sunaz + 60.0 * dt) % 360.0;         local.sunaz = sunaz; }
-        } else if sel == 5 {
-            if input.down("Left")  { sunel = (sunel - 30.0 * dt).max(-10.0); local.sunel = sunel; }
-            if input.down("Right") { sunel = (sunel + 30.0 * dt).min(85.0);  local.sunel = sunel; }
-        } else {
-            if input.down("Left")  { ambient = (ambient - 0.1 * dt).max(0.0);  local.ambient = ambient; }
-            if input.down("Right") { ambient = (ambient + 0.1 * dt).min(0.5);  local.ambient = ambient; }
-        }
+        gui.set_widget_value("param-0", subdiv_to_01(subdiv));
+        gui.set_widget_value("param-1", disp_to_01(disp));
+        gui.set_widget_value("param-2", coloring_to_01(coloring));
+        gui.set_widget_value("param-3", rotspeed_to_01(rotspeed));
+        gui.set_widget_value("param-4", sunaz_to_01(sunaz));
+        gui.set_widget_value("param-5", sunel_to_01(sunel));
+        gui.set_widget_value("param-6", ambient_to_01(ambient));
+    }
+    local.tab_sync_needed = false;
+}
+
+// ── Read slider values → local state (normal mouse drag frames) ───────────────
+// gui.slider_value() returns the value from this frame's gui state (after mouse events).
+// Skip on sync frames (preset/tab-switch) — local.* is already correct.
+if !need_sync {
+    if tab == 0 {
+        seed     = seed_from_01(gui.slider_value("param-0"));
+        ocean    = ocean_from_01(gui.slider_value("param-1"));
+        cscale   = cscale_from_01(gui.slider_value("param-2"));
+        cwarp    = cwarp_from_01(gui.slider_value("param-3"));
+        coct     = coct_from_01(gui.slider_value("param-4"));
+        local.seed = seed; local.ocean = ocean; local.cscale = cscale;
+        local.cwarp = cwarp; local.coct = coct;
+    } else if tab == 1 {
+        mscale   = mscale_from_01(gui.slider_value("param-0"));
+        mstr     = mstr_from_01(gui.slider_value("param-1"));
+        mroct    = mroct_from_01(gui.slider_value("param-2"));
+        local.mscale = mscale; local.mstr = mstr; local.mroct = mroct;
+    } else if tab == 2 {
+        moisture = moisture_from_01(gui.slider_value("param-0"));
+        ice      = ice_from_01(gui.slider_value("param-1"));
+        lapse    = lapse_from_01(gui.slider_value("param-2"));
+        rain     = rain_from_01(gui.slider_value("param-3"));
+        local.moisture = moisture; local.ice = ice; local.lapse = lapse; local.rain = rain;
+    } else {
+        subdiv   = subdiv_from_01(gui.slider_value("param-0"));
+        disp     = disp_from_01(gui.slider_value("param-1"));
+        coloring = coloring_from_01(gui.slider_value("param-2"));
+        rotspeed = rotspeed_from_01(gui.slider_value("param-3"));
+        sunaz    = sunaz_from_01(gui.slider_value("param-4"));
+        sunel    = sunel_from_01(gui.slider_value("param-5"));
+        ambient  = ambient_from_01(gui.slider_value("param-6"));
+        local.subdiv = subdiv; local.disp = disp; local.coloring = coloring;
+        local.rotspeed = rotspeed; local.sunaz = sunaz; local.sunel = sunel; local.ambient = ambient;
     }
 }
 
-// ── Update labels & handles ───────────────────────────────────────────────────
-let TRACK_W = 170.0;
-let TRACK_X = 4.0;
+// ── Slot visibility (hide unused slots per tab) ───────────────────────────────
+let NUM_PARAMS = if tab == 0 { 5 } else if tab == 1 { 3 } else if tab == 2 { 4 } else { 7 };
+for i in 0..7 {
+    let vis = i < NUM_PARAMS;
+    scene.set(`param-label-${i}`,  "visible", vis);
+    scene.set(`param-track-${i}`,  "visible", vis);
+    scene.set(`param-handle-${i}`, "visible", vis);
+}
 
-// Selector arrows per tab
-let a = [" "," "," "," "," "," "," "];
-if !orbit_active { a[sel] = ">"; }
-
+// ── Update labels & title per active tab ──────────────────────────────────────
 if tab == 0 {
-    scene.set("ep-seed-label",    "text.content", `${a[0]} SEED           ${seed.round()}`);
-    scene.set("ep-ocean-label",   "text.content", `${a[1]} OCEAN          ${(ocean * 100.0).round()}%`);
-    scene.set("ep-cscale-label",  "text.content", `${a[2]} CONTINENT SZ   ${(cscale * 10.0).round() / 10.0}`);
-    scene.set("ep-cwarp-label",   "text.content", `${a[3]} COAST CHAOS    ${(cwarp * 10.0).round() / 10.0}`);
-    scene.set("ep-coct-label",    "text.content", `${a[4]} OCTAVES        ${coct.round()}`);
-
-    scene.set("ep-seed-handle",   "position.x", (TRACK_X + seed / 9999.0 * TRACK_W).round());
-    scene.set("ep-ocean-handle",  "position.x", (TRACK_X + (ocean - 0.01) / 0.98 * TRACK_W).round());
-    scene.set("ep-cscale-handle", "position.x", (TRACK_X + (cscale - 0.5) / 9.5 * TRACK_W).round());
-    scene.set("ep-cwarp-handle",  "position.x", (TRACK_X + cwarp / 2.0 * TRACK_W).round());
-    scene.set("ep-coct-handle",   "position.x", (TRACK_X + (coct - 1.0) / 7.0 * TRACK_W).round());
+    scene.set("param-title", "text.content", "CONTINENTS");
+    scene.set("param-label-0", "text.content", `  SEED           ${seed.round()}`);
+    scene.set("param-label-1", "text.content", `  OCEAN          ${(ocean * 100.0).round()}%`);
+    scene.set("param-label-2", "text.content", `  CONTINENT SZ   ${(cscale * 10.0).round() / 10.0}`);
+    scene.set("param-label-3", "text.content", `  COAST CHAOS    ${(cwarp * 10.0).round() / 10.0}`);
+    scene.set("param-label-4", "text.content", `  OCTAVES        ${coct.round()}`);
 } else if tab == 1 {
-    scene.set("ep-mscale-label",  "text.content", `${a[0]} MTN SPACING    ${(mscale * 10.0).round() / 10.0}`);
-    scene.set("ep-mstr-label",    "text.content", `${a[1]} MTN HEIGHT     ${(mstr * 100.0).round()}%`);
-    scene.set("ep-mroct-label",   "text.content", `${a[2]} RIDGE DETAIL   ${mroct.round()}`);
-
-    scene.set("ep-mscale-handle", "position.x", (TRACK_X + (mscale - 1.0) / 14.0 * TRACK_W).round());
-    scene.set("ep-mstr-handle",   "position.x", (TRACK_X + mstr * TRACK_W).round());
-    scene.set("ep-mroct-handle",  "position.x", (TRACK_X + (mroct - 1.0) / 7.0 * TRACK_W).round());
+    scene.set("param-title", "text.content", "MOUNTAINS");
+    scene.set("param-label-0", "text.content", `  MTN SPACING    ${(mscale * 10.0).round() / 10.0}`);
+    scene.set("param-label-1", "text.content", `  MTN HEIGHT     ${(mstr * 100.0).round()}%`);
+    scene.set("param-label-2", "text.content", `  RIDGE DETAIL   ${mroct.round()}`);
 } else if tab == 2 {
-    scene.set("ep-moistscale-label",  "text.content", `${a[0]} MOISTURE SZ    ${(moisture * 10.0).round() / 10.0}`);
-    scene.set("ep-ice-label",         "text.content", `${a[1]} ICE CAPS       ${(ice * 10.0).round() / 10.0}`);
-    scene.set("ep-lapse-label",       "text.content", `${a[2]} ALT COOLING    ${(lapse * 10.0).round() / 10.0}`);
-    scene.set("ep-rain-label",        "text.content", `${a[3]} RAIN SHADOW    ${(rain * 10.0).round() / 10.0}`);
-
-    scene.set("ep-moistscale-handle", "position.x", (TRACK_X + (moisture - 0.5) / 7.5 * TRACK_W).round());
-    scene.set("ep-ice-handle",        "position.x", (TRACK_X + ice / 3.0 * TRACK_W).round());
-    scene.set("ep-lapse-handle",      "position.x", (TRACK_X + lapse / 1.5 * TRACK_W).round());
-    scene.set("ep-rain-handle",       "position.x", (TRACK_X + rain * TRACK_W).round());
+    scene.set("param-title", "text.content", "CLIMATE");
+    scene.set("param-label-0", "text.content", `  MOISTURE SZ    ${(moisture * 10.0).round() / 10.0}`);
+    scene.set("param-label-1", "text.content", `  ICE CAPS       ${(ice * 10.0).round() / 10.0}`);
+    scene.set("param-label-2", "text.content", `  ALT COOLING    ${(lapse * 10.0).round() / 10.0}`);
+    scene.set("param-label-3", "text.content", `  RAIN SHADOW    ${(rain * 10.0).round() / 10.0}`);
 } else {
     let coloring_name = if coloring < 0.5 { "BIOME" } else if coloring < 1.5 { "ELEV" } else { "MOIST" };
-    // log2 progress: 16→0, 32→1, 64→2, 128→3
-    let subdiv_frac = if subdiv < 24.0 { 0.0 } else if subdiv < 48.0 { 0.333 } else if subdiv < 96.0 { 0.666 } else { 1.0 };
-    scene.set("ep-subdiv-label",   "text.content", `${a[0]} RESOLUTION     ${subdiv.round()}`);
-    scene.set("ep-disp-label",     "text.content", `${a[1]} DISPLACEMENT   ${(disp * 100.0).round()}%`);
-    scene.set("ep-coloring-label", "text.content", `${a[2]} COLORING  [${coloring_name}]`);
-    scene.set("ep-rotspeed-label", "text.content", `${a[3]} ROTATION       ${(rotspeed * 10.0).round() / 10.0}`);
-    scene.set("ep-sunaz-label",    "text.content", `${a[4]} SUN AZIMUTH    ${sunaz.round()}`);
-    scene.set("ep-sunel-label",    "text.content", `${a[5]} SUN ELEVATION   ${sunel.round()}`);
-    scene.set("ep-ambient-label",  "text.content", `${a[6]} AMBIENT        ${(ambient * 100.0).round()}%`);
-
-    scene.set("ep-subdiv-handle",   "position.x", (TRACK_X + subdiv_frac * TRACK_W).round());
-    scene.set("ep-disp-handle",     "position.x", (TRACK_X + disp / 0.6 * TRACK_W).round());
-    scene.set("ep-coloring-handle", "position.x", (TRACK_X + coloring / 2.0 * TRACK_W).round());
-    scene.set("ep-rotspeed-handle", "position.x", (TRACK_X + rotspeed / 10.0 * TRACK_W).round());
-    scene.set("ep-sunaz-handle",    "position.x", (TRACK_X + sunaz / 360.0 * TRACK_W).round());
-    scene.set("ep-sunel-handle",    "position.x", (TRACK_X + (sunel + 10.0) / 95.0 * TRACK_W).round());
-    scene.set("ep-ambient-handle",  "position.x", (TRACK_X + ambient / 0.5 * TRACK_W).round());
+    scene.set("param-title", "text.content", "VISUAL");
+    scene.set("param-label-0", "text.content", `  RESOLUTION     ${subdiv.round()}`);
+    scene.set("param-label-1", "text.content", `  DISPLACEMENT   ${(disp * 100.0).round()}%`);
+    scene.set("param-label-2", "text.content", `  COLORING  [${coloring_name}]`);
+    scene.set("param-label-3", "text.content", `  ROTATION       ${(rotspeed * 10.0).round() / 10.0}`);
+    scene.set("param-label-4", "text.content", `  SUN AZIMUTH    ${sunaz.round()}`);
+    scene.set("param-label-5", "text.content", `  SUN ELEVATION   ${sunel.round()}`);
+    scene.set("param-label-6", "text.content", `  AMBIENT        ${(ambient * 100.0).round()}%`);
 }
 
 // ── Stats strip ───────────────────────────────────────────────────────────────
 scene.set("stats-seed", "text.content", `SEED: ${seed.round()}`);
-
 let ps = planet_last_stats();
 if ps.len() > 0 {
-    let ocean_pct  = (ps["ocean"]     * 100.0).round();
-    let forest_pct = (ps["forest"]    * 100.0).round();
-    let desert_pct = (ps["desert"]    * 100.0).round();
-    let cold_pct   = (ps["cold"]      * 100.0).round();
+    let ocean_pct  = (ps["ocean"]  * 100.0).round();
+    let forest_pct = (ps["forest"] * 100.0).round();
+    let desert_pct = (ps["desert"] * 100.0).round();
+    let cold_pct   = (ps["cold"]   * 100.0).round();
     scene.set("stats-biomes", "text.content",
         `OCEAN ${ocean_pct}%  FOREST ${forest_pct}%  DESERT ${desert_pct}%  SNOW ${cold_pct}%`);
 }
 
 // ── Push world params to planet mesh (throttled) ─────────────────────────────
-// Detect if any world-param changed this frame
-let prev_seed = local.prev_seed ?? seed;
-let prev_ocean = local.prev_ocean ?? ocean;
-let prev_cscale = local.prev_cscale ?? cscale;
-let prev_cwarp = local.prev_cwarp ?? cwarp;
-let prev_coct = local.prev_coct ?? coct;
-let prev_mscale = local.prev_mscale ?? mscale;
-let prev_mstr = local.prev_mstr ?? mstr;
-let prev_mroct = local.prev_mroct ?? mroct;
-let prev_moisture = local.prev_moisture ?? moisture;
-let prev_ice = local.prev_ice ?? ice;
-let prev_lapse = local.prev_lapse ?? lapse;
-let prev_rain = local.prev_rain ?? rain;
-let prev_disp = local.prev_disp ?? disp;
-let prev_subdiv = local.prev_subdiv ?? subdiv;
-let prev_coloring = local.prev_coloring ?? coloring;
+let prev_seed    = local.prev_seed    ?? seed;
+let prev_ocean   = local.prev_ocean   ?? ocean;
+let prev_cscale  = local.prev_cscale  ?? cscale;
+let prev_cwarp   = local.prev_cwarp   ?? cwarp;
+let prev_coct    = local.prev_coct    ?? coct;
+let prev_mscale  = local.prev_mscale  ?? mscale;
+let prev_mstr    = local.prev_mstr    ?? mstr;
+let prev_mroct   = local.prev_mroct   ?? mroct;
+let prev_moisture= local.prev_moisture?? moisture;
+let prev_ice     = local.prev_ice     ?? ice;
+let prev_lapse   = local.prev_lapse   ?? lapse;
+let prev_rain    = local.prev_rain    ?? rain;
+let prev_disp    = local.prev_disp    ?? disp;
+let prev_subdiv  = local.prev_subdiv  ?? subdiv;
+let prev_coloring= local.prev_coloring?? coloring;
 
 let world_changed = (seed != prev_seed) || (ocean != prev_ocean) || (cscale != prev_cscale)
     || (cwarp != prev_cwarp) || (coct != prev_coct) || (mscale != prev_mscale)
@@ -377,7 +427,6 @@ let world_changed = (seed != prev_seed) || (ocean != prev_ocean) || (cscale != p
     || (ice != prev_ice) || (lapse != prev_lapse) || (rain != prev_rain)
     || (disp != prev_disp) || (subdiv != prev_subdiv) || (coloring != prev_coloring);
 
-// Save current values as prev for next frame
 local.prev_seed = seed; local.prev_ocean = ocean; local.prev_cscale = cscale;
 local.prev_cwarp = cwarp; local.prev_coct = coct; local.prev_mscale = mscale;
 local.prev_mstr = mstr; local.prev_mroct = mroct; local.prev_moisture = moisture;
@@ -392,12 +441,10 @@ if world_changed {
     local.dirty_ms = dirty_ms;
 }
 
-// Throttle: push world params at most once per THROTTLE_MS while adjusting,
-// and always push once after changes stop (flush pending).
 let THROTTLE_MS = 500.0;
-let should_push = (dirty_ms < 0.0)                      // first frame (initial load)
-    || (world_changed && dirty_ms >= THROTTLE_MS)        // periodic update while holding
-    || (!world_changed && dirty_ms > 0.0);               // flush final value on key release
+let should_push = (dirty_ms < 0.0)
+    || (world_changed && dirty_ms >= THROTTLE_MS)
+    || (!world_changed && dirty_ms > 0.0);
 
 if should_push {
     let coloring_str = if coloring < 0.5 { "biome" } else if coloring < 1.5 { "elevation" } else { "moisture" };
@@ -406,26 +453,25 @@ if should_push {
     scene.set("planet-mesh", "world.continent_scale",    cscale);
     scene.set("planet-mesh", "world.continent_warp",     cwarp);
     scene.set("planet-mesh", "world.continent_octaves",  coct);
-    scene.set("planet-mesh", "world.mountain_scale",          mscale);
-    scene.set("planet-mesh", "world.mountain_strength",       mstr);
-    scene.set("planet-mesh", "world.mountain_ridge_octaves",  mroct);
-    scene.set("planet-mesh", "world.moisture_scale",          moisture);
-    scene.set("planet-mesh", "world.ice_cap_strength",        ice);
-    scene.set("planet-mesh", "world.lapse_rate",              lapse);
-    scene.set("planet-mesh", "world.rain_shadow",             rain);
-    scene.set("planet-mesh", "world.displacement_scale",      disp);
-    scene.set("planet-mesh", "world.subdivisions",            subdiv);
-    scene.set("planet-mesh", "world.coloring",                coloring_str);
+    scene.set("planet-mesh", "world.mountain_scale",         mscale);
+    scene.set("planet-mesh", "world.mountain_strength",      mstr);
+    scene.set("planet-mesh", "world.mountain_ridge_octaves", mroct);
+    scene.set("planet-mesh", "world.moisture_scale",         moisture);
+    scene.set("planet-mesh", "world.ice_cap_strength",       ice);
+    scene.set("planet-mesh", "world.lapse_rate",             lapse);
+    scene.set("planet-mesh", "world.rain_shadow",            rain);
+    scene.set("planet-mesh", "world.displacement_scale",     disp);
+    scene.set("planet-mesh", "world.subdivisions",           subdiv);
+    scene.set("planet-mesh", "world.coloring",               coloring_str);
     dirty_ms = 0.0;
     local.dirty_ms = 0.0;
-    if !world_changed { local.dirty_ms = -1.0; }  // fully clean after flush
+    if !world_changed { local.dirty_ms = -1.0; }
 }
 
 // Visual-only params always update immediately (no mesh rebuild)
-scene.set("planet-mesh", "obj.rotation-speed",  rotspeed);
-scene.set("planet-mesh", "obj.ambient",          ambient);
+scene.set("planet-mesh", "obj.rotation-speed", rotspeed);
+scene.set("planet-mesh", "obj.ambient",         ambient);
 
-// Recompute light direction from azimuth + elevation angles
 let az_rad = sunaz * 0.01745329;
 let el_rad = sunel * 0.01745329;
 scene.set("planet-mesh", "obj.light.x", -(az_rad.cos() * el_rad.cos()));
