@@ -26,9 +26,9 @@ fn to_hex_byte(v) {
     `${hex_chars.sub_string(hi, 1)}${hex_chars.sub_string(lo, 1)}`
 }
 
-fn push_log(log, msg) {
+fn push_log(log, msg, max_lines) {
     log.push(msg);
-    if log.len() > LOG_LINES { log.remove(0); }
+    if log.len() > max_lines { log.remove(0); }
 }
 
 fn lerp_byte(lo, hi, t) {
@@ -101,19 +101,19 @@ local.prev_b = b;
 if gui.has_change() {
     let wid = gui.changed_widget();
 
-    if wid == "slider-r" { push_log(local.log, `slider R -> ${r.round()}`); }
-    if wid == "slider-g" { push_log(local.log, `slider G -> ${g.round()}`); }
-    if wid == "slider-b" { push_log(local.log, `slider B -> ${b.round()}`); }
-    if wid == "toggle-hex" { push_log(local.log, `toggle hex -> ${if show_hex { "ON" } else { "OFF" }}`); }
-    if wid == "toggle-swatch" { push_log(local.log, `toggle swatch -> ${if show_swatch { "ON" } else { "OFF" }}`); }
-    if wid == "toggle-invert" { push_log(local.log, `toggle invert -> ${if invert { "ON" } else { "OFF" }}`); }
+    if wid == "slider-r" { push_log(local.log, `slider R -> ${r.round()}`, LOG_LINES); }
+    if wid == "slider-g" { push_log(local.log, `slider G -> ${g.round()}`, LOG_LINES); }
+    if wid == "slider-b" { push_log(local.log, `slider B -> ${b.round()}`, LOG_LINES); }
+    if wid == "toggle-hex" { push_log(local.log, `toggle hex -> ${if show_hex { "ON" } else { "OFF" }}`, LOG_LINES); }
+    if wid == "toggle-swatch" { push_log(local.log, `toggle swatch -> ${if show_swatch { "ON" } else { "OFF" }}`, LOG_LINES); }
+    if wid == "toggle-invert" { push_log(local.log, `toggle invert -> ${if invert { "ON" } else { "OFF" }}`, LOG_LINES); }
 }
 
 // ── Button clicks ────────────────────────────────────────────────────────────
 if gui.button_clicked("btn-reset") {
     local.click_count += 1;
     local.last_btn = "reset";
-    push_log(local.log, "btn RESET clicked");
+    push_log(local.log, "btn RESET clicked", LOG_LINES);
     gui.set_widget_value("slider-r", 128.0);
     gui.set_widget_value("slider-g", 128.0);
     gui.set_widget_value("slider-b", 128.0);
@@ -122,7 +122,7 @@ if gui.button_clicked("btn-reset") {
 if gui.button_clicked("btn-randomize") {
     local.click_count += 1;
     local.last_btn = "random";
-    push_log(local.log, "btn RANDOMIZE clicked");
+    push_log(local.log, "btn RANDOMIZE clicked", LOG_LINES);
     let rr = (scene_elapsed_ms % 256).to_float();
     let rg = ((scene_elapsed_ms * 7 + 53) % 256).to_float();
     let rb = ((scene_elapsed_ms * 13 + 97) % 256).to_float();
