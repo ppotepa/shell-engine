@@ -782,6 +782,17 @@ fn set_obj_property_recursive(
                 terrain_plane_sea_level,
                 terrain_plane_scale_x,
                 terrain_plane_scale_z,
+                world_gen_shape,
+                world_gen_coloring,
+                world_gen_seed,
+                world_gen_ocean_fraction,
+                world_gen_continent_scale,
+                world_gen_continent_warp,
+                world_gen_continent_octaves,
+                world_gen_mountain_scale,
+                world_gen_mountain_strength,
+                world_gen_moisture_scale,
+                world_gen_displacement_scale,
                 world_x,
                 world_y,
                 world_z,
@@ -908,6 +919,95 @@ fn set_obj_property_recursive(
                         let next = next.clamp(0.25, 4.0);
                         if terrain_plane_scale_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
                             *terrain_plane_scale_z = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.seed" => {
+                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
+                        if world_gen_seed.map_or(true, |v| v != next) {
+                            *world_gen_seed = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.ocean_fraction" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.0, 1.0);
+                        if world_gen_ocean_fraction.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_ocean_fraction = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.continent_scale" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.5, 10.0);
+                        if world_gen_continent_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_continent_scale = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.continent_warp" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.0, 2.0);
+                        if world_gen_continent_warp.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_continent_warp = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.continent_octaves" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = (next.round() as u8).clamp(2, 8);
+                        if world_gen_continent_octaves.map_or(true, |v| v != next) {
+                            *world_gen_continent_octaves = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.mountain_scale" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(1.0, 20.0);
+                        if world_gen_mountain_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_mountain_scale = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.mountain_strength" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.0, 1.0);
+                        if world_gen_mountain_strength.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_mountain_strength = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.moisture_scale" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.5, 10.0);
+                        if world_gen_moisture_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_moisture_scale = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.displacement_scale" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if world_gen_displacement_scale.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *world_gen_displacement_scale = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.coloring" => {
+                    if let Some(next) = value.as_str() {
+                        let s = next.to_string();
+                        if world_gen_coloring.as_deref() != Some(next) {
+                            *world_gen_coloring = Some(s);
                             *updated = true;
                         }
                     }

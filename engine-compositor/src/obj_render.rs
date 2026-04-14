@@ -152,6 +152,17 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
         return Some(mesh_arc);
     }
 
+    // Handle world:// URI — full biome/climate pipeline.
+    // Format: world://N?shape=sphere&coloring=biome&seed=0&ocean=0.55&...
+    if path.starts_with("world://") {
+        let params = parse_world_params_from_uri(path);
+        let mesh_arc = build_world_mesh(&params);
+        if let Ok(mut cache_lock) = cache.lock() {
+            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
+        }
+        return Some(mesh_arc);
+    }
+
     // Not in cache, load from asset file.
     let mesh_arc = load_obj_mesh(asset_root, path)?;
 
@@ -161,6 +172,144 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
     }
 
     Some(mesh_arc)
+}
+
+// ── World generator bridge ─────────────────────────────────────────────────────
+
+/// Parse a `world://N?...` URI into `WorldGenParams`.
+pub(crate) fn parse_world_params_from_uri(uri: &str) -> engine_terrain::WorldGenParams {
+    let rest = uri.strip_prefix("world://").unwrap_or(uri);
+    let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
+    let mut p = engine_terrain::WorldGenParams::default();
+    p.subdivisions = subdivisions;
+    for pair in query.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            match k {
+                "shape"     => { p.shape    = parse_world_shape(v); }
+                "coloring"  => { p.coloring = parse_world_coloring(v); }
+                "seed"      => { if let Ok(n) = v.parse::<u64>()  { p.planet.seed             = n; } }
+                "ocean"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.ocean_fraction    = f.clamp(0.0, 1.0); } }
+                "cscale"    => { if let Ok(f) = v.parse::<f64>()  { p.planet.continent_scale   = f.clamp(0.5, 10.0); } }
+                "cwarp"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.continent_warp    = f.clamp(0.0, 2.0); } }
+                "coct"      => { if let Ok(n) = v.parse::<u8>()   { p.planet.continent_octaves = n.clamp(2, 8); } }
+                "mscale"    => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_scale    = f.clamp(1.0, 20.0); } }
+                "mstr"      => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_strength = f.clamp(0.0, 1.0); } }
+                "moistscale"=> { if let Ok(f) = v.parse::<f64>()  { p.planet.moisture_scale    = f.clamp(0.5, 10.0); } }
+                "disp"      => { if let Ok(f) = v.parse::<f32>()  { p.displacement_scale       = f.clamp(0.0, 1.0); } }
+                _ => {}
+            }
+        }
+    }
+    p
+}
+
+/// Parse a shape string from a URI query value.
+pub(crate) fn parse_world_shape(s: &str) -> engine_terrain::WorldShape {
+    match s {
+        "flat" => engine_terrain::WorldShape::Flat,
+        _      => engine_terrain::WorldShape::Sphere,
+    }
+}
+
+/// Parse a coloring string from a URI query value.
+pub(crate) fn parse_world_coloring(s: &str) -> engine_terrain::WorldColoring {
+    match s {
+        "altitude" => engine_terrain::WorldColoring::Altitude,
+        "none"     => engine_terrain::WorldColoring::None,
+        _          => engine_terrain::WorldColoring::Biome,
+    }
+}
+
+/// Build an `ObjMesh` from `WorldGenParams`:
+///
+/// 1. Run `engine_terrain::generate()` → full biome/climate heightmap
+/// 2. Generate a cube-sphere → displace vertices from heightmap elevation
+/// 3. Recompute smooth normals
+/// 4. Color faces via the chosen `ColorStrategy`
+fn build_world_mesh(p: &engine_terrain::WorldGenParams) -> Arc<crate::obj_loader::ObjMesh> {
+    use engine_mesh::primitives::cube_sphere;
+    use engine_terrain::{WorldColoring, WorldShape};
+
+    let planet = engine_terrain::generate(&p.planet);
+
+    match p.shape {
+        WorldShape::Sphere => {
+            let base = cube_sphere(p.subdivisions);
+            // Displace each vertex using the planet heightmap.
+            let mut verts: Vec<[f32; 3]> = base.vertices.iter().map(|v| {
+                let cell = sample_planet_xyz(v, &planet);
+                let disp = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
+                let len = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]).sqrt().max(1e-6);
+                let nx = v[0] / len;
+                let ny = v[1] / len;
+                let nz = v[2] / len;
+                let r = 1.0 + disp;
+                [nx * r, ny * r, nz * r]
+            }).collect();
+
+            let normals = engine_mesh::mesh::compute_smooth_normals(&verts, &base.faces);
+
+            let colors: Vec<[u8; 3]> = base.faces.iter().map(|&[a, b, c]| {
+                let cx = (verts[a][0] + verts[b][0] + verts[c][0]) / 3.0;
+                let cy = (verts[a][1] + verts[b][1] + verts[c][1]) / 3.0;
+                let cz = (verts[a][2] + verts[b][2] + verts[c][2]) / 3.0;
+                let centroid = [cx, cy, cz];
+                let cell = sample_planet_xyz(&centroid, &planet);
+                match p.coloring {
+                    WorldColoring::Biome    => engine_terrain::biome_color(cell.biome),
+                    WorldColoring::Altitude => engine_terrain::altitude_color(cell.elevation),
+                    WorldColoring::None     => [200, 200, 200],
+                }
+            }).collect();
+
+            let mesh = engine_mesh::Mesh::new(verts, normals, base.faces);
+            crate::obj_loader::colored_mesh_to_obj_mesh(&mesh, &colors)
+        }
+        WorldShape::Flat => {
+            // For flat terrain, use the existing engine-mesh terrain_plane with altitude colors.
+            use engine_mesh::primitives::TerrainParams;
+            let tp = TerrainParams::default();
+            let mesh = engine_mesh::primitives::terrain_plane(64, tp);
+            let colors: Vec<[u8; 3]> = mesh.faces.iter().map(|&[a, b, c]| {
+                let avg_y = (mesh.vertices[a][1] + mesh.vertices[b][1] + mesh.vertices[c][1]) / 3.0;
+                // terrain_plane Y range is ~[-0.22, 0.22] at amplitude 1.0; remap to elevation 0–1
+                let elevation = ((avg_y / 0.44) + 0.5).clamp(0.0, 1.0);
+                match p.coloring {
+                    WorldColoring::Altitude | WorldColoring::Biome => engine_terrain::altitude_color(elevation),
+                    WorldColoring::None => [200, 200, 200],
+                }
+            }).collect();
+            crate::obj_loader::colored_mesh_to_obj_mesh(&mesh, &colors)
+        }
+    }
+}
+
+/// Sample the `GeneratedPlanet` heightmap at a 3D unit-sphere direction.
+///
+/// Converts the Cartesian direction to lat/lon grid coordinates and returns
+/// the nearest cell (no bilinear interpolation — fast enough for face coloring).
+fn sample_planet_xyz(
+    v: &[f32; 3],
+    planet: &engine_terrain::GeneratedPlanet,
+) -> engine_terrain::HeightmapCell {
+    let len = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]).sqrt().max(1e-6);
+    let nx = v[0] / len;
+    let ny = v[1] / len;
+    let nz = v[2] / len;
+
+    // lat: 0 = north pole (ny=1), π = south pole (ny=-1)
+    let lat = ny.clamp(-1.0, 1.0).acos();
+    // lon: 0–2π, atan2(nz, nx) wrapped to positive
+    let lon = nz.atan2(nx);
+    let lon_pos = if lon < 0.0 { lon + std::f32::consts::TAU } else { lon };
+
+    let gx = ((lon_pos / std::f32::consts::TAU) * planet.width as f32) as usize;
+    let gy = ((lat / std::f32::consts::PI) * planet.height as f32) as usize;
+    let gx = gx.min(planet.width - 1);
+    let gy = gy.min(planet.height - 1);
+
+    *planet.cell(gx, gy)
 }
 
 // Thread-local pooled buffers for OBJ rendering — avoids per-frame allocation.

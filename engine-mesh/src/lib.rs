@@ -25,4 +25,4 @@
 pub mod mesh;
 pub mod primitives;
 
-pub use mesh::Mesh;
+pub use mesh::{compute_smooth_normals, Mesh};

@@ -743,6 +743,7 @@ dependencies = [
  "engine-render-policy",
  "engine-runtime",
  "engine-scene-runtime",
+ "engine-terrain",
  "engine-vector",
  "image",
  "rayon",

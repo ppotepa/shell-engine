@@ -609,6 +609,45 @@ pub enum Sprite {
         /// Terrain-plane geometry override: anisotropic Z stretch (default: 1.0).
         #[serde(default, rename = "terrain-scale-z")]
         terrain_plane_scale_z: Option<f32>,
+
+        // ── World generator params (world:// URI) ──────────────────────────
+        // These drive `engine_terrain::WorldGenParams` → full biome/climate pipeline.
+        // Changed at runtime via `scene.set(id, "world.<field>", v)`.
+
+        /// World shape: "sphere" (default) or "flat".
+        #[serde(default, rename = "world-shape")]
+        world_gen_shape: Option<String>,
+        /// World coloring strategy: "biome" (default), "altitude", or "none".
+        #[serde(default, rename = "world-coloring")]
+        world_gen_coloring: Option<String>,
+        /// World generator seed (integer). Default 0.
+        #[serde(default, rename = "world-seed")]
+        world_gen_seed: Option<u64>,
+        /// Target ocean fraction 0.0–1.0 (default 0.55).
+        #[serde(default, rename = "world-ocean-fraction")]
+        world_gen_ocean_fraction: Option<f64>,
+        /// Continent noise frequency scale, larger = smaller continents (default 2.5).
+        #[serde(default, rename = "world-continent-scale")]
+        world_gen_continent_scale: Option<f64>,
+        /// Domain warp strength 0.0–1.5, higher = more chaotic coastlines (default 0.65).
+        #[serde(default, rename = "world-continent-warp")]
+        world_gen_continent_warp: Option<f64>,
+        /// fBm octaves for continent noise 3–7 (default 5).
+        #[serde(default, rename = "world-continent-octaves")]
+        world_gen_continent_octaves: Option<u8>,
+        /// Mountain ridge frequency, higher = narrower chains (default 6.0).
+        #[serde(default, rename = "world-mountain-scale")]
+        world_gen_mountain_scale: Option<f64>,
+        /// Mountain elevation contribution over land 0.0–1.0 (default 0.45).
+        #[serde(default, rename = "world-mountain-strength")]
+        world_gen_mountain_strength: Option<f64>,
+        /// Regional moisture noise frequency (default 3.0).
+        #[serde(default, rename = "world-moisture-scale")]
+        world_gen_moisture_scale: Option<f64>,
+        /// Radial vertex displacement range ±N (sphere only, default 0.22).
+        #[serde(default, rename = "world-displacement-scale")]
+        world_gen_displacement_scale: Option<f32>,
+
         /// Object world-space translation (applied before view/projection).
         /// Useful when driving multiple OBJ sprites from one shared scene camera.
         /// Set per frame via `scene.set(id, "obj.world.x/y/z", value)`.

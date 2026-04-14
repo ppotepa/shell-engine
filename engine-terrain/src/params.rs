@@ -2,6 +2,67 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Shape of the generated world mesh.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WorldShape {
+    Flat,
+    #[default]
+    Sphere,
+}
+
+/// Coloring strategy applied to the generated mesh faces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WorldColoring {
+    /// Per-face color from altitude (vertex radius vs sea level).
+    Altitude,
+    /// Per-face color from biome classification (requires full planet pipeline).
+    #[default]
+    Biome,
+    /// No per-face coloring — uniform grey.
+    None,
+}
+
+/// Unified world-generation parameters.
+///
+/// `shape` and `coloring` determine which pipeline is used;
+/// `planet` holds all noise/climate params used by `engine_terrain::generate()`.
+/// `subdivisions` sets the mesh resolution for sphere/plane grids.
+/// `displacement_scale` controls how far vertices are displaced by elevation (sphere only).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WorldGenParams {
+    #[serde(default)]
+    pub shape: WorldShape,
+    #[serde(default)]
+    pub coloring: WorldColoring,
+    /// Mesh grid resolution (cube-sphere: N divisions per face edge).
+    #[serde(default = "WorldGenParams::default_subdivisions")]
+    pub subdivisions: u32,
+    /// Maximum radial displacement applied to sphere vertices. Default 0.22.
+    #[serde(default = "WorldGenParams::default_displacement_scale")]
+    pub displacement_scale: f32,
+    #[serde(flatten)]
+    pub planet: PlanetGenParams,
+}
+
+impl Default for WorldGenParams {
+    fn default() -> Self {
+        Self {
+            shape: WorldShape::default(),
+            coloring: WorldColoring::default(),
+            subdivisions: Self::default_subdivisions(),
+            displacement_scale: Self::default_displacement_scale(),
+            planet: PlanetGenParams::default(),
+        }
+    }
+}
+
+impl WorldGenParams {
+    pub fn default_subdivisions() -> u32   { 32 }
+    pub fn default_displacement_scale() -> f32 { 0.22 }
+}
+
 /// High-level parameters for the noise-based planet generator.
 /// These become the canonical "seed" of the planet — same params = same planet.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

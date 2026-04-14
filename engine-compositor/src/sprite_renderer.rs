@@ -1191,6 +1191,17 @@ fn render_obj_sprite(
         terrain_plane_sea_level,
         terrain_plane_scale_x,
         terrain_plane_scale_z,
+        world_gen_shape,
+        world_gen_coloring,
+        world_gen_seed,
+        world_gen_ocean_fraction,
+        world_gen_continent_scale,
+        world_gen_continent_warp,
+        world_gen_continent_octaves,
+        world_gen_mountain_scale,
+        world_gen_mountain_strength,
+        world_gen_moisture_scale,
+        world_gen_displacement_scale,
         ..
     } = sprite
     else {
@@ -1246,6 +1257,42 @@ fn render_obj_sprite(
             params.seed_x, params.seed_z, params.lacunarity,
             if params.ridge { 1 } else { 0 },
             params.plateau, params.sea_level, params.scale_x, params.scale_z
+        );
+        &effective_source_buf
+    } else if source.starts_with("world://")
+        && (world_gen_seed.is_some()
+            || world_gen_ocean_fraction.is_some()
+            || world_gen_continent_scale.is_some()
+            || world_gen_continent_warp.is_some()
+            || world_gen_continent_octaves.is_some()
+            || world_gen_mountain_scale.is_some()
+            || world_gen_mountain_strength.is_some()
+            || world_gen_moisture_scale.is_some()
+            || world_gen_displacement_scale.is_some()
+            || world_gen_shape.is_some()
+            || world_gen_coloring.is_some())
+    {
+        use crate::obj_render::parse_world_params_from_uri;
+        let mut p = parse_world_params_from_uri(source);
+        if let Some(v) = world_gen_shape            { p.shape = crate::obj_render::parse_world_shape(v); }
+        if let Some(v) = world_gen_coloring         { p.coloring = crate::obj_render::parse_world_coloring(v); }
+        if let Some(v) = world_gen_seed             { p.planet.seed = *v; }
+        if let Some(v) = world_gen_ocean_fraction   { p.planet.ocean_fraction = *v; }
+        if let Some(v) = world_gen_continent_scale  { p.planet.continent_scale = *v; }
+        if let Some(v) = world_gen_continent_warp   { p.planet.continent_warp = *v; }
+        if let Some(v) = world_gen_continent_octaves{ p.planet.continent_octaves = *v; }
+        if let Some(v) = world_gen_mountain_scale   { p.planet.mountain_scale = *v; }
+        if let Some(v) = world_gen_mountain_strength{ p.planet.mountain_strength = *v; }
+        if let Some(v) = world_gen_moisture_scale   { p.planet.moisture_scale = *v; }
+        if let Some(v) = world_gen_displacement_scale { p.displacement_scale = *v; }
+        effective_source_buf = format!(
+            "world://{}?shape={}&coloring={}&seed={}&ocean={}&cscale={}&cwarp={}&coct={}&mscale={}&mstr={}&moistscale={}&disp={}",
+            p.subdivisions,
+            world_shape_str(p.shape), world_coloring_str(p.coloring),
+            p.planet.seed, p.planet.ocean_fraction, p.planet.continent_scale,
+            p.planet.continent_warp, p.planet.continent_octaves,
+            p.planet.mountain_scale, p.planet.mountain_strength,
+            p.planet.moisture_scale, p.displacement_scale,
         );
         &effective_source_buf
     } else {
@@ -2246,4 +2293,21 @@ fn set_panel_cell(buffer: &mut Buffer, x: i32, y: i32, bg: Color) {
         return;
     }
     buffer.set(x as u16, y as u16, ' ', Color::Reset, bg);
+}
+
+/// Serialise a `WorldShape` to the string key used in `world://` URIs.
+pub(crate) fn world_shape_str(shape: engine_terrain::WorldShape) -> &'static str {
+    match shape {
+        engine_terrain::WorldShape::Flat   => "flat",
+        engine_terrain::WorldShape::Sphere => "sphere",
+    }
+}
+
+/// Serialise a `WorldColoring` to the string key used in `world://` URIs.
+pub(crate) fn world_coloring_str(coloring: engine_terrain::WorldColoring) -> &'static str {
+    match coloring {
+        engine_terrain::WorldColoring::Altitude => "altitude",
+        engine_terrain::WorldColoring::Biome    => "biome",
+        engine_terrain::WorldColoring::None     => "none",
+    }
 }

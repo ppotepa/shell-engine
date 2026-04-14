@@ -4,7 +4,7 @@
   sprites:
     - type: obj
       id: earth-mesh
-      source: "earth-sphere://32"
+      source: "world://32"
       at: cc
       width: 360
       height: 360
@@ -22,6 +22,17 @@
       camera-distance: 3.0
       fov-degrees: 50
       near-clip: 0.01
+      world-shape: sphere
+      world-coloring: biome
+      world-seed: 0
+      world-ocean-fraction: 0.55
+      world-continent-scale: 2.5
+      world-continent-warp: 0.65
+      world-continent-octaves: 5
+      world-mountain-scale: 6.0
+      world-mountain-strength: 0.45
+      world-moisture-scale: 3.0
+      world-displacement-scale: 0.22
 
     - type: text
       id: earth-hud-title

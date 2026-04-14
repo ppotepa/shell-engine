@@ -3,6 +3,18 @@
 //! Produces a `GeneratedPlanet` from a `PlanetGenParams` seed + high-level params.
 //! Output feeds into `engine-celestial`'s `PlanetDef` derivation layer.
 //!
+//! ## World generation pipeline
+//!
+//! ```text
+//! WorldGenParams
+//!   ├── planet: PlanetGenParams  → engine_terrain::generate() → GeneratedPlanet
+//!   ├── shape: flat | sphere     → engine-mesh selects mesh generator
+//!   ├── coloring: altitude|biome → engine_terrain::coloring::* maps cells → [u8;3]
+//!   └── displacement_scale       → radial vertex offset on sphere
+//! ```
+//!
+//! `engine-compositor` owns the bridge between this crate and `engine-mesh`.
+//!
 //! Algorithm overview:
 //! 1. Convert each cell of a 512×256 lat/lon grid to a 3D unit sphere point.
 //! 2. Apply two-level domain-warped fBm to generate organic continent shapes.
@@ -15,6 +27,7 @@
 
 pub mod biome;
 pub mod climate;
+pub mod coloring;
 pub mod elevation;
 pub mod grid;
 pub mod noise;
@@ -22,7 +35,8 @@ pub mod params;
 pub mod stats;
 
 pub use biome::Biome;
-pub use params::PlanetGenParams;
+pub use coloring::{altitude_color, biome_color};
+pub use params::{PlanetGenParams, WorldColoring, WorldGenParams, WorldShape};
 pub use stats::{BiomeArchetype, GeneratedPlanet, HeightmapCell, PlanetStats};
 
 /// Run the full noise-based pipeline and return a `GeneratedPlanet`.
