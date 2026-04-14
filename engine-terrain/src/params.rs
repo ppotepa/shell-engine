@@ -95,9 +95,25 @@ pub struct PlanetGenParams {
     #[serde(default = "PlanetGenParams::default_mountain_strength")]
     pub mountain_strength: f64,
 
+    /// Octave count for ridged mountain noise. Higher = more jagged detail. Range 2–8.
+    #[serde(default = "PlanetGenParams::default_mountain_ridge_octaves")]
+    pub mountain_ridge_octaves: u8,
+
     /// Noise frequency for regional moisture variation.
     #[serde(default = "PlanetGenParams::default_moisture_scale")]
     pub moisture_scale: f64,
+
+    /// Strength of polar cold zones. 1.0 = realistic, 0.0 = uniform temperature, 2.0 = ice age.
+    #[serde(default = "PlanetGenParams::default_ice_cap_strength")]
+    pub ice_cap_strength: f64,
+
+    /// Temperature reduction per unit of elevation above sea level (0.0–1.0).
+    #[serde(default = "PlanetGenParams::default_lapse_rate")]
+    pub lapse_rate: f64,
+
+    /// Moisture reduction above sea level (rain shadow effect, 0.0–1.0).
+    #[serde(default = "PlanetGenParams::default_rain_shadow")]
+    pub rain_shadow: f64,
 
     /// Heightmap grid width (longitude cells). Default 512.
     #[serde(default = "PlanetGenParams::default_grid_width")]
@@ -118,7 +134,11 @@ impl Default for PlanetGenParams {
             continent_octaves: Self::default_continent_octaves(),
             mountain_scale: Self::default_mountain_scale(),
             mountain_strength: Self::default_mountain_strength(),
+            mountain_ridge_octaves: Self::default_mountain_ridge_octaves(),
             moisture_scale: Self::default_moisture_scale(),
+            ice_cap_strength: Self::default_ice_cap_strength(),
+            lapse_rate: Self::default_lapse_rate(),
+            rain_shadow: Self::default_rain_shadow(),
             grid_width: Self::default_grid_width(),
             grid_height: Self::default_grid_height(),
         }
@@ -130,14 +150,18 @@ impl PlanetGenParams {
         Self { seed, ..Self::default() }
     }
 
-    fn default_ocean_fraction() -> f64   { 0.55 }
-    fn default_continent_scale() -> f64  { 2.5 }
-    fn default_continent_warp() -> f64   { 0.65 }
-    fn default_continent_octaves() -> u8 { 5 }
-    fn default_mountain_scale() -> f64   { 6.0 }
-    fn default_mountain_strength() -> f64 { 0.45 }
-    fn default_moisture_scale() -> f64   { 3.0 }
-    fn default_grid_width() -> usize     { 512 }
-    fn default_grid_height() -> usize    { 256 }
+    fn default_ocean_fraction() -> f64        { 0.55 }
+    fn default_continent_scale() -> f64       { 2.5 }
+    fn default_continent_warp() -> f64        { 0.65 }
+    fn default_continent_octaves() -> u8      { 5 }
+    fn default_mountain_scale() -> f64        { 6.0 }
+    fn default_mountain_strength() -> f64     { 0.45 }
+    fn default_mountain_ridge_octaves() -> u8 { 5 }
+    fn default_moisture_scale() -> f64        { 3.0 }
+    fn default_ice_cap_strength() -> f64      { 1.0 }
+    fn default_lapse_rate() -> f64            { 0.6 }
+    fn default_rain_shadow() -> f64           { 0.35 }
+    fn default_grid_width() -> usize          { 512 }
+    fn default_grid_height() -> usize         { 256 }
 }
 

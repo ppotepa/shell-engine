@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: hud-actions
+  z_index: 12
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: hud-actions-box
+      align-x: right
+      align-y: top
+      x: -8
+      y: 304
+      width: 224
+      height: 22
+      padding: 2
+      border-width: 1
+      corner-radius: 2
+      fg: "#2a9440"
+      bg: "#020810"
+      border-colour: "#1a5c28"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+      children:
+        - type: grid
+          columns: ["1fr", "1fr"]
+          rows: ["1fr"]
+          gap-x: 4
+          children:
+            - { type: text, id: btn-randomize, content: "[R] RANDOMIZE", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#ffc030" }
+            - { type: text, id: btn-reset,     content: "[DEL] RESET",   grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "#4080ff" }

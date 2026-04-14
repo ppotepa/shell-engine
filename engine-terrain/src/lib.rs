@@ -39,6 +39,21 @@ pub use coloring::{altitude_color, biome_color};
 pub use params::{PlanetGenParams, WorldColoring, WorldGenParams, WorldShape};
 pub use stats::{BiomeArchetype, GeneratedPlanet, HeightmapCell, PlanetStats};
 
+use std::sync::{Mutex, OnceLock};
+
+/// Global cache of the last generated planet's stats — used for Rhai readback.
+static LAST_PLANET_STATS: OnceLock<Mutex<Option<PlanetStats>>> = OnceLock::new();
+
+/// Returns the stats of the most recently generated planet (via `generate()`).
+/// Returns `None` if no planet has been generated yet in this process.
+pub fn last_planet_stats() -> Option<PlanetStats> {
+    LAST_PLANET_STATS
+        .get()?
+        .lock()
+        .ok()?
+        .clone()
+}
+
 /// Run the full noise-based pipeline and return a `GeneratedPlanet`.
 ///
 /// Deterministic: identical `params` always produce identical output.
@@ -53,6 +68,9 @@ pub fn generate(params: &PlanetGenParams) -> GeneratedPlanet {
         params.grid_height,
         params.seed,
         params.moisture_scale,
+        params.ice_cap_strength,
+        params.lapse_rate,
+        params.rain_shadow,
     );
 
     // 3. Biome grid
@@ -60,6 +78,12 @@ pub fn generate(params: &PlanetGenParams) -> GeneratedPlanet {
 
     // 4. Statistics
     let planet_stats = stats::compute(&elevation, &moisture, &temperature, &biomes, params.grid_width, params.grid_height);
+
+    // Cache stats for Rhai readback
+    let cache = LAST_PLANET_STATS.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = cache.lock() {
+        *guard = Some(planet_stats.clone());
+    }
 
     // 5. Pack cells
     let cells: Vec<HeightmapCell> = (0..params.grid_width * params.grid_height)

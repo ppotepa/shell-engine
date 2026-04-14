@@ -194,9 +194,13 @@ pub(crate) fn parse_world_params_from_uri(uri: &str) -> engine_terrain::WorldGen
                 "cwarp"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.continent_warp    = f.clamp(0.0, 2.0); } }
                 "coct"      => { if let Ok(n) = v.parse::<u8>()   { p.planet.continent_octaves = n.clamp(2, 8); } }
                 "mscale"    => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_scale    = f.clamp(1.0, 20.0); } }
-                "mstr"      => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_strength = f.clamp(0.0, 1.0); } }
-                "moistscale"=> { if let Ok(f) = v.parse::<f64>()  { p.planet.moisture_scale    = f.clamp(0.5, 10.0); } }
-                "disp"      => { if let Ok(f) = v.parse::<f32>()  { p.displacement_scale       = f.clamp(0.0, 1.0); } }
+                "mstr"      => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_strength       = f.clamp(0.0, 1.0); } }
+                "mroct"     => { if let Ok(n) = v.parse::<u8>()   { p.planet.mountain_ridge_octaves  = n.clamp(2, 8); } }
+                "moistscale"=> { if let Ok(f) = v.parse::<f64>()  { p.planet.moisture_scale          = f.clamp(0.5, 10.0); } }
+                "ice"       => { if let Ok(f) = v.parse::<f64>()  { p.planet.ice_cap_strength        = f.clamp(0.0, 3.0); } }
+                "lapse"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.lapse_rate              = f.clamp(0.0, 1.0); } }
+                "rainshadow"=> { if let Ok(f) = v.parse::<f64>()  { p.planet.rain_shadow             = f.clamp(0.0, 1.0); } }
+                "disp"      => { if let Ok(f) = v.parse::<f32>()  { p.displacement_scale             = f.clamp(0.0, 1.0); } }
                 _ => {}
             }
         }

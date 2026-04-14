@@ -1200,8 +1200,13 @@ fn render_obj_sprite(
         world_gen_continent_octaves,
         world_gen_mountain_scale,
         world_gen_mountain_strength,
+        world_gen_mountain_ridge_octaves,
         world_gen_moisture_scale,
+        world_gen_ice_cap_strength,
+        world_gen_lapse_rate,
+        world_gen_rain_shadow,
         world_gen_displacement_scale,
+        world_gen_subdivisions,
         ..
     } = sprite
     else {
@@ -1267,32 +1272,43 @@ fn render_obj_sprite(
             || world_gen_continent_octaves.is_some()
             || world_gen_mountain_scale.is_some()
             || world_gen_mountain_strength.is_some()
+            || world_gen_mountain_ridge_octaves.is_some()
             || world_gen_moisture_scale.is_some()
+            || world_gen_ice_cap_strength.is_some()
+            || world_gen_lapse_rate.is_some()
+            || world_gen_rain_shadow.is_some()
             || world_gen_displacement_scale.is_some()
+            || world_gen_subdivisions.is_some()
             || world_gen_shape.is_some()
             || world_gen_coloring.is_some())
     {
         use crate::obj_render::parse_world_params_from_uri;
         let mut p = parse_world_params_from_uri(source);
-        if let Some(v) = world_gen_shape            { p.shape = crate::obj_render::parse_world_shape(v); }
-        if let Some(v) = world_gen_coloring         { p.coloring = crate::obj_render::parse_world_coloring(v); }
-        if let Some(v) = world_gen_seed             { p.planet.seed = *v; }
-        if let Some(v) = world_gen_ocean_fraction   { p.planet.ocean_fraction = *v; }
-        if let Some(v) = world_gen_continent_scale  { p.planet.continent_scale = *v; }
-        if let Some(v) = world_gen_continent_warp   { p.planet.continent_warp = *v; }
-        if let Some(v) = world_gen_continent_octaves{ p.planet.continent_octaves = *v; }
-        if let Some(v) = world_gen_mountain_scale   { p.planet.mountain_scale = *v; }
-        if let Some(v) = world_gen_mountain_strength{ p.planet.mountain_strength = *v; }
-        if let Some(v) = world_gen_moisture_scale   { p.planet.moisture_scale = *v; }
-        if let Some(v) = world_gen_displacement_scale { p.displacement_scale = *v; }
+        if let Some(v) = world_gen_shape               { p.shape = crate::obj_render::parse_world_shape(v); }
+        if let Some(v) = world_gen_coloring            { p.coloring = crate::obj_render::parse_world_coloring(v); }
+        if let Some(v) = world_gen_subdivisions        { p.subdivisions = *v; }
+        if let Some(v) = world_gen_seed                { p.planet.seed = *v; }
+        if let Some(v) = world_gen_ocean_fraction      { p.planet.ocean_fraction = *v; }
+        if let Some(v) = world_gen_continent_scale     { p.planet.continent_scale = *v; }
+        if let Some(v) = world_gen_continent_warp      { p.planet.continent_warp = *v; }
+        if let Some(v) = world_gen_continent_octaves   { p.planet.continent_octaves = *v; }
+        if let Some(v) = world_gen_mountain_scale      { p.planet.mountain_scale = *v; }
+        if let Some(v) = world_gen_mountain_strength   { p.planet.mountain_strength = *v; }
+        if let Some(v) = world_gen_mountain_ridge_octaves { p.planet.mountain_ridge_octaves = *v; }
+        if let Some(v) = world_gen_moisture_scale      { p.planet.moisture_scale = *v; }
+        if let Some(v) = world_gen_ice_cap_strength    { p.planet.ice_cap_strength = *v; }
+        if let Some(v) = world_gen_lapse_rate          { p.planet.lapse_rate = *v; }
+        if let Some(v) = world_gen_rain_shadow         { p.planet.rain_shadow = *v; }
+        if let Some(v) = world_gen_displacement_scale  { p.displacement_scale = *v; }
         effective_source_buf = format!(
-            "world://{}?shape={}&coloring={}&seed={}&ocean={}&cscale={}&cwarp={}&coct={}&mscale={}&mstr={}&moistscale={}&disp={}",
+            "world://{}?shape={}&coloring={}&seed={}&ocean={}&cscale={}&cwarp={}&coct={}&mscale={}&mstr={}&mroct={}&moistscale={}&ice={}&lapse={}&rainshadow={}&disp={}",
             p.subdivisions,
             world_shape_str(p.shape), world_coloring_str(p.coloring),
             p.planet.seed, p.planet.ocean_fraction, p.planet.continent_scale,
             p.planet.continent_warp, p.planet.continent_octaves,
-            p.planet.mountain_scale, p.planet.mountain_strength,
-            p.planet.moisture_scale, p.displacement_scale,
+            p.planet.mountain_scale, p.planet.mountain_strength, p.planet.mountain_ridge_octaves,
+            p.planet.moisture_scale, p.planet.ice_cap_strength, p.planet.lapse_rate,
+            p.planet.rain_shadow, p.displacement_scale,
         );
         &effective_source_buf
     } else {

@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+# ── Planet Generator Parameter Panel ─────────────────────────────────────────
+# Four tab panels: continents / mountains / climate / visual
+- name: hud-panel
+  z_index: 11
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: hud-panel-box
+      align-x: right
+      align-y: top
+      x: -8
+      y: 32
+      width: 224
+      height: 250
+      padding: 8
+      border-width: 1
+      corner-radius: 2
+      fg: "#2a9440"
+      bg: "#020810"
+      border-colour: "#1a5c28"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+      visible: true
+      children:
+
+        # ── Continents panel ──────────────────────────────────────────────────
+        - type: panel
+          id: panel-continents
+          width: 208
+          height: 234
+          fg: "#2a9440"
+          bg: "#020810"
+          visible: true
+          children:
+            - type: grid
+              columns: ["1fr"]
+              rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto"]
+              gap-y: 3
+              children:
+                - { type: text, content: "CONTINENTS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440" }
+
+                - { type: text,   id: ep-seed-label,    content: "  SEED           0",   grid-col: 1, grid-row: 2,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-seed-track,    grid-col: 1, grid-row: 3,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-seed-handle,   grid-col: 1, grid-row: 3,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-ocean-label,   content: "  OCEAN          55%", grid-col: 1, grid-row: 4,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-ocean-track,   grid-col: 1, grid-row: 5,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-ocean-handle,  grid-col: 1, grid-row: 5,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-cscale-label,  content: "  CONTINENT SZ   2.5", grid-col: 1, grid-row: 6,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-cscale-track,  grid-col: 1, grid-row: 7,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-cscale-handle, grid-col: 1, grid-row: 7,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-cwarp-label,   content: "  COAST CHAOS    0.7", grid-col: 1, grid-row: 8,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-cwarp-track,   grid-col: 1, grid-row: 9,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-cwarp-handle,  grid-col: 1, grid-row: 9,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-coct-label,    content: "  OCTAVES        5",   grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-coct-track,    grid-col: 1, grid-row: 11, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-coct-handle,   grid-col: 1, grid-row: 11, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text, content: "↑↓ sel  ←→ adj", grid-col: 1, grid-row: 13, at: cc, font: "generic:1", fg: "#1a5c28" }
+
+        # ── Mountains panel ───────────────────────────────────────────────────
+        - type: panel
+          id: panel-mountains
+          width: 208
+          height: 234
+          fg: "#2a9440"
+          bg: "#020810"
+          visible: false
+          children:
+            - type: grid
+              columns: ["1fr"]
+              rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto"]
+              gap-y: 3
+              children:
+                - { type: text, content: "MOUNTAINS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440" }
+
+                - { type: text,   id: ep-mscale-label,  content: "  MTN SPACING    6.0", grid-col: 1, grid-row: 2,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-mscale-track,  grid-col: 1, grid-row: 3,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-mscale-handle, grid-col: 1, grid-row: 3,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-mstr-label,    content: "  MTN HEIGHT     45%", grid-col: 1, grid-row: 4,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-mstr-track,    grid-col: 1, grid-row: 5,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-mstr-handle,   grid-col: 1, grid-row: 5,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-mroct-label,   content: "  RIDGE DETAIL   5",   grid-col: 1, grid-row: 6,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-mroct-track,   grid-col: 1, grid-row: 7,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-mroct-handle,  grid-col: 1, grid-row: 7,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text, content: "↑↓ sel  ←→ adj", grid-col: 1, grid-row: 9, at: cc, font: "generic:1", fg: "#1a5c28" }
+
+        # ── Climate panel ─────────────────────────────────────────────────────
+        - type: panel
+          id: panel-climate
+          width: 208
+          height: 234
+          fg: "#2a9440"
+          bg: "#020810"
+          visible: false
+          children:
+            - type: grid
+              columns: ["1fr"]
+              rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto"]
+              gap-y: 3
+              children:
+                - { type: text, content: "CLIMATE", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440" }
+
+                - { type: text,   id: ep-moistscale-label,  content: "  MOISTURE SZ    3.0", grid-col: 1, grid-row: 2,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-moistscale-track,  grid-col: 1, grid-row: 3,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-moistscale-handle, grid-col: 1, grid-row: 3,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-ice-label,         content: "  ICE CAPS       1.0", grid-col: 1, grid-row: 4,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-ice-track,         grid-col: 1, grid-row: 5,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-ice-handle,        grid-col: 1, grid-row: 5,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-lapse-label,       content: "  ALT COOLING    0.6", grid-col: 1, grid-row: 6,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-lapse-track,       grid-col: 1, grid-row: 7,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-lapse-handle,      grid-col: 1, grid-row: 7,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-rain-label,        content: "  RAIN SHADOW    0.4", grid-col: 1, grid-row: 8,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-rain-track,        grid-col: 1, grid-row: 9,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-rain-handle,       grid-col: 1, grid-row: 9,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text, content: "↑↓ sel  ←→ adj", grid-col: 1, grid-row: 11, at: cc, font: "generic:1", fg: "#1a5c28" }
+
+        # ── Visual panel ──────────────────────────────────────────────────────
+        - type: panel
+          id: panel-visual
+          width: 208
+          height: 234
+          fg: "#2a9440"
+          bg: "#020810"
+          visible: false
+          children:
+            - type: grid
+              columns: ["1fr"]
+              rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto"]
+              gap-y: 3
+              children:
+                - { type: text, content: "VISUAL", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440" }
+
+                - { type: text,   id: ep-disp-label,        content: "  DISPLACEMENT   22%", grid-col: 1, grid-row: 2,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-disp-track,        grid-col: 1, grid-row: 3,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-disp-handle,       grid-col: 1, grid-row: 3,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-coloring-label,    content: "  COLORING  [BIOME]",  grid-col: 1, grid-row: 4,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-coloring-track,    grid-col: 1, grid-row: 5,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-coloring-handle,   grid-col: 1, grid-row: 5,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-rotspeed-label,    content: "  ROTATION       3.0", grid-col: 1, grid-row: 6,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-rotspeed-track,    grid-col: 1, grid-row: 7,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-rotspeed-handle,   grid-col: 1, grid-row: 7,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-sunaz-label,       content: "  SUN AZIMUTH    210", grid-col: 1, grid-row: 8,  at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-sunaz-track,       grid-col: 1, grid-row: 9,  points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-sunaz-handle,      grid-col: 1, grid-row: 9,  points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-sunel-label,       content: "  SUN ELEVATION   40", grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-sunel-track,       grid-col: 1, grid-row: 11, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-sunel-handle,      grid-col: 1, grid-row: 11, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text,   id: ep-ambient-label,     content: "  AMBIENT        12%", grid-col: 1, grid-row: 12, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+                - { type: vector, id: ep-ambient-track,     grid-col: 1, grid-row: 13, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
+                - { type: vector, id: ep-ambient-handle,    grid-col: 1, grid-row: 13, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
+
+                - { type: text, content: "↑↓ sel  ←→ adj", grid-col: 1, grid-row: 15, at: cc, font: "generic:1", fg: "#1a5c28" }

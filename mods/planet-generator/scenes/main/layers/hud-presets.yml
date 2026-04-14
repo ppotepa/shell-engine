@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: hud-presets
+  z_index: 13
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: hud-presets-box
+      align-x: right
+      align-y: top
+      x: -8
+      y: 328
+      width: 224
+      height: 22
+      padding: 2
+      border-width: 1
+      corner-radius: 2
+      fg: "#507050"
+      bg: "#020810"
+      border-colour: "#1a5c28"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+      children:
+        - type: grid
+          columns: ["1fr","1fr","1fr","1fr","1fr","1fr","1fr"]
+          rows: ["1fr"]
+          gap-x: 2
+          children:
+            - { type: text, id: preset-earth,       content: "EARTH",       grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, id: preset-mars,        content: "MARS",        grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, id: preset-ocean,       content: "OCEAN",       grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, id: preset-desert,      content: "DESERT",      grid-col: 4, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, id: preset-ice,         content: "ICE",         grid-col: 5, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, id: preset-volcanic,    content: "VOLCANIC",    grid-col: 6, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, id: preset-archipelago, content: "ARCHIPELAGO", grid-col: 7, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }

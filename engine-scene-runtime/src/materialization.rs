@@ -791,8 +791,13 @@ fn set_obj_property_recursive(
                 world_gen_continent_octaves,
                 world_gen_mountain_scale,
                 world_gen_mountain_strength,
+                world_gen_mountain_ridge_octaves,
                 world_gen_moisture_scale,
+                world_gen_ice_cap_strength,
+                world_gen_lapse_rate,
+                world_gen_rain_shadow,
                 world_gen_displacement_scale,
+                world_gen_subdivisions,
                 world_x,
                 world_y,
                 world_z,
@@ -990,6 +995,51 @@ fn set_obj_property_recursive(
                         let next = next.clamp(0.5, 10.0);
                         if world_gen_moisture_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
                             *world_gen_moisture_scale = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.mountain_ridge_octaves" => {
+                    if let Some(next) = value.as_u64() {
+                        let next = (next as u8).clamp(2, 8);
+                        if world_gen_mountain_ridge_octaves.map_or(true, |v| v != next) {
+                            *world_gen_mountain_ridge_octaves = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.ice_cap_strength" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.0, 3.0);
+                        if world_gen_ice_cap_strength.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_ice_cap_strength = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.lapse_rate" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.0, 1.0);
+                        if world_gen_lapse_rate.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_lapse_rate = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.rain_shadow" => {
+                    if let Some(next) = value.as_f64() {
+                        let next = next.clamp(0.0, 1.0);
+                        if world_gen_rain_shadow.map_or(true, |v| (v - next).abs() > 1e-6) {
+                            *world_gen_rain_shadow = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "world.subdivisions" => {
+                    if let Some(next) = value.as_u64() {
+                        let next = next as u32;
+                        if world_gen_subdivisions.map_or(true, |v| v != next) {
+                            *world_gen_subdivisions = Some(next);
                             *updated = true;
                         }
                     }

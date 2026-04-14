@@ -31,8 +31,8 @@ pub fn build(params: &PlanetGenParams) -> Vec<f32> {
             // Domain-warped continent base noise → [0.0, 1.0)
             let continent = continent_noise(cx, cy, cz, s, warp, oct, seed);
 
-            // Ridged noise for mountain ranges — prominent only over land
-            let ridge = ridged_fbm(cx * ms, cy * ms, cz * ms, 5, seed + 700);
+            // Ridged noise for mountain ranges — octave count from params
+            let ridge = ridged_fbm(cx * ms, cy * ms, cz * ms, params.mountain_ridge_octaves, seed + 700);
             // Smooth land factor: 0 in ocean, 1 on land (peaks above threshold)
             let land_t = ((continent - 0.5) * 5.0).clamp(0.0, 1.0);
             let combined = continent + ridge * mstr * land_t * 0.35;

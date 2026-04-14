@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: planet
+  z_index: 0
+  sprites:
+    - type: obj
+      id: planet-mesh
+      source: "world://32"
+      at: cc
+      width: 340
+      height: 340
+      scale: 1.0
+      rotate-y-deg-per-sec: 3.0
+      ambient: 0.12
+      light-direction-x: -0.55
+      light-direction-y: 0.65
+      light-direction-z: -0.80
+      smooth-shading: true
+      prerender: false
+      camera-distance: 3.0
+      fov-degrees: 50
+      near-clip: 0.01
+      world-shape: sphere
+      world-coloring: biome
+      world-seed: 0
+      world-ocean-fraction: 0.55
+      world-continent-scale: 2.5
+      world-continent-warp: 0.65
+      world-continent-octaves: 5
+      world-mountain-scale: 6.0
+      world-mountain-strength: 0.45
+      world-moisture-scale: 3.0
+      world-displacement-scale: 0.22

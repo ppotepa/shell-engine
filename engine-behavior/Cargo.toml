@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 engine-api = { path = "../engine-api" }
 engine-celestial = { workspace = true }
+engine-terrain = { path = "../engine-terrain" }
 engine-core = { path = "../engine-core" }
 engine-animation = { path = "../engine-animation" }
 engine-events = { path = "../engine-events" }

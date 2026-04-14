@@ -56,6 +56,10 @@ pub struct PlanetStats {
     pub cold_fraction: f32,
     /// Fraction of ocean cells that are shallow water.
     pub shallow_fraction: f32,
+    /// Fraction of forest cells among land cells.
+    pub forest_fraction: f32,
+    /// Fraction of grassland cells among land cells.
+    pub grassland_fraction: f32,
 }
 
 /// The full output of the tectonic generator.
@@ -132,6 +136,12 @@ pub fn compute(
     let shallow_count = biomes.iter().filter(|&&b| b == Biome::ShallowWater).count();
     let shallow_fraction = if ocean_count == 0 { 0.0 } else { shallow_count as f32 / ocean_count as f32 };
 
+    let forest_count = biomes.iter().filter(|&&b| b == Biome::Forest).count();
+    let forest_fraction = if land.is_empty() { 0.0 } else { forest_count as f32 / land.len() as f32 };
+
+    let grassland_count = biomes.iter().filter(|&&b| b == Biome::Grassland).count();
+    let grassland_fraction = if land.is_empty() { 0.0 } else { grassland_count as f32 / land.len() as f32 };
+
     let archetype = derive_archetype(ocean_fraction, desert_fraction, cold_fraction, mountain_fraction);
 
     PlanetStats {
@@ -145,6 +155,8 @@ pub fn compute(
         desert_fraction,
         cold_fraction,
         shallow_fraction,
+        forest_fraction,
+        grassland_fraction,
     }
 }
 

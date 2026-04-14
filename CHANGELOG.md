@@ -46,7 +46,15 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 - **engine-scene-runtime**: added `world.*` Rhai property paths (seed, ocean_fraction, continent_scale/warp/octaves, mountain_scale/strength, moisture_scale, displacement_scale, coloring) — any change rebuilds the URI key → cache miss → planet regenerated
 - **terrain-playground earth-planet**: migrated from `earth-sphere://32` (altitude gradient) to `world://32` (full biome pipeline); HUD panel replaced 12 terrain-mesh params with 6 world params: seed, ocean%, continent size, coast chaos, mountain strength, displacement
 
+**Planet generator mod + extended world:// params** ✅
+- **engine-terrain**: added 4 new fields to `PlanetGenParams`: `mountain_ridge_octaves` (u8, default 5), `ice_cap_strength` (f64, default 1.0), `lapse_rate` (f64, default 0.6), `rain_shadow` (f64, default 0.35); wired into `climate.rs` (replacing hardcoded constants) and `elevation.rs` (`ridged_fbm` octave count); added `LAST_PLANET_STATS` global cache + `last_planet_stats()` pub fn; added `forest_fraction` + `grassland_fraction` to `PlanetStats`
+- **engine-core**: added 5 new `Sprite::Obj` fields: `world_gen_mountain_ridge_octaves`, `world_gen_ice_cap_strength`, `world_gen_lapse_rate`, `world_gen_rain_shadow`, `world_gen_subdivisions`
+- **engine-compositor**: `sprite_renderer.rs` extended URI builder for all 4 new params + subdivisions; `obj_render.rs` `parse_world_params_from_uri` parses `mroct`, `ice`, `lapse`, `rainshadow` keys
+- **engine-scene-runtime**: added 5 new `world.*` Rhai property paths: `mountain_ridge_octaves`, `ice_cap_strength`, `lapse_rate`, `rain_shadow`, `subdivisions`; added 5 fields to `Sprite::Obj` destructure
+- **engine-behavior**: added `engine-terrain` dep; new `scripting/world.rs` module registers `planet_last_stats()` Rhai function returning biome coverage map (ocean, shallow, desert, grassland, forest, cold, mountain)
+- **planet-generator mod**: new standalone mod with a full-screen planet viewer and tabbed HUD: 4 tabs (Continents / Mountains / Climate / Visual) × 5-6 sliders each; 7 presets (Earth/Mars/Ocean/Desert/Ice/Volcanic/Archipelago) via F1–F7; R=randomize, Delete=reset; live stats bar reading `planet_last_stats()` for ocean/forest/desert/snow% coverage; sun azimuth+elevation→ light direction math; orbit camera (Ctrl+F)
 
+**engine-core / engine-compositor / engine-scene-runtime ambient & lighting** ✅
 - **engine-core**: added `ambient: Option<f32>` field to `Sprite::Obj` (was previously silently ignored in YAML; now properly deserialized and exposed)
 - **engine-compositor**: wire `ambient` from `Sprite::Obj` through `ObjRenderParams` (falls back to `0.15` if not set)
 - **engine-scene-runtime**: added `obj.ambient`, `obj.light.x`, `obj.light.y`, `obj.light.z`, and `obj.rotation-speed` runtime property paths in `materialization.rs`; added `ambient` + `light_direction_x/y/z` to the destructure block so scripts can adjust lighting at runtime

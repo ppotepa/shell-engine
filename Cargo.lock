@@ -690,6 +690,7 @@ dependencies = [
  "engine-gui",
  "engine-persistence",
  "engine-physics",
+ "engine-terrain",
  "indexmap",
  "rhai",
  "serde",

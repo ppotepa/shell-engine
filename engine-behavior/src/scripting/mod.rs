@@ -15,6 +15,7 @@ pub mod palette;
 pub mod physics;
 pub mod scene;
 pub mod ui;
+pub mod world;
 
 use rhai::Engine as RhaiEngine;
 
@@ -30,6 +31,7 @@ pub(crate) fn register_all_domains(engine: &mut RhaiEngine) {
     physics::register_with_rhai(engine);
     scene::register_with_rhai(engine);
     ui::register_with_rhai(engine);
+    world::register_with_rhai(engine);
     engine_api::register_effects_api(engine);
     engine_api::register_collision_api(engine);
 }

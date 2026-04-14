@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../../schemas/scene.yaml
+id: planet-generator-main
+title: Planet Generator
+bg: "#000008"
+render-size: 640x360
+layers:
+  - ref: planet
+  - ref: hud-tabs
+  - ref: hud-panel
+  - ref: hud-actions
+  - ref: hud-presets
+  - ref: hud-stats
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./main.rhai
+input:
+  orbit-camera:
+    target: planet-mesh
+    yaw: 30.0
+    pitch: 20.0
+    distance: 2.5
+    pitch-min: -85.0
+    pitch-max: 85.0
+    distance-min: 1.5
+    distance-max: 6.0
+    distance-step: 0.2
+    drag-sensitivity: 0.3
+  free-look-camera: {}
+postfx:
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.015
+      transparency: 0.03
+      brightness: 1.08
+      speed: 0.12
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 400 }] }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 60ms

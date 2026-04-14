@@ -641,12 +641,27 @@ pub enum Sprite {
         /// Mountain elevation contribution over land 0.0–1.0 (default 0.45).
         #[serde(default, rename = "world-mountain-strength")]
         world_gen_mountain_strength: Option<f64>,
+        /// Ridged noise octave count for mountain detail 2–8 (default 5).
+        #[serde(default, rename = "world-mountain-ridge-octaves")]
+        world_gen_mountain_ridge_octaves: Option<u8>,
         /// Regional moisture noise frequency (default 3.0).
         #[serde(default, rename = "world-moisture-scale")]
         world_gen_moisture_scale: Option<f64>,
+        /// Polar cold zone strength 0.0–2.0 (default 1.0).
+        #[serde(default, rename = "world-ice-cap-strength")]
+        world_gen_ice_cap_strength: Option<f64>,
+        /// Temperature reduction per unit elevation 0.0–1.0 (default 0.6).
+        #[serde(default, rename = "world-lapse-rate")]
+        world_gen_lapse_rate: Option<f64>,
+        /// Moisture reduction above mountains 0.0–1.0 (default 0.35).
+        #[serde(default, rename = "world-rain-shadow")]
+        world_gen_rain_shadow: Option<f64>,
         /// Radial vertex displacement range ±N (sphere only, default 0.22).
         #[serde(default, rename = "world-displacement-scale")]
         world_gen_displacement_scale: Option<f32>,
+        /// Mesh subdivision count; higher = smoother sphere (default 32).
+        #[serde(default, rename = "world-subdivisions")]
+        world_gen_subdivisions: Option<u32>,
 
         /// Object world-space translation (applied before view/projection).
         /// Useful when driving multiple OBJ sprites from one shared scene camera.

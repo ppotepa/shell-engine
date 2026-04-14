@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: hud-stats
+  z_index: 14
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: hud-stats-box
+      align-x: left
+      align-y: top
+      x: 8
+      y: 350
+      width: 300
+      height: 12
+      padding: 0
+      border-width: 0
+      fg: "#507060"
+      bg: "#000008"
+      children:
+        - type: grid
+          columns: ["1fr", "auto"]
+          rows: ["1fr"]
+          gap-x: 8
+          children:
+            - { type: text, id: stats-biomes, content: "OCEAN 55%  FOREST 12%  DESERT 8%  SNOW 7%", grid-col: 1, grid-row: 1, at: cl, font: "generic:1", fg: "#507060" }
+            - { type: text, id: stats-seed,   content: "SEED: 0",                                   grid-col: 2, grid-row: 1, at: cr, font: "generic:1", fg: "#304040" }
