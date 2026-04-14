@@ -67,6 +67,12 @@ fn parse_terrain_params(query: &str) -> engine_mesh::primitives::TerrainParams {
                 "rough" => { if let Ok(f) = v.parse::<f32>() { p.roughness  = f.clamp(0.0, 1.0); } }
                 "sx"    => { if let Ok(f) = v.parse::<f32>() { p.seed_x     = f; } }
                 "sz"    => { if let Ok(f) = v.parse::<f32>() { p.seed_z     = f; } }
+                "lac"   => { if let Ok(f) = v.parse::<f32>() { p.lacunarity = f.clamp(1.0, 4.0); } }
+                "ridge" => { p.ridge = v == "1"; }
+                "plat"  => { if let Ok(f) = v.parse::<f32>() { p.plateau    = f.clamp(0.0, 1.0); } }
+                "sea"   => { if let Ok(f) = v.parse::<f32>() { p.sea_level  = f.clamp(0.0, 1.0); } }
+                "scx"   => { if let Ok(f) = v.parse::<f32>() { p.scale_x    = f.clamp(0.25, 4.0); } }
+                "scz"   => { if let Ok(f) = v.parse::<f32>() { p.scale_z    = f.clamp(0.25, 4.0); } }
                 _ => {}
             }
         }

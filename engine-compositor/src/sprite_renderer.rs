@@ -1182,6 +1182,14 @@ fn render_obj_sprite(
         terrain_plane_frequency,
         terrain_plane_roughness,
         terrain_plane_octaves,
+        terrain_plane_seed_x,
+        terrain_plane_seed_z,
+        terrain_plane_lacunarity,
+        terrain_plane_ridge,
+        terrain_plane_plateau,
+        terrain_plane_sea_level,
+        terrain_plane_scale_x,
+        terrain_plane_scale_z,
         ..
     } = sprite
     else {
@@ -1195,21 +1203,29 @@ fn render_obj_sprite(
         && (terrain_plane_amplitude.is_some()
             || terrain_plane_frequency.is_some()
             || terrain_plane_roughness.is_some()
-            || terrain_plane_octaves.is_some())
+            || terrain_plane_octaves.is_some()
+            || terrain_plane_seed_x.is_some()
+            || terrain_plane_seed_z.is_some()
+            || terrain_plane_lacunarity.is_some()
+            || terrain_plane_ridge.is_some()
+            || terrain_plane_plateau.is_some()
+            || terrain_plane_sea_level.is_some()
+            || terrain_plane_scale_x.is_some()
+            || terrain_plane_scale_z.is_some())
     {
         let mut params = parse_terrain_params_from_uri(source);
-        if let Some(v) = terrain_plane_amplitude {
-            params.amplitude = *v;
-        }
-        if let Some(v) = terrain_plane_frequency {
-            params.frequency = *v;
-        }
-        if let Some(v) = terrain_plane_roughness {
-            params.roughness = *v;
-        }
-        if let Some(v) = terrain_plane_octaves {
-            params.octaves = *v;
-        }
+        if let Some(v) = terrain_plane_amplitude  { params.amplitude  = *v; }
+        if let Some(v) = terrain_plane_frequency  { params.frequency  = *v; }
+        if let Some(v) = terrain_plane_roughness  { params.roughness  = *v; }
+        if let Some(v) = terrain_plane_octaves    { params.octaves    = *v; }
+        if let Some(v) = terrain_plane_seed_x     { params.seed_x     = *v; }
+        if let Some(v) = terrain_plane_seed_z     { params.seed_z     = *v; }
+        if let Some(v) = terrain_plane_lacunarity { params.lacunarity = *v; }
+        if let Some(v) = terrain_plane_ridge      { params.ridge      = *v; }
+        if let Some(v) = terrain_plane_plateau    { params.plateau    = *v; }
+        if let Some(v) = terrain_plane_sea_level  { params.sea_level  = *v; }
+        if let Some(v) = terrain_plane_scale_x    { params.scale_x    = *v; }
+        if let Some(v) = terrain_plane_scale_z    { params.scale_z    = *v; }
         // Preserve grid size from the original URI authority section.
         let grid = source
             .trim_start_matches("terrain-plane://")
@@ -1217,8 +1233,12 @@ fn render_obj_sprite(
             .next()
             .unwrap_or("64");
         effective_source_buf = format!(
-            "terrain-plane://{}?amp={}&freq={}&oct={}&rough={}",
-            grid, params.amplitude, params.frequency, params.octaves, params.roughness
+            "terrain-plane://{}?amp={}&freq={}&oct={}&rough={}&sx={}&sz={}&lac={}&ridge={}&plat={}&sea={}&scx={}&scz={}",
+            grid,
+            params.amplitude, params.frequency, params.octaves, params.roughness,
+            params.seed_x, params.seed_z, params.lacunarity,
+            if params.ridge { 1 } else { 0 },
+            params.plateau, params.sea_level, params.scale_x, params.scale_z
         );
         &effective_source_buf
     } else {

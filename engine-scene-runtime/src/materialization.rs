@@ -770,6 +770,14 @@ fn set_obj_property_recursive(
                 terrain_plane_frequency,
                 terrain_plane_roughness,
                 terrain_plane_octaves,
+                terrain_plane_seed_x,
+                terrain_plane_seed_z,
+                terrain_plane_lacunarity,
+                terrain_plane_ridge,
+                terrain_plane_plateau,
+                terrain_plane_sea_level,
+                terrain_plane_scale_x,
+                terrain_plane_scale_z,
                 world_x,
                 world_y,
                 world_z,
@@ -823,9 +831,79 @@ fn set_obj_property_recursive(
                 }
                 "terrain.octaves" => {
                     if let Some(next) = json_value_to_f32(value) {
-                        let next = (next.round() as u8).clamp(1, 8);
+                        let next = (next.round() as u8).clamp(1, 3);
                         if terrain_plane_octaves.map_or(true, |v| v != next) {
                             *terrain_plane_octaves = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.seed_x" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        if terrain_plane_seed_x.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_seed_x = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.seed_z" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        if terrain_plane_seed_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_seed_z = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.lacunarity" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(1.0, 4.0);
+                        if terrain_plane_lacunarity.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_lacunarity = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.ridge" => {
+                    let next = value.as_bool().unwrap_or_else(|| {
+                        value.as_f64().map(|f| f != 0.0).unwrap_or(false)
+                    });
+                    if terrain_plane_ridge.map_or(true, |v| v != next) {
+                        *terrain_plane_ridge = Some(next);
+                        *updated = true;
+                    }
+                }
+                "terrain.plateau" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if terrain_plane_plateau.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_plateau = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.sea_level" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if terrain_plane_sea_level.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_sea_level = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.scale_x" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.25, 4.0);
+                        if terrain_plane_scale_x.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_scale_x = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.scale_z" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.25, 4.0);
+                        if terrain_plane_scale_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_scale_z = Some(next);
                             *updated = true;
                         }
                     }

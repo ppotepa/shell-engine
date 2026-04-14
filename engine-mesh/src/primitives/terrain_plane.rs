@@ -34,6 +34,24 @@ pub struct TerrainParams {
     pub seed_x: f32,
     /// Z-axis seed offset — shifts the terrain region. Default 0.0.
     pub seed_z: f32,
+    /// Frequency multiplier between successive octaves. Default 2.0 (range 1.0 – 4.0).
+    /// Higher = octaves spread apart faster, more contrast between scales.
+    pub lacunarity: f32,
+    /// Ridge mode: uses abs() on each octave sample to produce sharp mountain ridges
+    /// instead of smooth hills. Default false.
+    pub ridge: bool,
+    /// Plateau strength (0.0 = off, 1.0 = full mesa). Compresses peaks above a threshold,
+    /// producing flat-topped mesas and stepped terrain. Default 0.0.
+    pub plateau: f32,
+    /// Sea level (0.0 = off, 1.0 = fully flooded). Clamps the terrain floor upward,
+    /// creating flat ocean/lake areas. At 0.5 everything below mid-height is flat.
+    /// Default 0.0.
+    pub sea_level: f32,
+    /// Anisotropic X stretch — stretches the noise field horizontally.
+    /// Values > 1 produce elongated ridges along Z; values < 1 compress them. Default 1.0.
+    pub scale_x: f32,
+    /// Anisotropic Z stretch — stretches the noise field along the depth axis. Default 1.0.
+    pub scale_z: f32,
 }
 
 impl Default for TerrainParams {
@@ -45,6 +63,12 @@ impl Default for TerrainParams {
             roughness: 1.0,
             seed_x: 0.0,
             seed_z: 0.0,
+            lacunarity: 2.0,
+            ridge: false,
+            plateau: 0.0,
+            sea_level: 0.0,
+            scale_x: 1.0,
+            scale_z: 1.0,
         }
     }
 }
@@ -100,28 +124,60 @@ pub fn terrain_plane(subdivisions: u32, params: TerrainParams) -> Mesh {
 ///
 /// With default params the output range is approximately [-0.22, 0.22].
 /// `amplitude` scales all outputs; `frequency` zooms the noise field;
-/// `roughness` attenuates the higher octaves (0.0 = smooth, 1.0 = full detail).
+/// `roughness` attenuates the higher octaves (0.0 = smooth, 1.0 = full detail);
+/// `lacunarity` controls frequency ratio between octaves;
+/// `ridge` enables sharp mountain-ridge mode via abs() on each octave;
+/// `plateau` flattens peaks above a threshold for mesa terrain;
+/// `sea_level` clamps the floor upward to create flat ocean areas;
+/// `scale_x`/`scale_z` apply anisotropic stretch to the noise field.
 fn height(x: f32, z: f32, p: &TerrainParams) -> f32 {
-    let x = x * p.frequency + p.seed_x;
-    let z = z * p.frequency + p.seed_z;
-    let amp = p.amplitude;
-    let r = p.roughness;
+    // Apply anisotropic scale, frequency, and seed offset.
+    let fx = x * p.frequency * p.scale_x + p.seed_x;
+    let fz = z * p.frequency * p.scale_z + p.seed_z;
+    let lac = p.lacunarity;
 
-    // Octave 1: broad sweeping hills (always present)
-    let h1 = (x * 2.1 + 0.5).sin() * (z * 1.7 - 0.3).cos() * 0.12 * amp;
-    // Octave 2: mid-frequency ridges (scaled by roughness)
+    // Helper: sample the base wave pattern at (nx, nz).
+    // In ridge mode the absolute value produces V-shaped ridges instead of sinusoidal hills.
+    let sample = |nx: f32, nz: f32| -> f32 {
+        let raw = (nx * 2.1 + 0.5).sin() * (nz * 1.7 - 0.3).cos();
+        if p.ridge { raw.abs() } else { raw }
+    };
+
+    // Octave 1: broad sweeping hills (always present).
+    let h1 = sample(fx, fz) * 0.12 * p.amplitude;
+    // Octave 2: mid-frequency detail, attenuated by roughness.
     let h2 = if p.octaves >= 2 {
-        (x * 4.3 - z * 3.8 + 1.1).sin() * 0.07 * amp * r
+        sample(fx * lac, fz * lac) * 0.07 * p.amplitude * p.roughness
     } else {
         0.0
     };
-    // Octave 3: fine surface roughness (scaled by roughness²)
+    // Octave 3: fine surface roughness, attenuated by roughness².
     let h3 = if p.octaves >= 3 {
-        (x * 8.1 + z * 6.7 - 0.9).sin() * 0.03 * amp * r * r
+        sample(fx * lac * lac, fz * lac * lac) * 0.03 * p.amplitude * p.roughness * p.roughness
     } else {
         0.0
     };
-    h1 + h2 + h3
+    let mut h = h1 + h2 + h3;
+
+    // Plateau: compress heights above a threshold to create flat-topped mesas.
+    if p.plateau > 0.0 {
+        let max_h = 0.22 * p.amplitude;
+        let thresh = max_h * (1.0 - p.plateau * 0.8);
+        if h > thresh {
+            let compression = (1.0 - p.plateau).max(0.0);
+            h = thresh + (h - thresh) * compression;
+        }
+    }
+
+    // Sea level: clamp the floor upward to create flat ocean/lake areas.
+    if p.sea_level > 0.0 {
+        let max_h = 0.22 * p.amplitude;
+        // sea_level=0 → floor at -max_h, sea_level=1 → floor at +max_h (fully flooded).
+        let floor = -max_h + p.sea_level * 2.0 * max_h;
+        h = h.max(floor);
+    }
+
+    h
 }
 
 #[cfg(test)]
