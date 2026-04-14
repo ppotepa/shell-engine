@@ -6,7 +6,7 @@ if !(local.initialized ?? false) {
     local.sel = 0;
 }
 
-let count = 3;
+let count = 4;
 let sel   = local.sel;
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ let col_exit = "#1a3e35";
 let t = time.scene_elapsed_ms;
 let float_x = sin(t.to_float() / 400.0) * 3.0;
 
-let items = ["item-0", "item-1", "item-2"];
+let items = ["item-0", "item-1", "item-2", "item-3"];
 for i in 0..count {
     let is_exit = (i == count - 1);
     if i == sel {
@@ -41,12 +41,14 @@ for i in 0..count {
 // ── Number shortcuts ──────────────────────────────────────────────────────────
 if input.just_pressed("1") { sel = 0; local.sel = 0; }
 if input.just_pressed("2") { sel = 1; local.sel = 1; }
-if input.just_pressed("0") { sel = 2; local.sel = 2; }
+if input.just_pressed("3") { sel = 2; local.sel = 2; }
+if input.just_pressed("0") { sel = 3; local.sel = 3; }
 
 // ── Confirm ───────────────────────────────────────────────────────────────────
 let confirm = input.just_pressed("Enter") || input.just_pressed("Space");
 if confirm {
     if sel == 0 { game.jump("terrain-plain-noise"); }
     else if sel == 1 { game.jump("terrain-fractal-noise"); }
-    else if sel == 2 { game.jump("playground-exit"); }
+    else if sel == 2 { game.jump("terrain-sphere"); }
+    else if sel == 3 { game.jump("playground-exit"); }
 }

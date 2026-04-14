@@ -38,6 +38,12 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ## 14-04-2026
 
+**Sphere terrain scene + `obj.ambient` / `obj.light.*` runtime property paths** ✅
+- **engine-core**: added `ambient: Option<f32>` field to `Sprite::Obj` (was previously silently ignored in YAML; now properly deserialized and exposed)
+- **engine-compositor**: wire `ambient` from `Sprite::Obj` through `ObjRenderParams` (falls back to `0.15` if not set)
+- **engine-scene-runtime**: added `obj.ambient`, `obj.light.x`, `obj.light.y`, `obj.light.z`, and `obj.rotation-speed` runtime property paths in `materialization.rs`; added `ambient` + `light_direction_x/y/z` to the destructure block so scripts can adjust lighting at runtime
+- **terrain-playground**: added 3rd scene `terrain-sphere` — cube-sphere://32 mesh with full orbit-camera (-85°/+85° pitch), smooth shading, noise surface mode, 5-param HUD panel (ambient, rotation speed, light X/Y/Z), and Rhai script wiring all `obj.*` paths; updated menu with 4th item "SPHERE TERRAIN" (shortcut [3])
+
 **Build performance: lld linker + incremental compilation re-enabled** ✅
 - **build**: switched dev linker from MSVC `link.exe` to `rust-lld` (bundled with Rust) via `.cargo/config.toml` — 2–4× faster linking on large workspaces, no extra install required
 - **build**: re-enabled incremental compilation (`incremental = true`) in dev profile — was disabled due to old Windows NTFS hard-link warning; warning is now non-fatal (copies instead of links), net benefit over full recompile

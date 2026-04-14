@@ -1136,6 +1136,7 @@ fn render_obj_sprite(
         highlight_colour,
         tone_mix,
         smooth_shading,
+        ambient,
         latitude_bands,
         latitude_band_depth,
         terrain_color,
@@ -1437,7 +1438,7 @@ fn render_obj_sprite(
                 view_fwd_z.unwrap_or(1.0)
             },
             unlit: false,
-            ambient: 0.15,
+            ambient: ambient.unwrap_or(0.15),
             light_point_falloff: 0.7,
             light_point_2_falloff: 0.7,
             smooth_shading: smooth_shading.unwrap_or(false),

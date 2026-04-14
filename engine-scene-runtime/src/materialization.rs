@@ -762,6 +762,10 @@ fn set_obj_property_recursive(
                 pitch_deg,
                 roll_deg,
                 rotate_y_deg_per_sec,
+                ambient,
+                light_direction_x,
+                light_direction_y,
+                light_direction_z,
                 surface_mode,
                 clip_y_min,
                 clip_y_max,
@@ -961,6 +965,51 @@ fn set_obj_property_recursive(
                     if (rotate_y_deg_per_sec.unwrap_or(0.0) - next).abs() > f32::EPSILON {
                         *rotate_y_deg_per_sec = Some(next);
                         *updated = true;
+                    }
+                }
+                "obj.rotation-speed" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 60.0);
+                        if (rotate_y_deg_per_sec.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                            *rotate_y_deg_per_sec = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.ambient" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if ambient.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *ambient = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.light.x" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(-1.0, 1.0);
+                        if light_direction_x.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *light_direction_x = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.light.y" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(-1.0, 1.0);
+                        if light_direction_y.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *light_direction_y = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.light.z" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(-1.0, 1.0);
+                        if light_direction_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *light_direction_z = Some(next);
+                            *updated = true;
+                        }
                     }
                 }
                 "obj.surface_mode" => {

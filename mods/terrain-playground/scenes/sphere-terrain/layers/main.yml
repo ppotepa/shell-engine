@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: main
+  z_index: 0
+  sprites:
+    - type: obj
+      id: sphere-mesh
+      source: "cube-sphere://32"
+      at: cc
+      width: 360
+      height: 360
+      scale: 1.0
+      yaw-deg: 0.0
+      pitch-deg: 0.0
+      roll-deg: 0.0
+      rotate-y-deg-per-sec: 5.0
+      ambient: 0.15
+      light-direction-x: -0.45
+      light-direction-y: 0.70
+      light-direction-z: -0.85
+      smooth-shading: true
+      surface-mode: "noise"
+      terrain-noise-scale: 2.5
+      terrain-threshold: 0.45
+      terrain-color: "#3a6ea8"
+      marble-depth: 0.0
+      prerender: false
+      camera-distance: 2.5
+      fov-degrees: 50
+      near-clip: 0.01
+
+    - type: text
+      id: sphere-hud-title
+      content: "SPHERE TERRAIN"
+      x: 8
+      y: 344
+      at: bl
+
+    - type: text
+      id: sphere-back-hint
+      content: "[ESC] BACK   [CTRL+F] FREE-LOOK   [S] PARAMS"
+      x: 8
+      y: 8
+      at: tl
+

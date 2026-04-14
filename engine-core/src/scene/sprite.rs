@@ -469,7 +469,10 @@ pub enum Sprite {
         highlight_colour: Option<TermColour>,
         #[serde(default, rename = "tone-mix")]
         tone_mix: Option<f32>,
-        /// Enable Gouraud (per-vertex smooth) shading. Produces a smooth terminator on curved meshes.
+        /// Ambient light floor — brightness of unlit surfaces (0.0–1.0). Default 0.15.
+        /// Set at runtime via `scene.set(id, "obj.ambient", v)`.
+        #[serde(default, rename = "ambient")]
+        ambient: Option<f32>,
         #[serde(default, rename = "smooth-shading")]
         smooth_shading: Option<bool>,
         /// Number of procedural latitude bands (sine-wave along world-Y). 0 = disabled.

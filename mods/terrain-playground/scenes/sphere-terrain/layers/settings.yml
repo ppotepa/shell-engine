@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+# ── Sphere Settings Panel ─────────────────────────────────────────────────────
+# 6 sphere rendering parameters. Toggle with [S].
+- name: sphere-settings-panel
+  z_index: 20
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: sphere-settings-box
+      align-x: right
+      align-y: top
+      x: -8
+      y: 8
+      width: 220
+      height: 195
+      padding: 8
+      border-width: 1
+      corner-radius: 2
+      fg: "#4488cc"
+      bg: "#040c18"
+      border-colour: "#2a4e88"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+      visible: false
+      children:
+        - type: grid
+          columns: ["1fr"]
+          rows: ["auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto","auto"]
+          gap-y: 3
+          children:
+            # Row 1 — header
+            - { type: text, content: "SPHERE PARAMS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#4488cc" }
+
+            # Rows 2-3 — ambient
+            - { type: text, id: sp-amb-label, content: "  AMBIENT    0.15", grid-col: 1, grid-row: 2, at: cl, x: 4, font: "generic:1", fg: "#aabbdd" }
+            - { type: vector, id: sp-amb-track,   grid-col: 1, grid-row: 3, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a4e88" }
+            - { type: vector, id: sp-amb-handle,  grid-col: 1, grid-row: 3, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#4488cc" }
+
+            # Rows 4-5 — rotation speed
+            - { type: text, id: sp-rot-label, content: "  ROT SPEED  5.0", grid-col: 1, grid-row: 4, at: cl, x: 4, font: "generic:1", fg: "#aabbdd" }
+            - { type: vector, id: sp-rot-track,   grid-col: 1, grid-row: 5, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a4e88" }
+            - { type: vector, id: sp-rot-handle,  grid-col: 1, grid-row: 5, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#4488cc" }
+
+            # Rows 6-7 — light X
+            - { type: text, id: sp-lx-label, content: "  LIGHT X   -0.45", grid-col: 1, grid-row: 6, at: cl, x: 4, font: "generic:1", fg: "#aabbdd" }
+            - { type: vector, id: sp-lx-track,   grid-col: 1, grid-row: 7, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a4e88" }
+            - { type: vector, id: sp-lx-handle,  grid-col: 1, grid-row: 7, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#4488cc" }
+
+            # Rows 8-9 — light Y
+            - { type: text, id: sp-ly-label, content: "  LIGHT Y    0.70", grid-col: 1, grid-row: 8, at: cl, x: 4, font: "generic:1", fg: "#aabbdd" }
+            - { type: vector, id: sp-ly-track,   grid-col: 1, grid-row: 9, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a4e88" }
+            - { type: vector, id: sp-ly-handle,  grid-col: 1, grid-row: 9, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#4488cc" }
+
+            # Rows 10-11 — light Z
+            - { type: text, id: sp-lz-label, content: "  LIGHT Z   -0.85", grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:1", fg: "#aabbdd" }
+            - { type: vector, id: sp-lz-track,   grid-col: 1, grid-row: 11, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#2a4e88" }
+            - { type: vector, id: sp-lz-handle,  grid-col: 1, grid-row: 11, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#4488cc" }
+
+            # Row 12 — spacer
+            - { type: text, content: "", grid-col: 1, grid-row: 12, font: "generic:1", fg: "#000000" }
+
+            # Row 13 — footer hint
+            - { type: text, content: "[S] HIDE  [←/→] ADJUST", grid-col: 1, grid-row: 13, at: cc, font: "generic:1", fg: "#2a4e88" }
