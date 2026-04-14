@@ -4,7 +4,7 @@
   sprites:
     - type: obj
       id: sphere-mesh
-      source: "cube-sphere://32"
+      source: "terrain-sphere://32"
       at: cc
       width: 360
       height: 360
@@ -18,13 +18,8 @@
       light-direction-y: 0.70
       light-direction-z: -0.85
       smooth-shading: true
-      surface-mode: "noise"
-      terrain-noise-scale: 2.5
-      terrain-threshold: 0.45
-      terrain-color: "#3a6ea8"
-      marble-depth: 0.0
       prerender: false
-      camera-distance: 2.5
+      camera-distance: 3.0
       fov-degrees: 50
       near-clip: 0.01
 

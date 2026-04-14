@@ -1197,10 +1197,8 @@ fn render_obj_sprite(
         return;
     };
 
-    // Build effective source: if base source is a terrain-plane URI and any override
-    // fields are set, parse the URI defaults and override them.
     let effective_source_buf: String;
-    let effective_source: &str = if source.starts_with("terrain-plane://")
+    let effective_source: &str = if (source.starts_with("terrain-plane://") || source.starts_with("terrain-sphere://"))
         && (terrain_plane_amplitude.is_some()
             || terrain_plane_frequency.is_some()
             || terrain_plane_roughness.is_some()
@@ -1214,6 +1212,7 @@ fn render_obj_sprite(
             || terrain_plane_scale_x.is_some()
             || terrain_plane_scale_z.is_some())
     {
+        let scheme = if source.starts_with("terrain-sphere://") { "terrain-sphere" } else { "terrain-plane" };
         let mut params = parse_terrain_params_from_uri(source);
         if let Some(v) = terrain_plane_amplitude  { params.amplitude  = *v; }
         if let Some(v) = terrain_plane_frequency  { params.frequency  = *v; }
@@ -1227,14 +1226,15 @@ fn render_obj_sprite(
         if let Some(v) = terrain_plane_sea_level  { params.sea_level  = *v; }
         if let Some(v) = terrain_plane_scale_x    { params.scale_x    = *v; }
         if let Some(v) = terrain_plane_scale_z    { params.scale_z    = *v; }
-        // Preserve grid size from the original URI authority section.
         let grid = source
-            .trim_start_matches("terrain-plane://")
+            .splitn(3, "//")
+            .nth(1)
+            .unwrap_or("32")
             .split('?')
             .next()
-            .unwrap_or("64");
+            .unwrap_or("32");
         effective_source_buf = format!(
-            "terrain-plane://{}?amp={}&freq={}&oct={}&rough={}&sx={}&sz={}&lac={}&ridge={}&plat={}&sea={}&scx={}&scz={}",
+            "{scheme}://{}?amp={}&freq={}&oct={}&rough={}&sx={}&sz={}&lac={}&ridge={}&plat={}&sea={}&scx={}&scz={}",
             grid,
             params.amplitude, params.frequency, params.octaves, params.roughness,
             params.seed_x, params.seed_z, params.lacunarity,

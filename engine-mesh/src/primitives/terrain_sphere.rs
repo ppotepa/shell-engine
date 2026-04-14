@@ -1,0 +1,178 @@
+//! Procedural terrain sphere mesh generator.
+//!
+//! A cube-sphere where each vertex is radially displaced by a 3D noise function.
+//! Using 3D Cartesian coordinates for noise input eliminates seams at the poles
+//! and the antimeridian — the noise field is continuous across the entire sphere.
+//!
+//! # URI Integration
+//!
+//! `engine-compositor` exposes this as `terrain-sphere://N` (with optional query params):
+//!
+//! ```text
+//! terrain-sphere://32                            → defaults (amp=1, freq=1, oct=3, rough=1)
+//! terrain-sphere://32?amp=2.0&freq=0.5           → larger, lower-frequency mountains
+//! terrain-sphere://32?ridge=1&lac=2.5            → sharp ridge terrain
+//! terrain-sphere://32?plat=0.4&sea=0.2           → mesa plateaus with ocean floor
+//! ```
+
+use crate::mesh::{compute_smooth_normals, normalize, Mesh};
+use crate::primitives::terrain_plane::TerrainParams;
+
+/// The (normal, right, up) tangent basis for each cube face in the order [+X, -X, +Y, -Y, +Z, -Z].
+const FACE_BASES: [([f32; 3], [f32; 3], [f32; 3]); 6] = [
+    ([1.0,  0.0,  0.0], [0.0,  0.0, -1.0], [0.0,  1.0,  0.0]),
+    ([-1.0, 0.0,  0.0], [0.0,  0.0,  1.0], [0.0,  1.0,  0.0]),
+    ([0.0,  1.0,  0.0], [1.0,  0.0,  0.0], [0.0,  0.0, -1.0]),
+    ([0.0, -1.0,  0.0], [1.0,  0.0,  0.0], [0.0,  0.0,  1.0]),
+    ([0.0,  0.0,  1.0], [1.0,  0.0,  0.0], [0.0,  1.0,  0.0]),
+    ([0.0,  0.0, -1.0], [-1.0, 0.0,  0.0], [0.0,  1.0,  0.0]),
+];
+
+/// Generate a terrain sphere with `subdivisions` grid divisions per cube face edge.
+///
+/// Each vertex on the unit cube-sphere is radially displaced by a 3D noise
+/// function sampled at the vertex's Cartesian position, producing seamless
+/// planetary terrain without UV discontinuities.
+///
+/// * `subdivisions = 24` → ~3.5 k verts, ~6.9 k tris (fast, coarse terrain)
+/// * `subdivisions = 32` → ~6 k verts, ~12 k tris  (good quality)
+/// * `subdivisions = 48` → ~14 k verts, ~27 k tris  (high detail)
+///
+/// Pass `TerrainParams::default()` for a smooth, gently varied surface.
+pub fn terrain_sphere(subdivisions: u32, params: TerrainParams) -> Mesh {
+    let n = subdivisions.max(1) as usize;
+    let verts_per_face = (n + 1) * (n + 1);
+    let tris_per_face = 2 * n * n;
+
+    let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(6 * verts_per_face);
+    let mut faces: Vec<[usize; 3]> = Vec::with_capacity(6 * tris_per_face);
+
+    for (face_idx, (fn_, right, up)) in FACE_BASES.iter().enumerate() {
+        let base = face_idx * verts_per_face;
+
+        for row in 0..=n {
+            for col in 0..=n {
+                let s = (col as f32 / n as f32) * 2.0 - 1.0;
+                let t = (row as f32 / n as f32) * 2.0 - 1.0;
+                let x = fn_[0] + right[0] * s + up[0] * t;
+                let y = fn_[1] + right[1] * s + up[1] * t;
+                let z = fn_[2] + right[2] * s + up[2] * t;
+                // Normalize onto unit sphere, then radially displace.
+                let dir = normalize([x, y, z]);
+                let h = sphere_height(dir, &params);
+                // Displace outward along the surface normal (= unit direction on sphere).
+                let r = 1.0 + h;
+                vertices.push([dir[0] * r, dir[1] * r, dir[2] * r]);
+            }
+        }
+
+        for row in 0..n {
+            for col in 0..n {
+                let a = base + row * (n + 1) + col;
+                let b = a + 1;
+                let c = a + (n + 1);
+                let d = c + 1;
+                faces.push([a, c, b]);
+                faces.push([b, c, d]);
+            }
+        }
+    }
+
+    // Recompute normals from displaced geometry (not the original sphere normals).
+    let normals = compute_smooth_normals(&vertices, &faces);
+    Mesh::new(vertices, normals, faces)
+}
+
+/// 3D noise height for terrain sphere.
+///
+/// Uses the vertex's Cartesian direction as input — this is a continuous 3D
+/// function so no seams appear where cube faces meet or at the poles.
+///
+/// The displacement range at `amplitude = 1.0` is approximately ±0.20.
+fn sphere_height(dir: [f32; 3], p: &TerrainParams) -> f32 {
+    let [dx, dy, dz] = dir;
+
+    // Apply frequency and scale. scale_x stretches the XZ plane (longitude/latitude
+    // bands); scale_z stretches the Y axis (polar vs equatorial features).
+    let fx = dx * p.frequency * p.scale_x + p.seed_x;
+    let fy = dy * p.frequency * p.scale_z + p.seed_z;
+    let fz = dz * p.frequency * p.scale_x;
+    let lac = p.lacunarity;
+
+    // Each octave samples a different axis pair to break up regular patterns.
+    let sample = |nx: f32, ny: f32, nz: f32| -> f32 {
+        let raw = (nx * 2.1 + ny * 0.9 + 0.5).sin() * (nz * 1.7 + ny * 1.3 - 0.3).cos();
+        if p.ridge { raw.abs() } else { raw }
+    };
+
+    let h1 = sample(fx, fy, fz) * 0.12 * p.amplitude;
+    let h2 = if p.octaves >= 2 {
+        sample(fx * lac, fy * lac, fz * lac) * 0.07 * p.amplitude * p.roughness
+    } else {
+        0.0
+    };
+    let h3 = if p.octaves >= 3 {
+        sample(fx * lac * lac, fy * lac * lac, fz * lac * lac)
+            * 0.03
+            * p.amplitude
+            * p.roughness
+            * p.roughness
+    } else {
+        0.0
+    };
+    let mut h = h1 + h2 + h3;
+
+    if p.plateau > 0.0 {
+        let max_h = 0.22 * p.amplitude;
+        let thresh = max_h * (1.0 - p.plateau * 0.8);
+        if h > thresh {
+            let compression = (1.0 - p.plateau).max(0.0);
+            h = thresh + (h - thresh) * compression;
+        }
+    }
+
+    if p.sea_level > 0.0 {
+        let min_h = -0.22 * p.amplitude;
+        let floor = min_h + (0.44 * p.amplitude * p.sea_level);
+        if h < floor {
+            h = floor;
+        }
+    }
+
+    h
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vertex_count_matches_formula() {
+        for n in [1u32, 4, 8, 16, 24] {
+            let mesh = terrain_sphere(n, TerrainParams::default());
+            let expected_verts = 6 * (n as usize + 1) * (n as usize + 1);
+            let expected_tris = 12 * n as usize * n as usize;
+            assert_eq!(mesh.vertices.len(), expected_verts, "n={n} verts");
+            assert_eq!(mesh.faces.len(), expected_tris, "n={n} tris");
+        }
+    }
+
+    #[test]
+    fn displaced_vertices_near_unit_sphere() {
+        // Default params produce displacement of ~±0.22 at amplitude=1.
+        let mesh = terrain_sphere(8, TerrainParams::default());
+        for v in &mesh.vertices {
+            let r = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+            assert!(r > 0.5 && r < 2.0, "vertex radius out of expected range: r={r}");
+        }
+    }
+
+    #[test]
+    fn normals_are_unit_length() {
+        let mesh = terrain_sphere(8, TerrainParams::default());
+        for n in &mesh.normals {
+            let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+            assert!((len - 1.0).abs() < 1e-3, "normal not unit length: {len}");
+        }
+    }
+}

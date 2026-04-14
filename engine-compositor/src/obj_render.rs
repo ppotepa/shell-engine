@@ -80,7 +80,7 @@ fn parse_terrain_params(query: &str) -> engine_mesh::primitives::TerrainParams {
     p
 }
 
-/// Parse terrain params from a full `terrain-plane://N[?params]` URI.
+/// Parse terrain params from a `terrain-plane://N[?params]` or `terrain-sphere://N[?params]` URI.
 ///
 /// Returns default params if the URI has no query string or cannot be parsed.
 pub(crate) fn parse_terrain_params_from_uri(uri: &str) -> engine_mesh::primitives::TerrainParams {
@@ -118,6 +118,19 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
         let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(64);
         let params = parse_terrain_params(query);
         let mesh = engine_mesh::primitives::terrain_plane(subdivisions, params);
+        let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
+        if let Ok(mut cache_lock) = cache.lock() {
+            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
+        }
+        return Some(mesh_arc);
+    }
+
+    // Handle procedural terrain-sphere URI: terrain-sphere://N  or  terrain-sphere://N?params
+    if let Some(rest) = path.strip_prefix("terrain-sphere://") {
+        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
+        let params = parse_terrain_params(query);
+        let mesh = engine_mesh::primitives::terrain_sphere(subdivisions, params);
         let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
         if let Ok(mut cache_lock) = cache.lock() {
             cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
