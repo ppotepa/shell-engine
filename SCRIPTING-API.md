@@ -750,6 +750,34 @@ debug.error("message")
 
 ---
 
+## `gui` — GuiApi
+
+Query and control GUI widget state (for scenes with `gui:` blocks).
+
+```rhai
+gui.slider_value("id")        // → f64   Current slider value (0.0–max)
+gui.toggle_on("id")           // → bool  Whether toggle is on
+gui.button_clicked("id")      // → bool  True the frame a button was clicked
+gui.has_change()              // → bool  True if any widget value changed this frame
+gui.changed_widget()          // → str   Id of the last changed widget (or "")
+gui.widget_value("id")        // → f64   Alias for slider_value
+gui.widget_hovered("id")      // → bool  True if mouse is over the widget
+gui.widget_pressed("id")      // → bool  True if widget is currently pressed
+gui.set_widget_value("id", v) // → bool  Programmatically set widget value
+gui.set_panel_visible("id", b)// → bool  Show/hide a panel widget
+gui.mouse_x                   // → int   Mouse x (output-space pixels)
+gui.mouse_y                   // → int   Mouse y (output-space pixels)
+gui.mouse_x_f                 // → float Mouse x (f32 precision)
+gui.mouse_y_f                 // → float Mouse y (f32 precision)
+gui.mouse_left_down           // → bool  True while LMB is held outside any widget
+```
+
+Slider handle positioning is automatic at the engine level via `GuiControl::visual_sync()`.
+Scripts only need to **read** slider values — no manual `scene.set("handle", "position.x", ...)`
+required.
+
+---
+
 ## `ui` — UiApi
 
 Query TUI input widget state (for menu/form scenes with `ui:` blocks).

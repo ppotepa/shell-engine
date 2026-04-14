@@ -261,7 +261,7 @@ scene_lifecycle::classify_events
     │  3. extracts mouse moves for 3D camera consumers
     ▼
 Fan-out
-    ├─► GuiSystem::update(&[InputEvent])       — widget hit-test, drag, clicked
+    ├─► GuiSystem::update(&[InputEvent])       — trait-dispatched widget hit-test, drag, clicked
     ├─► SceneRuntime key state (keys_down)     — Rhai input.down() / just_pressed()
     ├─► free-look / obj-viewer camera          — 3D camera mouse moves
     └─► game_loop debug shortcut check         — fast-forward toggle
@@ -461,7 +461,7 @@ Scripts adjust planet parameters through `scene.set(id, path, value)`:
 | World generation params | `engine-terrain` params, `engine-core` Sprite::Obj `world_gen_*` fields, `engine-compositor` URI builder + parser, `engine-scene-runtime` materialization `world.*` paths, `engine-behavior` world module |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |
 | Input events | `engine-events` variants + `as_input_event()`, SDL2 producer (`engine-render-sdl2/runtime.rs`), `scene_lifecycle::classify_events`, all pattern-match sites (`game_loop.rs`, `editor/state/scene_run.rs`); **Rhai scripts do not need changes** (they use `input.down/just_pressed` which reads `keys_down` HashSet) |
-| GUI widget types | `engine-gui` widget/state/system, `engine-authoring` YAML compile path, schema, `ScriptGuiApi` in `engine-behavior` |
+| GUI widget types | `engine-gui` control trait / state / system, `engine-core` `SceneGuiWidgetDef` YAML enum, `engine-scene-runtime` construction + `sync_widget_visuals`, `engine-authoring` compile path, schema, `ScriptGuiApi` in `engine-behavior` |
 
 When changing gameplay wrapping or bounds behavior, also verify the Rhai-facing
 `world.set_world_bounds(min_x, min_y, max_x, max_y)` contract stays aligned with

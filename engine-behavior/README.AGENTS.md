@@ -52,6 +52,18 @@ This split keeps behavior code testable and keeps runtime mutation centralized.
 - Ship thrust smoke emitters are keyed by `ship_id` plus optional `thrust_ms`;
   the built-in emitter computes spawn position and velocity from the ship.
 
+## GUI module (`scripting/gui.rs`)
+
+`ScriptGuiApi` exposes widget state to Rhai scripts via the `gui` scope variable.
+Methods: `slider_value(id)`, `toggle_on(id)`, `button_clicked(id)`, `has_change()`,
+`changed_widget()`, `widget_value(id)`, `widget_hovered(id)`, `widget_pressed(id)`,
+`set_widget_value(id, val)`, `set_panel_visible(id, bool)`.
+Properties: `mouse_x`, `mouse_y`, `mouse_x_f`, `mouse_y_f`, `mouse_left_down`.
+
+`set_widget_value` emits `BehaviorCommand::SetGuiValue` which the scene runtime
+applies to `GuiRuntimeState` and triggers `sync_widget_visuals()` for
+engine-level sprite repositioning.
+
 ## World generation module (`scripting/world.rs`)
 
 Registers `planet_last_stats()` — a Rhai function returning biome coverage

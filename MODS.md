@@ -273,6 +273,41 @@ cargo run -p app -- --mod-source=mods/planet-generator --sdl-window-ratio=16:9 -
 - Live stats bar shows ocean/forest/desert/snow/mountain coverage via
   `planet_last_stats()` Rhai function.
 
+## GUI Playground (Widget Test-Bench)
+
+Interactive test-bench for the `engine-gui` widget system. Exercises all four
+control types (`Slider`, `Toggle`, `Button`, `Panel`) in an RGB color mixer
+dashboard with real-time visual feedback.
+
+### Structure
+
+```
+mods/gui-playground/
++-- mod.yaml
++-- scenes/
+    +-- main/
+        +-- scene.yml          gui: block with sliders/toggles/buttons
+        +-- main.rhai          Reactive wiring script
+        +-- layers/
+            +-- bg.yml         Background panels
+            +-- controls.yml   Tracks, handles, fill bars, labels
+            +-- output.yml     Swatch, hex/RGB readout, state, log
+```
+
+### Features
+
+- 3 sliders (R/G/B, 0–255) with engine-level handle positioning and fill tracks
+- 3 toggles (Show Hex, Show Swatch, Invert Colors)
+- 2 buttons (Reset All, Randomize) using `gui.set_widget_value()`
+- 5-row color swatch, hex readout, state monitor, event log
+- Persistent state via `local` (click count survives across frames)
+
+### Running
+
+```bash
+cargo run -p app -- --mod-source=mods/gui-playground
+```
+
 ## Creating a Custom Mod
 
 ### Minimum Structure

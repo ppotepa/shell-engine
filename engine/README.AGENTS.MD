@@ -27,7 +27,7 @@ that still need engine-only world access.
 | gameplay | `-` | Physics/lifetime component update |
 | collision | `-` | Gameplay collision detection |
 | gameplay_events (push) | `-` | Publish collision hits for scripts |
-| behavior | `behavior_us` | Behavior update and command application |
+| behavior | `behavior_us` | Behavior update, command application, `sync_widget_visuals` |
 | audio_sequencer | `audio_us` | Semantic SFX/song tick and synth cue scheduling |
 | audio | `audio_us` | Audio playback tick |
 | compositor | `compositor_us` | Resource extraction + call into `engine-compositor` |

@@ -20,7 +20,7 @@ emits commands for higher-level systems to apply.
 
 - `Behavior` — per-tick behavior interface
 - `BehaviorContext` — frame-local snapshot of stage, timing, object state, UI state, key state, game state, gameplay world, collision hits, and mouse position (`mouse_x: f32`, `mouse_y: f32` in output-space pixels)
-- `BehaviorCommand` — side-effect envelope such as `SetVisibility`, `SetOffset`, `SetText`, and script errors
+- `BehaviorCommand` — side-effect envelope such as `SetVisibility`, `SetOffset`, `SetText`, `SetGuiValue`, and script errors
 - `RhaiScriptBehavior` — mod or scene-defined scripted behavior
 - `SceneAudioBehavior` — built-in scene audio cue emitter
 - `BuiltInBehaviorFactory` — authoritative dispatcher for engine-defined behavior names
@@ -52,6 +52,9 @@ with the runtime behavior system and authored YAML expectations.
 
 Current script-facing API surface includes:
 
+- GUI widget helpers (`gui.slider_value`, `gui.toggle_on`, `gui.button_clicked`,
+  `gui.has_change`, `gui.changed_widget`, `gui.widget_hovered`, `gui.widget_pressed`,
+  `gui.set_widget_value`, `gui.set_panel_visible`, `gui.mouse_x/y/mouse_left_down`),
 - gameplay world helpers (`world.spawn_visual`, `world.spawn_object`, `world.entity`, query/count APIs, `world.any_alive`, `world.distance`),
 - typed gameplay component helpers (`world.set_transform`, `world.set_physics`,
   `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`, `world.bind_visual`,

@@ -67,6 +67,14 @@ in `engine-scene-runtime`. The compositor builds a `world://` URI from
 these fields; each unique URI triggers a fresh mesh generation via
 `engine-terrain`.
 
+## Scene GUI widget definitions
+
+`SceneGuiWidgetDef` in `scene/model.rs` is the YAML serde enum for widget
+authoring. Variants: `Slider` (with `handle`, `hit-padding`, `min`, `max`,
+`default`), `Button`, `Toggle`, `Panel`. At construction time,
+`engine-scene-runtime` converts each variant into a `Box<dyn GuiControl>` from
+`engine-gui`. The enum stays in `engine-core` as the stable YAML contract.
+
 ## Change playbook
 
 When changing scene model or shared runtime types:

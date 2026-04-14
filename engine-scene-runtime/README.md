@@ -27,7 +27,7 @@ The crate is intentionally split by responsibility:
 - `behavior_runner` — behavior updates and command application
 - `ui_focus` — focus order, theme state, and text layout helpers
 - `camera_3d` — OBJ viewer camera and orbit helpers
-- `lifecycle_controls` — runtime-owned control routing consumed by engine lifecycle orchestration
+- `lifecycle_controls` — runtime-owned control routing consumed by engine lifecycle orchestration; includes `update_gui` (input → `GuiSystem`) and `sync_widget_visuals` (trait-based `visual_sync()` → sprite offsets)
 
 ## Key types
 
@@ -36,6 +36,7 @@ The crate is intentionally split by responsibility:
 - `ObjectRuntimeState` — visibility and offset state per object
 - `ObjCameraState` — free-camera state for OBJ viewer scenes
 - `RawKeyEvent` / `SidecarIoFrameState` — per-frame input and sidecar snapshots
+- `gui_widgets: Vec<Box<dyn GuiControl>>` — trait-object widget collection, built from `SceneGuiWidgetDef` at construction
 
 ## Runtime Contracts That Matter
 
@@ -63,6 +64,21 @@ When changing runtime scene behavior:
 
 If you add a new runtime-owned control surface, model it here and let the engine
 call a narrow helper instead of duplicating scene-specific logic.
+
+## GUI widget integration
+
+Scenes with a `gui:` block have their widget definitions converted to trait
+objects (`Box<dyn GuiControl>`) during construction (`scene_gui_widget_to_control`).
+Each frame:
+
+1. `update_gui()` feeds `InputEvent`s into `GuiSystem::update` (trait dispatch).
+2. After behaviors run, `sync_widget_visuals()` iterates all widgets, calls
+   `visual_sync()`, resolves sprite aliases via `TargetResolver`, and applies
+   `offset_x` to `ObjectRuntimeState`.
+
+This keeps slider handle positioning (and future widget visual sync) at the
+engine level — Rhai scripts only need to read values, not manually position
+handle sprites.
 
 ## Integration points
 

@@ -715,6 +715,60 @@ Slot layout respects the active font height for vertical sizing.
 `type: terminal-input` is a specialized window for interactive prompts.
 
 
+### GUI Widgets (`gui:` block)
+
+Scenes can declare a `gui:` block that defines interactive controls. The engine
+processes input automatically; Rhai scripts read state via the `gui` API.
+
+```yaml
+gui:
+  widgets:
+    - type: slider
+      id: slider-volume
+      x: 50
+      y: 100
+      width: 200
+      height: 12
+      min: 0.0
+      max: 100.0
+      default: 50.0
+      handle: volume-handle     # sprite alias for engine-level positioning
+      hit-padding: 4            # expand clickable area (pixels)
+
+    - type: toggle
+      id: toggle-mute
+      x: 50
+      y: 120
+      width: 20
+      height: 12
+
+    - type: button
+      id: btn-apply
+      x: 50
+      y: 140
+      width: 80
+      height: 16
+
+    - type: panel
+      id: panel-settings
+      x: 40
+      y: 90
+      width: 240
+      height: 80
+```
+
+**Key fields:**
+- `handle` (slider only) — sprite ID whose `offset_x` the engine sets automatically
+  based on slider value fraction. No Rhai `scene.set("handle", "position.x", ...)`
+  needed.
+- `hit-padding` (slider only) — expands the clickable area beyond the track bounds
+  (useful for thin track sprites).
+
+Visual rendering is separate: create Panel/Vector/Text sprites in layer YAMLs
+and use Rhai to wire `gui.*` state to visual updates (text content, colors,
+visibility). The engine handles slider handle positioning via `GuiControl::visual_sync()`.
+
+
 ### Action Map
 
 The `action_map` section in `mod.yaml` defines named input actions that scripts can query:

@@ -36,6 +36,19 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+**`GuiControl` trait refactor + GUI playground mod** ✅
+- **engine-gui**: new `GuiControl` trait (`control.rs`) with polymorphic dispatch replacing monolithic `GuiWidgetDef` enum; concrete types `SliderControl`, `ButtonControl`, `ToggleControl`, `PanelControl`; `GuiSystem::update` now dispatches via `&[Box<dyn GuiControl>]` trait methods — no more match-on-variant; `VisualSync` struct enables engine-level sprite positioning (slider handles)
+- **engine-scene-runtime**: `gui_widgets` field changed to `Vec<Box<dyn GuiControl>>`; construction converts `SceneGuiWidgetDef → Box<dyn GuiControl>` via `scene_gui_widget_to_control()`; new `sync_widget_visuals()` method applies `visual_sync()` + `TargetResolver` alias lookup to position sprites automatically
+- **engine-api**: added `BehaviorCommand::SetGuiValue { widget_id, value }` for programmatic slider value changes
+- **engine-behavior**: added `gui.set_widget_value(id, val)` to `ScriptGuiApi` Rhai surface; emits `SetGuiValue` command
+- **engine-core**: added `handle` (sprite reference) and `hit-padding` fields to `SceneGuiWidgetDef::Slider`
+- **engine**: `behavior_system` calls `sync_widget_visuals()` after `reset_frame_state()` + behavior updates — fixes frame-order wipe bug where slider handles disappeared each frame
+- **gui-playground mod**: new test-bench mod (`mods/gui-playground`) with RGB color mixer (3 sliders, 3 toggles, 2 buttons), real-time fill track bars via dynamic `vector.points`, channel-tinted handles, persistent state via `local`, 5-row color swatch, hex/RGB readout, state monitor, and event log
+- **docs**: updated READMEs for engine-gui, engine-scene-runtime, engine-behavior, engine; added `gui` API section to SCRIPTING-API.md; updated ARCHITECTURE.md change playbook
+- **result**: new widget types only need to implement `GuiControl` trait — no changes to `GuiSystem`, scene runtime, or engine orchestration; 88 tests pass, all 3 mods validate
+
+---
+
 ## 14-04-2026
 
 **Unified `world://` URI — biome planet pipeline via `engine-terrain`** ✅
