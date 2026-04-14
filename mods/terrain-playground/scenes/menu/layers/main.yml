@@ -31,11 +31,12 @@
               at: cc
               width: 260
               columns: ["1fr"]
-              rows: ["auto", "auto"]
+              rows: ["auto", "auto", "auto"]
               gap-y: 14
               children:
-                - { type: text, id: item-0, content: "PLAIN TERRAIN NOISE", grid-col: 1, grid-row: 1, at: cc, font: "Orbitron:ascii", fg: "#44cc88" }
-                - { type: text, id: item-1, content: "EXIT",                 grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "#1a3e35" }
+                - { type: text, id: item-0, content: "PLAIN TERRAIN NOISE",   grid-col: 1, grid-row: 1, at: cc, font: "Orbitron:ascii", fg: "#44cc88" }
+                - { type: text, id: item-1, content: "FRACTAL NOISE TERRAIN", grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "#1a3e35" }
+                - { type: text, id: item-2, content: "EXIT",                   grid-col: 1, grid-row: 3, at: cc, font: "Orbitron:ascii", fg: "#1a3e35" }
 
             - type: text
               id: hint

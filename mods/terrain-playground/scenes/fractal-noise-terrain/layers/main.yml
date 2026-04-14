@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: terrain-3d
+  z_index: 0
+  sprites:
+    - type: obj
+      id: terrain-mesh
+      source: terrain-plane://64?amp=2.5&freq=3.5&oct=3&rough=0.65
+      at: cc
+      width: 640
+      height: 360
+      pitch-deg: -42
+      yaw-deg: 30
+      rotate-y-deg-per-sec: 4.0
+      camera-distance: 2.6
+      fov-degrees: 58
+      near-clip: 0.01
+      smooth-shading: true
+      ambient: 0.14
+      light-direction-x: -0.65
+      light-direction-y: 0.55
+      light-direction-z: -0.50
+      light-2-direction-x: 0.7
+      light-2-direction-y: 0.3
+      light-2-direction-z: 0.6
+      light-2-intensity: 0.18
+      fg: "#c87840"
+      prerender: false
+
+- name: hud
+  z_index: 10
+  sprites:
+    - { type: text, content: "FRACTAL NOISE TERRAIN", at: ct, y: 8, font: "Orbitron:ascii", fg: "#cc8844" }
+    - { type: text, id: orbit-hint, content: "[ ORBIT ]  DRAG=rotate  +/-=zoom  Ctrl+F=exit", at: cb, y: -22, font: "generic:1", fg: "#ddaa88", visible: false }
+    - { type: text, content: "[ ESC ] BACK", at: cb, y: -8, font: "generic:1", fg: "#6e4a2a", behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
