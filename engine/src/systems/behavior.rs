@@ -71,7 +71,7 @@ pub fn behavior_system(world: &mut World) {
         if let Some(gs) = &game_state {
             runtime.apply_game_state_bindings_if_changed(gs);
         }
-        runtime.update_behaviors(
+        let cmds = runtime.update_behaviors(
             stage,
             scene_elapsed_ms,
             stage_elapsed_ms,
@@ -86,7 +86,10 @@ pub fn behavior_system(world: &mut World) {
             palettes,
             default_palette,
             debug_enabled,
-        )
+        );
+        // Re-sync widget visual positions after reset + all behavior commands applied.
+        runtime.sync_widget_visuals();
+        cmds
     };
 
     for command in &commands {

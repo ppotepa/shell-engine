@@ -705,6 +705,15 @@ impl SceneRuntime {
                     camera.up = *up;
                     self.set_scene_camera_3d_internal(camera);
                 }
+                BehaviorCommand::SetGuiValue { widget_id, value } => {
+                    if let Some(ws) = self.gui_state.widgets.get_mut(widget_id) {
+                        ws.value = *value;
+                        ws.changed = true;
+                        self.gui_state.last_changed = Some(widget_id.clone());
+                        self.cached_gui_state = None;
+                    }
+                    self.sync_widget_visuals();
+                }
             }
         }
 

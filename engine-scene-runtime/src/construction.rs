@@ -144,7 +144,7 @@ impl SceneRuntime {
         };
         runtime.gui_widgets = runtime.scene.gui.widgets.clone()
             .into_iter()
-            .map(scene_gui_widget_to_engine_gui)
+            .map(scene_gui_widget_to_control)
             .collect();
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.free_look_camera = runtime
@@ -160,6 +160,7 @@ impl SceneRuntime {
             .as_ref()
             .map(ObjOrbitCameraState::from_controls);
         runtime.initialize_ui_state();
+        runtime.sync_widget_visuals();
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings, None);
         runtime.resolver_cache = std::sync::Arc::new(runtime.build_target_resolver());
@@ -177,20 +178,19 @@ fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
     key
 }
 
-fn scene_gui_widget_to_engine_gui(
+fn scene_gui_widget_to_control(
     def: engine_core::scene::model::SceneGuiWidgetDef,
-) -> engine_gui::GuiWidgetDef {
+) -> Box<dyn engine_gui::GuiControl> {
     use engine_core::scene::model::SceneGuiWidgetDef as Src;
-    use engine_gui::GuiWidgetDef as Dst;
     match def {
-        Src::Slider { id, sprite, x, y, w, h, min, max, value } =>
-            Dst::Slider { id, sprite, x, y, w, h, min, max, value },
+        Src::Slider { id, sprite, x, y, w, h, min, max, value, hit_padding, handle } =>
+            Box::new(engine_gui::SliderControl { id, sprite, x, y, w, h, min, max, value, hit_padding, handle }),
         Src::Button { id, sprite, x, y, w, h } =>
-            Dst::Button { id, sprite, x, y, w, h },
+            Box::new(engine_gui::ButtonControl { id, sprite, x, y, w, h }),
         Src::Toggle { id, sprite, x, y, w, h, on } =>
-            Dst::Toggle { id, sprite, x, y, w, h, on },
+            Box::new(engine_gui::ToggleControl { id, sprite, x, y, w, h, initial_on: on }),
         Src::Panel { id, sprite, visible } =>
-            Dst::Panel { id, sprite, visible },
+            Box::new(engine_gui::PanelControl { id, sprite, visible }),
     }
 }
 

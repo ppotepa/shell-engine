@@ -79,6 +79,11 @@ pub enum BehaviorCommand {
         looping: bool,
         params: serde_json::Value,
     },
+    /// Programmatically set a GUI widget's value (e.g. reset slider from script).
+    SetGuiValue {
+        widget_id: String,
+        value: f64,
+    },
     /// Change the scene background color at runtime.
     SetSceneBg {
         color: String,

@@ -720,6 +720,11 @@ pub enum SceneGuiWidgetDef {
         max: f64,
         #[serde(default)]
         value: f64,
+        #[serde(default, rename = "hit-padding")]
+        hit_padding: i32,
+        /// Sprite id of the slider handle/thumb — engine auto-positions it.
+        #[serde(default)]
+        handle: String,
     },
     Button {
         id: String,

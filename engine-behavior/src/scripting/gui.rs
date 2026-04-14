@@ -109,6 +109,17 @@ impl ScriptGuiApi {
         }
         false
     }
+
+    fn set_widget_value(&mut self, id: &str, value: f64) -> bool {
+        if let Ok(mut q) = self.queue.lock() {
+            q.push(BehaviorCommand::SetGuiValue {
+                widget_id: id.to_string(),
+                value,
+            });
+            return true;
+        }
+        false
+    }
 }
 
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
@@ -144,5 +155,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn(
         "set_panel_visible",
         |gui: &mut ScriptGuiApi, id: &str, visible: bool| gui.set_panel_visible(id, visible),
+    );
+    engine.register_fn(
+        "set_widget_value",
+        |gui: &mut ScriptGuiApi, id: &str, value: f64| gui.set_widget_value(id, value),
     );
 }

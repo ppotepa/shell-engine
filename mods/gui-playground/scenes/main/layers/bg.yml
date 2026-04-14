@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+# ── Background panels ────────────────────────────────────────────────────────
+- name: bg
+  z_index: 0
+  ui: true
+  space: screen
+  sprites:
+    # Left column background
+    - type: panel
+      id: bg-left
+      x: 4
+      y: 4
+      width: 276
+      height: 352
+      padding: 0
+      border-width: 1
+      corner-radius: 2
+      fg: "#303050"
+      bg: "#0c0c18"
+      border-colour: "#303050"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+
+    # Right column background
+    - type: panel
+      id: bg-right
+      x: 284
+      y: 4
+      width: 352
+      height: 352
+      padding: 0
+      border-width: 1
+      corner-radius: 2
+      fg: "#303050"
+      bg: "#0c0c18"
+      border-colour: "#303050"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"

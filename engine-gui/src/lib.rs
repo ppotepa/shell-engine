@@ -1,7 +1,7 @@
 //! `engine-gui` — declarative GUI widget model, hit-testing, and runtime state.
 //!
 //! # Responsibilities
-//! - Define widget types ([`GuiWidgetDef`]): Slider, Button, Toggle, Panel.
+//! - Define the [`GuiControl`] trait and concrete control types (Slider, Button, Toggle, Panel).
 //! - Track per-widget runtime state ([`GuiRuntimeState`], [`GuiWidgetState`]).
 //! - Process input events ([`engine_events::InputEvent`]) and update state ([`GuiSystem`]).
 //!
@@ -10,6 +10,7 @@
 //! - Rhai scripting — handled by engine-behavior's `ScriptGuiApi`.
 //! - Layout resolution — handled by Taffy inside engine-compositor.
 
+pub mod control;
 pub mod events;
 pub mod state;
 pub mod system;
@@ -19,6 +20,13 @@ pub mod widget;
 pub use engine_events::MouseButton;
 pub use state::{GuiRuntimeState, GuiWidgetState};
 pub use system::GuiSystem;
+
+// New trait-based API.
+pub use control::{
+    ButtonControl, GuiControl, PanelControl, SliderControl, ToggleControl, VisualSync, WidgetRect,
+};
+
+// Legacy enum — kept for backward compatibility during migration.
 pub use widget::GuiWidgetDef;
 
 /// Deprecated alias kept for backward compatibility.

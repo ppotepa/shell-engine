@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+# ── Input controls (left column) ─────────────────────────────────────────────
+- name: controls
+  z_index: 1
+  ui: true
+  space: screen
+  sprites:
+    # ── Title ────────────────────────────────────────────────────────────────
+    - { type: text, id: title, content: "GUI PLAYGROUND", x: 16, y: 10, font: "generic:1", fg: "#80c0ff" }
+
+    # ── Sliders section ──────────────────────────────────────────────────────
+    - { type: text, content: "─── SLIDERS ────────────────", x: 16, y: 28, font: "generic:1", fg: "#505070" }
+
+    # Slider R
+    - { type: text, id: slider-r-lbl, content: "R", x: 20, y: 50, font: "generic:1", fg: "#ff6060" }
+    - type: vector
+      id: slider-r-track
+      x: 50
+      y: 56
+      points: [[0, 0], [190, 0]]
+      stroke-width: 2
+      fg: "#303050"
+    - type: vector
+      id: slider-r-fill
+      x: 50
+      y: 56
+      points: [[0, 0], [95, 0]]
+      stroke-width: 2
+      fg: "#ff4040"
+    - type: vector
+      id: slider-r-handle
+      x: 50
+      y: 48
+      points: [[0, 0], [0, 16]]
+      stroke-width: 6
+      fg: "#808090"
+    - { type: text, id: slider-r-val, content: "128", x: 248, y: 50, font: "generic:1", fg: "#ff6060" }
+
+    # Slider G
+    - { type: text, id: slider-g-lbl, content: "G", x: 20, y: 74, font: "generic:1", fg: "#60ff60" }
+    - type: vector
+      id: slider-g-track
+      x: 50
+      y: 80
+      points: [[0, 0], [190, 0]]
+      stroke-width: 2
+      fg: "#303050"
+    - type: vector
+      id: slider-g-fill
+      x: 50
+      y: 80
+      points: [[0, 0], [95, 0]]
+      stroke-width: 2
+      fg: "#40ff40"
+    - type: vector
+      id: slider-g-handle
+      x: 50
+      y: 72
+      points: [[0, 0], [0, 16]]
+      stroke-width: 6
+      fg: "#808090"
+    - { type: text, id: slider-g-val, content: "128", x: 248, y: 74, font: "generic:1", fg: "#60ff60" }
+
+    # Slider B
+    - { type: text, id: slider-b-lbl, content: "B", x: 20, y: 98, font: "generic:1", fg: "#6060ff" }
+    - type: vector
+      id: slider-b-track
+      x: 50
+      y: 104
+      points: [[0, 0], [190, 0]]
+      stroke-width: 2
+      fg: "#303050"
+    - type: vector
+      id: slider-b-fill
+      x: 50
+      y: 104
+      points: [[0, 0], [95, 0]]
+      stroke-width: 2
+      fg: "#4040ff"
+    - type: vector
+      id: slider-b-handle
+      x: 50
+      y: 96
+      points: [[0, 0], [0, 16]]
+      stroke-width: 6
+      fg: "#808090"
+    - { type: text, id: slider-b-val, content: "128", x: 248, y: 98, font: "generic:1", fg: "#6060ff" }
+
+    # ── Toggles section ──────────────────────────────────────────────────────
+    - { type: text, content: "─── TOGGLES ────────────────", x: 16, y: 120, font: "generic:1", fg: "#505070" }
+
+    - { type: text, id: toggle-hex-label, content: "[✓] Show Hex", x: 20, y: 142, font: "generic:1", fg: "#90c090" }
+    - { type: text, id: toggle-swatch-label, content: "[✓] Show Swatch", x: 20, y: 162, font: "generic:1", fg: "#90c090" }
+    - { type: text, id: toggle-invert-label, content: "[ ] Invert Colors", x: 20, y: 182, font: "generic:1", fg: "#708070" }
+
+    # ── Buttons section ──────────────────────────────────────────────────────
+    - { type: text, content: "─── BUTTONS ────────────────", x: 16, y: 202, font: "generic:1", fg: "#505070" }
+
+    - { type: text, id: btn-reset-label, content: "[ RESET ALL ]", x: 28, y: 222, font: "generic:1", fg: "#4080ff" }
+    - { type: text, id: btn-randomize-label, content: "[ RANDOMIZE ]", x: 160, y: 222, font: "generic:1", fg: "#ffc030" }
+    - { type: text, id: click-counter, content: "Clicks: 0   Last: ---", x: 20, y: 246, font: "generic:1", fg: "#606080" }
+
+    # ── Keyboard hints ───────────────────────────────────────────────────────
+    - { type: text, content: "Mouse: drag sliders, click toggles/btns", x: 16, y: 340, font: "generic:1", fg: "#303040" }

@@ -99,8 +99,8 @@ pub struct SceneRuntime {
     sprite_id_to_layer: HashMap<String, usize>,
     /// When > 0, `refresh_runtime_caches()` is deferred (batch spawn mode).
     spawn_batch_depth: u32,
-    /// GUI widget definitions (from scene.gui.widgets).
-    gui_widgets: Vec<engine_gui::GuiWidgetDef>,
+    /// GUI widget definitions (from scene.gui.widgets) — trait-based controls.
+    gui_widgets: Vec<Box<dyn engine_gui::GuiControl>>,
     /// GUI runtime state: per-widget hover/press/value, mouse position.
     gui_state: engine_gui::GuiRuntimeState,
     /// Cached Arc wrapping gui_state for sharing with BehaviorContext (rebuilt on change).

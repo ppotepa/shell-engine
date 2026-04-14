@@ -106,11 +106,28 @@ impl SceneRuntime {
         }
     }
 
-    /// Feed mouse input events to the GUI system and update `gui_state`.
     /// Feed input events to the GUI system and update `gui_state`.
+    /// Handle sprite positions are synced by the behavior system after reset_frame_state.
     pub fn update_gui(&mut self, events: Vec<engine_events::InputEvent>) {
         engine_gui::GuiSystem::update(&self.gui_widgets, &mut self.gui_state, &events);
         self.cached_gui_state = None;
+    }
+
+    /// Positions every widget's managed sprites at the correct offset for the current value.
+    /// Each control's [`visual_sync`](engine_gui::GuiControl::visual_sync) decides what to sync.
+    pub fn sync_widget_visuals(&mut self) {
+        let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        for widget in &self.gui_widgets {
+            let value = self.gui_state.value(widget.id());
+            if let Some(sync) = widget.visual_sync(value) {
+                let object_id = resolver
+                    .resolve_alias(&sync.sprite_alias)
+                    .unwrap_or(&sync.sprite_alias);
+                if let Some(obj_state) = self.object_states.get_mut(object_id) {
+                    obj_state.offset_x = sync.offset_x;
+                }
+            }
+        }
     }
 
     /// Return a shared, cheaply-clonable snapshot of the current GUI state.
