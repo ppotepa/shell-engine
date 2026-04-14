@@ -1000,7 +1000,7 @@ fn set_obj_property_recursive(
                     }
                 }
                 "world.mountain_ridge_octaves" => {
-                    if let Some(next) = value.as_u64() {
+                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
                         let next = (next as u8).clamp(2, 8);
                         if world_gen_mountain_ridge_octaves.map_or(true, |v| v != next) {
                             *world_gen_mountain_ridge_octaves = Some(next);
@@ -1036,7 +1036,7 @@ fn set_obj_property_recursive(
                     }
                 }
                 "world.subdivisions" => {
-                    if let Some(next) = value.as_u64() {
+                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
                         let next = next as u32;
                         if world_gen_subdivisions.map_or(true, |v| v != next) {
                             *world_gen_subdivisions = Some(next);
