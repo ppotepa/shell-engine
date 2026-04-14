@@ -212,7 +212,8 @@ fn main() {
     });
 
     println!(
-        "ShellEngine initialized with mod source: {}",
+        "ShellEngine [{}] initialized with mod source: {}",
+        env!("BUILD_GIT_HASH"),
         engine.mod_source().display()
     );
     logging::info(
