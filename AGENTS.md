@@ -21,6 +21,8 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
 - **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
 - **[engine-mesh/README.md](engine-mesh/README.md)** — Procedural mesh generation, cube-sphere/UV-sphere, compositor URI integration
+- **[engine-gui/README.md](engine-gui/README.md)** — GUI widget model, input contract (`InputEvent`), `GuiSystem`, Rhai script API integration
+- **[engine-behavior/README.AGENTS.md](engine-behavior/README.AGENTS.md)** — Behavior contract, `BehaviorContext`, `BehaviorCommand`, script-facing API reminders
 - **[engine-*/README.md](engine-3d/README.md)** — crate-specific READMEs (purpose, key types, dependencies, usage)
 - **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
 - **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
@@ -36,6 +38,8 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - `engine/` runtime systems and render pipeline
 - `engine-core/` shared model, metadata, built-in effects
 - `engine-authoring/` YAML compile/normalize/schema pipeline
+- `engine-events/` input event types (`EngineEvent`, `InputEvent`, `MouseButton`)
+- `engine-gui/` declarative GUI widget model, hit-testing, runtime state
 - `engine-mesh/` procedural 3D mesh generation (cube-sphere, UV-sphere)
 - `engine-io/` transport-agnostic IPC bridge (sidecar communication)
 - `editor/` TUI authoring tool

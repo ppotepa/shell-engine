@@ -25,7 +25,7 @@ It is responsible for:
 - `ui_focus` — focus order, theme state, text layout
 - `terminal_shell` — shell transcript, editing, key routing
 - `camera_3d` — OBJ viewer camera/orbit helpers
-- `lifecycle_controls` — terminal shell, object viewer, and terminal-size control routing used by engine lifecycle orchestration
+- `lifecycle_controls` — GUI input fan-out (`update_gui` accepts `Vec<InputEvent>`), free-look and obj-viewer mouse moves (`(f32, f32)`), terminal shell, lifecycle control routing used by engine lifecycle orchestration
 
 ## Working with this crate
 

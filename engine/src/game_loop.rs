@@ -2,11 +2,10 @@
 
 use crate::bench::{self, BenchmarkState, FrameSample};
 use crate::error::EngineError;
-use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
 use crate::systems;
 use crate::world::World;
-use engine_events::{EngineEvent::KeyPressed, InputBackend};
+use engine_events::{EngineEvent, InputBackend};
 use engine_mod::display_config;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.
@@ -81,7 +80,7 @@ pub fn game_loop(
         }
         for event in input.poll_events() {
             match event {
-                KeyPressed(key) if is_debug_fast_forward_toggle(key.code, key.modifiers) => {
+                EngineEvent::KeyDown { key, .. } if is_debug_fast_forward_toggle(key.code, key.modifiers) => {
                     debug_fast_forward = !debug_fast_forward;
                 }
                 other => {

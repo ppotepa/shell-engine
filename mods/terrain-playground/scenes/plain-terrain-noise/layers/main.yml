@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: terrain-3d
+  z_index: 0
+  sprites:
+    - type: obj
+      id: terrain-mesh
+      source: terrain-plane://64
+      at: cc
+      width: 640
+      height: 360
+      pitch-deg: -38
+      yaw-deg: 20
+      rotate-y-deg-per-sec: 5.0
+      camera-distance: 2.4
+      fov-degrees: 58
+      near-clip: 0.01
+      smooth-shading: true
+      ambient: 0.18
+      light-direction-x: -0.55
+      light-direction-y: 0.75
+      light-direction-z: -0.45
+      light-2-direction-x: 0.6
+      light-2-direction-y: 0.4
+      light-2-direction-z: 0.5
+      light-2-intensity: 0.22
+      fg: "#4a8a5a"
+      prerender: false
+
+- name: hud
+  z_index: 10
+  sprites:
+    - { type: text, content: "HEIGHTMAP TERRAIN", at: ct, y: 8, font: "Orbitron:ascii", fg: "#44cc88" }
+    - { type: text, content: "[ ESC ] BACK", at: cb, y: -8, font: "generic:1", fg: "#2a6e55", behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }

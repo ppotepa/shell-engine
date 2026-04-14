@@ -36,7 +36,22 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 14-04-2026
+
+**Unified input event architecture** ✅
+- **engine-events**: renamed `KeyPressed` → `KeyDown { key, repeat }` and `KeyReleased` → `KeyUp { key }`; mouse coords changed from `u16` to `f32` (output-space); `button: String` replaced by typed `MouseButton` enum; added `InputEvent` sub-enum and `EngineEvent::as_input_event()` for fan-out
+- **engine-gui**: `GuiSystem::update` now accepts `&[engine_events::InputEvent]` instead of `&[GuiInputEvent]`; mouse coords are `f32`; `drag_button` uses typed `MouseButton`; keyboard events accepted (pass-through stub); `GuiInputEvent` kept as `#[deprecated]` alias
+- **engine-render-sdl2**: `map_mouse_to_output` returns `(f32, f32)`; `map_mouse_button` returns `MouseButton` enum; all `EngineEvent` emissions updated
+- **engine/scene_lifecycle**: `classify_events` calls `as_input_event()` for every event, collecting `input_events: Vec<InputEvent>`; old separate `mouse_moves/buttons_down/up` vectors removed; `handle_gui_mouse_events` replaced by `handle_gui_input_events`; free-look/3D-mouse helpers use `(f32, f32)`; test helpers updated
+- **engine/game_loop**: match arm updated to `EngineEvent::KeyDown { key, .. }`
+- **editor**: `scene_run.rs` updated to push `EngineEvent::KeyDown { key, repeat: false }`
+- **engine-behavior**: `BehaviorContext.mouse_x/y` changed to `f32`; `ScriptGuiApi.mouse_x/y` cast to `rhai::INT` via `as rhai::INT` (no Rhai script changes needed)
+- **engine-gui**: created `README.md` documenting the crate's role, widget types, and input contract
+- **docs**: updated `engine-events/README.md`, `engine-render-sdl2/README.md`, `engine-behavior/README.md`, `ARCHITECTURE.md` (section 9 input pipeline diagram + change playbook row)
+- **result**: keyboard and mouse events now flow through a single `InputEvent` slice to all consumers; `GuiInputEvent` fully deprecated; zero Rhai script changes required
+
 ## 13-04-2026
+
 
 **SDL2-only migration complete — terminal renderer fully removed** ✅
 - **engine**: removed `SceneRenderedMode` enum and `rendered_mode` field from Scene; removed `HalfblockPacker`, `FullScanPacker`, `DirtyRegionPacker` strategies; removed `ratatui` and `crossterm` dependencies from all crates

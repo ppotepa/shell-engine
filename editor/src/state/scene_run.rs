@@ -140,7 +140,7 @@ impl AppState {
             return;
         };
         if let Some(queue) = world.get_mut::<EventQueue>() {
-            queue.push(EngineEvent::KeyPressed(key));
+            queue.push(EngineEvent::KeyDown { key, repeat: false });
         }
     }
 

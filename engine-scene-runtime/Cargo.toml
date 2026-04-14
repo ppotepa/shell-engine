@@ -10,6 +10,7 @@ engine-behavior = { path = "../engine-behavior" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
+engine-gui = { workspace = true }
 engine-persistence = { path = "../engine-persistence" }
 engine-render = { path = "../engine-render" }
 engine-runtime = { path = "../engine-runtime" }

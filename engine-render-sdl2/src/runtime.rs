@@ -9,6 +9,7 @@ use engine_render::{OverlayData, VectorOverlay};
 use engine_runtime::{compute_presentation_layout, PresentationPolicy};
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::{Keycode, Mod};
+use sdl2::mouse::MouseButton as SdlMouseButton;
 use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
 use sdl2::rect::Rect;
 use sdl2::video::FullscreenType;
@@ -813,7 +814,7 @@ fn poll_input(
                     }
                     events.push(EngineEvent::Quit);
                 } else {
-                    events.push(EngineEvent::KeyPressed(key));
+                    events.push(EngineEvent::KeyDown { key, repeat });
                 }
             }
             Event::KeyUp {
@@ -826,14 +827,30 @@ fn poll_input(
                     continue;
                 }
                 let key = KeyEvent::new(map_keycode(keycode), map_modifiers(keymod));
-                events.push(EngineEvent::KeyReleased(key));
+                events.push(EngineEvent::KeyUp { key });
             }
             Event::MouseMotion { x, y, .. } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (column, row) =
+                let (vx, vy) =
                     map_mouse_to_output(x, y, output_width, output_height, present_rect);
-                events.push(EngineEvent::MouseMoved { column, row });
+                events.push(EngineEvent::MouseMoved { x: vx, y: vy });
+            }
+            Event::MouseButtonDown { mouse_btn, x, y, .. } => {
+                let present_rect =
+                    presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
+                let (vx, vy) =
+                    map_mouse_to_output(x, y, output_width, output_height, present_rect);
+                let button = map_mouse_button(mouse_btn);
+                events.push(EngineEvent::MouseButtonDown { button, x: vx, y: vy });
+            }
+            Event::MouseButtonUp { mouse_btn, x, y, .. } => {
+                let present_rect =
+                    presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
+                let (vx, vy) =
+                    map_mouse_to_output(x, y, output_width, output_height, present_rect);
+                let button = map_mouse_button(mouse_btn);
+                events.push(EngineEvent::MouseButtonUp { button, x: vx, y: vy });
             }
             Event::Window {
                 win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _),
@@ -889,18 +906,26 @@ fn map_mouse_to_output(
     output_width: u16,
     output_height: u16,
     present_rect: Rect,
-) -> (u16, u16) {
-    let width = output_width.max(1) as u32;
-    let height = output_height.max(1) as u32;
-    let rect_width = present_rect.width().max(1);
-    let rect_height = present_rect.height().max(1);
-    let relative_x = (x - present_rect.x()).clamp(0, rect_width.saturating_sub(1) as i32) as u32;
-    let relative_y = (y - present_rect.y()).clamp(0, rect_height.saturating_sub(1) as i32) as u32;
+) -> (f32, f32) {
+    let width = output_width.max(1) as f32;
+    let height = output_height.max(1) as f32;
+    let rect_width = present_rect.width().max(1) as f32;
+    let rect_height = present_rect.height().max(1) as f32;
+    let rel_x = (x - present_rect.x()) as f32;
+    let rel_y = (y - present_rect.y()) as f32;
+    let vx = (rel_x / rect_width * width).clamp(0.0, width - 1.0);
+    let vy = (rel_y / rect_height * height).clamp(0.0, height - 1.0);
+    (vx, vy)
+}
 
-    (
-        (relative_x.saturating_mul(width) / rect_width).min(width.saturating_sub(1)) as u16,
-        (relative_y.saturating_mul(height) / rect_height).min(height.saturating_sub(1)) as u16,
-    )
+fn map_mouse_button(btn: SdlMouseButton) -> engine_events::MouseButton {
+    use engine_events::MouseButton;
+    match btn {
+        SdlMouseButton::Left => MouseButton::Left,
+        SdlMouseButton::Right => MouseButton::Right,
+        SdlMouseButton::Middle => MouseButton::Middle,
+        _ => MouseButton::Left,
+    }
 }
 
 fn current_window_pixel_size(canvas: &sdl2::render::WindowCanvas) -> (u32, u32) {
@@ -1269,7 +1294,7 @@ mod tests {
     #[test]
     fn mouse_mapping_stretches_across_full_window() {
         let mapped = map_mouse_to_output(480, 320, 120, 30, Rect::new(0, 0, 960, 640));
-        assert_eq!(mapped, (60, 15));
+        assert_eq!(mapped, (60.0, 15.0));
     }
 
     #[test]
@@ -1291,7 +1316,7 @@ mod tests {
     #[test]
     fn mouse_mapping_respects_letterboxed_fit_rect() {
         let mapped = map_mouse_to_output(480, 320, 120, 30, Rect::new(0, 80, 960, 480));
-        assert_eq!(mapped, (60, 15));
+        assert_eq!(mapped, (60.0, 15.0));
     }
 
     #[test]

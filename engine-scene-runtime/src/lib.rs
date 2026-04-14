@@ -98,6 +98,12 @@ pub struct SceneRuntime {
     sprite_id_to_layer: HashMap<String, usize>,
     /// When > 0, `refresh_runtime_caches()` is deferred (batch spawn mode).
     spawn_batch_depth: u32,
+    /// GUI widget definitions (from scene.gui.widgets).
+    gui_widgets: Vec<engine_gui::GuiWidgetDef>,
+    /// GUI runtime state: per-widget hover/press/value, mouse position.
+    gui_state: engine_gui::GuiRuntimeState,
+    /// Cached Arc wrapping gui_state for sharing with BehaviorContext (rebuilt on change).
+    cached_gui_state: Option<std::sync::Arc<engine_gui::GuiRuntimeState>>,
 }
 
 #[derive(Debug, Clone)]
@@ -109,7 +115,7 @@ struct FreeLookCameraState {
     pitch_deg: f32,
     move_speed: f32,
     mouse_sensitivity: f32,
-    last_mouse_pos: Option<(u16, u16)>,
+    last_mouse_pos: Option<(f32, f32)>,
     held_keys: HashSet<String>,
 }
 

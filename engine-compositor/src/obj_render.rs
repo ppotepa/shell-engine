@@ -53,7 +53,7 @@ fn current_prerender_frames<'a>() -> Option<&'a ObjPrerenderedFrames> {
 static OBJ_MESH_CACHE: OnceLock<Mutex<HashMap<String, Arc<ObjMesh>>>> = OnceLock::new();
 
 /// Get or load an OBJ mesh from cache.
-/// Supports the `cube-sphere://N` URI scheme for procedurally generated cube-sphere meshes.
+/// Supports the `cube-sphere://N` and `terrain-plane://N` URI schemes for procedurally generated meshes.
 fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMesh>> {
     let cache = OBJ_MESH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
@@ -69,6 +69,17 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
     if let Some(rest) = path.strip_prefix("cube-sphere://") {
         let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
         let mesh = engine_mesh::primitives::cube_sphere(subdivisions);
+        let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
+        if let Ok(mut cache_lock) = cache.lock() {
+            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
+        }
+        return Some(mesh_arc);
+    }
+
+    // Handle procedural terrain-plane URI: terrain-plane://N
+    if let Some(rest) = path.strip_prefix("terrain-plane://") {
+        let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
+        let mesh = engine_mesh::primitives::terrain_plane(subdivisions);
         let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
         if let Ok(mut cache_lock) = cache.lock() {
             cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));

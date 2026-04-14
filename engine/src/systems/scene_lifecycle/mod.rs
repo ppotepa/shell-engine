@@ -10,7 +10,7 @@ use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use engine_animation::{Animator, SceneStage};
 use engine_core::logging;
-use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+use engine_events::{InputEvent, KeyCode, KeyEvent, KeyModifiers};
 
 pub struct SceneLifecycleManager;
 const PLAYGROUND_MENU_ID: &str = "playground-menu";
@@ -25,7 +25,7 @@ struct LifecycleEvents {
     last_key_snapshot: Option<RawKeyEvent>,
     transitions: Vec<String>,
     resizes: Vec<(u16, u16)>,
-    mouse_moves: Vec<(u16, u16)>,
+    input_events: Vec<InputEvent>,
 }
 
 impl SceneLifecycleManager {
@@ -52,17 +52,27 @@ impl SceneLifecycleManager {
             &lifecycle.key_releases,
             lifecycle.input_focus_lost,
         );
+
+        // Collect mouse moves for 3D camera consumers (extract from input_events).
+        let mouse_moves: Vec<(f32, f32)> = lifecycle.input_events.iter().filter_map(|e| {
+            if let InputEvent::MouseMoved { x, y } = e { Some((*x, *y)) } else { None }
+        }).collect();
+
         handle_scene_free_look_input(
             world,
             &lifecycle.key_presses,
             &lifecycle.key_releases,
-            &lifecycle.mouse_moves,
+            &mouse_moves,
         );
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
         }
-        if !lifecycle.mouse_moves.is_empty() {
-            handle_playground_3d_mouse(world, &lifecycle.mouse_moves);
+        if !mouse_moves.is_empty() {
+            handle_playground_3d_mouse(world, &mouse_moves);
+        }
+        // Fan-out all input events (keys + mouse) to GUI.
+        if !lifecycle.input_events.is_empty() {
+            handle_gui_input_events(world, lifecycle.input_events);
         }
         let quit_from_transition = Self::apply_transitions(world, lifecycle.transitions);
         lifecycle.quit || quit_from_transition
@@ -265,21 +275,24 @@ fn is_focus_navigation_key(key: &KeyEvent) -> bool {
 fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
     let mut lifecycle = LifecycleEvents::default();
     for event in events {
+        // Always try to produce an InputEvent first (for GUI fan-out).
+        if let Some(input_event) = event.as_input_event() {
+            lifecycle.input_events.push(input_event);
+        }
         match event {
             EngineEvent::Quit => lifecycle.quit = true,
-            EngineEvent::KeyPressed(code) => {
-                lifecycle.last_key_snapshot = Some(key_event_to_raw(&code, true));
-                lifecycle.key_presses.push(code);
+            EngineEvent::KeyDown { key, .. } => {
+                lifecycle.last_key_snapshot = Some(key_event_to_raw(&key, true));
+                lifecycle.key_presses.push(key);
             }
-            EngineEvent::KeyReleased(code) => {
-                lifecycle.last_key_snapshot = Some(key_event_to_raw(&code, false));
-                lifecycle.key_releases.push(code);
+            EngineEvent::KeyUp { key } => {
+                lifecycle.last_key_snapshot = Some(key_event_to_raw(&key, false));
+                lifecycle.key_releases.push(key);
             }
             EngineEvent::InputFocusLost => {
                 lifecycle.input_focus_lost = true;
                 lifecycle.last_key_snapshot = None;
             }
-            EngineEvent::MouseMoved { column, row } => lifecycle.mouse_moves.push((column, row)),
             EngineEvent::SceneTransition { to_scene_id } => lifecycle.transitions.push(to_scene_id),
             EngineEvent::OutputResized { width, height } => {
                 lifecycle.resizes.push((width, height));
@@ -399,7 +412,7 @@ fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyEvent]) -> bo
         .unwrap_or(false)
 }
 
-fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
+fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(f32, f32)]) {
     if !is_scene_idle(world) {
         return;
     }
@@ -412,7 +425,7 @@ fn handle_scene_free_look_input(
     world: &mut World,
     key_presses: &[KeyEvent],
     key_releases: &[KeyEvent],
-    mouse_moves: &[(u16, u16)],
+    mouse_moves: &[(f32, f32)],
 ) {
     if !is_scene_idle(world) {
         return;
@@ -422,6 +435,12 @@ fn handle_scene_free_look_input(
         if !mouse_moves.is_empty() {
             runtime.apply_free_look_mouse_moves(mouse_moves);
         }
+    }
+}
+
+fn handle_gui_input_events(world: &mut World, events: Vec<InputEvent>) {
+    if let Some(runtime) = world.scene_runtime_mut() {
+        runtime.update_gui(events);
     }
 }
 
@@ -476,15 +495,15 @@ mod tests {
     use tempfile::tempdir;
 
     fn key_pressed(code: KeyCode) -> EngineEvent {
-        EngineEvent::KeyPressed(KeyEvent::new(code, KeyModifiers::NONE))
+        EngineEvent::KeyDown { key: KeyEvent::new(code, KeyModifiers::NONE), repeat: false }
     }
 
     fn key_released(code: KeyCode) -> EngineEvent {
-        EngineEvent::KeyReleased(KeyEvent::new(code, KeyModifiers::NONE))
+        EngineEvent::KeyUp { key: KeyEvent::new(code, KeyModifiers::NONE) }
     }
 
     fn key_pressed_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> EngineEvent {
-        EngineEvent::KeyPressed(KeyEvent::new(code, modifiers))
+        EngineEvent::KeyDown { key: KeyEvent::new(code, modifiers), repeat: false }
     }
 
     fn make_idle_animator() -> Animator {
@@ -538,6 +557,7 @@ mod tests {
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
+            gui: Default::default(),
         }
     }
 
@@ -563,6 +583,7 @@ mod tests {
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
+            gui: Default::default(),
         }
     }
 

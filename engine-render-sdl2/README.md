@@ -25,5 +25,9 @@ canvas types to satisfy thread-safety guarantees they do not provide.
 - SDL keeps a fixed offscreen render texture sized from the engine output buffer
 - Glyphs are rendered to a pixel canvas and uploaded as texture patches
 - The window presents that texture using the shared `presentation_policy` (`stretch`, `fit`, or `strict`) without emitting engine buffer resize events
-- Key, mouse, and quit events are translated into `engine-events`
+- Key, mouse, and quit events are translated into `engine-events` typed variants:
+  - `KeyDown { key: KeyEvent, repeat: bool }` / `KeyUp { key: KeyEvent }`
+  - `MouseMoved { x: f32, y: f32 }` — output-space float coords
+  - `MouseButtonDown/Up { button: MouseButton, x: f32, y: f32 }`
+  - `MouseButton` is the typed enum from `engine-events` (`Left/Right/Middle`)
 - The crate is enabled through the `engine/sdl2` feature

@@ -27,7 +27,8 @@ This split keeps behavior code testable and keeps runtime mutation centralized.
 ## Must-remember surfaces
 
 - `BehaviorContext` carries stage timing, object snapshots, UI state, game state,
-  sidecar IO snapshot, and raw key metadata.
+  sidecar IO snapshot, raw key metadata, and mouse position (`mouse_x: f32`,
+  `mouse_y: f32` in output-space pixels — exposed to Rhai as `gui.mouse_x/y`).
 - `BehaviorCommand::ScriptError` is not ignored; higher-level systems surface it
   into debug logging.
 - Built-in behavior dispatch lives in `factory::BuiltInBehaviorFactory`.

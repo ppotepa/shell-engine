@@ -250,6 +250,9 @@ impl SceneRuntime {
                     arc
                 }
             },
+            mouse_x: self.gui_state.mouse_x,
+            mouse_y: self.gui_state.mouse_y,
+            gui_state: Some(self.gui_state_arc()),
         };
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {

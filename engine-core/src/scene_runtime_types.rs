@@ -161,7 +161,7 @@ pub struct ObjCameraState {
     pub pan_y: f32,
     pub look_yaw: f32,
     pub look_pitch: f32,
-    pub last_mouse_pos: Option<(u16, u16)>,
+    pub last_mouse_pos: Option<(f32, f32)>,
 }
 
 /// Shared scene-level 3D camera state.

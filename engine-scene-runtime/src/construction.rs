@@ -137,7 +137,14 @@ impl SceneRuntime {
             camera_y: 0,
             camera_zoom: 1.0,
             scene_camera_3d: SceneCamera3D::default(),
+            gui_widgets: Vec::new(),
+            gui_state: engine_gui::GuiRuntimeState::new(),
+            cached_gui_state: None,
         };
+        runtime.gui_widgets = runtime.scene.gui.widgets.clone()
+            .into_iter()
+            .map(scene_gui_widget_to_engine_gui)
+            .collect();
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.free_look_camera = runtime
             .scene
@@ -161,6 +168,23 @@ fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
         key.push_str(&idx.to_string());
     }
     key
+}
+
+fn scene_gui_widget_to_engine_gui(
+    def: engine_core::scene::model::SceneGuiWidgetDef,
+) -> engine_gui::GuiWidgetDef {
+    use engine_core::scene::model::SceneGuiWidgetDef as Src;
+    use engine_gui::GuiWidgetDef as Dst;
+    match def {
+        Src::Slider { id, sprite, x, y, w, h, min, max, value } =>
+            Dst::Slider { id, sprite, x, y, w, h, min, max, value },
+        Src::Button { id, sprite, x, y, w, h } =>
+            Dst::Button { id, sprite, x, y, w, h },
+        Src::Toggle { id, sprite, x, y, w, h, on } =>
+            Dst::Toggle { id, sprite, x, y, w, h, on },
+        Src::Panel { id, sprite, visible } =>
+            Dst::Panel { id, sprite, visible },
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -31,6 +31,7 @@ engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-compositor = { path = "../engine-compositor" }
 engine-debug = { path = "../engine-debug" }
 engine-asset = { path = "../engine-asset" }
+engine-gui = { workspace = true }
 engine-core = { workspace = true }
 engine-effects = { workspace = true }
 engine-io = { workspace = true }

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: terrain-plain-noise
+title: Plain Terrain (Noise)
+bg: "#040810"
+layers:
+  - ref: main
+  - ref: settings
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./terrain.rhai
+gui:
+  widgets:
+    - type: slider
+      id: pitch-slider
+      sprite: pitch-track
+      x: 441
+      y: 39
+      w: 170
+      h: 10
+      min: -80.0
+      max: -5.0
+      value: -38.0
+    - type: slider
+      id: speed-slider
+      sprite: speed-track
+      x: 441
+      y: 65
+      w: 170
+      h: 10
+      min: 0.0
+      max: 15.0
+      value: 5.0
+postfx:
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.02
+      transparency: 0.04
+      brightness: 1.05
+      speed: 0.15
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 400 }] }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 60ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 250 }] }

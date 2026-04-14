@@ -19,7 +19,7 @@ emits commands for higher-level systems to apply.
 ## Key Types
 
 - `Behavior` — per-tick behavior interface
-- `BehaviorContext` — frame-local snapshot of stage, timing, object state, UI state, key state, game state, gameplay world, and collision hits
+- `BehaviorContext` — frame-local snapshot of stage, timing, object state, UI state, key state, game state, gameplay world, collision hits, and mouse position (`mouse_x: f32`, `mouse_y: f32` in output-space pixels)
 - `BehaviorCommand` — side-effect envelope such as `SetVisibility`, `SetOffset`, `SetText`, and script errors
 - `RhaiScriptBehavior` — mod or scene-defined scripted behavior
 - `SceneAudioBehavior` — built-in scene audio cue emitter

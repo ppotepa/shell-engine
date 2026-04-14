@@ -236,6 +236,47 @@ layer or stage start). Key rules:
 
 ## 9. Input System
 
+### Event pipeline
+
+```
+SDL2 events
+    │
+    ▼
+engine-render-sdl2 (runtime.rs)
+    │  maps SDL2 events to EngineEvent variants
+    │  KeyDown { key, repeat } / KeyUp { key }
+    │  MouseMoved { x: f32, y: f32 }
+    │  MouseButtonDown/Up { button: MouseButton, x: f32, y: f32 }
+    ▼
+EngineEvent queue (per-frame Vec)
+    │
+    ▼
+scene_lifecycle::classify_events
+    │  1. calls as_input_event() on every event → input_events: Vec<InputEvent>
+    │  2. extracts key_presses / key_releases for existing consumers
+    │  3. extracts mouse moves for 3D camera consumers
+    ▼
+Fan-out
+    ├─► GuiSystem::update(&[InputEvent])       — widget hit-test, drag, clicked
+    ├─► SceneRuntime key state (keys_down)     — Rhai input.down() / just_pressed()
+    ├─► free-look / obj-viewer camera          — 3D camera mouse moves
+    └─► game_loop debug shortcut check         — fast-forward toggle
+```
+
+**Key type changes (as of 14-04-2026):**
+
+| Old | New |
+|-----|-----|
+| `EngineEvent::KeyPressed(KeyEvent)` | `EngineEvent::KeyDown { key: KeyEvent, repeat: bool }` |
+| `EngineEvent::KeyReleased(KeyEvent)` | `EngineEvent::KeyUp { key: KeyEvent }` |
+| `MouseMoved { column: u16, row: u16 }` | `MouseMoved { x: f32, y: f32 }` |
+| `MouseButtonDown { button: String, .. }` | `MouseButtonDown { button: MouseButton, x: f32, y: f32 }` |
+| `GuiInputEvent` (engine-gui) | `engine_events::InputEvent` (unified) |
+| Mouse coords `u16` | Mouse coords `f32` (output-space pixels) |
+
+`InputEvent` is the input-only sub-enum of `EngineEvent`. Systems that only care
+about keyboard/mouse receive `&[InputEvent]` rather than the full `EngineEvent`.
+
 **Input profiles** configure which key bindings are active:
 
 | Profile | Use Case |
@@ -340,6 +381,8 @@ editor, start screen, live refresh (~1.2s).
 | Transitions/lifecycle | Verify scoped reset behavior, scene loader reference resolution |
 | Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `AUTHORING.md`, regression tests in `engine-behavior` |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |
+| Input events | `engine-events` variants + `as_input_event()`, SDL2 producer (`engine-render-sdl2/runtime.rs`), `scene_lifecycle::classify_events`, all pattern-match sites (`game_loop.rs`, `editor/state/scene_run.rs`); **Rhai scripts do not need changes** (they use `input.down/just_pressed` which reads `keys_down` HashSet) |
+| GUI widget types | `engine-gui` widget/state/system, `engine-authoring` YAML compile path, schema, `ScriptGuiApi` in `engine-behavior` |
 
 When changing gameplay wrapping or bounds behavior, also verify the Rhai-facing
 `world.set_world_bounds(min_x, min_y, max_x, max_y)` contract stays aligned with

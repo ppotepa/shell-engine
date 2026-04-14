@@ -35,6 +35,7 @@ use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
 use engine_game::{CollisionHit, GameplayWorld};
+use engine_gui;
 use engine_persistence::PersistenceStore;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Value as JsonValue};
@@ -121,6 +122,11 @@ pub struct BehaviorContext {
     /// Actual elapsed time for this frame (ms). Exposes real dt to scripts.
     /// Use `frame_ms` in Rhai instead of hardcoding 16.0.
     pub frame_ms: u64,
+    /// Current mouse position in screen pixels (from SDL2, mapped to output coords).
+    pub mouse_x: f32,
+    pub mouse_y: f32,
+    /// GUI widget runtime state — hit-test results, values, clicked flags.
+    pub gui_state: Option<Arc<engine_gui::GuiRuntimeState>>,
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -602,6 +608,8 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push("ui_has_submit", ui_data.has_submit);
                 scope.push("ui_has_change", ui_data.has_change);
 
+                scope.push("gui", scripting::gui::ScriptGuiApi::new(ctx, Arc::clone(&helper_commands)));
+
                 // Phase 7C: Use Arc-wrapped key map from context instead of rebuilding.
                 scope.push_dynamic("key", (*ctx.rhai_key_map).clone().into());
 
@@ -868,6 +876,9 @@ fn smoke_probe_context(
         engine_key_map: Arc::new(RhaiMap::new()),
         debug_enabled: false,
         frame_ms: 16,
+        mouse_x: 0.0,
+        mouse_y: 0.0,
+        gui_state: None,
     }
 }
 
@@ -1159,6 +1170,7 @@ mod tests {
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
+            gui: Default::default(),
         }
     }
 
@@ -1264,6 +1276,9 @@ mod tests {
             engine_key_map: empty_engine_key_map(),
             debug_enabled: false,
             frame_ms: 16,
+            mouse_x: 0,
+            mouse_y: 0,
+            gui_state: None,
         }
     }
 
@@ -1665,6 +1680,7 @@ if x == 10.5 && name == "actor" {
             "obj:leader".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: false,
                 offset_x: 3,
                 offset_y: 2,
@@ -2444,6 +2460,7 @@ out
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 7,
@@ -2494,6 +2511,7 @@ out
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 4,
@@ -2538,6 +2556,7 @@ obj.set("position.y", dy + 2);
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 5,
@@ -2585,6 +2604,7 @@ out
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 0,
@@ -2637,6 +2657,7 @@ out
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 0,
@@ -2689,6 +2710,7 @@ out
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
                 heading: 0.0,
+                offset_z: 0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 0,

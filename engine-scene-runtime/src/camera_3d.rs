@@ -124,7 +124,7 @@ impl SceneRuntime {
             .unwrap_or_default()
     }
 
-    pub fn set_obj_last_mouse_pos(&mut self, sprite_id: &str, pos: Option<(u16, u16)>) {
+    pub fn set_obj_last_mouse_pos(&mut self, sprite_id: &str, pos: Option<(f32, f32)>) {
         let state = self
             .obj_camera_states
             .entry(sprite_id.to_string())
@@ -133,7 +133,7 @@ impl SceneRuntime {
         self.cached_obj_camera_states = None; // Invalidate cache
     }
 
-    pub fn obj_last_mouse_pos(&self, sprite_id: &str) -> Option<(u16, u16)> {
+    pub fn obj_last_mouse_pos(&self, sprite_id: &str) -> Option<(f32, f32)> {
         self.obj_camera_states
             .get(sprite_id)
             .and_then(|state| state.last_mouse_pos)
@@ -185,7 +185,7 @@ impl SceneRuntime {
         toggled
     }
 
-    pub fn apply_free_look_mouse_moves(&mut self, mouse_moves: &[(u16, u16)]) {
+    pub fn apply_free_look_mouse_moves(&mut self, mouse_moves: &[(f32, f32)]) {
         let Some(state) = self.free_look_camera.as_mut() else {
             return;
         };
@@ -193,23 +193,23 @@ impl SceneRuntime {
             return;
         }
 
-        let Some((mut prev_col, mut prev_row)) = state.last_mouse_pos else {
+        let Some((mut prev_x, mut prev_y)) = state.last_mouse_pos else {
             state.last_mouse_pos = mouse_moves.last().copied();
             return;
         };
 
         let mut total_dyaw = 0.0f32;
         let mut total_dpitch = 0.0f32;
-        for &(col, row) in mouse_moves {
-            let dc = col as f32 - prev_col as f32;
-            let dr = row as f32 - prev_row as f32;
+        for &(x, y) in mouse_moves {
+            let dc = x - prev_x;
+            let dr = y - prev_y;
             total_dyaw += dc * FREE_LOOK_HORIZONTAL_LOOK_SCALE * state.mouse_sensitivity;
             total_dpitch -= dr * FREE_LOOK_VERTICAL_LOOK_SCALE * state.mouse_sensitivity;
-            prev_col = col;
-            prev_row = row;
+            prev_x = x;
+            prev_y = y;
         }
 
-        state.last_mouse_pos = Some((prev_col, prev_row));
+        state.last_mouse_pos = Some((prev_x, prev_y));
         if state.active {
             state.yaw_deg += total_dyaw;
             state.pitch_deg = (state.pitch_deg + total_dpitch)

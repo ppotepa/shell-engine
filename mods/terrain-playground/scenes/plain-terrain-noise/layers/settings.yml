@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+# ── Settings Panel ───────────────────────────────────────────────────────────
+# Screen-space overlay, initially hidden. Toggle with [S].
+# Panel inner area: x=441 y=17 w=182 h=134  (border-width=1 + padding=8 = inset 9)
+# Grid row tops:  row1=17  row2=28  row3=39(pitch)  row4=54  row5=65(speed)  row7=80
+- name: settings-panel
+  z_index: 20
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: settings-panel-box
+      align-x: right
+      align-y: top
+      x: -8
+      y: 8
+      width: 200
+      height: 100
+      padding: 8
+      border-width: 1
+      corner-radius: 2
+      fg: "#44cc88"
+      bg: "#080f14"
+      border-colour: "#2a6e55"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+      visible: false
+      children:
+        - type: grid
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+          gap-y: 6
+          children:
+            # Row 1 — header
+            - { type: text, content: "SETTINGS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#44cc88" }
+
+            # Row 2 — pitch label  ("> PITCH  -38°" when selected)
+            - { type: text, id: pitch-label, content: "  PITCH  -38°", grid-col: 1, grid-row: 2, at: cl, font: "generic:1", fg: "#aaccaa" }
+
+            # Row 3 — pitch track + handle
+            - type: vector
+              id: pitch-track
+              grid-col: 1
+              grid-row: 3
+              points: [[0, 4], [170, 4]]
+              stroke-width: 3
+              fg: "#2a6e55"
+            - type: vector
+              id: pitch-handle
+              grid-col: 1
+              grid-row: 3
+              points: [[0, 0], [0, 8]]
+              stroke-width: 2
+              fg: "#44cc88"
+
+            # Row 4 — speed label  ("> SPEED  5.0°/s" when selected)
+            - { type: text, id: speed-label, content: "  SPEED  5.0°/s", grid-col: 1, grid-row: 4, at: cl, font: "generic:1", fg: "#aaccaa" }
+
+            # Row 5 — speed track + handle
+            - type: vector
+              id: speed-track
+              grid-col: 1
+              grid-row: 5
+              points: [[0, 4], [170, 4]]
+              stroke-width: 3
+              fg: "#2a6e55"
+            - type: vector
+              id: speed-handle
+              grid-col: 1
+              grid-row: 5
+              points: [[0, 0], [0, 8]]
+              stroke-width: 2
+              fg: "#44cc88"
+
+            # Row 7 — footer hint
+            - { type: text, content: "↑↓ sel  ←→ adj  S close", grid-col: 1, grid-row: 7, at: cc, font: "generic:1", fg: "#2a6e55" }

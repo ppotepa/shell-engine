@@ -187,12 +187,15 @@ fn render_sprite(
         .cloned()
         .unwrap_or_default();
 
-    // Check authored model visibility first
-    if !sprite.visible() {
-        return;
-    }
-    // Then check runtime override visibility
-    if !object_state.visible {
+    // Use runtime state for visibility when available (it is initialised from the authored model
+    // in construction, so toggling it at runtime via scene.set works). Fall back to authored
+    // model visibility only when there is no runtime state (no resolver / no ID).
+    let is_visible = if object_id.is_some() {
+        object_state.visible
+    } else {
+        sprite.visible()
+    };
+    if !is_visible {
         return;
     }
 

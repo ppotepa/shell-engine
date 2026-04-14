@@ -607,6 +607,10 @@ pub struct Scene {
     /// Applied at runtime each frame so sprites reflect live game state.
     #[serde(default, skip_serializing)]
     pub game_state_bindings: Vec<GameStateBinding>,
+    /// GUI widget declarations — logical widgets bound to visual sprite ids.
+    /// engine-scene-runtime converts these into engine-gui GuiWidgetDef at runtime.
+    #[serde(default)]
+    pub gui: SceneGui,
 }
 
 /// A color binding between a sprite and a palette key, extracted from YAML `@palette.<key>` syntax.
@@ -634,6 +638,80 @@ pub struct GameStateBinding {
     /// JSON pointer path into game_state (e.g. `"/score"`).
     pub path: String,
 }
+
+/// GUI widget declarations for a scene — author-facing serde types.
+///
+/// Converted to `engine-gui::GuiWidgetDef` by engine-scene-runtime at construction time.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SceneGui {
+    #[serde(default)]
+    pub widgets: Vec<SceneGuiWidgetDef>,
+}
+
+/// Author-facing GUI widget definition.  Mirrors `engine-gui::GuiWidgetDef` without
+/// pulling that crate into engine-core's dependency tree.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum SceneGuiWidgetDef {
+    Slider {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default)]
+        min: f64,
+        #[serde(default = "default_slider_max")]
+        max: f64,
+        #[serde(default)]
+        value: f64,
+    },
+    Button {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+    },
+    Toggle {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default)]
+        on: bool,
+    },
+    Panel {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        visible: bool,
+    },
+}
+
+fn default_slider_w() -> i32 { 120 }
+fn default_slider_h() -> i32 { 12 }
+fn default_slider_max() -> f64 { 1.0 }
 
 impl Scene {
     /// Total duration of the on_enter stage in milliseconds.

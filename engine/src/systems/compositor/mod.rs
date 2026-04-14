@@ -307,7 +307,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::assets::AssetRoot;
-    use crate::buffer::TRUE_BLACK;
+    use crate::buffer::{Buffer, TRUE_BLACK};
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene::Scene;
     use crate::scene_loader::SceneLoader;

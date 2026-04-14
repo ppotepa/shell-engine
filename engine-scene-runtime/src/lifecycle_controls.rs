@@ -64,7 +64,7 @@ impl SceneRuntime {
         true
     }
 
-    pub fn apply_obj_viewer_mouse_moves(&mut self, mouse_moves: &[(u16, u16)]) {
+    pub fn apply_obj_viewer_mouse_moves(&mut self, mouse_moves: &[(f32, f32)]) {
         let Some(sprite_id) = self
             .scene
             .input
@@ -82,7 +82,7 @@ impl SceneRuntime {
             return;
         }
 
-        let Some((mut prev_col, mut prev_row)) = self.obj_last_mouse_pos(&sprite_id) else {
+        let Some((mut prev_x, mut prev_y)) = self.obj_last_mouse_pos(&sprite_id) else {
             if let Some(last) = mouse_moves.last() {
                 self.set_obj_last_mouse_pos(&sprite_id, Some(*last));
             }
@@ -91,18 +91,35 @@ impl SceneRuntime {
 
         let mut total_dyaw = 0.0f32;
         let mut total_dpitch = 0.0f32;
-        for &(col, row) in mouse_moves {
-            let dc = col as f32 - prev_col as f32;
-            let dr = row as f32 - prev_row as f32;
+        for &(x, y) in mouse_moves {
+            let dc = x - prev_x;
+            let dr = y - prev_y;
             total_dyaw += dc * 1.8;
             total_dpitch += dr * 2.8;
-            prev_col = col;
-            prev_row = row;
+            prev_x = x;
+            prev_y = y;
         }
 
-        self.set_obj_last_mouse_pos(&sprite_id, Some((prev_col, prev_row)));
+        self.set_obj_last_mouse_pos(&sprite_id, Some((prev_x, prev_y)));
         if total_dyaw != 0.0 || total_dpitch != 0.0 {
             self.apply_obj_camera_look(&sprite_id, total_dyaw, total_dpitch);
         }
+    }
+
+    /// Feed mouse input events to the GUI system and update `gui_state`.
+    /// Feed input events to the GUI system and update `gui_state`.
+    pub fn update_gui(&mut self, events: Vec<engine_events::InputEvent>) {
+        engine_gui::GuiSystem::update(&self.gui_widgets, &mut self.gui_state, &events);
+        self.cached_gui_state = None;
+    }
+
+    /// Return a shared, cheaply-clonable snapshot of the current GUI state.
+    pub fn gui_state_arc(&mut self) -> std::sync::Arc<engine_gui::GuiRuntimeState> {
+        if let Some(cached) = &self.cached_gui_state {
+            return std::sync::Arc::clone(cached);
+        }
+        let arc = std::sync::Arc::new(self.gui_state.clone());
+        self.cached_gui_state = Some(std::sync::Arc::clone(&arc));
+        arc
     }
 }
