@@ -215,6 +215,64 @@ SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app
 Navigation: Esc returns to the playground menu (does not quit the app).
 Use Ctrl+C for hard quit.
 
+## Planet Generator (Procedural Planet Viewer)
+
+Standalone procedural planet playground with a full-screen world view and a
+tabbed HUD for tuning all generation parameters in real time. Uses the
+`world://` URI pipeline through `engine-terrain`.
+
+### Structure
+
+```
+mods/planet-generator/
++-- mod.yaml
++-- scenes/
+    +-- main/
+        +-- scene.yml
+        +-- main.rhai
+        +-- layers/
+            +-- planet.yml          OBJ mesh (world://32)
+            +-- hud-tabs.yml        Tab bar (top-right)
+            +-- hud-panel.yml       4 parameter panels
+            +-- hud-actions.yml     Randomize / Reset buttons
+            +-- hud-presets.yml     Preset name strip (bottom-right)
+            +-- hud-stats.yml       Live biome stats (bottom-left)
+```
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| 1 / 2 / 3 / 4 | Switch tab: Continents / Mountains / Climate / Visual |
+| F1–F7 | Load preset: Earth / Mars / Ocean / Desert / Ice / Volcanic / Archipelago |
+| R | Randomize all parameters |
+| Delete | Reset to Earth defaults |
+| ↑ / ↓ | Cycle selected parameter |
+| ← / → | Adjust selected value |
+| Ctrl+F | Toggle orbit / free-look camera |
+
+### Parameters (4 tabs)
+
+- **Continents**: seed, ocean %, continent size, coast chaos, octaves
+- **Mountains**: mountain spacing, height, ridge detail
+- **Climate**: moisture scale, ice caps, altitude cooling, rain shadow
+- **Visual**: resolution (16–128), displacement, coloring mode, rotation, sun azimuth/elevation, ambient
+
+### Running
+
+```bash
+cargo run -p app -- --mod-source=mods/planet-generator --sdl-window-ratio=16:9 --sdl-pixel-scale=2
+```
+
+### Runtime Characteristics
+
+- `mod.yaml` sets 640×360 authored render size with `fit` presentation policy.
+- World parameter updates are throttled (500ms) to avoid blocking the render
+  thread with synchronous mesh rebuilds. Visual-only params (rotation, lighting)
+  update every frame.
+- Live stats bar shows ocean/forest/desert/snow/mountain coverage via
+  `planet_last_stats()` Rhai function.
+
 ## Creating a Custom Mod
 
 ### Minimum Structure

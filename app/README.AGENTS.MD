@@ -1,5 +1,12 @@
 # App Layer — CLI, Startup, Configuration
 
+## Build Script
+
+`app/build.rs` watches `.git/HEAD` and `.git/index` so that any commit or
+staged file change triggers a rebuild. It embeds the git hash as
+`BUILD_GIT_HASH`, printed in the startup banner:
+`ShellEngine [a1b2c3d] initialized with mod source: …`
+
 ## CLI Flags
 
 All flags passed via command-line or environment variables:
@@ -26,7 +33,9 @@ All flags passed via command-line or environment variables:
 | `--no-opt-rowdiff` | Disable default row diff optimization | Boolean |
 | `--opt-async` | Async display sink | Boolean |
 | `--opt` | Enable ALL optimizations | Boolean |
-| `--debug-feature` | Enable debug overlays (F1, ~, F3/F4) | Boolean |
+| `--debug-feature` | Enable debug overlays (F1, ~, F3/F4) — alias for `--dev` | Boolean |
+| `--dev` | Enable dev helpers (F1 overlay, scene nav). On by default in debug builds | Boolean |
+| `--no-dev` | Disable dev helpers even in debug builds | Boolean |
 
 ### Debug overlay (F1, Tab, ~)
 

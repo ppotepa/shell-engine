@@ -868,6 +868,26 @@ is_blank(str)            // → bool   True if string is empty or whitespace-onl
 type_of(value)           // → str    Rhai type name (built-in)
 ```
 
+### World Generation
+
+```rhai
+planet_last_stats()      // → #{}   Biome coverage from last world:// generation
+```
+
+Returns a map with fractional coverage values (0.0–1.0):
+
+| Key | Description |
+|-----|-------------|
+| `"ocean"` | Deep + shallow ocean combined |
+| `"shallow"` | Shallow ocean / coastal only |
+| `"desert"` | Desert biome |
+| `"grassland"` | Grassland / savanna |
+| `"forest"` | Temperate + tropical forest combined |
+| `"cold"` | Tundra + snow biomes combined |
+| `"mountain"` | Mountain / high altitude |
+
+Returns an empty map if no `world://` mesh has been generated yet.
+
 ---
 
 ## Type Conventions

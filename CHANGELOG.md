@@ -77,6 +77,16 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 - **docs**: updated `engine-events/README.md`, `engine-render-sdl2/README.md`, `engine-behavior/README.md`, `ARCHITECTURE.md` (section 9 input pipeline diagram + change playbook row)
 - **result**: keyboard and mouse events now flow through a single `InputEvent` slice to all consumers; `GuiInputEvent` fully deprecated; zero Rhai script changes required
 
+**Resolution slider + throttled parameter updates** ✅
+- **planet-generator**: added RESOLUTION slider (16/32/64/128 subdivisions) to Visual tab for mesh quality control; throttled `world.*` param pushes to 500ms intervals to prevent blocking the render thread during continuous slider adjustment; visual-only params (rotation, lighting) still update every frame
+- **engine-scene-runtime**: fixed `as_u64()` type mismatch for `mountain_ridge_octaves` and `subdivisions` — Rhai sends all numbers as float; added `as_f64().map(|f| f as u64)` fallback
+
+**Build reliability: git-aware rebuild tracking** ✅
+- **app**: added `build.rs` that watches `.git/HEAD` and `.git/index`; embeds `BUILD_GIT_HASH` env var so cargo detects commits/staging; startup banner now shows `ShellEngine [hash] initialized`
+
+**Documentation update** ✅
+- **docs**: added `engine-terrain/README.md` (full pipeline, params, modules, integration); added world generation section to `ARCHITECTURE.md` (section 13, pipeline diagram, Rhai property table, change playbook row); added `world://` URI authoring guide + param table to `AUTHORING.md`; added `planet_last_stats()` to `SCRIPTING-API.md`; added planet-generator mod to `MODS.md`; updated `engine-mesh/README.md`, `engine-behavior/README.AGENTS.md`, `engine-core/README.AGENTS.MD`, `app/README.AGENTS.MD`, `AGENTS.md`
+
 ## 13-04-2026
 
 

@@ -56,6 +56,17 @@ crates provide domain-specific access traits or provider impls on top of it.
 Keep `World` generic and low-level. Engine-specific lifecycle or orchestration
 logic should not move into this crate.
 
+## World generation fields on `Sprite::Obj`
+
+`Sprite::Obj` carries 16 `world_gen_*` fields (seed, ocean_fraction,
+continent_scale/warp/octaves, mountain_scale/strength/ridge_octaves,
+moisture_scale, ice_cap_strength, lapse_rate, rain_shadow,
+displacement_scale, subdivisions, coloring, shape). These are set at
+compile time from YAML and at runtime via `world.*` Rhai property paths
+in `engine-scene-runtime`. The compositor builds a `world://` URI from
+these fields; each unique URI triggers a fresh mesh generation via
+`engine-terrain`.
+
 ## Change playbook
 
 When changing scene model or shared runtime types:

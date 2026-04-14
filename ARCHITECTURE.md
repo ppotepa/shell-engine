@@ -8,6 +8,7 @@ shell-quest/
 ├── editor/                    TUI authoring tool
 ├── engine/                    Runtime orchestrator (re-exports all subsystems)
 ├── engine-core/               Scene model, buffer, effects, metadata
+├── engine-terrain/            Procedural world generation (noise, climate, biomes)
 ├── engine-celestial/          Bodies, planet presets, regions, systems, sites, routes
 ├── engine-authoring/          YAML compile/normalize/schema pipeline
 ├── engine-3d/                 OBJ mesh loading, Scene3D definitions
@@ -22,6 +23,7 @@ shell-quest/
 ├── engine-frame/              Frame ticket generation tracking
 ├── engine-game/               Persistent game state (key-value)
 ├── engine-io/                 Transport-agnostic IPC bridge (sidecar)
+├── engine-mesh/               Procedural mesh generation (cube-sphere, UV-sphere)
 ├── engine-mod/                Mod manifest loading (dir + zip)
 ├── engine-pipeline/           Backend-agnostic render pipeline strategies
 ├── engine-render/             Shared render traits (`RenderBackend`, `OutputBackend`)
@@ -32,7 +34,8 @@ shell-quest/
 ├── mods/                      Content mods
 │   ├── shell-quest/           Main game mod
 │   ├── shell-quest-tests/     Automated test mod (no user input)
-│   └── playground/            Development playground
+│   ├── playground/            Development playground
+│   └── planet-generator/      Procedural planet viewer + HUD
 ├── schemas/                   JSON schemas for YAML validation
 └── tools/                     schema-gen, devtool, benchmarks
 ```
@@ -85,7 +88,8 @@ the shared 3D camera with `camera-source: scene`.
      engine-animation    engine-render         engine-runtime
      engine-audio        engine-render-policy
      engine-3d           engine-behavior-registry
-     engine-capture      (all depend on engine-core)
+     engine-capture      engine-mesh
+     engine-terrain      (all depend on engine-core)
               │                     │                     │
           ───────────────── Tier 0 ─┼──────────────────────────
               │                     │                     │
@@ -371,7 +375,81 @@ editor, start screen, live refresh (~1.2s).
 **Target architecture**: modular window system with `Window` trait,
 `LayoutManager`, and `WindowRegistry`.
 
-## 13. Change Playbook
+## 13. World Generation Pipeline
+
+The engine supports procedural planet generation via the `world://` URI scheme.
+The pipeline spans three crates:
+
+```
+scene YAML                  Rhai script (world.* paths)
+     │                              │
+     ▼                              ▼
+engine-core (Sprite::Obj)   engine-scene-runtime (materialization)
+  world_gen_* fields              builds effective URI string
+          │                              │
+          └───────────┬──────────────────┘
+                      ▼
+         engine-compositor (sprite_renderer)
+           world://{subdiv}?seed=..&ocean=..&...
+                      │
+                      ▼
+         engine-terrain::generate(PlanetGenParams)
+           512×256 lat/lon heightmap
+           domain-warped fBm → continents
+           ridged noise → mountains
+           climate (moisture, temperature, ice)
+           biome classification (10 types)
+                      │
+                      ▼
+         engine-mesh::cube_sphere(subdiv)
+           per-vertex elevation displacement
+           per-face biome/altitude/moisture coloring
+           compute_smooth_normals
+                      │
+                      ▼
+         ObjMesh cached by full URI key
+```
+
+World meshes are generated lazily on first compositor access and cached by
+URI. Changing any parameter rebuilds the URI key, causing a cache miss and
+regeneration. The `planet_last_stats()` Rhai function (registered by
+`engine-behavior`) exposes biome coverage percentages from the most recent
+generation.
+
+### Key types
+
+| Crate | Type | Role |
+|-------|------|------|
+| `engine-terrain` | `PlanetGenParams` | Seed + 12 noise/climate knobs |
+| `engine-terrain` | `WorldGenParams` | Shape + coloring + subdivisions + planet params |
+| `engine-terrain` | `GeneratedPlanet` | Heightmap cells + biome grid + aggregate stats |
+| `engine-terrain` | `PlanetStats` | Ocean/forest/desert/snow/mountain coverage fractions |
+| `engine-terrain` | `Biome` | 10-type enum (Ocean, ShallowOcean, Desert, Grassland, …) |
+| `engine-mesh` | `Mesh` | Vertex/normal/face triangle mesh |
+
+### Rhai runtime properties (`world.*`)
+
+Scripts adjust planet parameters through `scene.set(id, path, value)`:
+
+| Path | Type | Description |
+|------|------|-------------|
+| `world.seed` | int | Generation seed (0–9999) |
+| `world.ocean_fraction` | float | Ocean coverage (0.01–0.99) |
+| `world.continent_scale` | float | Landmass size (0.5–10) |
+| `world.continent_warp` | float | Coastline chaos (0–2) |
+| `world.continent_octaves` | int | Continent noise detail (1–8) |
+| `world.mountain_scale` | float | Mountain spacing (1–15) |
+| `world.mountain_strength` | float | Mountain height (0–1) |
+| `world.mountain_ridge_octaves` | int | Ridge detail (1–8) |
+| `world.moisture_scale` | float | Moisture pattern size (0.5–8) |
+| `world.ice_cap_strength` | float | Polar ice intensity (0–3) |
+| `world.lapse_rate` | float | Altitude cooling (0–1.5) |
+| `world.rain_shadow` | float | Rain shadow effect (0–1) |
+| `world.displacement_scale` | float | Surface displacement (0–0.6) |
+| `world.subdivisions` | int | Mesh resolution (16–128, power of 2) |
+| `world.coloring` | string | `"biome"` / `"altitude"` / `"moisture"` |
+
+## 14. Change Playbook
 
 | Change Type | Files to Update |
 |------------|----------------|
@@ -380,6 +458,7 @@ editor, start screen, live refresh (~1.2s).
 | Render/compositor | Verify compositor + renderer + backend presentation interactions |
 | Transitions/lifecycle | Verify scoped reset behavior, scene loader reference resolution |
 | Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `AUTHORING.md`, regression tests in `engine-behavior` |
+| World generation params | `engine-terrain` params, `engine-core` Sprite::Obj `world_gen_*` fields, `engine-compositor` URI builder + parser, `engine-scene-runtime` materialization `world.*` paths, `engine-behavior` world module |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |
 | Input events | `engine-events` variants + `as_input_event()`, SDL2 producer (`engine-render-sdl2/runtime.rs`), `scene_lifecycle::classify_events`, all pattern-match sites (`game_loop.rs`, `editor/state/scene_run.rs`); **Rhai scripts do not need changes** (they use `input.down/just_pressed` which reads `keys_down` HashSet) |
 | GUI widget types | `engine-gui` widget/state/system, `engine-authoring` YAML compile path, schema, `ScriptGuiApi` in `engine-behavior` |
@@ -388,7 +467,7 @@ When changing gameplay wrapping or bounds behavior, also verify the Rhai-facing
 `world.set_world_bounds(min_x, min_y, max_x, max_y)` contract stays aligned with
 the underlying runtime order.
 
-## 14. CLI Quick Reference
+## 15. CLI Quick Reference
 
 ### App (`cargo run -p app`)
 

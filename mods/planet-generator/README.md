@@ -52,6 +52,7 @@ SHELL_QUEST_MOD_SOURCE=mods/planet-generator cargo run -p app
 - **RAIN SHADOW** — rain shadow effect (0–1)
 
 ### Visual tab
+- **RESOLUTION** — mesh subdivisions (16/32/64/128, power-of-2 steps)
 - **DISPLACEMENT** — surface displacement scale (0–60%)
 - **COLORING** — biome / elevation / moisture
 - **ROTATION** — rotation speed deg/sec (0–10)

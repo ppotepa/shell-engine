@@ -44,6 +44,18 @@ The compositor intercepts this URI in `get_or_load_obj_mesh`, calls
 No file I/O occurs — generation happens once per subdivision level at
 first use and is shared across all sprites via `Arc<ObjMesh>`.
 
+### `world://` URI
+
+The `world://N` URI extends `cube-sphere://N` with procedural terrain.
+`engine-compositor` generates a planet via `engine_terrain::generate()`,
+then applies per-vertex elevation displacement and per-face biome/altitude
+coloring to the cube-sphere mesh. Each unique parameter combination produces
+a distinct URI key and cached `ObjMesh`.
+
+```yaml
+source: "world://32"   # 32 subdivisions, params set via Rhai world.* paths
+```
+
 ## Adding new primitives
 
 1. Add a module under `src/primitives/`.

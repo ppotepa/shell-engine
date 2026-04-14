@@ -627,6 +627,80 @@ per-sprite OBJ camera/view overrides via `scene.set(id, "obj.cam.wx", ...)`,
 `obj.cam.wy/wz`, and `obj.view.rx/ry/rz`, `obj.view.ux/uy/uz`,
 `obj.view.fx/fy/fz`.
 
+### World-Generated Planets (`world://` URI)
+
+The `world://` URI scheme generates procedural planets via `engine-terrain`.
+Unlike `type: planet` (which references a body catalog), `world://` sprites
+are fully parameterised and driven by Rhai at runtime.
+
+**Scene YAML:**
+
+```yaml
+- type: obj
+  id: planet-mesh
+  source: "world://32"
+  prerender: false
+  ambient: 0.12
+  rotation-speed: 3.0
+```
+
+The `32` in `world://32` sets the mesh subdivision level (cube-sphere faces
+per edge). Higher values produce more detailed terrain but take longer to
+generate. Recommended values: 16 (fast preview), 32 (default), 64 (good
+quality), 128 (high resolution).
+
+**Rhai parameter control:**
+
+```rhai
+scene.set("planet-mesh", "world.seed", 42);
+scene.set("planet-mesh", "world.ocean_fraction", 0.55);
+scene.set("planet-mesh", "world.continent_scale", 2.5);
+scene.set("planet-mesh", "world.displacement_scale", 0.22);
+scene.set("planet-mesh", "world.coloring", "biome");
+scene.set("planet-mesh", "world.subdivisions", 64);
+```
+
+Any `world.*` property change rebuilds the URI key and triggers mesh
+regeneration on the next compositor pass. Changes are typically throttled
+in the script to avoid blocking the render thread.
+
+**Available `world.*` properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `world.seed` | 0 | Random seed (0–9999) |
+| `world.ocean_fraction` | 0.55 | Ocean coverage (0.01–0.99) |
+| `world.continent_scale` | 2.5 | Continent size (0.5–10) |
+| `world.continent_warp` | 0.65 | Coastline chaos (0–2) |
+| `world.continent_octaves` | 5 | Continent noise detail (1–8) |
+| `world.mountain_scale` | 6.0 | Mountain spacing (1–15) |
+| `world.mountain_strength` | 0.45 | Mountain height (0–1) |
+| `world.mountain_ridge_octaves` | 5 | Ridge detail (1–8) |
+| `world.moisture_scale` | 3.0 | Moisture pattern size (0.5–8) |
+| `world.ice_cap_strength` | 1.0 | Polar ice intensity (0–3) |
+| `world.lapse_rate` | 0.6 | Altitude cooling rate (0–1.5) |
+| `world.rain_shadow` | 0.35 | Rain shadow (0–1) |
+| `world.displacement_scale` | 0.22 | Surface displacement (0–0.6) |
+| `world.subdivisions` | 32 | Mesh resolution (16/32/64/128) |
+| `world.coloring` | biome | `"biome"` / `"altitude"` / `"moisture"` |
+
+Visual-only properties that don't trigger mesh regeneration:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `obj.rotation-speed` | 3.0 | Rotation speed (deg/sec) |
+| `obj.ambient` | 0.12 | Ambient light level (0–0.5) |
+| `obj.light.x/y/z` | — | Directional light vector |
+
+**Biome stats readback:**
+
+```rhai
+let stats = planet_last_stats();
+let ocean_pct = stats["ocean"];        // 0.0–1.0
+let forest_pct = stats["forest"];
+let desert_pct = stats["desert"];
+```
+
 ---
 
 ## Terminal HUD Authoring

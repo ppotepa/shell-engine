@@ -51,3 +51,10 @@ This split keeps behavior code testable and keeps runtime mutation centralized.
   `cfg` into the prefab's `ArcadeController` config.
 - Ship thrust smoke emitters are keyed by `ship_id` plus optional `thrust_ms`;
   the built-in emitter computes spawn position and velocity from the ship.
+
+## World generation module (`scripting/world.rs`)
+
+Registers `planet_last_stats()` — a Rhai function returning biome coverage
+from the most recently generated `world://` mesh. Returns a map with keys:
+`ocean`, `shallow`, `desert`, `grassland`, `forest`, `cold`, `mountain`
+(all `f64` fractions 0.0–1.0). Depends on `engine-terrain`.

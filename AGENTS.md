@@ -21,6 +21,7 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
 - **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
 - **[engine-mesh/README.md](engine-mesh/README.md)** — Procedural mesh generation, cube-sphere/UV-sphere, compositor URI integration
+- **[engine-terrain/README.md](engine-terrain/README.md)** — Procedural world generation pipeline, params, biomes, climate, stats
 - **[engine-gui/README.md](engine-gui/README.md)** — GUI widget model, input contract (`InputEvent`), `GuiSystem`, Rhai script API integration
 - **[engine-behavior/README.AGENTS.md](engine-behavior/README.AGENTS.md)** — Behavior contract, `BehaviorContext`, `BehaviorCommand`, script-facing API reminders
 - **[engine-*/README.md](engine-3d/README.md)** — crate-specific READMEs (purpose, key types, dependencies, usage)
@@ -41,6 +42,7 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - `engine-events/` input event types (`EngineEvent`, `InputEvent`, `MouseButton`)
 - `engine-gui/` declarative GUI widget model, hit-testing, runtime state
 - `engine-mesh/` procedural 3D mesh generation (cube-sphere, UV-sphere)
+- `engine-terrain/` procedural world generation (noise, climate, biomes)
 - `engine-io/` transport-agnostic IPC bridge (sidecar communication)
 - `editor/` TUI authoring tool
 - `mods/` content mods
