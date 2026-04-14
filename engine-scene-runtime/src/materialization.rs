@@ -1037,7 +1037,7 @@ fn set_obj_property_recursive(
                 }
                 "world.subdivisions" => {
                     if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
-                        let next = next as u32;
+                        let next = (next as u32).clamp(1, 512);
                         if world_gen_subdivisions.map_or(true, |v| v != next) {
                             *world_gen_subdivisions = Some(next);
                             *updated = true;

@@ -99,8 +99,8 @@ fn lapse_to_01(v)     { (v / 1.5).max(0.0).min(1.0) }
 fn lapse_from_01(v)   { v * 1.5 }
 fn rain_to_01(v)      { v.max(0.0).min(1.0) }
 fn rain_from_01(v)    { v }
-fn subdiv_to_01(v)    { if v < 24.0 { 0.0 } else if v < 48.0 { 0.333 } else if v < 96.0 { 0.667 } else { 1.0 } }
-fn subdiv_from_01(v)  { if v < 0.166 { 16.0 } else if v < 0.5 { 32.0 } else if v < 0.833 { 64.0 } else { 128.0 } }
+fn subdiv_to_01(v)    { if v <= 48.0 { 0.0 } else if v <= 96.0 { 0.25 } else if v <= 192.0 { 0.5 } else if v <= 384.0 { 0.75 } else { 1.0 } }
+fn subdiv_from_01(v)  { if v < 0.125 { 32.0 } else if v < 0.375 { 64.0 } else if v < 0.625 { 128.0 } else if v < 0.875 { 256.0 } else { 512.0 } }
 fn disp_to_01(v)      { (v / 0.6).max(0.0).min(1.0) }
 fn disp_from_01(v)    { v * 0.6 }
 fn coloring_to_01(v)  { (v / 2.0).max(0.0).min(1.0) }
