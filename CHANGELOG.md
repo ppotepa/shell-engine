@@ -38,6 +38,11 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ## 14-04-2026
 
+**Build performance: lld linker + incremental compilation re-enabled** ✅
+- **build**: switched dev linker from MSVC `link.exe` to `rust-lld` (bundled with Rust) via `.cargo/config.toml` — 2–4× faster linking on large workspaces, no extra install required
+- **build**: re-enabled incremental compilation (`incremental = true`) in dev profile — was disabled due to old Windows NTFS hard-link warning; warning is now non-fatal (copies instead of links), net benefit over full recompile
+- **docs**: `.cargo/config.toml` comments updated to document rationale for both changes
+
 **Unified input event architecture** ✅
 - **engine-events**: renamed `KeyPressed` → `KeyDown { key, repeat }` and `KeyReleased` → `KeyUp { key }`; mouse coords changed from `u16` to `f32` (output-space); `button: String` replaced by typed `MouseButton` enum; added `InputEvent` sub-enum and `EngineEvent::as_input_event()` for fan-out
 - **engine-gui**: `GuiSystem::update` now accepts `&[engine_events::InputEvent]` instead of `&[GuiInputEvent]`; mouse coords are `f32`; `drag_button` uses typed `MouseButton`; keyboard events accepted (pass-through stub); `GuiInputEvent` kept as `#[deprecated]` alias
