@@ -2,15 +2,19 @@
 //!
 //! ## How it works
 //!
-//! The shell reuses the planet's already-displaced mesh vertices, pushing each one outward
-//! by `atmo_margin` world units, then re-projecting.  This means the shell boundary follows
-//! the actual terrain shape — mountains poke through, valleys sit deeper.
+//! The shell is a smooth sphere placed at `planet_radius + atmo_margin` from the planet
+//! centre.  Each planet vertex contributes one shell vertex, placed along the vertex's
+//! **smooth surface normal** (rotated with the model matrix) at a fixed shell radius.
+//! Using smooth normals instead of displaced terrain positions gives a clean spherical
+//! envelope and prevents the "two separate rotating objects" visual artifact that
+//! occurs when a heavily-displaced terrain-hugging shell is used.
 //!
 //! When `scale_height > 0`, the atmosphere density is computed physically:
 //!
 //! **Step 1 — Barometric formula:**
 //!   `ρ = exp(-altitude / H)`
-//!   where altitude = distance of shell vertex above the reference sphere, H = scale height.
+//!   where altitude = `atmo_margin` (fixed height of shell above reference sphere),
+//!   and H = scale height.
 //!
 //! **Step 2 — Chapman column density:**
 //!   `column = ρ / (cos_θ + cos_θ_min)`
@@ -133,20 +137,21 @@ pub(crate) fn render_atmo_shell_pass(
             continue;
         };
 
-        // Outward direction from planet centre (works for any shape).
-        let rel = [
-            pv.view[0] - object_translate[0],
-            pv.view[1] - object_translate[1],
-            pv.view[2] - object_translate[2],
-        ];
-        let surface_dist = (rel[0]*rel[0] + rel[1]*rel[1] + rel[2]*rel[2]).sqrt().max(1e-6);
-        let outward = [rel[0]/surface_dist, rel[1]/surface_dist, rel[2]/surface_dist];
+        // Use the smooth vertex normal as the outward direction.
+        // This gives a clean spherical shell that follows the sphere topology rather
+        // than the terrain displacement, preventing the "two objects" visual artifact
+        // that occurs when a heavily-displaced terrain-hugging shell appears detached.
+        // pv.normal is already normalized and rotated with the planet model matrix.
+        let outward = pv.normal;
 
-        // Push vertex outward to the shell surface.
+        // Place the shell at a fixed radius from the planet centre — just outside the
+        // tallest terrain feature (planet_radius ≈ params.scale = the world-space max
+        // vertex radius, so shell_radius sits just above the highest mountain).
+        let shell_radius = planet_radius + atmo_margin;
         let shell_world = [
-            pv.view[0] + outward[0] * atmo_margin,
-            pv.view[1] + outward[1] * atmo_margin,
-            pv.view[2] + outward[2] * atmo_margin,
+            object_translate[0] + outward[0] * shell_radius,
+            object_translate[1] + outward[1] * shell_radius,
+            object_translate[2] + outward[2] * shell_radius,
         ];
 
         // Camera-space transform.
@@ -179,9 +184,9 @@ pub(crate) fn render_atmo_shell_pass(
 
         let (alpha, brightness) = if use_physical {
             // ── Step 1: barometric density ────────────────────────────────────
-            // altitude = distance of shell vertex above the reference sphere.
-            // Terrain displacement is already baked into surface_dist.
-            let geom_altitude = (surface_dist + atmo_margin - planet_radius).max(0.0);
+            // Shell is placed at a fixed radius (planet_radius + atmo_margin), so
+            // the geometric altitude above the reference sphere is simply atmo_margin.
+            let geom_altitude = atmo_margin;
 
             // ── Step 3: gravitational potential correction ────────────────────
             // Replace pure altitude with potential-derived altitude so atmosphere
