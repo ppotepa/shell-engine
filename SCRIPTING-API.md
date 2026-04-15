@@ -613,7 +613,7 @@ scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
 | `world.rain_shadow` | float  | Rain shadow strength (0–1)                       |
 | `world.displacement_scale` | float | Surface displacement (0–0.6)             |
 | `world.subdivisions` | int   | Mesh resolution (32/64/128/256/512)              |
-| `world.coloring`   | str     | `"biome"` / `"altitude"` / `"none"`              |
+| `world.coloring`   | str     | `"biome"` / `"altitude"` / `"moisture"` / `"none"` |
 | `world.base`       | str     | Sphere topology: `"cube"` / `"uv"` / `"tetra"` / `"octa"` / `"icosa"` |
 | `planet.spin_deg`  | float   | Planet surface spin angle in degrees             |
 | `planet.cloud_spin_deg` | float | Planet primary cloud deck spin angle in degrees |

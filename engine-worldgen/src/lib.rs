@@ -1,4 +1,4 @@
-use engine_terrain::{GeneratedPlanet, HeightmapCell, WorldBase, WorldColoring, WorldGenParams, WorldShape};
+use engine_terrain::{moisture_color, GeneratedPlanet, HeightmapCell, WorldBase, WorldColoring, WorldGenParams, WorldShape};
 
 #[derive(Debug, Clone)]
 pub struct GeneratedWorldMesh {
@@ -116,7 +116,8 @@ pub fn parse_world_base(s: &str) -> WorldBase {
 
 pub fn parse_world_coloring(s: &str) -> WorldColoring {
     match s {
-        "altitude" => WorldColoring::Altitude,
+        "altitude" | "elevation" => WorldColoring::Altitude,
+        "moisture" => WorldColoring::Moisture,
         "none" => WorldColoring::None,
         _ => WorldColoring::Biome,
     }
@@ -143,6 +144,7 @@ pub fn world_coloring_str(coloring: WorldColoring) -> &'static str {
     match coloring {
         WorldColoring::Altitude => "altitude",
         WorldColoring::Biome => "biome",
+        WorldColoring::Moisture => "moisture",
         WorldColoring::None => "none",
     }
 }
@@ -204,6 +206,7 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                     match p.coloring {
                         WorldColoring::Biome => engine_terrain::biome_color(cell.biome),
                         WorldColoring::Altitude => engine_terrain::altitude_color(cell.elevation),
+                        WorldColoring::Moisture => moisture_color(cell.moisture),
                         WorldColoring::None => [200, 200, 200],
                     }
                 })
@@ -225,7 +228,7 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                         (mesh.vertices[a][1] + mesh.vertices[b][1] + mesh.vertices[c][1]) / 3.0;
                     let elevation = ((avg_y / 0.44) + 0.5).clamp(0.0, 1.0);
                     match p.coloring {
-                        WorldColoring::Altitude | WorldColoring::Biome => {
+                        WorldColoring::Altitude | WorldColoring::Biome | WorldColoring::Moisture => {
                             engine_terrain::altitude_color(elevation)
                         }
                         WorldColoring::None => [200, 200, 200],

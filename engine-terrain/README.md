@@ -47,7 +47,7 @@ GeneratedPlanet { cells, stats, width, height }
 | `WorldGenParams` | `params.rs` | Shape + coloring + subdivisions + `PlanetGenParams` |
 | `WorldShape` | `params.rs` | `Flat` / `Sphere` enum |
 | `WorldBase` | `params.rs` | Base sphere primitive: `Cube` / `Uv` / `Tetra` / `Octa` / `Icosa` |
-| `WorldColoring` | `params.rs` | `Altitude` / `Biome` / `None` enum |
+| `WorldColoring` | `params.rs` | `Altitude` / `Biome` / `Moisture` / `None` enum |
 | `GeneratedPlanet` | `stats.rs` | Heightmap cells + biome grid + aggregate stats |
 | `PlanetStats` | `stats.rs` | Coverage fractions (ocean, forest, desert, snow, mountain, …) |
 | `HeightmapCell` | `stats.rs` | Per-cell elevation, moisture, temperature, biome |
@@ -61,7 +61,7 @@ GeneratedPlanet { cells, stats, width, height }
 | `elevation.rs` | Domain-warped fBm + ridged mountain noise |
 | `climate.rs` | Moisture, temperature, ice caps, rain shadow |
 | `biome.rs` | 10-biome classification from elevation/moisture/temperature |
-| `coloring.rs` | `biome_color()` → RGB, `altitude_color()` → RGB |
+| `coloring.rs` | `biome_color()` → RGB, `altitude_color()` → RGB, `moisture_color()` → RGB |
 | `noise.rs` | Simplex noise, fBm, ridged fBm primitives |
 | `grid.rs` | Lat/lon ↔ 3D sphere coordinate helpers |
 | `stats.rs` | Aggregate statistics + output types |

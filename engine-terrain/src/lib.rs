@@ -35,7 +35,7 @@ pub mod params;
 pub mod stats;
 
 pub use biome::Biome;
-pub use coloring::{altitude_color, biome_color};
+pub use coloring::{altitude_color, biome_color, moisture_color};
 pub use params::{PlanetGenParams, WorldBase, WorldColoring, WorldGenParams, WorldShape};
 pub use stats::{BiomeArchetype, GeneratedPlanet, HeightmapCell, PlanetStats};
 

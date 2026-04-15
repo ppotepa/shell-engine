@@ -699,7 +699,7 @@ in the script to avoid blocking the render thread.
 | `world.rain_shadow` | 0.35 | Rain shadow (0–1) |
 | `world.displacement_scale` | 0.22 | Surface displacement (0–0.6) |
 | `world.subdivisions` | 32 | Mesh resolution (32/64/128/256/512) |
-| `world.coloring` | biome | `"biome"` / `"altitude"` / `"none"` |
+| `world.coloring` | biome | `"biome"` / `"altitude"` / `"moisture"` / `"none"` |
 | `world.base` | cube | Sphere topology: `"cube"` / `"uv"` / `"tetra"` / `"octa"` / `"icosa"` |
 
 Visual-only properties that don't trigger mesh regeneration:

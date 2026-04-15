@@ -37,6 +37,8 @@ pub enum WorldColoring {
     /// Per-face color from biome classification (requires full planet pipeline).
     #[default]
     Biome,
+    /// Per-face color from moisture (dry = tan → wet = teal; requires full planet pipeline).
+    Moisture,
     /// No per-face coloring — uniform grey.
     None,
 }

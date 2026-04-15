@@ -60,6 +60,30 @@ pub fn altitude_color(elevation: f32) -> [u8; 3] {
     }
 }
 
+/// Map a normalised moisture value (0.0 = bone dry, 1.0 = saturated) to an sRGB face colour.
+///
+/// Used by `WorldColoring::Moisture` — useful for debugging climate output.
+/// Gradient: dry (tan) → semi-arid (olive) → moderate (green) → wet (teal/blue).
+pub fn moisture_color(moisture: f32) -> [u8; 3] {
+    let m = moisture.clamp(0.0, 1.0);
+    if m < 0.20 {
+        let t = m / 0.20;
+        lerp_rgb([196, 168,  96], [172, 148,  72], t)   // bone dry — tan
+    } else if m < 0.40 {
+        let t = (m - 0.20) / 0.20;
+        lerp_rgb([172, 148,  72], [120, 148,  64], t)   // semi-arid — olive
+    } else if m < 0.65 {
+        let t = (m - 0.40) / 0.25;
+        lerp_rgb([120, 148,  64], [ 52, 132,  72], t)   // moderate — green
+    } else if m < 0.85 {
+        let t = (m - 0.65) / 0.20;
+        lerp_rgb([ 52, 132,  72], [ 32, 120, 110], t)   // humid — green→teal
+    } else {
+        let t = (m - 0.85) / 0.15;
+        lerp_rgb([ 32, 120, 110], [ 24,  90, 148], t)   // saturated — teal→blue
+    }
+}
+
 fn lerp_rgb(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
     let t = t.clamp(0.0, 1.0);
     [
