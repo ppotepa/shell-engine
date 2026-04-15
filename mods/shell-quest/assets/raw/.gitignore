@@ -1,3 +1,0 @@
-# Keep raw source frames local; commit only converted assets outside raw/.
-*
-!.gitignore
