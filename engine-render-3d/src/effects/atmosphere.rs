@@ -28,11 +28,21 @@ pub fn apply_atmosphere_overlay_rgb(
     if rim <= 0.01 && haze <= 0.01 {
         return pixel;
     }
-    let day = smoothstep(-0.1, 0.3, dot3(n, sun_dir));
-    let rim_alpha = rim * (0.55 + 0.90 * day) * params.strength.max(0.0);
-    let haze_alpha = haze * (0.32 + 0.38 * day) * params.haze_strength.max(0.0);
+    let sun_dot = dot3(n, sun_dir);
+    let day = smoothstep(-0.1, 0.3, sun_dot);
+    // Rim and haze are only visible on the sun-lit side; dark side is nearly black.
+    let rim_alpha = rim * (0.30 + 0.70 * day) * params.strength.max(0.0);
+    let haze_alpha = haze * (0.05 + 0.95 * day) * params.haze_strength.max(0.0);
     let a = (rim_alpha + haze_alpha).clamp(0.0, 0.92);
-    mix_rgb(pixel, params.color, a)
+    // Sun scatter: brighten atmosphere color at the sunlit limb (rim facing sun).
+    // Simulates Rayleigh/Mie forward scattering — limb near the sun glows vividly.
+    let sun_scatter = 1.0 + 1.2 * (rim * day.sqrt());
+    let scatter_color = [
+        (params.color[0] as f32 * sun_scatter).clamp(0.0, 255.0) as u8,
+        (params.color[1] as f32 * sun_scatter).clamp(0.0, 255.0) as u8,
+        (params.color[2] as f32 * sun_scatter).clamp(0.0, 255.0) as u8,
+    ];
+    mix_rgb(pixel, scatter_color, a)
 }
 
 /// Apply atmosphere overlay using barycentric interpolation of per-vertex normals.
