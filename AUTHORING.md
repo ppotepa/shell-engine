@@ -644,10 +644,27 @@ are fully parameterised and driven by Rhai at runtime.
   rotation-speed: 3.0
 ```
 
-The `32` in `world://32` sets the mesh subdivision level (cube-sphere faces
-per edge). Higher values produce more detailed terrain but take longer to
-generate. Recommended values: 16 (fast preview), 32 (default), 64 (good
-quality), 128 (high resolution).
+The `32` in `world://32` sets the mesh subdivision level. Higher values
+produce more detailed terrain but take longer to generate. Recommended
+values: 32 (default), 64 (good quality), 128 (high resolution), 256–512
+(very high res — expect multi-second generation at 512).
+
+The optional `world-base` YAML field selects the sphere topology:
+
+```yaml
+- type: obj
+  id: planet-mesh
+  source: "world://64"
+  world-base: cube      # cube (default) | uv | tetra | octa | icosa
+```
+
+| Value | Topology |
+|-------|---------|
+| `cube` | Cube-sphere — uniform triangles, no pole singularity (default) |
+| `uv` | UV sphere — classic lat/lon topology |
+| `tetra` | Tetrahedron recursively subdivided |
+| `octa` | Octahedron recursively subdivided |
+| `icosa` | Icosahedron recursively subdivided (icosphere) |
 
 **Rhai parameter control:**
 
@@ -681,8 +698,9 @@ in the script to avoid blocking the render thread.
 | `world.lapse_rate` | 0.6 | Altitude cooling rate (0–1.5) |
 | `world.rain_shadow` | 0.35 | Rain shadow (0–1) |
 | `world.displacement_scale` | 0.22 | Surface displacement (0–0.6) |
-| `world.subdivisions` | 32 | Mesh resolution (16/32/64/128) |
-| `world.coloring` | biome | `"biome"` / `"altitude"` / `"moisture"` |
+| `world.subdivisions` | 32 | Mesh resolution (32/64/128/256/512) |
+| `world.coloring` | biome | `"biome"` / `"altitude"` / `"none"` |
+| `world.base` | cube | Sphere topology: `"cube"` / `"uv"` / `"tetra"` / `"octa"` / `"icosa"` |
 
 Visual-only properties that don't trigger mesh regeneration:
 
@@ -691,6 +709,11 @@ Visual-only properties that don't trigger mesh regeneration:
 | `obj.rotation-speed` | 3.0 | Rotation speed (deg/sec) |
 | `obj.ambient` | 0.12 | Ambient light level (0–0.5) |
 | `obj.light.x/y/z` | — | Directional light vector |
+| `obj.atmo.color` | — | Atmosphere rim color (color name or `"none"` to disable) |
+| `obj.atmo.strength` | — | Atmosphere rim blend strength (0.0–1.0) |
+| `obj.atmo.rim_power` | — | Rim falloff exponent (0.1–16.0) |
+| `obj.atmo.haze_strength` | — | Haze blend strength (0.0–1.0) |
+| `obj.atmo.haze_power` | — | Haze falloff exponent (0.1–8.0) |
 
 **Biome stats readback:**
 

@@ -12,6 +12,7 @@ shell-quest/
 ├── engine-celestial/          Bodies, planet presets, regions, systems, sites, routes
 ├── engine-authoring/          YAML compile/normalize/schema pipeline
 ├── engine-3d/                 OBJ mesh loading, Scene3D definitions
+├── engine-render-3d/          Shared 3D rendering domain math/effects/shading/geom pipeline seams
 ├── engine-animation/          Stage/step animator
 ├── engine-audio/              Audio playback (rodio backend)
 ├── engine-audio-sequencer/    YAML song/SFX runtime + synth note-sheet generation
@@ -23,7 +24,8 @@ shell-quest/
 ├── engine-frame/              Frame ticket generation tracking
 ├── engine-game/               Persistent game state (key-value)
 ├── engine-io/                 Transport-agnostic IPC bridge (sidecar)
-├── engine-mesh/               Procedural mesh generation (cube-sphere, UV-sphere)
+├── engine-mesh/               Procedural mesh generation (cube-sphere, UV-sphere, poly-spheres)
+├── engine-worldgen/           world:// URI parsing, base-sphere dispatch, world mesh building
 ├── engine-mod/                Mod manifest loading (dir + zip)
 ├── engine-pipeline/           Backend-agnostic render pipeline strategies
 ├── engine-render/             Shared render traits (`RenderBackend`, `OutputBackend`)
@@ -88,8 +90,10 @@ the shared 3D camera with `camera-source: scene`.
      engine-animation    engine-render         engine-runtime
      engine-audio        engine-render-policy
      engine-3d           engine-behavior-registry
+     engine-render-3d
      engine-capture      engine-mesh
-     engine-terrain      (all depend on engine-core)
+     engine-terrain      engine-worldgen
+                         (all depend on engine-core)
               │                     │                     │
           ───────────────── Tier 0 ─┼──────────────────────────
               │                     │                     │

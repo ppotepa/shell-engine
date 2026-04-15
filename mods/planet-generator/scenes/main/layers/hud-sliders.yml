@@ -46,5 +46,10 @@
     - { type: vector, id: param-track-6,  x: 421, y: 241, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
     - { type: vector, id: param-handle-6, x: 421, y: 237, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
+    # ── Slot 7 (Visual only) ──────────────────────────────────────────────────
+    - { type: text,   id: param-label-7,  content: "  --",       x: 421, y: 256, font: "generic:1", fg: "#88bbaa" }
+    - { type: vector, id: param-track-7,  x: 421, y: 269, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-7, x: 421, y: 265, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+
     # ── Keyboard/mouse hint ───────────────────────────────────────────────────
-    - { type: text, id: param-hint, content: "drag sliders | F1-F7 presets | 1-4 tabs", x: 520, y: 258, at: cc, font: "generic:1", fg: "#1a5c28" }
+    - { type: text, id: param-hint, content: "drag sliders | F1-F7 presets | 1-4 tabs", x: 520, y: 286, at: cc, font: "generic:1", fg: "#1a5c28" }

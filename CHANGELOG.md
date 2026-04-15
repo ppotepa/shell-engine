@@ -49,6 +49,19 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 15-04-2026
+
+**engine-compositor refactor: obj_render split + engine-worldgen + engine-render-3d** ✅
+- **engine-compositor**: extracted `obj_render.rs` monolith into `obj_render/` submodule tree (`mesh_source`, `params`, `setup`, `terrain_eval`); world URI parsing + mesh building moved to `engine-worldgen`; render-domain math moved to `engine-render-3d`; added `MAX_OBJ_FACE_RENDER = 250_000` safety cap; now uses `Render3dPipeline` trait from `engine-render-3d`
+- **engine-worldgen**: new crate owning `world://` URI parsing, all base-sphere selection (`cube`/`uv`/`tetra`/`octa`/`icosa`), world mesh building, per-vertex elevation displacement, per-face biome/altitude coloring, and canonical URI serialization for cache keys
+- **engine-render-3d**: new crate centralizing shared 3D render-domain logic — geometry helpers, procedural effect kernels (planet atmosphere/biome/terrain signals), shading/color-space utilities, and the `Render3dPipeline` seam trait; keeps compositor focused on orchestration + buffer composition
+- **engine-terrain**: added `WorldBase` enum (`Cube`/`Uv`/`Tetra`/`Octa`/`Icosa`) with serde `lowercase` rename; added `base: WorldBase` field to `WorldGenParams`; updated crate root doc comment and re-export
+- **engine-mesh**: added `poly_sphere` module with `tetra_sphere`, `octa_sphere`, `icosa_sphere` generators (recursive polyhedron subdivision → normalized unit sphere); re-exported from `primitives/mod.rs`
+- **engine-core**: added `world-base` YAML field (`world_gen_base: Option<String>`) to `Sprite::Obj`
+- **engine-scene-runtime**: added `world.base` Rhai property path (valid values: `"cube"`, `"uv"`, `"tetra"`, `"octa"`, `"icosa"`); added 5 atmosphere Rhai property paths: `obj.atmo.color`, `obj.atmo.strength`, `obj.atmo.rim_power`, `obj.atmo.haze_strength`, `obj.atmo.haze_power`; added all 6 new fields to the `Sprite::Obj` destructure block
+- **engine-mod**: added `GuiWidgetBindingsCheck` startup check (`gui_widget_bindings.rs`) that validates GUI widget registrations; registered in both `StartupRunner::default()` and app `run_scene_checks()`
+- **planet-generator**: minor YAML adjustments to `hud-panel.yml`, `hud-sliders.yml`, `hud-tabs.yml`, and `scene.yml` following the GUI slider + tab click migration
+
 ## 14-04-2026
 
 **Unified `world://` URI — biome planet pipeline via `engine-terrain`** ✅

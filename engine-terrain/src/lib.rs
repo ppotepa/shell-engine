@@ -13,7 +13,7 @@
 //!   └── displacement_scale       → radial vertex offset on sphere
 //! ```
 //!
-//! `engine-compositor` owns the bridge between this crate and `engine-mesh`.
+//! `engine-worldgen` owns the bridge between this crate and `engine-mesh`.
 //!
 //! Algorithm overview:
 //! 1. Convert each cell of a 512×256 lat/lon grid to a 3D unit sphere point.
@@ -36,7 +36,7 @@ pub mod stats;
 
 pub use biome::Biome;
 pub use coloring::{altitude_color, biome_color};
-pub use params::{PlanetGenParams, WorldColoring, WorldGenParams, WorldShape};
+pub use params::{PlanetGenParams, WorldBase, WorldColoring, WorldGenParams, WorldShape};
 pub use stats::{BiomeArchetype, GeneratedPlanet, HeightmapCell, PlanetStats};
 
 use std::sync::{Mutex, OnceLock};

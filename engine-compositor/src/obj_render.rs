@@ -1,8 +1,7 @@
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
 
 use engine_core::color::Color;
+use engine_render_3d::api::Render3dPipeline;
 use rayon::prelude::*;
 
 use crate::obj_prerender::ObjPrerenderedFrames;
@@ -10,15 +9,30 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::scene::SpriteSizePreset;
 
-use super::obj_loader::{load_obj_mesh, ObjFace, ObjMesh};
+use super::obj_loader::{ObjFace, ObjMesh};
 use super::obj_render_helpers::*;
 pub use super::obj_render_helpers::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
 };
+mod mesh_source;
+mod params;
+mod setup;
+mod terrain_eval;
+use mesh_source::get_or_load_obj_mesh;
+pub(crate) use mesh_source::parse_terrain_params_from_uri;
+pub use params::ObjRenderParams;
+use setup::{
+    build_biome_params, build_terrain_extra_params, normalized_light_and_view_dirs,
+};
+use terrain_eval::{compute_terrain_noise_at, displace_sphere_vertex};
 
 /// Minimum vertex/face count to use parallel processing.
 /// Below this, serial is faster due to rayon thread spawn overhead.
 const VERTEX_PARALLEL_THRESHOLD: usize = 64;
+/// Safety cap for per-mesh face shading/rasterization work in one pass.
+///
+/// 128 cube-sphere uses ~196k faces, so keep this above that to avoid visible truncation.
+const MAX_OBJ_FACE_RENDER: usize = 250_000;
 
 // Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
 // SAFETY: only set during `with_prerender_frames` and never accessed across threads.
@@ -49,539 +63,12 @@ fn current_prerender_frames<'a>() -> Option<&'a ObjPrerenderedFrames> {
     })
 }
 
-// Global OBJ mesh cache — parse once, reuse via Arc.
-static OBJ_MESH_CACHE: OnceLock<Mutex<HashMap<String, Arc<ObjMesh>>>> = OnceLock::new();
-
-/// Parse a terrain-plane URI query string into `TerrainParams`.
-///
-/// Query format: `amp=A&freq=F&oct=O&rough=R&sx=S&sz=Z`
-/// All parameters are optional — missing ones fall back to `TerrainParams::default()`.
-fn parse_terrain_params(query: &str) -> engine_mesh::primitives::TerrainParams {
-    let mut p = engine_mesh::primitives::TerrainParams::default();
-    for pair in query.split('&') {
-        if let Some((k, v)) = pair.split_once('=') {
-            match k {
-                "amp"   => { if let Ok(f) = v.parse::<f32>() { p.amplitude  = f.clamp(0.01, 10.0); } }
-                "freq"  => { if let Ok(f) = v.parse::<f32>() { p.frequency  = f.clamp(0.01, 16.0); } }
-                "oct"   => { if let Ok(n) = v.parse::<u8>()  { p.octaves    = n.clamp(1, 3); } }
-                "rough" => { if let Ok(f) = v.parse::<f32>() { p.roughness  = f.clamp(0.0, 1.0); } }
-                "sx"    => { if let Ok(f) = v.parse::<f32>() { p.seed_x     = f; } }
-                "sz"    => { if let Ok(f) = v.parse::<f32>() { p.seed_z     = f; } }
-                "lac"   => { if let Ok(f) = v.parse::<f32>() { p.lacunarity = f.clamp(1.0, 4.0); } }
-                "ridge" => { p.ridge = v == "1"; }
-                "plat"  => { if let Ok(f) = v.parse::<f32>() { p.plateau    = f.clamp(0.0, 1.0); } }
-                "sea"   => { if let Ok(f) = v.parse::<f32>() { p.sea_level  = f.clamp(0.0, 1.0); } }
-                "scx"   => { if let Ok(f) = v.parse::<f32>() { p.scale_x    = f.clamp(0.25, 4.0); } }
-                "scz"   => { if let Ok(f) = v.parse::<f32>() { p.scale_z    = f.clamp(0.25, 4.0); } }
-                _ => {}
-            }
-        }
-    }
-    p
-}
-
-/// Parse terrain params from a `terrain-plane://N[?params]` or `terrain-sphere://N[?params]` URI.
-///
-/// Returns default params if the URI has no query string or cannot be parsed.
-pub(crate) fn parse_terrain_params_from_uri(uri: &str) -> engine_mesh::primitives::TerrainParams {
-    let query = uri.splitn(2, '?').nth(1).unwrap_or("");
-    parse_terrain_params(query)
-}
-
-/// Get or load an OBJ mesh from cache.
-/// Supports the `cube-sphere://N` and `terrain-plane://N[?params]` URI schemes for procedurally generated meshes.
-fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMesh>> {
-    let cache = OBJ_MESH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-
-    // Try to get from cache first.
-    {
-        let cache_lock = cache.lock().ok()?;
-        if let Some(mesh) = cache_lock.get(path) {
-            return Some(Arc::clone(mesh));
-        }
-    }
-
-    // Handle procedural cube-sphere URI: cube-sphere://N
-    if let Some(rest) = path.strip_prefix("cube-sphere://") {
-        let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
-        let mesh = engine_mesh::primitives::cube_sphere(subdivisions);
-        let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
-        if let Ok(mut cache_lock) = cache.lock() {
-            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
-        }
-        return Some(mesh_arc);
-    }
-
-    // Handle procedural terrain-plane URI: terrain-plane://N  or  terrain-plane://N?amp=A&freq=F&oct=O&rough=R&sx=S&sz=Z
-    if let Some(rest) = path.strip_prefix("terrain-plane://") {
-        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
-        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(64);
-        let params = parse_terrain_params(query);
-        let mesh = engine_mesh::primitives::terrain_plane(subdivisions, params);
-        let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
-        if let Ok(mut cache_lock) = cache.lock() {
-            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
-        }
-        return Some(mesh_arc);
-    }
-
-    // Handle procedural terrain-sphere URI: terrain-sphere://N  or  terrain-sphere://N?params
-    if let Some(rest) = path.strip_prefix("terrain-sphere://") {
-        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
-        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
-        let params = parse_terrain_params(query);
-        let mesh = engine_mesh::primitives::terrain_sphere(subdivisions, params);
-        let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
-        if let Ok(mut cache_lock) = cache.lock() {
-            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
-        }
-        return Some(mesh_arc);
-    }
-
-    // Handle procedural earth-sphere URI: earth-sphere://N  or  earth-sphere://N?params
-    // Generates terrain-sphere geometry with altitude-based Earth-palette face colors baked in.
-    if let Some(rest) = path.strip_prefix("earth-sphere://") {
-        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
-        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
-        let params = parse_terrain_params(query);
-        let (mesh, colors) = engine_mesh::primitives::earth_terrain_sphere(subdivisions, params);
-        let mesh_arc = crate::obj_loader::colored_mesh_to_obj_mesh(&mesh, &colors);
-        if let Ok(mut cache_lock) = cache.lock() {
-            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
-        }
-        return Some(mesh_arc);
-    }
-
-    // Handle world:// URI — full biome/climate pipeline.
-    // Format: world://N?shape=sphere&coloring=biome&seed=0&ocean=0.55&...
-    if path.starts_with("world://") {
-        let params = parse_world_params_from_uri(path);
-        let mesh_arc = build_world_mesh(&params);
-        if let Ok(mut cache_lock) = cache.lock() {
-            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
-        }
-        return Some(mesh_arc);
-    }
-
-    // Not in cache, load from asset file.
-    let mesh_arc = load_obj_mesh(asset_root, path)?;
-
-    // Store in cache.
-    if let Ok(mut cache_lock) = cache.lock() {
-        cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
-    }
-
-    Some(mesh_arc)
-}
-
-// ── World generator bridge ─────────────────────────────────────────────────────
-
-/// Parse a `world://N?...` URI into `WorldGenParams`.
-pub(crate) fn parse_world_params_from_uri(uri: &str) -> engine_terrain::WorldGenParams {
-    let rest = uri.strip_prefix("world://").unwrap_or(uri);
-    let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
-    let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
-    let mut p = engine_terrain::WorldGenParams::default();
-    p.subdivisions = subdivisions;
-    for pair in query.split('&') {
-        if let Some((k, v)) = pair.split_once('=') {
-            match k {
-                "shape"     => { p.shape    = parse_world_shape(v); }
-                "coloring"  => { p.coloring = parse_world_coloring(v); }
-                "seed"      => { if let Ok(n) = v.parse::<u64>()  { p.planet.seed             = n; } }
-                "ocean"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.ocean_fraction    = f.clamp(0.0, 1.0); } }
-                "cscale"    => { if let Ok(f) = v.parse::<f64>()  { p.planet.continent_scale   = f.clamp(0.5, 10.0); } }
-                "cwarp"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.continent_warp    = f.clamp(0.0, 2.0); } }
-                "coct"      => { if let Ok(n) = v.parse::<u8>()   { p.planet.continent_octaves = n.clamp(2, 8); } }
-                "mscale"    => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_scale    = f.clamp(1.0, 20.0); } }
-                "mstr"      => { if let Ok(f) = v.parse::<f64>()  { p.planet.mountain_strength       = f.clamp(0.0, 1.0); } }
-                "mroct"     => { if let Ok(n) = v.parse::<u8>()   { p.planet.mountain_ridge_octaves  = n.clamp(2, 8); } }
-                "moistscale"=> { if let Ok(f) = v.parse::<f64>()  { p.planet.moisture_scale          = f.clamp(0.5, 10.0); } }
-                "ice"       => { if let Ok(f) = v.parse::<f64>()  { p.planet.ice_cap_strength        = f.clamp(0.0, 3.0); } }
-                "lapse"     => { if let Ok(f) = v.parse::<f64>()  { p.planet.lapse_rate              = f.clamp(0.0, 1.0); } }
-                "rainshadow"=> { if let Ok(f) = v.parse::<f64>()  { p.planet.rain_shadow             = f.clamp(0.0, 1.0); } }
-                "disp"      => { if let Ok(f) = v.parse::<f32>()  { p.displacement_scale             = f.clamp(0.0, 1.0); } }
-                _ => {}
-            }
-        }
-    }
-    p
-}
-
-/// Parse a shape string from a URI query value.
-pub(crate) fn parse_world_shape(s: &str) -> engine_terrain::WorldShape {
-    match s {
-        "flat" => engine_terrain::WorldShape::Flat,
-        _      => engine_terrain::WorldShape::Sphere,
-    }
-}
-
-/// Parse a coloring string from a URI query value.
-pub(crate) fn parse_world_coloring(s: &str) -> engine_terrain::WorldColoring {
-    match s {
-        "altitude" => engine_terrain::WorldColoring::Altitude,
-        "none"     => engine_terrain::WorldColoring::None,
-        _          => engine_terrain::WorldColoring::Biome,
-    }
-}
-
-/// Build an `ObjMesh` from `WorldGenParams`:
-///
-/// 1. Run `engine_terrain::generate()` → full biome/climate heightmap
-/// 2. Generate a cube-sphere → displace vertices from heightmap elevation
-/// 3. Recompute smooth normals
-/// 4. Color faces via the chosen `ColorStrategy`
-fn build_world_mesh(p: &engine_terrain::WorldGenParams) -> Arc<crate::obj_loader::ObjMesh> {
-    use engine_mesh::primitives::cube_sphere;
-    use engine_terrain::{WorldColoring, WorldShape};
-
-    let planet = engine_terrain::generate(&p.planet);
-
-    match p.shape {
-        WorldShape::Sphere => {
-            let base = cube_sphere(p.subdivisions);
-            // Displace each vertex using the planet heightmap.
-            let verts: Vec<[f32; 3]> = base.vertices.iter().map(|v| {
-                let cell = sample_planet_xyz(v, &planet);
-                let disp = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
-                let len = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]).sqrt().max(1e-6);
-                let nx = v[0] / len;
-                let ny = v[1] / len;
-                let nz = v[2] / len;
-                let r = 1.0 + disp;
-                [nx * r, ny * r, nz * r]
-            }).collect();
-
-            let normals = engine_mesh::mesh::compute_smooth_normals(&verts, &base.faces);
-
-            let colors: Vec<[u8; 3]> = base.faces.iter().map(|&[a, b, c]| {
-                let cx = (verts[a][0] + verts[b][0] + verts[c][0]) / 3.0;
-                let cy = (verts[a][1] + verts[b][1] + verts[c][1]) / 3.0;
-                let cz = (verts[a][2] + verts[b][2] + verts[c][2]) / 3.0;
-                let centroid = [cx, cy, cz];
-                let cell = sample_planet_xyz(&centroid, &planet);
-                match p.coloring {
-                    WorldColoring::Biome    => engine_terrain::biome_color(cell.biome),
-                    WorldColoring::Altitude => engine_terrain::altitude_color(cell.elevation),
-                    WorldColoring::None     => [200, 200, 200],
-                }
-            }).collect();
-
-            let mesh = engine_mesh::Mesh::new(verts, normals, base.faces);
-            crate::obj_loader::colored_mesh_to_obj_mesh(&mesh, &colors)
-        }
-        WorldShape::Flat => {
-            // For flat terrain, use the existing engine-mesh terrain_plane with altitude colors.
-            use engine_mesh::primitives::TerrainParams;
-            let tp = TerrainParams::default();
-            let mesh = engine_mesh::primitives::terrain_plane(64, tp);
-            let colors: Vec<[u8; 3]> = mesh.faces.iter().map(|&[a, b, c]| {
-                let avg_y = (mesh.vertices[a][1] + mesh.vertices[b][1] + mesh.vertices[c][1]) / 3.0;
-                // terrain_plane Y range is ~[-0.22, 0.22] at amplitude 1.0; remap to elevation 0–1
-                let elevation = ((avg_y / 0.44) + 0.5).clamp(0.0, 1.0);
-                match p.coloring {
-                    WorldColoring::Altitude | WorldColoring::Biome => engine_terrain::altitude_color(elevation),
-                    WorldColoring::None => [200, 200, 200],
-                }
-            }).collect();
-            crate::obj_loader::colored_mesh_to_obj_mesh(&mesh, &colors)
-        }
-    }
-}
-
-/// Sample the `GeneratedPlanet` heightmap at a 3D unit-sphere direction.
-///
-/// Converts the Cartesian direction to lat/lon grid coordinates and returns
-/// the nearest cell (no bilinear interpolation — fast enough for face coloring).
-fn sample_planet_xyz(
-    v: &[f32; 3],
-    planet: &engine_terrain::GeneratedPlanet,
-) -> engine_terrain::HeightmapCell {
-    let len = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]).sqrt().max(1e-6);
-    let nx = v[0] / len;
-    let ny = v[1] / len;
-    let nz = v[2] / len;
-
-    // lat: 0 = north pole (ny=1), π = south pole (ny=-1)
-    let lat = ny.clamp(-1.0, 1.0).acos();
-    // lon: 0–2π, atan2(nz, nx) wrapped to positive
-    let lon = nz.atan2(nx);
-    let lon_pos = if lon < 0.0 { lon + std::f32::consts::TAU } else { lon };
-
-    let gx = ((lon_pos / std::f32::consts::TAU) * planet.width as f32) as usize;
-    let gy = ((lat / std::f32::consts::PI) * planet.height as f32) as usize;
-    let gx = gx.min(planet.width - 1);
-    let gy = gy.min(planet.height - 1);
-
-    *planet.cell(gx, gy)
-}
-
 // Thread-local pooled buffers for OBJ rendering — avoids per-frame allocation.
 thread_local! {
     static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_CANVAS_RGBA: RefCell<Vec<Option<[u8; 4]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_DEPTH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static OBJ_PROJECTED: RefCell<Vec<Option<ProjectedVertex>>> = const { RefCell::new(Vec::new()) };
-}
-
-#[derive(Debug, Clone)]
-pub struct ObjRenderParams {
-    pub scale: f32,
-    pub yaw_deg: f32,
-    pub pitch_deg: f32,
-    pub roll_deg: f32,
-    /// Static initial rotation offsets (x=pitch, y=yaw, z=roll) from `rotation-x/y/z` YAML.
-    pub rotation_x: f32,
-    pub rotation_y: f32,
-    pub rotation_z: f32,
-    pub rotate_y_deg_per_sec: f32,
-    pub camera_distance: f32,
-    pub fov_degrees: f32,
-    pub near_clip: f32,
-    pub light_direction_x: f32,
-    pub light_direction_y: f32,
-    pub light_direction_z: f32,
-    pub light_2_direction_x: f32,
-    pub light_2_direction_y: f32,
-    pub light_2_direction_z: f32,
-    pub light_2_intensity: f32,
-    pub light_point_x: f32,
-    pub light_point_y: f32,
-    pub light_point_z: f32,
-    pub light_point_intensity: f32,
-    pub light_point_colour: Option<Color>,
-    pub light_point_flicker_depth: f32,
-    pub light_point_flicker_hz: f32,
-    pub light_point_orbit_hz: f32,
-    pub light_point_snap_hz: f32,
-    pub light_point_2_x: f32,
-    pub light_point_2_y: f32,
-    pub light_point_2_z: f32,
-    pub light_point_2_intensity: f32,
-    pub light_point_2_colour: Option<Color>,
-    pub light_point_2_flicker_depth: f32,
-    pub light_point_2_flicker_hz: f32,
-    pub light_point_2_orbit_hz: f32,
-    pub light_point_2_snap_hz: f32,
-    pub cel_levels: u8,
-    pub shadow_colour: Option<Color>,
-    pub midtone_colour: Option<Color>,
-    pub highlight_colour: Option<Color>,
-    pub tone_mix: f32,
-    pub scene_elapsed_ms: u64,
-    /// Camera pan offset in view-space units (applied before projection).
-    pub camera_pan_x: f32,
-    pub camera_pan_y: f32,
-    /// Additional camera look rotation (accumulated from mouse). Yaw = horizontal, pitch = vertical.
-    pub camera_look_yaw: f32,
-    pub camera_look_pitch: f32,
-    /// Object-space/view-space translation applied after rotation and scale.
-    pub object_translate_x: f32,
-    pub object_translate_y: f32,
-    pub object_translate_z: f32,
-    /// Vertical clip region (normalised 0.0–1.0). Rows outside [min, max) are skipped.
-    pub clip_y_min: f32,
-    pub clip_y_max: f32,
-    /// Camera world-space position for look_at view transform.
-    /// Default [0,0,-camera_distance] reproduces the legacy +z-forward camera.
-    pub camera_world_x: f32,
-    pub camera_world_y: f32,
-    pub camera_world_z: f32,
-    /// View-space basis vectors (right, up, forward). Identity reproduces legacy behavior.
-    pub view_right_x: f32,
-    pub view_right_y: f32,
-    pub view_right_z: f32,
-    pub view_up_x: f32,
-    pub view_up_y: f32,
-    pub view_up_z: f32,
-    pub view_forward_x: f32,
-    pub view_forward_y: f32,
-    pub view_forward_z: f32,
-    /// Skip all lighting; render each face at its intrinsic `fg` color (for nebula, stars, etc.).
-    pub unlit: bool,
-    /// Ambient light intensity: minimum diffuse floor (prevents pitch-black dark sides).
-    pub ambient: f32,
-    /// Quadratic attenuation coefficient for point light 1: `1 / (1 + k * dist²)`.
-    pub light_point_falloff: f32,
-    /// Quadratic attenuation coefficient for point light 2.
-    pub light_point_2_falloff: f32,
-    /// When true, uses per-vertex Gouraud shading with smooth normals instead of flat per-face shading.
-    pub smooth_shading: bool,
-    /// Number of procedural latitude bands (sine-wave modulation along world-Y). 0 = disabled.
-    pub latitude_bands: u8,
-    /// Strength of latitude band modulation (0.0–1.0). Controls how much bands brighten/darken the surface.
-    pub latitude_band_depth: f32,
-    /// Optional terrain (land) color in RGB. When set, 3-D noise is used to split the surface into
-    /// terrain (above `terrain_threshold`) and ocean (below). `None` disables the terrain system.
-    pub terrain_color: Option<[u8; 3]>,
-    /// Noise threshold for land vs. ocean classification. Typical range 0.4–0.6 (default 0.5).
-    pub terrain_threshold: f32,
-    /// 3-D noise frequency scale for terrain features. Higher = more/smaller continents.
-    pub terrain_noise_scale: f32,
-    /// Number of fBm octaves for terrain noise (1 = fast, 4 = detail-rich). Default 2.
-    pub terrain_noise_octaves: u8,
-    /// Strength of marble turbulence on ocean pixels. 0.0 = flat ocean color.
-    pub marble_depth: f32,
-    /// Elevation-based shade modulation for land pixels (0.0 = off, 0.35 = strong relief).
-    /// High terrain (noise well above threshold) is brightened; low terrain (near threshold) is darkened.
-    /// Gives terrain a sense of height without per-pixel normal perturbation.
-    pub terrain_relief: f32,
-    /// Seed offset for terrain noise. Different seeds give different continent shapes.
-    pub noise_seed: f32,
-    /// Domain warp strength for organic coastlines (0.0–2.0).
-    pub warp_strength: f32,
-    /// Octaves for domain warp field.
-    pub warp_octaves: u8,
-    /// FBM lacunarity (frequency multiplier per octave). Default 2.0.
-    pub noise_lacunarity: f32,
-    /// FBM persistence (amplitude decay per octave). Default 0.5.
-    pub noise_persistence: f32,
-    /// Per-pixel normal perturbation strength for fake bumps (0.0–1.0).
-    pub normal_perturb_strength: f32,
-    /// Ocean specular highlight strength (0.0–1.0).
-    pub ocean_specular: f32,
-    /// Crater density scale (0.0 = off, higher = more/smaller craters).
-    pub crater_density: f32,
-    /// Crater rim brightness boost.
-    pub crater_rim_height: f32,
-    /// Altitude (0–1 above threshold) where snow appears. 0.0 = disabled.
-    pub snow_line_altitude: f32,
-    /// Vertex displacement along sphere normal (fraction of sphere radius).
-    /// 0.0 = flat sphere, 0.12–0.22 = visible mountains at silhouette.
-    /// Applied before rotation so displaced geometry is correct from all angles.
-    pub terrain_displacement: f32,
-    /// When true, below-threshold pixels are left transparent (canvas `None`) instead of
-    /// written with `fg_colour`. Used for cloud overlay layers.
-    pub below_threshold_transparent: bool,
-    /// Alpha softness width for cloud threshold edges (0.0 = binary cutoff).
-    /// When > 0.0, pixels near `terrain_threshold` get a smooth alpha gradient
-    /// instead of hard on/off.  Only used by the RGBA cloud render path.
-    pub cloud_alpha_softness: f32,
-    /// Polar ice cap color. When Some, enables smooth ice coverage at high latitudes.
-    pub polar_ice_color: Option<[u8; 3]>,
-    /// Latitude |y| (0=equator, 1=pole) where ice coverage begins. Default 0.78.
-    pub polar_ice_start: f32,
-    /// Latitude |y| where ice coverage is full. Default 0.92.
-    pub polar_ice_end: f32,
-    /// Desert/dry zone color for equatorial land. When None, desert effect is disabled.
-    pub desert_color: Option<[u8; 3]>,
-    /// Strength of desert biome blending (0.0–1.0). Default 0.0.
-    pub desert_strength: f32,
-    /// Atmosphere rim/glow color. When None, atmosphere rim is disabled.
-    pub atmo_color: Option<[u8; 3]>,
-    /// Overall atmosphere blend strength (0.0–1.0). Default 0.0.
-    pub atmo_strength: f32,
-    /// Rim falloff power for atmosphere effect (higher = thinner). Default 4.5.
-    pub atmo_rim_power: f32,
-    /// Broad haze contribution for atmosphere volume (0.0–1.0). Default 0.0.
-    pub atmo_haze_strength: f32,
-    /// Haze falloff power (lower = broader). Default 1.8.
-    pub atmo_haze_power: f32,
-    /// Scale for ocean surface noise (higher = finer waves). Default 4.0.
-    pub ocean_noise_scale: f32,
-    /// Ocean base color override (RGB). When Some, replaces OBJ face color for ocean pixels.
-    pub ocean_color_rgb: Option<[u8; 3]>,
-    /// Night-side city lights color. When None, city lights are disabled.
-    pub night_light_color: Option<[u8; 3]>,
-    /// Noise threshold for city light clusters (0.0–1.0). Default 0.82.
-    pub night_light_threshold: f32,
-    /// Brightness of night-side city light clusters. Default 0.0.
-    pub night_light_intensity: f32,
-    // ── Tectonic heightmap ────────────────────────────────────────────────────
-    /// Tectonic elevation grid (0..1, 0.5=sea level). Row-major, row 0 = south pole.
-    pub heightmap: Option<std::sync::Arc<Vec<f32>>>,
-    /// Heightmap grid width.
-    pub heightmap_w: u32,
-    /// Heightmap grid height.
-    pub heightmap_h: u32,
-    /// Blend: 0=pure fBm, 1=pure heightmap. Default 0.
-    pub heightmap_blend: f32,
-}
-
-/// Bilinear-sample the tectonic elevation heightmap at a 3D sphere point.
-/// `cx/cy/cz` is the pre-rotation local sphere position (unit sphere scale).
-/// Grid: row 0 = south pole, row h-1 = north pole. Column wraps (longitude).
-fn sample_heightmap(data: &[f32], w: u32, h: u32, cx: f32, cy: f32, cz: f32) -> f32 {
-    let len = (cx * cx + cy * cy + cz * cz).sqrt().max(1e-6);
-    let yn = cy / len;
-    let lat_t = ((yn + 1.0) * 0.5).clamp(0.0, 1.0);
-    let lon_t = (cz.atan2(cx) / std::f32::consts::TAU + 0.5).rem_euclid(1.0);
-    let w = w as usize;
-    let h = h as usize;
-    let fx = lon_t * (w as f32 - 1.0);
-    let fy = lat_t * (h as f32 - 1.0);
-    let ix = fx as usize;
-    let iy = fy as usize;
-    let tx = fx - ix as f32;
-    let ty = fy - iy as f32;
-    let ix1 = (ix + 1) % w;
-    let iy1 = (iy + 1).min(h - 1);
-    let v00 = data[iy * w + ix];
-    let v10 = data[iy * w + ix1];
-    let v01 = data[iy1 * w + ix];
-    let v11 = data[iy1 * w + ix1];
-    v00 * (1.0 - tx) * (1.0 - ty)
-        + v10 * tx * (1.0 - ty)
-        + v01 * (1.0 - tx) * ty
-        + v11 * tx * ty
-}
-
-/// Evaluate terrain noise at a model-space sphere position.
-/// Returns [0,1]. Used for both vertex displacement and surface coloring so they are always in sync.
-#[inline]
-fn compute_terrain_noise_at(centered: [f32; 3], params: &ObjRenderParams) -> f32 {
-    let seed = params.noise_seed;
-    let scale = params.terrain_noise_scale;
-    let lac = params.noise_lacunarity;
-    let per = params.noise_persistence;
-    let sx = centered[0] * scale + seed;
-    let sy = centered[1] * scale + seed * 1.7;
-    let sz = centered[2] * scale + seed * 0.3;
-    let (wx, wy, wz) = if params.warp_strength > 0.0 {
-        let ws = scale * 0.6;
-        let w0 = fbm_3d_full(
-            centered[0] * ws + seed + 5.1,
-            centered[1] * ws + seed * 1.7 + 2.3,
-            centered[2] * ws + seed * 0.3 + 1.1,
-            params.warp_octaves.max(1),
-            lac, per,
-        ) - 0.5;
-        let w1 = fbm_3d_full(
-            centered[0] * ws + seed + 1.9,
-            centered[1] * ws + seed * 1.7 + 4.7,
-            centered[2] * ws + seed * 0.3 + 3.3,
-            params.warp_octaves.max(1),
-            lac, per,
-        ) - 0.5;
-        (
-            sx + w0 * params.warp_strength,
-            sy + w1 * params.warp_strength,
-            sz + (w0 * 0.5 + w1 * 0.5) * params.warp_strength,
-        )
-    } else {
-        (sx, sy, sz)
-    };
-    let fbm_val = fbm_3d_full(wx, wy, wz, params.terrain_noise_octaves, lac, per);
-    if params.heightmap_blend > 0.0 {
-        if let Some(hmap) = &params.heightmap {
-            let hv = sample_heightmap(hmap, params.heightmap_w, params.heightmap_h,
-                centered[0], centered[1], centered[2]);
-            fbm_val * (1.0 - params.heightmap_blend) + hv * params.heightmap_blend
-        } else {
-            fbm_val
-        }
-    } else {
-        fbm_val
-    }
-}
-
-/// Displace a model-space sphere vertex outward along its normal by `noise * strength`.
-/// noise in [0,1]; positive values raise terrain, negative sink it.
-#[inline]
-fn displace_sphere_vertex(c: [f32; 3], noise: f32, strength: f32) -> [f32; 3] {
-    let len = (c[0]*c[0] + c[1]*c[1] + c[2]*c[2]).sqrt().max(1e-5);
-    let d = noise * strength;
-    [c[0] + c[0]/len * d, c[1] + c[1]/len * d, c[2] + c[2]/len * d]
 }
 
 pub fn obj_sprite_dimensions(
@@ -877,23 +364,7 @@ pub fn render_obj_to_canvas(
             taken.resize(canvas_size, f32::INFINITY);
             taken
         });
-        // Pre-compute normalized light directions once per render (not per face).
-        let light_dir_norm = normalize3([
-            params.light_direction_x,
-            params.light_direction_y,
-            params.light_direction_z,
-        ]);
-        let light_2_dir_norm = normalize3([
-            params.light_2_direction_x,
-            params.light_2_direction_y,
-            params.light_2_direction_z,
-        ]);
-        // World-space direction from surface toward camera (= -forward for perspective approx).
-        let view_dir = normalize3([
-            -params.view_forward_x,
-            -params.view_forward_y,
-            -params.view_forward_z,
-        ]);
+        let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
         // Pre-compute Blinn-Phong half-vectors for directional lights (constant per mesh render).
         let half_dir_1 = normalize3([
             light_dir_norm[0] + view_dir[0],
@@ -918,7 +389,7 @@ pub fn render_obj_to_canvas(
 
         // Parallel shading: compute face color for each visible face independently.
         // Rasterization must remain sequential (shared canvas/depth writes with depth sort).
-        let face_limit = sorted_faces.len().min(50_000);
+        let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
         let light_2_intensity = params.light_2_intensity;
@@ -940,56 +411,8 @@ pub fn render_obj_to_canvas(
         let latitude_band_depth = params.latitude_band_depth;
         let fg_rgb = color_to_rgb(fg);
 
-        // Build biome params once per render (shared immutably across rayon strips).
-        let biome_params: Option<PlanetBiomeParams> = {
-            let has_biome = params.polar_ice_color.is_some()
-                || params.desert_color.is_some()
-                || params.atmo_color.is_some()
-                || params.night_light_color.is_some();
-            if has_biome {
-                Some(PlanetBiomeParams {
-                    polar_ice_color: params.polar_ice_color,
-                    polar_ice_start: params.polar_ice_start,
-                    polar_ice_end: params.polar_ice_end,
-                    desert_color: params.desert_color,
-                    desert_strength: params.desert_strength,
-                    atmo_color: params.atmo_color,
-                    atmo_strength: params.atmo_strength,
-                    atmo_rim_power: params.atmo_rim_power,
-                    atmo_haze_strength: params.atmo_haze_strength,
-                    atmo_haze_power: params.atmo_haze_power,
-                    night_light_color: params.night_light_color,
-                    night_light_threshold: params.night_light_threshold,
-                    night_light_intensity: params.night_light_intensity,
-                    sun_dir: light_dir_norm,
-                    view_dir,
-                })
-            } else {
-                None
-            }
-        };
-
-        let planet_terrain_extra: Option<PlanetTerrainParams> = if params.terrain_color.is_some()
-            && (params.normal_perturb_strength > 0.0
-                || params.ocean_specular > 0.0
-                || params.crater_density > 0.0
-                || params.snow_line_altitude > 0.0
-                || params.ocean_noise_scale != 4.0
-                || params.ocean_color_rgb.is_some())
-        {
-            Some(PlanetTerrainParams {
-                noise_scale: params.terrain_noise_scale,
-                normal_perturb: params.normal_perturb_strength,
-                ocean_specular: params.ocean_specular,
-                crater_density: params.crater_density,
-                crater_rim_height: params.crater_rim_height,
-                snow_line: params.snow_line_altitude,
-                ocean_noise_scale: params.ocean_noise_scale,
-                ocean_color_override: params.ocean_color_rgb,
-            })
-        } else {
-            None
-        };
+        let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
+        let planet_terrain_extra = build_terrain_extra_params(&params);
 
         let drawn_faces = if smooth_shading {
             // Gouraud path: compute per-vertex shade values using smooth normals.
@@ -1369,21 +792,7 @@ pub fn render_obj_to_rgba_canvas(
         taken
     });
 
-    let light_dir_norm = normalize3([
-        params.light_direction_x,
-        params.light_direction_y,
-        params.light_direction_z,
-    ]);
-    let light_2_dir_norm = normalize3([
-        params.light_2_direction_x,
-        params.light_2_direction_y,
-        params.light_2_direction_z,
-    ]);
-    let view_dir = normalize3([
-        -params.view_forward_x,
-        -params.view_forward_y,
-        -params.view_forward_z,
-    ]);
+    let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
     let fg_rgb = color_to_rgb(fg);
     let ka_lum_ambient = params.ambient.max(0.06_f32);
     let light_2_strength = params.light_2_intensity.clamp(0.0, 2.0);
@@ -1395,33 +804,7 @@ pub fn render_obj_to_rgba_canvas(
         (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
     };
 
-    let biome_params: Option<PlanetBiomeParams> = {
-        let has_biome = params.polar_ice_color.is_some()
-            || params.desert_color.is_some()
-            || params.atmo_color.is_some()
-            || params.night_light_color.is_some();
-        if has_biome {
-            Some(PlanetBiomeParams {
-                polar_ice_color: params.polar_ice_color,
-                polar_ice_start: params.polar_ice_start,
-                polar_ice_end: params.polar_ice_end,
-                desert_color: params.desert_color,
-                desert_strength: params.desert_strength,
-                atmo_color: params.atmo_color,
-                atmo_strength: params.atmo_strength,
-                atmo_rim_power: params.atmo_rim_power,
-                atmo_haze_strength: params.atmo_haze_strength,
-                atmo_haze_power: params.atmo_haze_power,
-                night_light_color: params.night_light_color,
-                night_light_threshold: params.night_light_threshold,
-                night_light_intensity: params.night_light_intensity,
-                sun_dir: light_dir_norm,
-                view_dir,
-            })
-        } else {
-            None
-        }
-    };
+    let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
 
     // Sort faces back-to-front.
     let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
@@ -1431,7 +814,7 @@ pub fn render_obj_to_rgba_canvas(
         .collect();
     sorted_faces
         .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    let face_limit = sorted_faces.len().min(50_000);
+    let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
     let unlit = params.unlit;
 
     let shaded_gouraud: Vec<(
@@ -1739,21 +1122,7 @@ fn render_mesh_projected(
             }
         }
     } else {
-        let light_dir_norm = normalize3([
-            params.light_direction_x,
-            params.light_direction_y,
-            params.light_direction_z,
-        ]);
-        let light_2_dir_norm = normalize3([
-            params.light_2_direction_x,
-            params.light_2_direction_y,
-            params.light_2_direction_z,
-        ]);
-        let view_dir = normalize3([
-            -params.view_forward_x,
-            -params.view_forward_y,
-            -params.view_forward_z,
-        ]);
+        let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
         let half_dir_1 = normalize3([
             light_dir_norm[0] + view_dir[0],
             light_dir_norm[1] + view_dir[1],
@@ -1773,7 +1142,7 @@ fn render_mesh_projected(
         sorted_faces
             .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-        let face_limit = sorted_faces.len().min(50_000);
+        let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
         let light_2_intensity = params.light_2_intensity;
@@ -1795,55 +1164,8 @@ fn render_mesh_projected(
         let latitude_band_depth = params.latitude_band_depth;
         let fg_rgb = color_to_rgb(fg);
 
-        let biome_params: Option<PlanetBiomeParams> = {
-            let has_biome = params.polar_ice_color.is_some()
-                || params.desert_color.is_some()
-                || params.atmo_color.is_some()
-                || params.night_light_color.is_some();
-            if has_biome {
-                Some(PlanetBiomeParams {
-                    polar_ice_color: params.polar_ice_color,
-                    polar_ice_start: params.polar_ice_start,
-                    polar_ice_end: params.polar_ice_end,
-                    desert_color: params.desert_color,
-                    desert_strength: params.desert_strength,
-                    atmo_color: params.atmo_color,
-                    atmo_strength: params.atmo_strength,
-                    atmo_rim_power: params.atmo_rim_power,
-                    atmo_haze_strength: params.atmo_haze_strength,
-                    atmo_haze_power: params.atmo_haze_power,
-                    night_light_color: params.night_light_color,
-                    night_light_threshold: params.night_light_threshold,
-                    night_light_intensity: params.night_light_intensity,
-                    sun_dir: light_dir_norm,
-                    view_dir,
-                })
-            } else {
-                None
-            }
-        };
-
-        let planet_terrain_extra: Option<PlanetTerrainParams> = if params.terrain_color.is_some()
-            && (params.normal_perturb_strength > 0.0
-                || params.ocean_specular > 0.0
-                || params.crater_density > 0.0
-                || params.snow_line_altitude > 0.0
-                || params.ocean_noise_scale != 4.0
-                || params.ocean_color_rgb.is_some())
-        {
-            Some(PlanetTerrainParams {
-                noise_scale: params.terrain_noise_scale,
-                normal_perturb: params.normal_perturb_strength,
-                ocean_specular: params.ocean_specular,
-                crater_density: params.crater_density,
-                crater_rim_height: params.crater_rim_height,
-                snow_line: params.snow_line_altitude,
-                ocean_noise_scale: params.ocean_noise_scale,
-                ocean_color_override: params.ocean_color_rgb,
-            })
-        } else {
-            None
-        };
+        let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
+        let planet_terrain_extra = build_terrain_extra_params(&params);
 
         let drawn_faces = if smooth_shading {
             let ka_lum_ambient = ambient.max(0.06_f32);
@@ -2064,6 +1386,38 @@ pub fn render_obj_to_shared_buffers(
     );
 }
 
+struct ObjCanvasRenderRequest<'a> {
+    source: &'a str,
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+    params: ObjRenderParams,
+    wireframe: bool,
+    backface_cull: bool,
+    fg: Color,
+    asset_root: Option<&'a AssetRoot>,
+}
+
+struct ObjCanvasPipeline;
+
+impl<'a> Render3dPipeline<ObjCanvasRenderRequest<'a>, Option<(Vec<Option<[u8; 3]>>, u16, u16)>>
+    for ObjCanvasPipeline
+{
+    fn render(&self, input: ObjCanvasRenderRequest<'a>) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
+        render_obj_to_canvas(
+            input.source,
+            input.width,
+            input.height,
+            input.size,
+            input.params,
+            input.wireframe,
+            input.backface_cull,
+            input.fg,
+            input.asset_root,
+        )
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn render_obj_content(
     source: &str,
@@ -2083,7 +1437,8 @@ pub fn render_obj_content(
 ) {
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
     // Live render path — cache-hit is checked in sprite_renderer.rs BEFORE calling this fn.
-    let Some((canvas, virtual_w, virtual_h)) = render_obj_to_canvas(
+    let pipeline = ObjCanvasPipeline;
+    let request = ObjCanvasRenderRequest {
         source,
         width,
         height,
@@ -2093,7 +1448,8 @@ pub fn render_obj_content(
         backface_cull,
         fg,
         asset_root,
-    ) else {
+    };
+    let Some((canvas, virtual_w, virtual_h)) = pipeline.render(request) else {
         return;
     };
     blit_color_canvas(

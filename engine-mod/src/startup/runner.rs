@@ -5,8 +5,8 @@ use engine_error::EngineError;
 use super::check::StartupCheck;
 use super::checks::{
     ActionMapCheck, AudioSequencerCheck, CatalogsCheck, EffectRegistryCheck,
-    FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck, LevelConfigCheck, PalettesCheck,
-    RhaiScriptsCheck, SceneGraphCheck,
+    FontGlyphCoverageCheck, FontManifestCheck, GuiWidgetBindingsCheck, ImageAssetsCheck,
+    LevelConfigCheck, PalettesCheck, RhaiScriptsCheck, SceneGraphCheck,
 };
 use super::context::StartupContext;
 use super::report::StartupReport;
@@ -42,6 +42,7 @@ impl Default for StartupRunner {
             Box::new(PalettesCheck),
             Box::new(AudioSequencerCheck),
             Box::new(RhaiScriptsCheck),
+            Box::new(GuiWidgetBindingsCheck),
             Box::new(EffectRegistryCheck),
             Box::new(ImageAssetsCheck),
             Box::new(FontManifestCheck),

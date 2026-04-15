@@ -10,14 +10,13 @@ SHELL_QUEST_MOD_SOURCE=mods/planet-generator cargo run -p app
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| `1` / `2` / `3` / `4` | Switch tab: Continents / Mountains / Climate / Visual |
+| Key / Input | Action |
+|-------------|--------|
+| `1` / `2` / `3` / `4` (or mouse click) | Switch tab: Continents / Mountains / Climate / Visual |
+| Slider drag | Adjust parameter value with mouse |
 | `F1`–`F7` | Load preset: Earth / Mars / Ocean / Desert / Ice / Volcanic / Archipelago |
 | `R` | Randomize all parameters |
 | `Delete` | Reset to Earth defaults |
-| `↑` / `↓` | Cycle selected parameter in current tab |
-| `←` / `→` | Adjust selected parameter value |
 | `Ctrl+F` | Toggle orbit / free-look camera |
 
 ## Scene structure
@@ -25,11 +24,13 @@ SHELL_QUEST_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `scenes/main/scene.yml` — single scene, orbit-camera + free-look-camera
 - `scenes/main/layers/planet.yml` — OBJ planet mesh (`world://32`)
 - `scenes/main/layers/hud-tabs.yml` — tab bar (top-right)
-- `scenes/main/layers/hud-panel.yml` — parameter panel with 4 child groups
+- `scenes/main/layers/hud-panel.yml` — parameter panel background
+- `scenes/main/layers/hud-sliders.yml` — flat absolute-positioned slider layer (7 multiplexed widgets)
+- `scenes/main/layers/hud-tabs.yml` — tab bar (top-right)
 - `scenes/main/layers/hud-actions.yml` — Randomize / Reset buttons
 - `scenes/main/layers/hud-presets.yml` — preset name strip (bottom-right)
 - `scenes/main/layers/hud-stats.yml` — live stats strip (bottom-left)
-- `scenes/main/main.rhai` — tab switching, parameter adjustment, preset loading, world param push
+- `scenes/main/main.rhai` — tab switching, mouse-drag slider input, preset loading, world param push with debounce
 
 ## Parameters
 
@@ -52,7 +53,7 @@ SHELL_QUEST_MOD_SOURCE=mods/planet-generator cargo run -p app
 - **RAIN SHADOW** — rain shadow effect (0–1)
 
 ### Visual tab
-- **RESOLUTION** — mesh subdivisions (16/32/64/128, power-of-2 steps)
+- **RESOLUTION** — mesh subdivisions (32/64/128/256/512, power-of-2 steps)
 - **DISPLACEMENT** — surface displacement scale (0–60%)
 - **COLORING** — biome / elevation / moisture
 - **ROTATION** — rotation speed deg/sec (0–10)

@@ -80,6 +80,17 @@ This keeps slider handle positioning (and future widget visual sync) at the
 engine level — Rhai scripts only need to read values, not manually position
 handle sprites.
 
+## OBJ / world runtime property paths
+
+`materialization.rs` handles `scene.set(id, path, value)` for `Sprite::Obj`
+sprites. Notable property path groups:
+
+| Prefix | Notes |
+|--------|-------|
+| `obj.ambient`, `obj.light.x/y/z`, `obj.rotation-speed` | Lighting + motion — no mesh rebuild |
+| `obj.atmo.color/strength/rim_power/haze_strength/haze_power` | Atmosphere rim/haze — no mesh rebuild |
+| `world.*` (seed, ocean_fraction, continent_*, mountain_*, moisture_*, ice_cap_strength, lapse_rate, rain_shadow, displacement_scale, subdivisions, coloring, base) | Any change rebuilds the URI key → mesh regeneration |
+
 ## Integration points
 
 - `engine` registers `SceneRuntime` as a scoped resource on scene activation

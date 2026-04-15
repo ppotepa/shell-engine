@@ -15,6 +15,11 @@ final back buffer. It contains:
 - OBJ warmup and prerender helpers,
 - Scene3D atlas prerendering.
 
+Rendering-domain math and effect kernels (planet atmosphere/biome/terrain
+signals, shading/color-space helpers, and shared 3D geometry helpers) are
+being moved to `engine-render-3d`; compositor remains orchestration + buffer
+composition.
+
 The engine crate should only extract world resources and call into this crate.
 
 ## Key modules
@@ -66,3 +71,4 @@ logic and the actual draw path.
 - `engine-scene-runtime` supplies object states, target resolver, and camera state
 - `engine-asset` and `engine-3d` provide asset loading and 3D scene parsing inputs
 - `engine-pipeline` strategy traits select diff/layer behavior
+- `engine-render-3d` provides shared 3D render-domain primitives used by OBJ/planet paths

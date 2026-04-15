@@ -1,0 +1,10 @@
+[package]
+name = "engine-worldgen"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-terrain = { workspace = true }
+engine-mesh = { workspace = true }

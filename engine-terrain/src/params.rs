@@ -11,6 +11,23 @@ pub enum WorldShape {
     Sphere,
 }
 
+/// Base sphere primitive used before displacement/coloring.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WorldBase {
+    /// Cube-sphere (uniform triangles, no polar singularity).
+    #[default]
+    Cube,
+    /// UV sphere (lat/lon topology).
+    Uv,
+    /// Tetrahedron base.
+    Tetra,
+    /// Octahedron base.
+    Octa,
+    /// Icosahedron base.
+    Icosa,
+}
+
 /// Coloring strategy applied to the generated mesh faces.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -35,6 +52,8 @@ pub struct WorldGenParams {
     #[serde(default)]
     pub shape: WorldShape,
     #[serde(default)]
+    pub base: WorldBase,
+    #[serde(default)]
     pub coloring: WorldColoring,
     /// Mesh grid resolution (cube-sphere: N divisions per face edge).
     #[serde(default = "WorldGenParams::default_subdivisions")]
@@ -50,6 +69,7 @@ impl Default for WorldGenParams {
     fn default() -> Self {
         Self {
             shape: WorldShape::default(),
+            base: WorldBase::default(),
             coloring: WorldColoring::default(),
             subdivisions: Self::default_subdivisions(),
             displacement_scale: Self::default_displacement_scale(),

@@ -14,6 +14,9 @@ without reading `.obj` files from disk.
 - `Mesh` — triangle mesh: `vertices`, `normals`, `faces` (index triples)
 - `primitives::cube_sphere(N)` — uniform cube-sphere, N subdivisions per edge
 - `primitives::uv_sphere(lat, lon)` — classic lat/lon sphere (matches original `sphere.obj` topology)
+- `primitives::tetra_sphere(levels)` — tetrahedron recursively subdivided + normalized
+- `primitives::octa_sphere(levels)` — octahedron recursively subdivided + normalized
+- `primitives::icosa_sphere(levels)` — icosahedron recursively subdivided + normalized
 
 ## Primitive comparison
 
@@ -22,10 +25,16 @@ without reading `.obj` files from disk.
 | `cube_sphere` | 32  |  6 534  |  12 288 | Fast, coarse |
 | `cube_sphere` | 64  | 25 350  |  49 152 | Good quality, used by default |
 | `cube_sphere` | 128 | 99 846  | 196 608 | High-resolution |
+| `cube_sphere` | 256 | ~393k   | ~786k   | Very high-res (several seconds to build) |
+| `cube_sphere` | 512 | ~1.57M  | ~3.15M  | Maximum (use sparingly) |
 | `uv_sphere`   | 40×80 | 3 362 |   6 240 | Matches legacy `sphere.obj` |
+| `icosa_sphere` | 0  |    12   |     20  | Icosahedron base |
+| `icosa_sphere` | 3  | ~2 562  |   5 120 | Smooth icosphere |
 
 `cube_sphere` produces a nearly uniform triangle distribution and has no
 pole singularity, making it ideal for procedural planet rendering.
+Polyhedron spheres (`tetra`, `octa`, `icosa`) offer alternative topologies
+selected via the `world-base` YAML field or `world.base` Rhai path.
 
 ## Integration with `engine-compositor`
 
@@ -60,8 +69,8 @@ source: "world://32"   # 32 subdivisions, params set via Rhai world.* paths
 
 1. Add a module under `src/primitives/`.
 2. Re-export from `primitives/mod.rs`.
-3. Add a URI scheme handler in `engine-compositor/src/obj_render.rs`
-   inside `get_or_load_obj_mesh`.
+3. Add a base variant to `WorldBase` in `engine-terrain/src/params.rs` and
+   wire the dispatch in `engine-worldgen/src/lib.rs` (`build_world_base_mesh`).
 
 ## Dependency tier
 

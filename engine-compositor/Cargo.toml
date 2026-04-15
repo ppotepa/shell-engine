@@ -11,6 +11,8 @@ engine-celestial = { workspace = true }
 engine-core = { workspace = true }
 engine-effects = { workspace = true }
 engine-mesh = { workspace = true }
+engine-worldgen = { workspace = true }
+engine-render-3d = { workspace = true }
 engine-animation = { path = "../engine-animation" }
 engine-asset = { path = "../engine-asset" }
 engine-layout = { path = "../engine-layout" }

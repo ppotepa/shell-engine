@@ -46,6 +46,7 @@ GeneratedPlanet { cells, stats, width, height }
 | `PlanetGenParams` | `params.rs` | Seed + ocean fraction, continent/mountain/climate knobs |
 | `WorldGenParams` | `params.rs` | Shape + coloring + subdivisions + `PlanetGenParams` |
 | `WorldShape` | `params.rs` | `Flat` / `Sphere` enum |
+| `WorldBase` | `params.rs` | Base sphere primitive: `Cube` / `Uv` / `Tetra` / `Octa` / `Icosa` |
 | `WorldColoring` | `params.rs` | `Altitude` / `Biome` / `None` enum |
 | `GeneratedPlanet` | `stats.rs` | Heightmap cells + biome grid + aggregate stats |
 | `PlanetStats` | `stats.rs` | Coverage fractions (ocean, forest, desert, snow, mountain, …) |
@@ -68,10 +69,11 @@ GeneratedPlanet { cells, stats, width, height }
 
 ## Integration
 
-`engine-compositor` calls `engine_terrain::generate()` when it encounters a
-`world://` URI. The generated planet's cells are mapped onto a
-`engine_mesh::cube_sphere(N)` geometry with per-vertex elevation displacement
-and per-face biome/altitude coloring.
+`engine-worldgen` calls `engine_terrain::generate()` when building a `world://`
+URI mesh. The generated planet's cells are mapped onto a base sphere
+(`cube_sphere`, `uv_sphere`, `tetra_sphere`, `octa_sphere`, or `icosa_sphere`)
+with per-vertex elevation displacement and per-face biome/altitude coloring.
+`engine-compositor` drives this through `engine-worldgen`.
 
 `engine-behavior` registers a `planet_last_stats()` Rhai function that reads
 from the global stats cache, exposing biome coverage to scripts.

@@ -3,7 +3,8 @@ use engine::behavior::init_behavior_system;
 use engine::{logging, EngineConfig, ShellEngine};
 use engine_mod::startup::checks::{
     AudioSequencerCheck, CatalogsCheck, EffectRegistryCheck, FontGlyphCoverageCheck,
-    FontManifestCheck, ImageAssetsCheck, LevelConfigCheck, RhaiScriptsCheck, SceneGraphCheck,
+    FontManifestCheck, GuiWidgetBindingsCheck, ImageAssetsCheck, LevelConfigCheck,
+    RhaiScriptsCheck, SceneGraphCheck,
 };
 use engine_mod::startup::{
     StartupContext, StartupIssueLevel, StartupReport, StartupRunner, StartupSceneFile,
@@ -349,6 +350,7 @@ fn run_scene_checks(
         Box::new(CatalogsCheck),
         Box::new(AudioSequencerCheck),
         Box::new(RhaiScriptsCheck),
+        Box::new(GuiWidgetBindingsCheck),
         Box::new(EffectRegistryCheck),
         Box::new(ImageAssetsCheck),
         Box::new(FontManifestCheck),

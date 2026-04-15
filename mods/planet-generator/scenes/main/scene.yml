@@ -30,37 +30,109 @@ input:
   free-look-camera: {}
 gui:
   widgets:
-    # ── Tab bar buttons (4 buttons spanning the full tab panel width) ──────────
+    # ── Tab bar buttons (5 buttons spanning the full tab panel width) ──────────
     # Panel outer: x=408..632, y=8..30. Buttons divide the full width.
     - type: button
       id: tab-btn-continents
       sprite: tab-btn-continents
       x: 408
       y: 8
-      w: 57
+      w: 45
       h: 22
     - type: button
       id: tab-btn-mountains
       sprite: tab-btn-mountains
-      x: 465
+      x: 453
       y: 8
-      w: 55
+      w: 45
       h: 22
     - type: button
       id: tab-btn-climate
       sprite: tab-btn-climate
-      x: 520
+      x: 498
       y: 8
-      w: 55
+      w: 45
       h: 22
     - type: button
       id: tab-btn-visual
       sprite: tab-btn-visual
-      x: 575
+      x: 543
       y: 8
-      w: 57
+      w: 45
       h: 22
-    # ── 7 multiplexed sliders — content/mapping changes per active tab in Rhai.
+    - type: button
+      id: tab-btn-atmo
+      sprite: tab-btn-atmo
+      x: 588
+      y: 8
+      w: 44
+      h: 22
+    # ── Action buttons (bottom-right) ────────────────────────────────────────
+    - type: button
+      id: btn-randomize
+      sprite: btn-randomize
+      x: 410
+      y: 304
+      w: 108
+      h: 22
+    - type: button
+      id: btn-reset
+      sprite: btn-reset
+      x: 522
+      y: 304
+      w: 108
+      h: 22
+    # ── Preset strip buttons (bottom-right) ──────────────────────────────────
+    - type: button
+      id: preset-btn-earth
+      sprite: preset-earth
+      x: 410
+      y: 328
+      w: 30
+      h: 22
+    - type: button
+      id: preset-btn-mars
+      sprite: preset-mars
+      x: 442
+      y: 328
+      w: 30
+      h: 22
+    - type: button
+      id: preset-btn-ocean
+      sprite: preset-ocean
+      x: 474
+      y: 328
+      w: 30
+      h: 22
+    - type: button
+      id: preset-btn-desert
+      sprite: preset-desert
+      x: 506
+      y: 328
+      w: 30
+      h: 22
+    - type: button
+      id: preset-btn-ice
+      sprite: preset-ice
+      x: 538
+      y: 328
+      w: 30
+      h: 22
+    - type: button
+      id: preset-btn-volcanic
+      sprite: preset-volcanic
+      x: 570
+      y: 328
+      w: 30
+      h: 22
+    - type: button
+      id: preset-btn-archipelago
+      sprite: preset-archipelago
+      x: 602
+      y: 328
+      w: 28
+      h: 22
+    # ── 8 multiplexed sliders — content/mapping changes per active tab in Rhai.
     # Coords: track starts at x=421, width=180. Handle base at same x=421.
     # hit-padding=6 gives ~20px tall click zone around each 8px handle.
     - type: slider
@@ -141,6 +213,18 @@ gui:
       handle: param-handle-6
       x: 421
       y: 237
+      w: 180
+      h: 8
+      hit-padding: 6
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: param-7
+      sprite: param-track-7
+      handle: param-handle-7
+      x: 421
+      y: 265
       w: 180
       h: 8
       hit-padding: 6

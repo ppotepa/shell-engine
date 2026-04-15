@@ -763,6 +763,11 @@ fn set_obj_property_recursive(
                 roll_deg,
                 rotate_y_deg_per_sec,
                 ambient,
+                atmo_color,
+                atmo_strength,
+                atmo_rim_power,
+                atmo_haze_strength,
+                atmo_haze_power,
                 light_direction_x,
                 light_direction_y,
                 light_direction_z,
@@ -783,6 +788,7 @@ fn set_obj_property_recursive(
                 terrain_plane_scale_x,
                 terrain_plane_scale_z,
                 world_gen_shape,
+                world_gen_base,
                 world_gen_coloring,
                 world_gen_seed,
                 world_gen_ocean_fraction,
@@ -1062,6 +1068,18 @@ fn set_obj_property_recursive(
                         }
                     }
                 }
+                "world.base" => {
+                    if let Some(next) = value.as_str() {
+                        let normalized = match next {
+                            "uv" | "tetra" | "octa" | "icosa" => next,
+                            _ => "cube",
+                        };
+                        if world_gen_base.as_deref() != Some(normalized) {
+                            *world_gen_base = Some(normalized.to_string());
+                            *updated = true;
+                        }
+                    }
+                }
                 "obj.camera-distance" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.3, 10.0);
@@ -1131,6 +1149,58 @@ fn set_obj_property_recursive(
                         let next = next.clamp(0.0, 1.0);
                         if ambient.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
                             *ambient = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.color" => {
+                    if let Some(next_str) = value.as_str() {
+                        let normalized = next_str.trim().to_ascii_lowercase();
+                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                            if atmo_color.is_some() {
+                                *atmo_color = None;
+                                *updated = true;
+                            }
+                        } else if let Some(next) = parse_term_colour(value) {
+                            if atmo_color.as_ref() != Some(&next) {
+                                *atmo_color = Some(next);
+                                *updated = true;
+                            }
+                        }
+                    }
+                }
+                "obj.atmo.strength" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_strength = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.rim_power" | "obj.atmo.rim-power" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.1, 16.0);
+                        if atmo_rim_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_rim_power = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.haze_strength" | "obj.atmo.haze-strength" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_haze_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_haze_strength = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.haze_power" | "obj.atmo.haze-power" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.1, 8.0);
+                        if atmo_haze_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_haze_power = Some(next);
                             *updated = true;
                         }
                     }

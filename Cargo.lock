@@ -741,11 +741,13 @@ dependencies = [
  "engine-mesh",
  "engine-pipeline",
  "engine-render",
+ "engine-render-3d",
  "engine-render-policy",
  "engine-runtime",
  "engine-scene-runtime",
  "engine-terrain",
  "engine-vector",
+ "engine-worldgen",
  "image",
  "rayon",
  "serde_json",
@@ -897,6 +899,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-render-3d"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+]
+
+[[package]]
 name = "engine-render-policy"
 version = "0.1.0"
 dependencies = [
@@ -955,6 +964,14 @@ name = "engine-vector"
 version = "0.1.0"
 dependencies = [
  "engine-core",
+]
+
+[[package]]
+name = "engine-worldgen"
+version = "0.1.0"
+dependencies = [
+ "engine-mesh",
+ "engine-terrain",
 ]
 
 [[package]]

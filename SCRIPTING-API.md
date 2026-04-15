@@ -589,6 +589,32 @@ scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
 | `obj.world.x`      | float   | OBJ world-space X translation (pre-projection)   |
 | `obj.world.y`      | float   | OBJ world-space Y translation (pre-projection)   |
 | `obj.world.z`      | float   | OBJ world-space Z translation (pre-projection)   |
+| `obj.ambient`      | float   | Ambient light level (0.0–0.5)                    |
+| `obj.light.x`      | float   | Directional light X (−1.0–1.0)                   |
+| `obj.light.y`      | float   | Directional light Y (−1.0–1.0)                   |
+| `obj.light.z`      | float   | Directional light Z (−1.0–1.0)                   |
+| `obj.rotation-speed` | float | Rotation speed in deg/sec                       |
+| `obj.atmo.color`   | str     | Atmosphere rim color name (`"none"` to disable)  |
+| `obj.atmo.strength` | float  | Atmosphere rim blend (0.0–1.0)                   |
+| `obj.atmo.rim_power` | float | Rim falloff exponent (0.1–16.0)                  |
+| `obj.atmo.haze_strength` | float | Haze blend (0.0–1.0)                        |
+| `obj.atmo.haze_power` | float | Haze falloff exponent (0.1–8.0)               |
+| `world.seed`       | int     | Planet seed (0–9999) — triggers regeneration     |
+| `world.ocean_fraction` | float | Ocean coverage (0.01–0.99)                   |
+| `world.continent_scale` | float | Continent size (0.5–10)                     |
+| `world.continent_warp` | float | Coastline chaos (0–2)                        |
+| `world.continent_octaves` | int | Continent detail (1–8)                      |
+| `world.mountain_scale` | float | Mountain spacing (1–15)                      |
+| `world.mountain_strength` | float | Mountain height (0–1)                     |
+| `world.mountain_ridge_octaves` | int | Ridge detail (1–8)                    |
+| `world.moisture_scale` | float | Moisture pattern size (0.5–8)                |
+| `world.ice_cap_strength` | float | Polar ice intensity (0–3)                  |
+| `world.lapse_rate` | float   | Altitude cooling (0–1.5)                         |
+| `world.rain_shadow` | float  | Rain shadow strength (0–1)                       |
+| `world.displacement_scale` | float | Surface displacement (0–0.6)             |
+| `world.subdivisions` | int   | Mesh resolution (32/64/128/256/512)              |
+| `world.coloring`   | str     | `"biome"` / `"altitude"` / `"none"`              |
+| `world.base`       | str     | Sphere topology: `"cube"` / `"uv"` / `"tetra"` / `"octa"` / `"icosa"` |
 | `planet.spin_deg`  | float   | Planet surface spin angle in degrees             |
 | `planet.cloud_spin_deg` | float | Planet primary cloud deck spin angle in degrees |
 | `planet.cloud2_spin_deg` | float | Planet secondary cloud breakup spin angle in degrees |

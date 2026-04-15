@@ -617,6 +617,9 @@ pub enum Sprite {
         /// World shape: "sphere" (default) or "flat".
         #[serde(default, rename = "world-shape")]
         world_gen_shape: Option<String>,
+        /// Sphere base primitive: "cube" (default), "uv", "tetra", "octa", "icosa".
+        #[serde(default, rename = "world-base")]
+        world_gen_base: Option<String>,
         /// World coloring strategy: "biome" (default), "altitude", or "none".
         #[serde(default, rename = "world-coloring")]
         world_gen_coloring: Option<String>,
