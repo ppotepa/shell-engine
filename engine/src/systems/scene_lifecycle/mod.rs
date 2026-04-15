@@ -58,6 +58,11 @@ impl SceneLifecycleManager {
             if let InputEvent::MouseMoved { x, y } = e { Some((*x, *y)) } else { None }
         }).collect();
 
+        // Collect scroll wheel deltas for orbit camera zoom.
+        let scroll_deltas: Vec<f32> = lifecycle.input_events.iter().filter_map(|e| {
+            if let InputEvent::MouseWheel { delta_y } = e { Some(*delta_y) } else { None }
+        }).collect();
+
         handle_scene_free_look_input(
             world,
             &lifecycle.key_presses,
@@ -69,6 +74,7 @@ impl SceneLifecycleManager {
             &lifecycle.key_presses,
             &lifecycle.key_releases,
             &mouse_moves,
+            &scroll_deltas,
         );
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
@@ -432,6 +438,7 @@ fn handle_scene_orbit_camera_input(
     key_presses: &[KeyEvent],
     key_releases: &[KeyEvent],
     mouse_moves: &[(f32, f32)],
+    scroll_deltas: &[f32],
 ) {
     if !is_scene_idle(world) {
         return;
@@ -440,6 +447,9 @@ fn handle_scene_orbit_camera_input(
         let _ = runtime.apply_orbit_camera_key_events(key_presses, key_releases);
         if !mouse_moves.is_empty() {
             runtime.apply_orbit_camera_mouse_moves(mouse_moves);
+        }
+        if !scroll_deltas.is_empty() {
+            runtime.apply_orbit_camera_scroll(scroll_deltas);
         }
     }
 }

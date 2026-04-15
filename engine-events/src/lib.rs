@@ -22,6 +22,8 @@ pub enum EngineEvent {
     MouseMoved { x: f32, y: f32 },
     MouseButtonDown { button: MouseButton, x: f32, y: f32 },
     MouseButtonUp { button: MouseButton, x: f32, y: f32 },
+    /// Mouse scroll wheel moved. Positive `delta_y` = scroll up, negative = scroll down.
+    MouseWheel { delta_y: f32 },
     SceneLoaded { scene_id: String },
     SceneTransition { to_scene_id: String },
     AudioCue { cue: String, volume: Option<f32> },
@@ -39,6 +41,7 @@ impl EngineEvent {
             Self::MouseMoved { x, y } => Some(InputEvent::MouseMoved { x: *x, y: *y }),
             Self::MouseButtonDown { button, x, y } => Some(InputEvent::MouseDown { button: *button, x: *x, y: *y }),
             Self::MouseButtonUp { button, x, y } => Some(InputEvent::MouseUp { button: *button, x: *x, y: *y }),
+            Self::MouseWheel { delta_y } => Some(InputEvent::MouseWheel { delta_y: *delta_y }),
             Self::InputFocusLost => Some(InputEvent::FocusLost),
             _ => None,
         }
@@ -56,6 +59,7 @@ pub enum InputEvent {
     MouseMoved { x: f32, y: f32 },
     MouseDown { x: f32, y: f32, button: MouseButton },
     MouseUp { x: f32, y: f32, button: MouseButton },
+    MouseWheel { delta_y: f32 },
     FocusLost,
 }
 

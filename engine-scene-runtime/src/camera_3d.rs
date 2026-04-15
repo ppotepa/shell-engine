@@ -59,6 +59,37 @@ impl SceneRuntime {
         false
     }
 
+    /// Apply mouse-wheel scroll to orbit camera zoom.
+    /// Positive `delta_y` = scroll up = zoom in; negative = scroll down = zoom out.
+    pub fn apply_orbit_camera_scroll(&mut self, scroll_deltas: &[f32]) {
+        if self.orbit_camera.is_none() || self.free_look_camera_engaged() {
+            return;
+        }
+        let active = self.orbit_camera.as_ref().is_some_and(|s| s.active);
+        if !active {
+            return;
+        }
+        let (mut dist, dist_min, dist_max, step, target) = {
+            let s = self.orbit_camera.as_ref().unwrap();
+            (s.distance, s.distance_min, s.distance_max, s.distance_step, s.target.clone())
+        };
+        let mut changed = false;
+        for &dy in scroll_deltas {
+            if dy > 0.0 {
+                dist = (dist - step).max(dist_min);
+                changed = true;
+            } else if dy < 0.0 {
+                dist = (dist + step).min(dist_max);
+                changed = true;
+            }
+        }
+        if changed {
+            self.orbit_camera.as_mut().unwrap().distance = dist;
+            let v = serde_json::Value::from(dist as f64);
+            let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v);
+        }
+    }
+
     /// Feed mouse moves into the orbit camera when left-dragging on empty canvas.
     /// Skipped when free-look camera is engaged (mouse is used for look-around then).
     pub fn apply_orbit_camera_mouse_moves(&mut self, mouse_moves: &[(f32, f32)]) {

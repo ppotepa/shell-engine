@@ -116,7 +116,7 @@ impl GuiSystem {
                 }
                 // Keyboard events are accepted but not yet consumed here.
                 // Future: route to focused widget for text input / slider adjustment.
-                InputEvent::KeyDown { .. } | InputEvent::KeyUp { .. } | InputEvent::FocusLost => {}
+                InputEvent::KeyDown { .. } | InputEvent::KeyUp { .. } | InputEvent::FocusLost | InputEvent::MouseWheel { .. } => {}
             }
         }
     }

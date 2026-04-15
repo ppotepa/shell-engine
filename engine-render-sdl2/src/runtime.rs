@@ -852,6 +852,9 @@ fn poll_input(
                 let button = map_mouse_button(mouse_btn);
                 events.push(EngineEvent::MouseButtonUp { button, x: vx, y: vy });
             }
+            Event::MouseWheel { y, .. } => {
+                events.push(EngineEvent::MouseWheel { delta_y: y as f32 });
+            }
             Event::Window {
                 win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _),
                 ..
