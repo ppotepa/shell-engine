@@ -28,9 +28,9 @@ pub fn apply_atmosphere_overlay_rgb(
     if rim <= 0.01 && haze <= 0.01 {
         return pixel;
     }
-    let day = smoothstep(-0.05, 0.25, dot3(n, sun_dir));
-    let rim_alpha = rim * (0.35 + 1.10 * day) * params.strength.max(0.0);
-    let haze_alpha = haze * (0.18 + 0.42 * day) * params.haze_strength.max(0.0);
+    let day = smoothstep(-0.1, 0.3, dot3(n, sun_dir));
+    let rim_alpha = rim * (0.55 + 0.90 * day) * params.strength.max(0.0);
+    let haze_alpha = haze * (0.32 + 0.38 * day) * params.haze_strength.max(0.0);
     let a = (rim_alpha + haze_alpha).clamp(0.0, 0.92);
     mix_rgb(pixel, params.color, a)
 }
