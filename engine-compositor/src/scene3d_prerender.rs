@@ -580,6 +580,7 @@ fn build_object_specs(
                 atmo_haze_strength: 0.0,
                 atmo_haze_power: 1.8,
                 atmo_shell_scale: 0.0,
+                atmo_scale_height: 0.0,
                 ocean_noise_scale: 4.0,
                 ocean_color_rgb: None,
                 night_light_color: None,
@@ -589,6 +590,7 @@ fn build_object_specs(
                 heightmap_w: 0,
                 heightmap_h: 0,
                 heightmap_blend: 0.0,
+                depth_sort_faces: false,
             };
 
             Some(ObjectRenderSpec {

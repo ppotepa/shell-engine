@@ -151,15 +151,13 @@ struct ObjOrbitCameraState {
     distance_step: f32,
     drag_sensitivity: f32,
     last_mouse_pos: Option<(f32, f32)>,
-    /// Auto-rotation speed saved when orbit activates, restored on deactivate.
-    paused_orbit_speed: f32,
 }
 
 impl ObjOrbitCameraState {
     fn from_controls(controls: &ObjOrbitCameraControls) -> Self {
         Self {
             target: controls.target.clone(),
-            active: false,
+            active: true,
             yaw: controls.yaw,
             pitch: controls.pitch,
             distance: controls.distance,
@@ -170,7 +168,6 @@ impl ObjOrbitCameraState {
             distance_step: controls.distance_step,
             drag_sensitivity: controls.drag_sensitivity,
             last_mouse_pos: None,
-            paused_orbit_speed: 0.0,
         }
     }
 }

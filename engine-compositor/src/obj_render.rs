@@ -32,9 +32,10 @@ use terrain_eval::{compute_terrain_noise_at, displace_sphere_vertex};
 /// Below this, serial is faster due to rayon thread spawn overhead.
 const VERTEX_PARALLEL_THRESHOLD: usize = 64;
 /// Safety cap for per-mesh face shading/rasterization work in one pass.
-///
-/// 128 cube-sphere uses ~196k faces, so keep this above that to avoid visible truncation.
-const MAX_OBJ_FACE_RENDER: usize = 250_000;
+/// Applied AFTER early backface culling, so this is the count of front-facing faces only.
+/// Face counts (front-facing after cull ≈ 50% of total):
+///   cube_sphere(128)  → ~98K   cube_sphere(256) → ~393K   cube_sphere(512) → ~1.57M
+const MAX_OBJ_FACE_RENDER: usize = 2_000_000;
 
 // Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
 // SAFETY: only set during `with_prerender_frames` and never accessed across threads.
@@ -71,6 +72,11 @@ thread_local! {
     static OBJ_CANVAS_RGBA: RefCell<Vec<Option<[u8; 4]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_DEPTH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static OBJ_PROJECTED: RefCell<Vec<Option<ProjectedVertex>>> = const { RefCell::new(Vec::new()) };
+    // Intermediate shading result buffers — reused each frame to avoid repeated heap allocation.
+    static OBJ_SHADED_GOURAUD: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3], f32, f32, f32)>>
+        = const { RefCell::new(Vec::new()) };
+    static OBJ_SHADED_FLAT: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])>>
+        = const { RefCell::new(Vec::new()) };
 }
 
 pub fn obj_sprite_dimensions(
@@ -378,16 +384,33 @@ pub fn render_obj_to_canvas(
             light_2_dir_norm[1] + view_dir[1],
             light_2_dir_norm[2] + view_dir[2],
         ]);
-        // Sort faces back-to-front for correct painter's-algorithm blending when
-        // depth-buffering alone isn't enough (avoids most z-fighting glitches).
-        // Pre-compute depth keys to avoid redundant work inside the comparator.
+        // Build the visible face list: backface-cull first (halves input), then optionally
+        // sort back-to-front (painter's algorithm). Sorting is O(N log N) and only needed
+        // for transparent/alpha-blended geometry — opaque objects with a depth buffer render
+        // correctly in any order, so depth_sort_faces defaults to false.
         let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
             .faces
             .iter()
-            .map(|f| (face_avg_depth(&projected, f), f))
+            .filter(|f| {
+                if !backface_cull { return true; }
+                let v0 = projected.get(f.indices[0]).and_then(|p| *p);
+                let v1 = projected.get(f.indices[1]).and_then(|p| *p);
+                let v2 = projected.get(f.indices[2]).and_then(|p| *p);
+                match (v0, v1, v2) {
+                    (Some(v0), Some(v1), Some(v2)) => edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0,
+                    _ => false,
+                }
+            })
+            .map(|f| {
+                // Only pay the depth-key cost when sorting is actually needed.
+                let key = if params.depth_sort_faces { face_avg_depth(&projected, f) } else { 0.0 };
+                (key, f)
+            })
             .collect();
-        sorted_faces
-            .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        if params.depth_sort_faces {
+            sorted_faces
+                .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        }
 
         // Parallel shading: compute face color for each visible face independently.
         // Rasterization must remain sequential (shared canvas/depth writes with depth sort).
@@ -429,20 +452,16 @@ pub fn render_obj_to_canvas(
             };
 
             // Phase 1 (parallel): per-vertex shade, no per-face color computation.
-            let shaded_gouraud: Vec<(
-                ProjectedVertex,
-                ProjectedVertex,
-                ProjectedVertex,
-                [u8; 3],
-                f32,
-                f32,
-                f32,
-            )> = sorted_faces[..face_limit]
+            // filter_map produces an unindexed iterator; collect() into a fresh Vec,
+            // then store back in the thread-local so its capacity is reused next frame.
+            let shaded_gouraud: Vec<_> = sorted_faces[..face_limit]
                 .par_iter()
                 .filter_map(|(_, face)| {
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+                    // Backface cull is already applied before the sort; this guard is a
+                    // cheap safety-net for faces that slipped through (e.g. near-edge area=0).
                     if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
                         return None;
                     }
@@ -460,7 +479,6 @@ pub fn render_obj_to_canvas(
                 })
                 .collect();
 
-            let count = shaded_gouraud.len();
             // Phase 2 (parallel strips): split canvas rows into N strips and rayon-parallelize.
             // Each strip gets exclusive ownership of its canvas/depth rows — no data races.
             let row_w = virtual_w as usize;
@@ -513,20 +531,21 @@ pub fn render_obj_to_canvas(
                     );
                 }
             });
+            let count = shaded_gouraud.len();
+            OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
             count
         } else {
             // Phase 1 (parallel): filter visible faces and compute shaded colors.
-            let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
-                sorted_faces[..face_limit]
-                    .par_iter()
-                    .filter_map(|(_, face)| {
-                        let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-                        let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-                        let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                        // Back-face culling check
-                        if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
-                            return None;
-                        }
+            let shaded_faces: Vec<_> = sorted_faces[..face_limit]
+                .par_iter()
+                .filter_map(|(_, face)| {
+                    let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
+                    let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
+                    let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+                    // Back-face culling check
+                    if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
+                        return None;
+                    }
                         // Unlit: render at flat fg color, skip all lighting.
                         if unlit {
                             return Some((v0, v1, v2, fg_rgb));
@@ -575,7 +594,7 @@ pub fn render_obj_to_canvas(
                     .collect();
 
             let count = shaded_faces.len();
-            // Phase 2 (sequential): rasterize in depth-sorted order.
+            // Phase 2 (sequential): rasterize. Depth buffer handles occlusion order.
             for (v0, v1, v2, shaded_color) in &shaded_faces {
                 rasterize_triangle(
                     &mut canvas,
@@ -590,6 +609,7 @@ pub fn render_obj_to_canvas(
                     clipped_viewport.max_y,
                 );
             }
+            OBJ_SHADED_FLAT.with(|g| *g.borrow_mut() = shaded_faces);
             count
         };
 
@@ -653,6 +673,8 @@ pub fn render_obj_to_canvas(
                         atmo_color,
                         biome.atmo_strength,
                         biome.atmo_rim_power,
+                        params.scale,
+                        params.atmo_scale_height,
                         biome.sun_dir,
                         view_dir,
                     );

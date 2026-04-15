@@ -1158,6 +1158,7 @@ fn render_obj_sprite(
         atmo_haze_strength,
         atmo_haze_power,
         atmo_shell_scale,
+        atmo_scale_height,
         night_light_color,
         night_light_threshold,
         night_light_intensity,
@@ -1551,6 +1552,7 @@ fn render_obj_sprite(
             atmo_haze_strength: atmo_haze_strength.unwrap_or(0.0),
             atmo_haze_power: atmo_haze_power.unwrap_or(1.8),
             atmo_shell_scale: atmo_shell_scale.unwrap_or(0.0),
+            atmo_scale_height: atmo_scale_height.unwrap_or(0.0),
             ocean_noise_scale: 4.0,
             ocean_color_rgb: None,
             night_light_color: night_light_color.as_ref().map(|c| {
@@ -1563,6 +1565,7 @@ fn render_obj_sprite(
             heightmap_w: 0,
             heightmap_h: 0,
             heightmap_blend: 0.0,
+            depth_sort_faces: effective_source.starts_with("world://"),
         },
         is_wireframe,
         backface_cull.unwrap_or(false),
@@ -2059,6 +2062,7 @@ fn build_planet_base_params(
         atmo_haze_strength: 0.0,
         atmo_haze_power: 1.8,
         atmo_shell_scale: 0.0,
+        atmo_scale_height: 0.0,
         ocean_noise_scale: 4.0,
         ocean_color_rgb: None,
         night_light_color: None,
@@ -2068,6 +2072,7 @@ fn build_planet_base_params(
         heightmap_w: 0,
         heightmap_h: 0,
         heightmap_blend: 0.0,
+        depth_sort_faces: false,
     }
 }
 

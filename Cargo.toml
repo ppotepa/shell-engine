@@ -59,24 +59,63 @@ libc = "0.2"
 roxmltree = "0.20"
 geo = "0.28"
 
-# Release profile optimizations for performance
+# ---------------------------------------------------------------------------
+# Release profile — fully optimised, portable (generic x86-64 / SSE2 baseline)
+# ---------------------------------------------------------------------------
 [profile.release]
 opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
+lto = true              # Full fat-LTO: best inlining/DCE across crate boundaries
+codegen-units = 1       # Single codegen unit required for full LTO
+panic = "abort"         # Drop unwinding machinery (~5-15% smaller binary, no runtime cost)
+overflow-checks = false # Remove integer overflow checks from hot rasteriser loops
+strip = true            # Strip debug symbols (use "fast-release" profile when profiling)
 
-# Fast release profile for development/iteration (20-30s build time)
+# Per-crate optimisation overrides — applied on top of [profile.release] above.
+# The launcher binary is a thin CLI wrapper; optimise for size not speed.
+[profile.release.package.launcher]
+opt-level = "s"
+
+# ---------------------------------------------------------------------------
+# Native release — same as release but enables target-cpu=native for local use.
+# Enables AVX2/AVX512 auto-vectorisation — biggest win for the software rasteriser.
+# NOT portable: binaries only run on this CPU family. Use for local dev/benchmarks.
+#
+# profile-level rustflags requires Cargo ≥1.95 (not yet stable on this toolchain).
+# Until then, set the flag on the command line or in an env var:
+#
+#   RUSTFLAGS="-C target-cpu=native" cargo build --release
+#
+# Or add a machine-local override in .cargo/config.toml (already gitignored if local):
+#   [target.x86_64-pc-windows-msvc]
+#   rustflags = ["-C", "linker-flavor=lld-link", "-C", "target-cpu=native"]
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Fast release profile — quick iteration builds (20-30 s build time)
 # Use with: cargo build --profile fast-release
+# ---------------------------------------------------------------------------
 [profile.fast-release]
 inherits = "release"
-lto = "thin"           # Thin LTO: 50% of full LTO speed, 90% of performance
-codegen-units = 4      # Parallel codegen (4x faster linking)
+lto = "thin"            # Thin LTO: ~90% of perf, 50% of full LTO link time
+codegen-units = 4       # Parallel codegen (4× faster linking than CU=1)
 strip = true
 
-# Ultra-fast profile for rapid iteration (5-10s build time)
-# Use with: cargo build --profile dev-opt or cargo run --profile dev-opt
+# ---------------------------------------------------------------------------
+# Dev-opt profile — rapid iteration with basic optimisations (5-10 s build)
+# Use with: cargo run --profile dev-opt
+# ---------------------------------------------------------------------------
 [profile.dev-opt]
 inherits = "dev"
-opt-level = 2          # Basic optimizations
-codegen-units = 256    # Maximum parallelism
+opt-level = 2           # Enough for readable framerate in the rasteriser
+codegen-units = 256     # Maximum incremental parallelism
+
+# Hot rendering crates: always compile at full speed even in dev profile.
+# Keeps the framerate usable without a full release build.
+[profile.dev.package.engine-compositor]
+opt-level = 3
+[profile.dev.package.engine-render-3d]
+opt-level = 3
+[profile.dev.package.engine-mesh]
+opt-level = 3
+[profile.dev.package.engine-terrain]
+opt-level = 3

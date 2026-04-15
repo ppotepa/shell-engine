@@ -15,31 +15,20 @@ impl SceneRuntime {
 
     /// Handle key events for the orbit camera.
     ///
-    /// - Ctrl+F toggles orbit mode (only when free-look camera is not present).
-    /// - `+`/`=` zooms in; `-` zooms out (only while active).
-    ///
-    /// Returns `true` if orbit mode was toggled this frame.
+    /// Orbit mode is always active when free-look is not engaged.
+    /// `+`/`=` zooms in; `-` zooms out.
     pub fn apply_orbit_camera_key_events(
         &mut self,
         key_presses: &[KeyEvent],
         key_releases: &[KeyEvent],
     ) -> bool {
-        // Don't conflict with free-look camera.
-        if self.orbit_camera.is_none() || self.free_look_camera.is_some() {
+        // Yield to free-look camera when it is engaged.
+        if self.orbit_camera.is_none() || self.free_look_camera_engaged() {
             return false;
         }
 
-        let _ = key_releases; // orbit camera has no release-sensitive keys
-        let mut toggled = false;
+        let _ = key_releases;
 
-        for key in key_presses {
-            if is_free_look_toggle(key) {
-                self.toggle_orbit_camera();
-                toggled = true;
-            }
-        }
-
-        // Zoom: read distance params before borrow
         let active = self.orbit_camera.as_ref().is_some_and(|s| s.active);
         if active {
             let (mut dist, dist_min, dist_max, step, target) = {
@@ -67,11 +56,15 @@ impl SceneRuntime {
             }
         }
 
-        toggled
+        false
     }
 
     /// Feed mouse moves into the orbit camera when left-dragging on empty canvas.
+    /// Skipped when free-look camera is engaged (mouse is used for look-around then).
     pub fn apply_orbit_camera_mouse_moves(&mut self, mouse_moves: &[(f32, f32)]) {
+        if self.free_look_camera_engaged() {
+            return;
+        }
         if mouse_moves.is_empty() {
             return;
         }
@@ -117,8 +110,8 @@ impl SceneRuntime {
 
     /// Apply orbit camera state to its target sprite each frame.
     ///
-    /// Writes `obj.yaw`, `obj.pitch`, `obj.camera-distance`, and `obj.orbit_speed`
-    /// (0 while orbiting, restored on deactivate).
+    /// Writes `obj.yaw`, `obj.pitch`, and `obj.camera-distance` to position the camera
+    /// around the target sprite. Does not override auto-rotation — Rhai controls that.
     pub fn step_orbit_camera(&mut self) -> bool {
         let Some(state) = self.orbit_camera.as_ref() else {
             return false;
@@ -132,38 +125,11 @@ impl SceneRuntime {
         let v_yaw = serde_json::Value::from(yaw as f64);
         let v_pitch = serde_json::Value::from(pitch as f64);
         let v_dist = serde_json::Value::from(dist as f64);
-        let v_speed = serde_json::Value::from(0.0_f64);
 
         let _ = self.set_obj_sprite_property(&target, "obj.yaw", &v_yaw);
         let _ = self.set_obj_sprite_property(&target, "obj.pitch", &v_pitch);
         let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v_dist);
-        let _ = self.set_obj_sprite_property(&target, "obj.orbit_speed", &v_speed);
         true
-    }
-
-    fn toggle_orbit_camera(&mut self) {
-        let Some(state) = self.orbit_camera.as_mut() else {
-            return;
-        };
-        if state.active {
-            state.active = false;
-            state.last_mouse_pos = None;
-            // Restore saved auto-rotation speed.
-            let speed = state.paused_orbit_speed;
-            let target = state.target.clone();
-            let v = serde_json::Value::from(speed as f64);
-            let _ = self.set_obj_sprite_property(&target, "obj.orbit_speed", &v);
-        } else {
-            // Save default auto-rotation speed before pausing.
-            let speed = self
-                .obj_orbit_default_speed
-                .get(&state.target)
-                .copied()
-                .unwrap_or(0.0);
-            state.paused_orbit_speed = speed;
-            state.active = true;
-            state.last_mouse_pos = None;
-        }
     }
 
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
@@ -316,6 +282,7 @@ impl SceneRuntime {
         for key in key_presses {
             if is_free_look_toggle(key) {
                 self.toggle_free_look_camera();
+                self.ui_state.keys_down.remove("f"); // mask toggle key from Rhai
                 toggled = true;
                 continue;
             }
@@ -507,8 +474,8 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
 }
 
 fn is_free_look_toggle(key: &KeyEvent) -> bool {
-    key.modifiers.contains(KeyModifiers::CONTROL)
-        && matches!(key.code, KeyCode::Char('f') | KeyCode::Char('F'))
+    matches!(key.code, KeyCode::Char('f') | KeyCode::Char('F'))
+        && key.modifiers.contains(KeyModifiers::CONTROL)
 }
 
 fn free_look_captured_key_name(key: &KeyEvent) -> Option<&'static str> {

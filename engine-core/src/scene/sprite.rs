@@ -533,6 +533,10 @@ pub enum Sprite {
         /// Atmosphere shell scale relative to planet surface (e.g., 1.07). Default 0.0 (disabled).
         #[serde(default, rename = "atmo-shell-scale")]
         atmo_shell_scale: Option<f32>,
+        /// Physical atmosphere scale height in world units. Enables barometric + Chapman model.
+        /// Typical: 0.10–0.30 for game-scale planets. 0.0 = use empirical rim_power fallback.
+        #[serde(default, rename = "atmo-scale-height")]
+        atmo_scale_height: Option<f32>,
         /// Night-side city lights color. When set, renders procedural light clusters on the dark side.
         #[serde(default, rename = "night-light-color")]
         night_light_color: Option<TermColour>,

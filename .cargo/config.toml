@@ -36,5 +36,7 @@ incremental = true
 # rust-lld.exe ships with every Rust toolchain; no extra install required.
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld"
-rustflags = ["-C", "linker-flavor=lld-link"]
+# target-cpu=native: enables AVX2/AVX512 auto-vectorisation for the software rasteriser.
+# Binaries are not portable (only run on this CPU family) — do not check this line in for CI.
+rustflags = ["-C", "linker-flavor=lld-link", "-C", "target-cpu=native"]
 

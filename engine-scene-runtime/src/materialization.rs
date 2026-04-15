@@ -769,6 +769,7 @@ fn set_obj_property_recursive(
                 atmo_haze_strength,
                 atmo_haze_power,
                 atmo_shell_scale,
+                atmo_scale_height,
                 light_direction_x,
                 light_direction_y,
                 light_direction_z,
@@ -1081,6 +1082,15 @@ fn set_obj_property_recursive(
                         }
                     }
                 }
+                "world.shape" => {
+                    if let Some(next) = value.as_str() {
+                        let normalized = if next == "flat" { "flat" } else { "sphere" };
+                        if world_gen_shape.as_deref() != Some(normalized) {
+                            *world_gen_shape = Some(normalized.to_string());
+                            *updated = true;
+                        }
+                    }
+                }
                 "obj.camera-distance" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.3, 10.0);
@@ -1211,6 +1221,15 @@ fn set_obj_property_recursive(
                         let next = next.clamp(0.0, 2.0);
                         if atmo_shell_scale.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
                             *atmo_shell_scale = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.scale_height" | "obj.atmo.scale-height" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 10.0);
+                        if atmo_scale_height.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_scale_height = Some(next);
                             *updated = true;
                         }
                     }

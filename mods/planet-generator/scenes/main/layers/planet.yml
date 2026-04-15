@@ -6,8 +6,8 @@
       id: planet-mesh
       source: "world://32"
       at: cc
-      width: 340
-      height: 340
+      width: 420
+      height: 420
       scale: 1.0
       rotate-y-deg-per-sec: 3.0
       ambient: 0.12

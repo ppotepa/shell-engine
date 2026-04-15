@@ -218,27 +218,68 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
             }
         }
         WorldShape::Flat => {
-            use engine_mesh::primitives::TerrainParams;
-            let mesh = engine_mesh::primitives::terrain_plane(64, TerrainParams::default());
-            let colors: Vec<[u8; 3]> = mesh
-                .faces
+            // Build a flat terrain grid driven by the planet heightmap.
+            // UV maps XZ ∈ [-1,1] linearly onto the heightmap so every planet
+            // parameter (ocean fraction, continents, climate) affects the flat view
+            // and all three coloring modes (biome/altitude/moisture) work correctly.
+            let subdiv = p.subdivisions.clamp(8, 256) as usize;
+            let cols = subdiv;
+            let rows = subdiv;
+
+            let mut vertices = Vec::with_capacity((rows + 1) * (cols + 1));
+            for row in 0..=rows {
+                for col in 0..=cols {
+                    let u = col as f32 / cols as f32;
+                    let v = row as f32 / rows as f32;
+                    let x = u * 2.0 - 1.0;
+                    let z = v * 2.0 - 1.0;
+                    let gx = ((u * (planet.width - 1) as f32).round() as usize)
+                        .min(planet.width - 1);
+                    let gy = ((v * (planet.height - 1) as f32).round() as usize)
+                        .min(planet.height - 1);
+                    let cell = planet.cell(gx, gy);
+                    let y = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
+                    vertices.push([x, y, z]);
+                }
+            }
+
+            let mut faces = Vec::with_capacity(rows * cols * 2);
+            for row in 0..rows {
+                for col in 0..cols {
+                    let i00 = row * (cols + 1) + col;
+                    let i10 = i00 + 1;
+                    let i01 = (row + 1) * (cols + 1) + col;
+                    let i11 = i01 + 1;
+                    faces.push([i00, i01, i10]);
+                    faces.push([i10, i01, i11]);
+                }
+            }
+
+            let normals = engine_mesh::mesh::compute_smooth_normals(&vertices, &faces);
+
+            let colors: Vec<[u8; 3]> = faces
                 .iter()
                 .map(|&[a, b, c]| {
-                    let avg_y =
-                        (mesh.vertices[a][1] + mesh.vertices[b][1] + mesh.vertices[c][1]) / 3.0;
-                    let elevation = ((avg_y / 0.44) + 0.5).clamp(0.0, 1.0);
+                    let u_avg =
+                        (vertices[a][0] + vertices[b][0] + vertices[c][0]) / 3.0 * 0.5 + 0.5;
+                    let v_avg =
+                        (vertices[a][2] + vertices[b][2] + vertices[c][2]) / 3.0 * 0.5 + 0.5;
+                    let gx = ((u_avg * (planet.width - 1) as f32).round() as usize)
+                        .min(planet.width - 1);
+                    let gy = ((v_avg * (planet.height - 1) as f32).round() as usize)
+                        .min(planet.height - 1);
+                    let cell = planet.cell(gx, gy);
                     match p.coloring {
-                        WorldColoring::Altitude | WorldColoring::Biome | WorldColoring::Moisture => {
-                            engine_terrain::altitude_color(elevation)
-                        }
+                        WorldColoring::Biome => engine_terrain::biome_color(cell.biome),
+                        WorldColoring::Altitude => engine_terrain::altitude_color(cell.elevation),
+                        WorldColoring::Moisture => moisture_color(cell.moisture),
                         WorldColoring::None => [200, 200, 200],
                     }
                 })
                 .collect();
-            GeneratedWorldMesh {
-                mesh,
-                face_colors: colors,
-            }
+
+            let mesh = engine_mesh::Mesh::new(vertices, normals, faces);
+            GeneratedWorldMesh { mesh, face_colors: colors }
         }
     }
 }
@@ -246,12 +287,17 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
 fn build_world_base_mesh(base: WorldBase, subdivisions: u32) -> engine_mesh::Mesh {
     use engine_mesh::primitives::{cube_sphere, icosa_sphere, octa_sphere, tetra_sphere, uv_sphere};
     match base {
-        WorldBase::Cube => cube_sphere(subdivisions),
+        // Cube and UV sphere face counts scale as O(N²) — cap at 256 subdivisions to avoid
+        // generating millions of sub-pixel triangles that cost CPU time but add no visible detail.
+        // Face counts: cube_sphere(128)≈196K, cube_sphere(256)≈786K, cube_sphere(512)≈3.1M.
+        // The terrain heightmap (512×256 grid) provides the quality; mesh res just samples it.
+        WorldBase::Cube => cube_sphere(subdivisions.min(256)),
         WorldBase::Uv => {
-            let lat = subdivisions.clamp(8, 256);
-            let lon = (lat * 2).clamp(16, 512);
+            let lat = subdivisions.clamp(8, 128);
+            let lon = (lat * 2).clamp(16, 256);
             uv_sphere(lat, lon)
         }
+        // Poly spheres scale as O(4^levels) — already naturally bounded by poly_levels_from_subdivisions.
         WorldBase::Tetra => tetra_sphere(poly_levels_from_subdivisions(subdivisions)),
         WorldBase::Octa => octa_sphere(poly_levels_from_subdivisions(subdivisions)),
         WorldBase::Icosa => icosa_sphere(poly_levels_from_subdivisions(subdivisions)),
@@ -259,12 +305,13 @@ fn build_world_base_mesh(base: WorldBase, subdivisions: u32) -> engine_mesh::Mes
 }
 
 fn poly_levels_from_subdivisions(subdivisions: u32) -> u32 {
+    // Level 0/1 produce too few faces for usable planet topology (icosa level 0 = 20 triangles).
+    // Start at level 2 (320 faces for icosa) to ensure a reasonable minimum.
     match subdivisions {
-        0..=32 => 0,
-        33..=64 => 1,
-        65..=128 => 2,
-        129..=256 => 3,
-        _ => 4,
+        0..=32 => 2,
+        33..=64 => 3,
+        65..=128 => 4,
+        _ => 5,
     }
 }
 
