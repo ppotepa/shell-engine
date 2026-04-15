@@ -17,7 +17,8 @@ fn preset_earth() {
         moisture: 3.0, ice: 1.0, lapse: 0.6, rain: 0.4,
         base: 3.0, disp: 0.22, coloring: 0.0, rotspeed: 3.0,
         sunaz: 210.0, sunel: 40.0, ambient: 0.12,
-        atmo_color: 2.0, atmo_strength: 0.55, atmo_rim_power: 3.2, atmo_haze_strength: 0.38, atmo_haze_power: 1.5
+        atmo_color: 2.0, atmo_strength: 0.55, atmo_rim_power: 3.2, atmo_haze_strength: 0.38, atmo_haze_power: 1.5,
+        atmo_shell_scale: 1.07
     }
 }
 fn preset_mars() {
@@ -27,7 +28,8 @@ fn preset_mars() {
         moisture: 1.0, ice: 0.1, lapse: 0.3, rain: 0.05,
         base: 3.0, disp: 0.38, coloring: 1.0, rotspeed: 3.0,
         sunaz: 190.0, sunel: 30.0, ambient: 0.08,
-        atmo_color: 0.0, atmo_strength: 0.20, atmo_rim_power: 5.0, atmo_haze_strength: 0.14, atmo_haze_power: 2.2
+        atmo_color: 0.0, atmo_strength: 0.20, atmo_rim_power: 5.0, atmo_haze_strength: 0.14, atmo_haze_power: 2.2,
+        atmo_shell_scale: 1.05
     }
 }
 fn preset_ocean() {
@@ -37,7 +39,8 @@ fn preset_ocean() {
         moisture: 5.0, ice: 0.8, lapse: 0.7, rain: 0.6,
         base: 3.0, disp: 0.08, coloring: 0.0, rotspeed: 2.0,
         sunaz: 220.0, sunel: 50.0, ambient: 0.15,
-        atmo_color: 2.0, atmo_strength: 0.65, atmo_rim_power: 3.0, atmo_haze_strength: 0.45, atmo_haze_power: 1.4
+        atmo_color: 2.0, atmo_strength: 0.65, atmo_rim_power: 3.0, atmo_haze_strength: 0.45, atmo_haze_power: 1.4,
+        atmo_shell_scale: 1.07
     }
 }
 fn preset_desert() {
@@ -47,7 +50,8 @@ fn preset_desert() {
         moisture: 1.2, ice: 0.0, lapse: 0.4, rain: 0.05,
         base: 3.0, disp: 0.3, coloring: 0.0, rotspeed: 4.0,
         sunaz: 200.0, sunel: 25.0, ambient: 0.18,
-        atmo_color: 0.0, atmo_strength: 0.42, atmo_rim_power: 3.8, atmo_haze_strength: 0.28, atmo_haze_power: 1.9
+        atmo_color: 0.0, atmo_strength: 0.42, atmo_rim_power: 3.8, atmo_haze_strength: 0.28, atmo_haze_power: 1.9,
+        atmo_shell_scale: 1.07
     }
 }
 fn preset_ice() {
@@ -57,7 +61,8 @@ fn preset_ice() {
         moisture: 2.5, ice: 3.0, lapse: 1.0, rain: 0.3,
         base: 3.0, disp: 0.18, coloring: 0.0, rotspeed: 1.5,
         sunaz: 230.0, sunel: 15.0, ambient: 0.25,
-        atmo_color: 4.0, atmo_strength: 0.50, atmo_rim_power: 2.8, atmo_haze_strength: 0.42, atmo_haze_power: 1.3
+        atmo_color: 4.0, atmo_strength: 0.50, atmo_rim_power: 2.8, atmo_haze_strength: 0.42, atmo_haze_power: 1.3,
+        atmo_shell_scale: 1.07
     }
 }
 fn preset_volcanic() {
@@ -67,7 +72,8 @@ fn preset_volcanic() {
         moisture: 1.5, ice: 0.0, lapse: 0.5, rain: 0.15,
         base: 3.0, disp: 0.55, coloring: 0.0, rotspeed: 5.0,
         sunaz: 180.0, sunel: 35.0, ambient: 0.1,
-        atmo_color: 1.0, atmo_strength: 0.35, atmo_rim_power: 4.5, atmo_haze_strength: 0.22, atmo_haze_power: 2.3
+        atmo_color: 1.0, atmo_strength: 0.35, atmo_rim_power: 4.5, atmo_haze_strength: 0.22, atmo_haze_power: 2.3,
+        atmo_shell_scale: 1.05
     }
 }
 fn preset_archipelago() {
@@ -77,7 +83,8 @@ fn preset_archipelago() {
         moisture: 4.0, ice: 0.5, lapse: 0.65, rain: 0.5,
         base: 3.0, disp: 0.12, coloring: 0.0, rotspeed: 2.5,
         sunaz: 215.0, sunel: 45.0, ambient: 0.14,
-        atmo_color: 2.0, atmo_strength: 0.58, atmo_rim_power: 3.0, atmo_haze_strength: 0.40, atmo_haze_power: 1.4
+        atmo_color: 2.0, atmo_strength: 0.58, atmo_rim_power: 3.0, atmo_haze_strength: 0.40, atmo_haze_power: 1.4,
+        atmo_shell_scale: 1.07
     }
 }
 
@@ -148,7 +155,7 @@ if !(local.initialized ?? false) {
     local.base = p.base; local.disp = p.disp; local.coloring = p.coloring; local.rotspeed = p.rotspeed;
     local.sunaz = p.sunaz; local.sunel = p.sunel; local.ambient = p.ambient;
     local.atmo_color = p.atmo_color; local.atmo_strength = p.atmo_strength; local.atmo_rim_power = p.atmo_rim_power;
-    local.atmo_haze_strength = p.atmo_haze_strength; local.atmo_haze_power = p.atmo_haze_power;
+    local.atmo_haze_strength = p.atmo_haze_strength; local.atmo_haze_power = p.atmo_haze_power; local.atmo_shell_scale = p.atmo_shell_scale;
     local.subdiv = 32.0;
     local.tab_sync_needed = true;
 }
@@ -179,6 +186,7 @@ let atmo_strength = local.atmo_strength ?? 0.55;
 let atmo_rim_power = local.atmo_rim_power ?? 3.2;
 let atmo_haze_strength = local.atmo_haze_strength ?? 0.38;
 let atmo_haze_power = local.atmo_haze_power ?? 1.5;
+let atmo_shell_scale = local.atmo_shell_scale ?? 1.07;
 
 // ── Tab switching (keyboard: 1/2/3/4/5 — mouse: click tab button) ────────────
 if input.just_pressed("1") || gui.button_clicked("tab-btn-continents") { tab = 0; local.tab = 0; local.tab_sync_needed = true; }
@@ -568,6 +576,7 @@ scene.set("planet-mesh", "obj.atmo.strength",      atmo_strength);
 scene.set("planet-mesh", "obj.atmo.rim_power",     atmo_rim_power);
 scene.set("planet-mesh", "obj.atmo.haze_strength", atmo_haze_strength);
 scene.set("planet-mesh", "obj.atmo.haze_power",    atmo_haze_power);
+scene.set("planet-mesh", "obj.atmo.shell_scale",   atmo_shell_scale);
 
 let az_rad = sunaz * 0.01745329;
 let el_rad = sunel * 0.01745329;

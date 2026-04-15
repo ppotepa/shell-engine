@@ -14,10 +14,12 @@ use super::obj_render_helpers::*;
 pub use super::obj_render_helpers::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
 };
+mod atmo_shell;
 mod mesh_source;
 mod params;
 mod setup;
 mod terrain_eval;
+use atmo_shell::render_atmo_shell_pass;
 use mesh_source::get_or_load_obj_mesh;
 pub(crate) use mesh_source::parse_terrain_params_from_uri;
 pub use params::ObjRenderParams;
@@ -413,6 +415,36 @@ pub fn render_obj_to_canvas(
 
         let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
         let planet_terrain_extra = build_terrain_extra_params(&params);
+
+        // Render atmosphere shell before the planet surface
+        if params.atmo_shell_scale > 1.001 {
+            if let Some(biome) = &biome_params {
+                if let Some(atmo_color) = biome.atmo_color {
+                    render_atmo_shell_pass(
+                        &mut canvas,
+                        &mut depth,
+                        virtual_w,
+                        virtual_h,
+                        pitch,
+                        yaw,
+                        roll,
+                        inv_tan,
+                        aspect,
+                        near_clip,
+                        [params.camera_world_x, params.camera_world_y, params.camera_world_z],
+                        [params.view_right_x, params.view_right_y, params.view_right_z],
+                        [params.view_up_x, params.view_up_y, params.view_up_z],
+                        [params.view_forward_x, params.view_forward_y, params.view_forward_z],
+                        model_scale * params.atmo_shell_scale,
+                        atmo_color,
+                        biome.atmo_strength,
+                        biome.atmo_rim_power,
+                        biome.sun_dir,
+                        view_dir,
+                    );
+                }
+            }
+        }
 
         let drawn_faces = if smooth_shading {
             // Gouraud path: compute per-vertex shade values using smooth normals.

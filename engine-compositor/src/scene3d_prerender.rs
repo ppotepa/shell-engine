@@ -579,6 +579,7 @@ fn build_object_specs(
                 atmo_rim_power: 4.5,
                 atmo_haze_strength: 0.0,
                 atmo_haze_power: 1.8,
+                atmo_shell_scale: 0.0,
                 ocean_noise_scale: 4.0,
                 ocean_color_rgb: None,
                 night_light_color: None,

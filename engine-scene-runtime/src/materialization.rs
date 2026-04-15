@@ -768,6 +768,7 @@ fn set_obj_property_recursive(
                 atmo_rim_power,
                 atmo_haze_strength,
                 atmo_haze_power,
+                atmo_shell_scale,
                 light_direction_x,
                 light_direction_y,
                 light_direction_z,
@@ -1201,6 +1202,15 @@ fn set_obj_property_recursive(
                         let next = next.clamp(0.1, 8.0);
                         if atmo_haze_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
                             *atmo_haze_power = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.shell_scale" | "obj.atmo.shell-scale" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 2.0);
+                        if atmo_shell_scale.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_shell_scale = Some(next);
                             *updated = true;
                         }
                     }

@@ -1157,6 +1157,7 @@ fn render_obj_sprite(
         atmo_rim_power,
         atmo_haze_strength,
         atmo_haze_power,
+        atmo_shell_scale,
         night_light_color,
         night_light_threshold,
         night_light_intensity,
@@ -1549,6 +1550,7 @@ fn render_obj_sprite(
             atmo_rim_power: atmo_rim_power.unwrap_or(4.5),
             atmo_haze_strength: atmo_haze_strength.unwrap_or(0.0),
             atmo_haze_power: atmo_haze_power.unwrap_or(1.8),
+            atmo_shell_scale: atmo_shell_scale.unwrap_or(0.0),
             ocean_noise_scale: 4.0,
             ocean_color_rgb: None,
             night_light_color: night_light_color.as_ref().map(|c| {
@@ -2056,6 +2058,7 @@ fn build_planet_base_params(
         atmo_rim_power: 4.5,
         atmo_haze_strength: 0.0,
         atmo_haze_power: 1.8,
+        atmo_shell_scale: 0.0,
         ocean_noise_scale: 4.0,
         ocean_color_rgb: None,
         night_light_color: None,

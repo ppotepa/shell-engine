@@ -153,6 +153,8 @@ pub struct ObjRenderParams {
     pub atmo_haze_strength: f32,
     /// Haze falloff power (lower = broader). Default 1.8.
     pub atmo_haze_power: f32,
+    /// Atmosphere shell scale (1.07 = typical, 1.0 = disabled). Default 0.0.
+    pub atmo_shell_scale: f32,
     /// Scale for ocean surface noise (higher = finer waves). Default 4.0.
     pub ocean_noise_scale: f32,
     /// Ocean base color override (RGB). When Some, replaces OBJ face color for ocean pixels.

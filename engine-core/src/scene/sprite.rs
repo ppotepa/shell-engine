@@ -530,6 +530,9 @@ pub enum Sprite {
         /// Haze falloff power for atmosphere effect (lower = broader). Default 1.8.
         #[serde(default, rename = "atmo-haze-power")]
         atmo_haze_power: Option<f32>,
+        /// Atmosphere shell scale relative to planet surface (e.g., 1.07). Default 0.0 (disabled).
+        #[serde(default, rename = "atmo-shell-scale")]
+        atmo_shell_scale: Option<f32>,
         /// Night-side city lights color. When set, renders procedural light clusters on the dark side.
         #[serde(default, rename = "night-light-color")]
         night_light_color: Option<TermColour>,
