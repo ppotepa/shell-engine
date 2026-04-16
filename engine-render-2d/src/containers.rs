@@ -1,14 +1,13 @@
 use engine_core::effects::Region;
 use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
-use engine_render_2d::{ClipRect, GridCellRect, RenderArea};
-use std::collections::HashMap;
 
-use super::common::RenderCtx;
+use crate::{ClipRect, GridCellRect, RenderArea};
+use std::collections::HashMap;
 
 /// Renders all container children using precomputed cell rectangles.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn render_children_in_cells<F>(
+pub fn render_children_in_cells<Ctx, F>(
     layer_idx: usize,
     sprite_path: &mut Vec<usize>,
     children: &[Sprite],
@@ -19,7 +18,7 @@ pub(crate) fn render_children_in_cells<F>(
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
     object_states: &HashMap<String, ObjectRuntimeState>,
-    ctx: &mut RenderCtx<'_>,
+    ctx: &mut Ctx,
     mut render_child: F,
 ) where
     F: FnMut(
@@ -31,7 +30,7 @@ pub(crate) fn render_children_in_cells<F>(
         Option<&TargetResolver>,
         &mut HashMap<String, Region>,
         &HashMap<String, ObjectRuntimeState>,
-        &mut RenderCtx<'_>,
+        &mut Ctx,
     ),
 {
     let base_path_len = sprite_path.len();

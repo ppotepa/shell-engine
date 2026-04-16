@@ -15,8 +15,9 @@ use engine_core::scene_runtime_types::{
 };
 use engine_render_2d::{
     compute_flex_cells, compute_grid_cells, dim_colour, image_sprite_dimensions,
-    measure_sprite_for_layout, render_image_content, render_text_content, resolve_x, resolve_y,
-    text_sprite_dimensions, with_render_context, ClipRect, RenderArea,
+    measure_sprite_for_layout, render_children_in_cells, render_image_content,
+    render_text_content, resolve_x, resolve_y, text_sprite_dimensions, with_render_context,
+    ClipRect, RenderArea,
 };
 use engine_render::VectorPrimitive;
 use std::cell::RefCell;
@@ -90,7 +91,7 @@ fn glow_cache_key(
 
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, is_sprite_offscreen,
-    render_children_in_cells, sprite_transform_offset, RenderCtx,
+    sprite_transform_offset, RenderCtx,
 };
 use crate::{
     blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
