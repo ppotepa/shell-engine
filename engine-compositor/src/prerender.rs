@@ -5,7 +5,8 @@ use rayon::prelude::*;
 
 use engine_core::assets::AssetRoot;
 use engine_core::logging;
-use engine_core::scene::{Layer, Sprite, SpriteSizePreset};
+use engine_core::scene::{Layer, SpriteSizePreset};
+use engine_render_3d::pipeline::{extract_obj_sprite_spec, ObjSpriteSpec};
 
 use crate::obj_prerender::{
     AnimSpriteFrames, ObjPrerenderedFrames, PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
@@ -204,502 +205,227 @@ struct AnimPrerenderTarget {
 fn collect_targets(layers: &[Layer]) -> Vec<PrerenderTarget> {
     let mut targets = Vec::new();
     for layer in layers {
-        collect_from_sprites(&layer.sprites, &mut targets);
+        for root in &layer.sprites {
+            root.walk_recursive(&mut |sprite| {
+                let Some(spec) = extract_obj_sprite_spec(sprite) else {
+                    return;
+                };
+                let Some(id) = spec.id else {
+                    return;
+                };
+                if !spec.prerender {
+                    return;
+                }
+                if spec.rotate_y_deg_per_sec.unwrap_or(0.0).abs() > f32::EPSILON {
+                    return;
+                }
+                let is_wireframe = spec
+                    .surface_mode
+                    .map(|mode| mode.trim().eq_ignore_ascii_case("wireframe"))
+                    .unwrap_or(false);
+                let fg = spec.fg_colour.map(Color::from).unwrap_or(Color::White);
+                targets.push(PrerenderTarget {
+                    sprite_id: id.to_string(),
+                    source: spec.source.to_string(),
+                    width: spec.width,
+                    height: spec.height,
+                    size: spec.size,
+                    params: build_static_obj_prerender_params(&spec),
+                    wireframe: is_wireframe,
+                    backface_cull: spec.backface_cull.unwrap_or(false),
+                    fg,
+                });
+            });
+        }
     }
     targets
 }
 
 #[inline]
-fn collect_anim_targets(
-    layers: &[Layer],
-) -> Vec<AnimPrerenderTarget> {
+fn collect_anim_targets(layers: &[Layer]) -> Vec<AnimPrerenderTarget> {
     let mut targets = Vec::new();
     for layer in layers {
-        collect_anim_from_sprites(&layer.sprites, &mut targets);
+        for root in &layer.sprites {
+            root.walk_recursive(&mut |sprite| {
+                let Some(spec) = extract_obj_sprite_spec(sprite) else {
+                    return;
+                };
+                let Some(id) = spec.id else {
+                    return;
+                };
+                if !spec.prerender_anim {
+                    return;
+                }
+                if spec.rotate_y_deg_per_sec.unwrap_or(0.0).abs() <= f32::EPSILON {
+                    return;
+                }
+                let is_wireframe = spec
+                    .surface_mode
+                    .map(|mode| mode.trim().eq_ignore_ascii_case("wireframe"))
+                    .unwrap_or(false);
+                let fg = spec.fg_colour.map(Color::from).unwrap_or(Color::White);
+                targets.push(AnimPrerenderTarget {
+                    sprite_id: id.to_string(),
+                    source: spec.source.to_string(),
+                    width: spec.width,
+                    height: spec.height,
+                    size: spec.size,
+                    base_params: build_anim_obj_prerender_params(&spec),
+                    wireframe: is_wireframe,
+                    backface_cull: spec.backface_cull.unwrap_or(false),
+                    fg,
+                });
+            });
+        }
     }
     targets
 }
 
 #[inline]
-fn collect_from_sprites(
-    sprites: &[Sprite],
-    out: &mut Vec<PrerenderTarget>,
-) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj {
-                id: Some(id),
-                source,
-                size,
-                width,
-                height,
-                surface_mode,
-                backface_cull,
-                scale,
-                yaw_deg,
-                pitch_deg,
-                roll_deg,
-                rotation_x,
-                rotation_y,
-                rotation_z,
-                rotate_y_deg_per_sec,
-                camera_distance,
-                fov_degrees,
-                near_clip,
-                light_direction_x,
-                light_direction_y,
-                light_direction_z,
-                light_2_direction_x,
-                light_2_direction_y,
-                light_2_direction_z,
-                light_2_intensity,
-                light_point_x,
-                light_point_y,
-                light_point_z,
-                light_point_intensity,
-                light_point_colour,
-                light_point_flicker_depth,
-                light_point_flicker_hz,
-                light_point_orbit_hz,
-                light_point_snap_hz,
-                light_point_2_x,
-                light_point_2_y,
-                light_point_2_z,
-                light_point_2_intensity,
-                light_point_2_colour,
-                light_point_2_flicker_depth,
-                light_point_2_flicker_hz,
-                light_point_2_orbit_hz,
-                light_point_2_snap_hz,
-                cel_levels,
-                shadow_colour,
-                midtone_colour,
-                highlight_colour,
-                tone_mix,
-                smooth_shading,
-                latitude_bands,
-                latitude_band_depth,
-                terrain_color,
-                terrain_threshold,
-                terrain_noise_scale,
-                terrain_noise_octaves,
-                marble_depth,
-                fg_colour,
-                prerender,
-                clip_y_min: _,
-                clip_y_max: _,
-                ..
-            } => {
-                if !prerender {
-                    continue;
-                }
-                if rotate_y_deg_per_sec.unwrap_or(0.0).abs() > f32::EPSILON {
-                    continue;
-                }
-
-                let is_wireframe = surface_mode
-                    .as_deref()
-                    .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
-                    .unwrap_or(false);
-                let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
-
-                let params = ObjRenderParams {
-                    scale: scale.unwrap_or(1.0),
-                    yaw_deg: yaw_deg.unwrap_or(0.0),
-                    pitch_deg: pitch_deg.unwrap_or(0.0),
-                    roll_deg: roll_deg.unwrap_or(0.0),
-                    rotation_x: rotation_x.unwrap_or(0.0),
-                    rotation_y: rotation_y.unwrap_or(0.0),
-                    rotation_z: rotation_z.unwrap_or(0.0),
-                    rotate_y_deg_per_sec: 0.0,
-                    camera_distance: camera_distance.unwrap_or(3.0),
-                    fov_degrees: fov_degrees.unwrap_or(60.0),
-                    near_clip: near_clip.unwrap_or(0.001),
-                    light_direction_x: light_direction_x.unwrap_or(-0.45),
-                    light_direction_y: light_direction_y.unwrap_or(0.70),
-                    light_direction_z: light_direction_z.unwrap_or(-0.85),
-                    light_2_direction_x: light_2_direction_x.unwrap_or(0.0),
-                    light_2_direction_y: light_2_direction_y.unwrap_or(0.0),
-                    light_2_direction_z: light_2_direction_z.unwrap_or(-1.0),
-                    light_2_intensity: light_2_intensity.unwrap_or(0.0),
-                    light_point_x: light_point_x.unwrap_or(0.0),
-                    light_point_y: light_point_y.unwrap_or(2.0),
-                    light_point_z: light_point_z.unwrap_or(0.0),
-                    light_point_intensity: light_point_intensity.unwrap_or(0.0),
-                    light_point_colour: light_point_colour.as_ref().map(Color::from),
-                    light_point_flicker_depth: light_point_flicker_depth.unwrap_or(0.0),
-                    light_point_flicker_hz: light_point_flicker_hz.unwrap_or(0.0),
-                    light_point_orbit_hz: light_point_orbit_hz.unwrap_or(0.0),
-                    light_point_snap_hz: light_point_snap_hz.unwrap_or(0.0),
-                    light_point_2_x: light_point_2_x.unwrap_or(0.0),
-                    light_point_2_y: light_point_2_y.unwrap_or(0.0),
-                    light_point_2_z: light_point_2_z.unwrap_or(0.0),
-                    light_point_2_intensity: light_point_2_intensity.unwrap_or(0.0),
-                    light_point_2_colour: light_point_2_colour.as_ref().map(Color::from),
-                    light_point_2_flicker_depth: light_point_2_flicker_depth.unwrap_or(0.0),
-                    light_point_2_flicker_hz: light_point_2_flicker_hz.unwrap_or(0.0),
-                    light_point_2_orbit_hz: light_point_2_orbit_hz.unwrap_or(0.0),
-                    light_point_2_snap_hz: light_point_2_snap_hz.unwrap_or(0.0),
-                    cel_levels: cel_levels.unwrap_or(0),
-                    shadow_colour: shadow_colour.as_ref().map(Color::from),
-                    midtone_colour: midtone_colour.as_ref().map(Color::from),
-                    highlight_colour: highlight_colour.as_ref().map(Color::from),
-                    tone_mix: tone_mix.unwrap_or(0.0),
-                    scene_elapsed_ms: 0,
-                    camera_pan_x: 0.0,
-                    camera_pan_y: 0.0,
-                    camera_look_yaw: 0.0,
-                    camera_look_pitch: 0.0,
-                    object_translate_x: 0.0,
-                    object_translate_y: 0.0,
-                    object_translate_z: 0.0,
-                    clip_y_min: 0.0,
-                    clip_y_max: 1.0,
-                    camera_world_x: 0.0,
-                    camera_world_y: 0.0,
-                    camera_world_z: -camera_distance.unwrap_or(3.0),
-                    view_right_x: 1.0,
-                    view_right_y: 0.0,
-                    view_right_z: 0.0,
-                    view_up_x: 0.0,
-                    view_up_y: 1.0,
-                    view_up_z: 0.0,
-                    view_forward_x: 0.0,
-                    view_forward_y: 0.0,
-                    view_forward_z: 1.0,
-                    unlit: false,
-                    ambient: 0.0,
-                    light_point_falloff: 0.7,
-                    light_point_2_falloff: 0.7,
-                    smooth_shading: smooth_shading.unwrap_or(false),
-                    latitude_bands: latitude_bands.unwrap_or(0),
-                    latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
-                    terrain_color: terrain_color.as_ref().map(|c| {
-                        let (r, g, b) = Color::from(c).to_rgb();
-                        [r, g, b]
-                    }),
-                    terrain_threshold: terrain_threshold.unwrap_or(0.5),
-                    terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
-                    terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
-                    marble_depth: marble_depth.unwrap_or(0.0),
-                    terrain_relief: 0.0,
-                    noise_seed: 0.0,
-                    warp_strength: 0.0,
-                    warp_octaves: 2,
-                    noise_lacunarity: 2.0,
-                    noise_persistence: 0.5,
-                    normal_perturb_strength: 0.0,
-                    ocean_specular: 0.0,
-                    crater_density: 0.0,
-                    crater_rim_height: 0.35,
-                    snow_line_altitude: 0.0,
-                    terrain_displacement: 0.0,
-                    below_threshold_transparent: false,
-                    cloud_alpha_softness: 0.0,
-                    polar_ice_color: None,
-                    polar_ice_start: 0.78,
-                    polar_ice_end: 0.92,
-                    desert_color: None,
-                    desert_strength: 0.0,
-                    atmo_color: None,
-                    atmo_height: 0.12,
-                    atmo_density: 0.0,
-                    atmo_strength: 0.0,
-                    atmo_rayleigh_amount: 0.0,
-                    atmo_rayleigh_color: None,
-                    atmo_rayleigh_falloff: 0.32,
-                    atmo_haze_amount: 0.0,
-                    atmo_haze_color: None,
-                    atmo_haze_falloff: 0.18,
-                    atmo_absorption_amount: 0.0,
-                    atmo_absorption_color: None,
-                    atmo_absorption_height: 0.55,
-                    atmo_absorption_width: 0.18,
-                    atmo_forward_scatter: 0.72,
-                    atmo_limb_boost: 1.0,
-                    atmo_terminator_softness: 1.0,
-                    atmo_night_glow: 0.0,
-                    atmo_night_glow_color: None,
-                    atmo_rim_power: 4.5,
-                    atmo_haze_strength: 0.0,
-                    atmo_haze_power: 1.8,
-                    atmo_veil_strength: 0.0,
-                    atmo_veil_power: 1.6,
-                    atmo_halo_strength: 0.0,
-                    atmo_halo_width: 0.12,
-                    atmo_halo_power: 2.2,
-                    ocean_noise_scale: 4.0,
-                    ocean_color_rgb: None,
-                    night_light_color: None,
-                    night_light_threshold: 0.82,
-                    night_light_intensity: 0.0,
-                    heightmap: None,
-                    heightmap_w: 0,
-                    heightmap_h: 0,
-                    heightmap_blend: 0.0,
-                    depth_sort_faces: false,
-                };
-
-                out.push(PrerenderTarget {
-                    sprite_id: id.clone(),
-                    source: source.clone(),
-                    width: *width,
-                    height: *height,
-                    size: *size,
-                    params,
-                    wireframe: is_wireframe,
-                    backface_cull: backface_cull.unwrap_or(false),
-                    fg,
-                });
-            }
-            Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => collect_from_sprites(children, out),
-            _ => {}
-        }
+fn build_static_obj_prerender_params(spec: &ObjSpriteSpec<'_>) -> ObjRenderParams {
+    ObjRenderParams {
+        scale: spec.scale.unwrap_or(1.0),
+        yaw_deg: spec.yaw_deg.unwrap_or(0.0),
+        pitch_deg: spec.pitch_deg.unwrap_or(0.0),
+        roll_deg: spec.roll_deg.unwrap_or(0.0),
+        rotation_x: spec.rotation_x.unwrap_or(0.0),
+        rotation_y: spec.rotation_y.unwrap_or(0.0),
+        rotation_z: spec.rotation_z.unwrap_or(0.0),
+        rotate_y_deg_per_sec: 0.0,
+        camera_distance: spec.camera_distance.unwrap_or(3.0),
+        fov_degrees: spec.fov_degrees.unwrap_or(60.0),
+        near_clip: spec.near_clip.unwrap_or(0.001),
+        light_direction_x: spec.light_direction_x.unwrap_or(-0.45),
+        light_direction_y: spec.light_direction_y.unwrap_or(0.70),
+        light_direction_z: spec.light_direction_z.unwrap_or(-0.85),
+        light_2_direction_x: spec.light_2_direction_x.unwrap_or(0.0),
+        light_2_direction_y: spec.light_2_direction_y.unwrap_or(0.0),
+        light_2_direction_z: spec.light_2_direction_z.unwrap_or(-1.0),
+        light_2_intensity: spec.light_2_intensity.unwrap_or(0.0),
+        light_point_x: spec.light_point_x.unwrap_or(0.0),
+        light_point_y: spec.light_point_y.unwrap_or(2.0),
+        light_point_z: spec.light_point_z.unwrap_or(0.0),
+        light_point_intensity: spec.light_point_intensity.unwrap_or(0.0),
+        light_point_colour: spec.light_point_colour.map(Color::from),
+        light_point_flicker_depth: spec.light_point_flicker_depth.unwrap_or(0.0),
+        light_point_flicker_hz: spec.light_point_flicker_hz.unwrap_or(0.0),
+        light_point_orbit_hz: spec.light_point_orbit_hz.unwrap_or(0.0),
+        light_point_snap_hz: spec.light_point_snap_hz.unwrap_or(0.0),
+        light_point_2_x: spec.light_point_2_x.unwrap_or(0.0),
+        light_point_2_y: spec.light_point_2_y.unwrap_or(0.0),
+        light_point_2_z: spec.light_point_2_z.unwrap_or(0.0),
+        light_point_2_intensity: spec.light_point_2_intensity.unwrap_or(0.0),
+        light_point_2_colour: spec.light_point_2_colour.map(Color::from),
+        light_point_2_flicker_depth: spec.light_point_2_flicker_depth.unwrap_or(0.0),
+        light_point_2_flicker_hz: spec.light_point_2_flicker_hz.unwrap_or(0.0),
+        light_point_2_orbit_hz: spec.light_point_2_orbit_hz.unwrap_or(0.0),
+        light_point_2_snap_hz: spec.light_point_2_snap_hz.unwrap_or(0.0),
+        cel_levels: spec.cel_levels.unwrap_or(0),
+        shadow_colour: spec.shadow_colour.map(Color::from),
+        midtone_colour: spec.midtone_colour.map(Color::from),
+        highlight_colour: spec.highlight_colour.map(Color::from),
+        tone_mix: spec.tone_mix.unwrap_or(0.0),
+        scene_elapsed_ms: 0,
+        camera_pan_x: 0.0,
+        camera_pan_y: 0.0,
+        camera_look_yaw: 0.0,
+        camera_look_pitch: 0.0,
+        object_translate_x: 0.0,
+        object_translate_y: 0.0,
+        object_translate_z: 0.0,
+        clip_y_min: 0.0,
+        clip_y_max: 1.0,
+        camera_world_x: 0.0,
+        camera_world_y: 0.0,
+        camera_world_z: -spec.camera_distance.unwrap_or(3.0),
+        view_right_x: 1.0,
+        view_right_y: 0.0,
+        view_right_z: 0.0,
+        view_up_x: 0.0,
+        view_up_y: 1.0,
+        view_up_z: 0.0,
+        view_forward_x: 0.0,
+        view_forward_y: 0.0,
+        view_forward_z: 1.0,
+        unlit: false,
+        ambient: 0.0,
+        light_point_falloff: 0.7,
+        light_point_2_falloff: 0.7,
+        smooth_shading: spec.smooth_shading.unwrap_or(false),
+        latitude_bands: spec.latitude_bands.unwrap_or(0),
+        latitude_band_depth: spec.latitude_band_depth.unwrap_or(0.0),
+        terrain_color: spec.terrain_color.map(|value| {
+            let (r, g, b) = Color::from(value).to_rgb();
+            [r, g, b]
+        }),
+        terrain_threshold: spec.terrain_threshold.unwrap_or(0.5),
+        terrain_noise_scale: spec.terrain_noise_scale.unwrap_or(2.5),
+        terrain_noise_octaves: spec.terrain_noise_octaves.unwrap_or(2),
+        marble_depth: spec.marble_depth.unwrap_or(0.0),
+        terrain_relief: 0.0,
+        noise_seed: 0.0,
+        warp_strength: 0.0,
+        warp_octaves: 2,
+        noise_lacunarity: 2.0,
+        noise_persistence: 0.5,
+        normal_perturb_strength: 0.0,
+        ocean_specular: 0.0,
+        crater_density: 0.0,
+        crater_rim_height: 0.35,
+        snow_line_altitude: 0.0,
+        terrain_displacement: 0.0,
+        below_threshold_transparent: false,
+        cloud_alpha_softness: 0.0,
+        polar_ice_color: None,
+        polar_ice_start: 0.78,
+        polar_ice_end: 0.92,
+        desert_color: None,
+        desert_strength: 0.0,
+        atmo_color: None,
+        atmo_height: 0.12,
+        atmo_density: 0.0,
+        atmo_strength: 0.0,
+        atmo_rayleigh_amount: 0.0,
+        atmo_rayleigh_color: None,
+        atmo_rayleigh_falloff: 0.32,
+        atmo_haze_amount: 0.0,
+        atmo_haze_color: None,
+        atmo_haze_falloff: 0.18,
+        atmo_absorption_amount: 0.0,
+        atmo_absorption_color: None,
+        atmo_absorption_height: 0.55,
+        atmo_absorption_width: 0.18,
+        atmo_forward_scatter: 0.72,
+        atmo_limb_boost: 1.0,
+        atmo_terminator_softness: 1.0,
+        atmo_night_glow: 0.0,
+        atmo_night_glow_color: None,
+        atmo_rim_power: 4.5,
+        atmo_haze_strength: 0.0,
+        atmo_haze_power: 1.8,
+        atmo_veil_strength: 0.0,
+        atmo_veil_power: 1.6,
+        atmo_halo_strength: 0.0,
+        atmo_halo_width: 0.12,
+        atmo_halo_power: 2.2,
+        ocean_noise_scale: 4.0,
+        ocean_color_rgb: None,
+        night_light_color: None,
+        night_light_threshold: 0.82,
+        night_light_intensity: 0.0,
+        heightmap: None,
+        heightmap_w: 0,
+        heightmap_h: 0,
+        heightmap_blend: 0.0,
+        depth_sort_faces: false,
     }
 }
 
-/// Collect OBJ sprites marked with `prerender-anim: true` that also have a nonzero `rotate-y-deg-per-sec`.
-/// These are baked into 72 yaw keyframes at scene load instead of rendered live every frame.
 #[inline]
-fn collect_anim_from_sprites(
-    sprites: &[Sprite],
-    out: &mut Vec<AnimPrerenderTarget>,
-) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj {
-                id: Some(id),
-                source,
-                size,
-                width,
-                height,
-                surface_mode,
-                backface_cull,
-                scale,
-                yaw_deg: _,
-                pitch_deg,
-                roll_deg,
-                rotation_x,
-                rotation_y: _,
-                rotation_z,
-                rotate_y_deg_per_sec,
-                camera_distance,
-                fov_degrees,
-                near_clip,
-                light_direction_x,
-                light_direction_y,
-                light_direction_z,
-                light_2_direction_x,
-                light_2_direction_y,
-                light_2_direction_z,
-                light_2_intensity,
-                light_point_x,
-                light_point_y,
-                light_point_z,
-                light_point_intensity,
-                light_point_colour,
-                light_point_flicker_depth,
-                light_point_flicker_hz,
-                light_point_orbit_hz,
-                light_point_snap_hz,
-                light_point_2_x,
-                light_point_2_y,
-                light_point_2_z,
-                light_point_2_intensity,
-                light_point_2_colour,
-                light_point_2_flicker_depth,
-                light_point_2_flicker_hz,
-                light_point_2_orbit_hz,
-                light_point_2_snap_hz,
-                cel_levels,
-                shadow_colour,
-                midtone_colour,
-                highlight_colour,
-                tone_mix,
-                smooth_shading,
-                latitude_bands,
-                latitude_band_depth,
-                terrain_color,
-                terrain_threshold,
-                terrain_noise_scale,
-                terrain_noise_octaves,
-                marble_depth,
-                fg_colour,
-                prerender_anim,
-                clip_y_min: _,
-                clip_y_max: _,
-                ..
-            } => {
-                if !prerender_anim {
-                    continue;
-                }
-                if rotate_y_deg_per_sec.unwrap_or(0.0).abs() <= f32::EPSILON {
-                    // No rotation — use static prerender instead.
-                    continue;
-                }
-
-                let is_wireframe = surface_mode
-                    .as_deref()
-                    .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
-                    .unwrap_or(false);
-                let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
-
-                // Build a base params block; yaw_deg and rotation_y are overridden per keyframe.
-                let base_params = ObjRenderParams {
-                    scale: scale.unwrap_or(1.0),
-                    yaw_deg: 0.0,
-                    pitch_deg: pitch_deg.unwrap_or(0.0),
-                    roll_deg: roll_deg.unwrap_or(0.0),
-                    rotation_x: rotation_x.unwrap_or(0.0),
-                    rotation_y: 0.0,
-                    rotation_z: rotation_z.unwrap_or(0.0),
-                    rotate_y_deg_per_sec: 0.0,
-                    camera_distance: camera_distance.unwrap_or(3.0),
-                    fov_degrees: fov_degrees.unwrap_or(60.0),
-                    near_clip: near_clip.unwrap_or(0.001),
-                    light_direction_x: light_direction_x.unwrap_or(-0.45),
-                    light_direction_y: light_direction_y.unwrap_or(0.70),
-                    light_direction_z: light_direction_z.unwrap_or(-0.85),
-                    light_2_direction_x: light_2_direction_x.unwrap_or(0.0),
-                    light_2_direction_y: light_2_direction_y.unwrap_or(0.0),
-                    light_2_direction_z: light_2_direction_z.unwrap_or(-1.0),
-                    light_2_intensity: light_2_intensity.unwrap_or(0.0),
-                    light_point_x: light_point_x.unwrap_or(0.0),
-                    light_point_y: light_point_y.unwrap_or(2.0),
-                    light_point_z: light_point_z.unwrap_or(0.0),
-                    light_point_intensity: light_point_intensity.unwrap_or(0.0),
-                    light_point_colour: light_point_colour.as_ref().map(Color::from),
-                    light_point_flicker_depth: light_point_flicker_depth.unwrap_or(0.0),
-                    light_point_flicker_hz: light_point_flicker_hz.unwrap_or(0.0),
-                    light_point_orbit_hz: light_point_orbit_hz.unwrap_or(0.0),
-                    light_point_snap_hz: light_point_snap_hz.unwrap_or(0.0),
-                    light_point_2_x: light_point_2_x.unwrap_or(0.0),
-                    light_point_2_y: light_point_2_y.unwrap_or(0.0),
-                    light_point_2_z: light_point_2_z.unwrap_or(0.0),
-                    light_point_2_intensity: light_point_2_intensity.unwrap_or(0.0),
-                    light_point_2_colour: light_point_2_colour.as_ref().map(Color::from),
-                    light_point_2_flicker_depth: light_point_2_flicker_depth.unwrap_or(0.0),
-                    light_point_2_flicker_hz: light_point_2_flicker_hz.unwrap_or(0.0),
-                    light_point_2_orbit_hz: light_point_2_orbit_hz.unwrap_or(0.0),
-                    light_point_2_snap_hz: light_point_2_snap_hz.unwrap_or(0.0),
-                    cel_levels: cel_levels.unwrap_or(0),
-                    shadow_colour: shadow_colour.as_ref().map(Color::from),
-                    midtone_colour: midtone_colour.as_ref().map(Color::from),
-                    highlight_colour: highlight_colour.as_ref().map(Color::from),
-                    tone_mix: tone_mix.unwrap_or(0.0),
-                    scene_elapsed_ms: 0,
-                    camera_pan_x: 0.0,
-                    camera_pan_y: 0.0,
-                    camera_look_yaw: 0.0,
-                    camera_look_pitch: 0.0,
-                    object_translate_x: 0.0,
-                    object_translate_y: 0.0,
-                    object_translate_z: 0.0,
-                    clip_y_min: 0.0,
-                    clip_y_max: 1.0,
-                    camera_world_x: 0.0,
-                    camera_world_y: 0.0,
-                    camera_world_z: -camera_distance.unwrap_or(3.0),
-                    view_right_x: 1.0,
-                    view_right_y: 0.0,
-                    view_right_z: 0.0,
-                    view_up_x: 0.0,
-                    view_up_y: 1.0,
-                    view_up_z: 0.0,
-                    view_forward_x: 0.0,
-                    view_forward_y: 0.0,
-                    view_forward_z: 1.0,
-                    unlit: false,
-                    ambient: 0.0,
-                    light_point_falloff: 0.7,
-                    light_point_2_falloff: 0.7,
-                    smooth_shading: smooth_shading.unwrap_or(false),
-                    latitude_bands: latitude_bands.unwrap_or(0),
-                    latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
-                    terrain_color: terrain_color.as_ref().map(|c| {
-                        let (r, g, b) = Color::from(c).to_rgb();
-                        [r, g, b]
-                    }),
-                    terrain_threshold: terrain_threshold.unwrap_or(0.5),
-                    terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
-                    terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
-                    marble_depth: marble_depth.unwrap_or(0.0),
-                    terrain_relief: 0.0,
-                    noise_seed: 0.0,
-                    warp_strength: 0.0,
-                    warp_octaves: 2,
-                    noise_lacunarity: 2.0,
-                    noise_persistence: 0.5,
-                    normal_perturb_strength: 0.0,
-                    ocean_specular: 0.0,
-                    crater_density: 0.0,
-                    crater_rim_height: 0.35,
-                    snow_line_altitude: 0.0,
-                    terrain_displacement: 0.0,
-                    below_threshold_transparent: false,
-                    cloud_alpha_softness: 0.0,
-                    polar_ice_color: None,
-                    polar_ice_start: 0.78,
-                    polar_ice_end: 0.92,
-                    desert_color: None,
-                    desert_strength: 0.0,
-                    atmo_color: None,
-                    atmo_height: 0.12,
-                    atmo_density: 0.0,
-                    atmo_strength: 0.0,
-                    atmo_rayleigh_amount: 0.0,
-                    atmo_rayleigh_color: None,
-                    atmo_rayleigh_falloff: 0.32,
-                    atmo_haze_amount: 0.0,
-                    atmo_haze_color: None,
-                    atmo_haze_falloff: 0.18,
-                    atmo_absorption_amount: 0.0,
-                    atmo_absorption_color: None,
-                    atmo_absorption_height: 0.55,
-                    atmo_absorption_width: 0.18,
-                    atmo_forward_scatter: 0.72,
-                    atmo_limb_boost: 1.0,
-                    atmo_terminator_softness: 1.0,
-                    atmo_night_glow: 0.0,
-                    atmo_night_glow_color: None,
-                    atmo_rim_power: 4.5,
-                    atmo_haze_strength: 0.0,
-                    atmo_haze_power: 1.8,
-                    atmo_veil_strength: 0.0,
-                    atmo_veil_power: 1.6,
-                    atmo_halo_strength: 0.0,
-                    atmo_halo_width: 0.12,
-                    atmo_halo_power: 2.2,
-                    ocean_noise_scale: 4.0,
-                    ocean_color_rgb: None,
-                    night_light_color: None,
-                    night_light_threshold: 0.82,
-                    night_light_intensity: 0.0,
-                    heightmap: None,
-                    heightmap_w: 0,
-                    heightmap_h: 0,
-                    heightmap_blend: 0.0,
-                    depth_sort_faces: false,
-                };
-
-                out.push(AnimPrerenderTarget {
-                    sprite_id: id.clone(),
-                    source: source.clone(),
-                    width: *width,
-                    height: *height,
-                    size: *size,
-                    base_params,
-                    wireframe: is_wireframe,
-                    backface_cull: backface_cull.unwrap_or(false),
-                    fg,
-                });
-            }
-            Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => collect_anim_from_sprites(children, out),
-            _ => {}
-        }
-    }
+fn build_anim_obj_prerender_params(spec: &ObjSpriteSpec<'_>) -> ObjRenderParams {
+    let mut params = build_static_obj_prerender_params(spec);
+    params.yaw_deg = 0.0;
+    params.rotation_y = 0.0;
+    params.rotate_y_deg_per_sec = 0.0;
+    params
 }

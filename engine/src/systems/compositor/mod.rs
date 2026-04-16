@@ -224,15 +224,15 @@ pub fn compositor_system(world: &mut World) {
 
     let params = crate::strategy::CompositeParams {
         bg,
-        frame: engine_compositor::scene_compositor::FrameAssemblyInputs {
+        frame: engine_compositor::FrameAssemblyInputs {
             layers,
             layer_timed_visibility: &layer_timed_visibility,
             ui_enabled,
             scene_space,
             scene_effects,
         },
-        prepared: engine_compositor::scene_compositor::PreparedCompositeInputs {
-            camera: engine_compositor::scene_compositor::PreparedCameraInputs {
+        prepared: engine_compositor::PreparedCompositeInputs {
+            camera: engine_compositor::PreparedCameraInputs {
                 scene_camera_3d: &scene_camera_3d,
                 camera_x,
                 camera_y,
@@ -253,7 +253,7 @@ pub fn compositor_system(world: &mut World) {
         },
     };
     engine_compositor::clear_vector_primitives();
-    let object_regions = engine_compositor::with_runtime_store(runtime_store, || {
+    let object_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
         crate::scene3d_atlas::with_atlas(atlas, || {
             engine_compositor::with_prerender_frames(prerender_frames, || {
                 engine_compositor::dispatch_composite(&params, layer_strategy, buffer)

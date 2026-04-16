@@ -19,7 +19,8 @@ use engine_render_2d::{
     resolve_x, resolve_y, text_sprite_dimensions, with_render_context, ClipRect, RenderArea,
 };
 use engine_render_3d::pipeline::{
-    extract_generated_world_sprite_spec, extract_obj_sprite_spec, extract_scene_clip_sprite_spec,
+    extract_render3d_sprite_spec, GeneratedWorldSpriteSpec, ObjSpriteSpec, Render3dSpriteSpec,
+    SceneClipSpriteSpec,
 };
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -94,7 +95,7 @@ use super::render::{
 pub(crate) trait Render3dDelegate {
     fn render_obj_sprite(
         &self,
-        sprite: &Sprite,
+        spec: ObjSpriteSpec<'_>,
         area: RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
@@ -107,7 +108,7 @@ pub(crate) trait Render3dDelegate {
 
     fn render_generated_world_sprite(
         &self,
-        sprite: &Sprite,
+        spec: GeneratedWorldSpriteSpec<'_>,
         area: RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
@@ -119,7 +120,7 @@ pub(crate) trait Render3dDelegate {
 
     fn render_scene_clip_sprite(
         &self,
-        sprite: &Sprite,
+        spec: SceneClipSpriteSpec<'_>,
         area: RenderArea,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
@@ -245,42 +246,44 @@ fn render_sprite(
     };
     let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
 
-    if extract_obj_sprite_spec(sprite).is_some() {
-        render_3d.render_obj_sprite(
-            sprite,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            &object_state,
-            appear_at,
-            sprite_elapsed,
-            ctx,
-        );
-        return;
-    }
-    if extract_generated_world_sprite_spec(sprite).is_some() {
-        render_3d.render_generated_world_sprite(
-            sprite,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            &object_state,
-            sprite_elapsed,
-            ctx,
-        );
-        return;
-    }
-    if extract_scene_clip_sprite_spec(sprite).is_some() {
-        render_3d.render_scene_clip_sprite(
-            sprite,
-            area,
-            object_id,
-            &object_state,
-            object_regions,
-            ctx,
-        );
+    if let Some(spec) = extract_render3d_sprite_spec(sprite) {
+        match spec {
+            Render3dSpriteSpec::Obj(spec) => {
+                render_3d.render_obj_sprite(
+                    spec,
+                    area,
+                    target_resolver,
+                    object_regions,
+                    object_id,
+                    &object_state,
+                    appear_at,
+                    sprite_elapsed,
+                    ctx,
+                );
+            }
+            Render3dSpriteSpec::GeneratedWorld(spec) => {
+                render_3d.render_generated_world_sprite(
+                    spec,
+                    area,
+                    target_resolver,
+                    object_regions,
+                    object_id,
+                    &object_state,
+                    sprite_elapsed,
+                    ctx,
+                );
+            }
+            Render3dSpriteSpec::SceneClip(spec) => {
+                render_3d.render_scene_clip_sprite(
+                    spec,
+                    area,
+                    object_id,
+                    &object_state,
+                    object_regions,
+                    ctx,
+                );
+            }
+        }
         return;
     }
 

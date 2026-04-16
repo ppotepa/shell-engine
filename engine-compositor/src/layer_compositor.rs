@@ -98,7 +98,7 @@ struct CompositorRender3dDelegate;
 impl Render3dDelegate for CompositorRender3dDelegate {
     fn render_obj_sprite(
         &self,
-        sprite: &engine_core::scene::Sprite,
+        spec: engine_render_3d::pipeline::ObjSpriteSpec<'_>,
         area: engine_render_2d::RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
@@ -109,7 +109,7 @@ impl Render3dDelegate for CompositorRender3dDelegate {
         ctx: &mut super::render::RenderCtx<'_>,
     ) {
         render_obj_sprite_adapter(
-            sprite,
+            spec,
             area,
             target_resolver,
             object_regions,
@@ -123,7 +123,7 @@ impl Render3dDelegate for CompositorRender3dDelegate {
 
     fn render_generated_world_sprite(
         &self,
-        sprite: &engine_core::scene::Sprite,
+        spec: engine_render_3d::pipeline::GeneratedWorldSpriteSpec<'_>,
         area: engine_render_2d::RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
@@ -133,7 +133,7 @@ impl Render3dDelegate for CompositorRender3dDelegate {
         ctx: &mut super::render::RenderCtx<'_>,
     ) {
         render_generated_world_sprite_adapter(
-            sprite,
+            spec,
             area,
             target_resolver,
             object_regions,
@@ -146,21 +146,14 @@ impl Render3dDelegate for CompositorRender3dDelegate {
 
     fn render_scene_clip_sprite(
         &self,
-        sprite: &engine_core::scene::Sprite,
+        spec: engine_render_3d::pipeline::SceneClipSpriteSpec<'_>,
         area: engine_render_2d::RenderArea,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
         object_regions: &mut HashMap<String, Region>,
         ctx: &mut super::render::RenderCtx<'_>,
     ) {
-        render_scene_clip_sprite_adapter(
-            sprite,
-            area,
-            object_id,
-            object_state,
-            object_regions,
-            ctx,
-        );
+        render_scene_clip_sprite_adapter(spec, area, object_id, object_state, object_regions, ctx);
     }
 }
 

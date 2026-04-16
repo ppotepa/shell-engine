@@ -1,24 +1,20 @@
 use engine_core::effects::Region;
-use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::ObjectRuntimeState;
 use engine_render_2d::RenderArea;
-use engine_render_3d::pipeline::extract_scene_clip_sprite_spec;
+use engine_render_3d::pipeline::SceneClipSpriteSpec;
 use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
 use super::render::RenderCtx;
 
 pub(crate) fn render_scene_clip_sprite(
-    sprite: &Sprite,
+    spec: SceneClipSpriteSpec<'_>,
     area: RenderArea,
     object_id: Option<&str>,
     object_state: &ObjectRuntimeState,
     object_regions: &mut HashMap<String, Region>,
     ctx: &mut RenderCtx<'_>,
 ) {
-    let Some(spec) = extract_scene_clip_sprite_spec(sprite) else {
-        return;
-    };
     let node = spec.node;
     let Renderable3D::SceneClip(scene_clip) = node.renderable else {
         return;

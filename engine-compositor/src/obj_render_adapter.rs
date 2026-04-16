@@ -1,16 +1,16 @@
 use crate::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered, ObjRenderParams};
 use engine_core::color::Color;
 use engine_core::effects::Region;
-use engine_core::scene::{CameraSource, Sprite};
+use engine_core::scene::CameraSource;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
-use engine_render_3d::pipeline::{extract_obj_sprite_spec, ObjSpriteSpec};
+use engine_render_3d::pipeline::ObjSpriteSpec;
 use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
 pub(crate) fn render_obj_sprite(
-    sprite: &Sprite,
+    spec: ObjSpriteSpec<'_>,
     area: RenderArea,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -20,9 +20,6 @@ pub(crate) fn render_obj_sprite(
     sprite_elapsed: u64,
     ctx: &mut RenderCtx<'_>,
 ) {
-    let Some(spec) = extract_obj_sprite_spec(sprite) else {
-        return;
-    };
     let ObjSpriteSpec {
         sprite,
         node,
