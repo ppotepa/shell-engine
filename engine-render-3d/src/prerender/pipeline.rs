@@ -93,3 +93,83 @@ where
     let item = build_scene3d_frame_item_at(entry, frame_name, elapsed_ms, camera_override)?;
     render_frame(&item, asset_root)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use engine_3d::scene3d_format::Scene3DDefinition;
+    use engine_core::{assets::AssetRoot, buffer::Buffer};
+
+    use super::render_scene3d_frame_at_with;
+    use crate::prerender::Scene3DRuntimeEntry;
+
+    fn parse_scene3d(yaml: &str) -> Scene3DDefinition {
+        serde_yaml::from_str(yaml).expect("scene3d yaml should parse")
+    }
+
+    #[test]
+    fn single_frame_orchestration_invokes_render_callback() {
+        let def = parse_scene3d(
+            r#"
+id: unit
+viewport: { width: 32, height: 24 }
+materials:
+  solid: {}
+objects:
+  - id: cube
+    mesh: /assets/3d/cube.obj
+    material: solid
+frames:
+  orbit:
+    show: [cube]
+"#,
+        );
+        let entry = Scene3DRuntimeEntry { def };
+        let calls = AtomicUsize::new(0);
+        let asset_root = AssetRoot::new(PathBuf::from("."));
+
+        let out = render_scene3d_frame_at_with(
+            &entry,
+            "orbit",
+            0,
+            &asset_root,
+            None,
+            |item, _| {
+                calls.fetch_add(1, Ordering::Relaxed);
+                Some(Buffer::new(item.viewport_w, item.viewport_h))
+            },
+        );
+
+        assert!(out.is_some());
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        let out = out.unwrap();
+        assert_eq!(out.width, 32);
+        assert_eq!(out.height, 24);
+    }
+
+    #[test]
+    fn single_frame_orchestration_returns_none_for_missing_frame() {
+        let def = parse_scene3d(
+            r#"
+id: unit
+viewport: { width: 16, height: 16 }
+frames: {}
+"#,
+        );
+        let entry = Scene3DRuntimeEntry { def };
+        let asset_root = AssetRoot::new(PathBuf::from("."));
+
+        let out = render_scene3d_frame_at_with(
+            &entry,
+            "missing",
+            0,
+            &asset_root,
+            None,
+            |_item, _| Some(Buffer::new(1, 1)),
+        );
+
+        assert!(out.is_none());
+    }
+}
