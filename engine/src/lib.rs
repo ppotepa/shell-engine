@@ -1,4 +1,4 @@
-﻿//! Root crate for Shell Engine — initialises a mod, runs startup checks, and drives the game loop.
+//! Root crate for Shell Engine — initialises a mod, runs startup checks, and drives the game loop.
 
 pub mod bench;
 pub mod debug_features;
@@ -36,7 +36,6 @@ pub mod behavior;
 pub mod events;
 pub mod game_object;
 pub mod game_state;
-pub mod image_loader;
 pub mod level_state;
 pub mod mod_behaviors;
 pub mod obj_prerender;
@@ -183,6 +182,7 @@ impl ShellEngine {
         use engine_asset::SceneRepository;
         use engine_behavior::init_behavior_system;
         use engine_events::InputBackend;
+        use engine_mod::display_config::target_fps_from_manifest;
         use engine_mod::startup::{
             StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile,
         };
@@ -191,7 +191,6 @@ impl ShellEngine {
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
-        use engine_mod::display_config::target_fps_from_manifest;
 
         // Initialize behavior system with mod source for Rhai module resolution
         init_behavior_system(
@@ -238,7 +237,7 @@ impl ShellEngine {
                 rasterizer::missing_glyphs(mod_src, font, text)
             };
         let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
-            image_loader::has_image_asset(mod_src, source)
+            engine_asset::has_image_asset(mod_src, source)
         };
         let rhai_validator =
             |script: &str, src: Option<&str>, scene: &crate::scene::Scene| -> Result<(), String> {
@@ -284,7 +283,7 @@ impl ShellEngine {
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
         runtime_settings.is_pixel_backend = true;
 
-        let (output_w, output_h)= sdl_startup_output_size(&self.mod_manifest);
+        let (output_w, output_h) = sdl_startup_output_size(&self.mod_manifest);
         let layout = runtime_settings::buffer_layout_for_scene(
             &runtime_settings,
             &scene,
@@ -541,8 +540,8 @@ impl ShellEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::ShellEngine;
     use super::sdl_startup_output_size;
+    use super::ShellEngine;
     use crate::scene_loader;
     use crate::EngineError;
     use engine_asset::{create_scene_repository, SceneRepository};
@@ -629,15 +628,10 @@ mod tests {
 
     #[test]
     fn sdl_startup_output_uses_default_render_size_when_no_display_block() {
-        let manifest =
-            serde_yaml::from_str::<Value>("name: demo\n")
-                .expect("manifest");
+        let manifest = serde_yaml::from_str::<Value>("name: demo\n").expect("manifest");
 
         // No display block → RuntimeSettings uses default render size (320x240)
-        assert_eq!(
-            sdl_startup_output_size(&manifest),
-            (320, 240)
-        );
+        assert_eq!(sdl_startup_output_size(&manifest), (320, 240));
     }
 
     fn assert_real_mod_starts(mod_name: &str) {
@@ -673,7 +667,7 @@ mod tests {
                 crate::rasterizer::missing_glyphs(mod_src, font, text)
             };
         let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
-            crate::image_loader::has_image_asset(mod_src, source)
+            engine_asset::has_image_asset(mod_src, source)
         };
         let startup_ctx = StartupContext::new(
             &mod_dir,

@@ -94,6 +94,16 @@ impl SceneRuntime {
         mask
     }
 
+    pub fn render3d_rebuild_diagnostics(&self) -> Render3dRebuildDiagnostics {
+        self.render3d_rebuild_diagnostics
+    }
+
+    pub fn take_render3d_rebuild_diagnostics(&mut self) -> Render3dRebuildDiagnostics {
+        let diagnostics = self.render3d_rebuild_diagnostics;
+        self.render3d_rebuild_diagnostics = Render3dRebuildDiagnostics::default();
+        diagnostics
+    }
+
     /// Returns the runtime object id assigned to the scene root node.
     pub fn root_id(&self) -> &str {
         &self.root_id

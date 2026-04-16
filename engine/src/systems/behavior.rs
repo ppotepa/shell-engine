@@ -62,7 +62,7 @@ pub fn behavior_system(world: &mut World) {
         }
     }
 
-    let commands = {
+    let (commands, render3d_rebuild_diagnostics, scene_id) = {
         let Some(runtime) = world.scene_runtime_mut() else {
             return;
         };
@@ -89,8 +89,28 @@ pub fn behavior_system(world: &mut World) {
         );
         // Re-sync widget visual positions after reset + all behavior commands applied.
         runtime.sync_widget_visuals();
-        cmds
+        let diagnostics = runtime.take_render3d_rebuild_diagnostics();
+        let scene_id = runtime.scene().id.clone();
+        (cmds, diagnostics, scene_id)
     };
+
+    if debug_enabled && !render3d_rebuild_diagnostics.is_empty() {
+        let message = format!(
+            "render3d rebuild causes: worldgen_dirty_events={} mesh_dirty_events={}",
+            render3d_rebuild_diagnostics.worldgen_dirty_events,
+            render3d_rebuild_diagnostics.mesh_dirty_events
+        );
+        logging::info("engine.render3d", format!("scene={} {}", scene_id, message));
+        if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+            log.push(DebugLogEntry {
+                severity: DebugSeverity::Info,
+                subsystem: "render3d",
+                scene_id: Some(scene_id.clone()),
+                source: None,
+                message,
+            });
+        }
+    }
 
     for command in &commands {
         match command {

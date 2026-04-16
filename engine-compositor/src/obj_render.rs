@@ -4,21 +4,18 @@ use engine_core::color::Color;
 use engine_render_3d::api::Render3dPipeline;
 use rayon::prelude::*;
 
-use crate::obj_prerender::ObjPrerenderedFrames;
-use engine_core::assets::AssetRoot;
-use engine_core::buffer::Buffer;
-use engine_core::scene::SpriteSizePreset;
-
-use super::obj_loader::{ObjFace, ObjMesh};
 use super::obj_render_helpers::*;
 pub use super::obj_render_helpers::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
 };
-mod mesh_source;
+use crate::obj_prerender::ObjPrerenderedFrames;
+use engine_asset::{load_render_mesh, ObjFace, ObjMesh};
+use engine_core::assets::AssetRoot;
+use engine_core::buffer::Buffer;
+use engine_core::scene::SpriteSizePreset;
 mod setup;
 mod terrain_eval;
 pub use engine_render_3d::ObjRenderParams;
-use mesh_source::get_or_load_obj_mesh;
 use setup::{build_biome_params, build_terrain_extra_params, normalized_light_and_view_dirs};
 use terrain_eval::{compute_terrain_noise_at, displace_sphere_vertex};
 
@@ -102,7 +99,7 @@ pub fn render_obj_to_canvas(
     asset_root: Option<&AssetRoot>,
 ) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
     let root = asset_root?;
-    let mesh = get_or_load_obj_mesh(root, source)?;
+    let mesh = load_render_mesh(root, source)?;
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
     if target_w < 2 || target_h < 2 {
         return None;
@@ -988,7 +985,7 @@ pub fn render_obj_to_rgba_canvas(
     asset_root: Option<&AssetRoot>,
 ) -> Option<(Vec<Option<[u8; 4]>>, u16, u16)> {
     let root = asset_root?;
-    let mesh = get_or_load_obj_mesh(root, source)?;
+    let mesh = load_render_mesh(root, source)?;
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
     if target_w < 2 || target_h < 2 {
         return None;
@@ -1735,7 +1732,7 @@ pub fn render_obj_to_shared_buffers(
     let Some(root) = asset_root else {
         return;
     };
-    let Some(mesh) = get_or_load_obj_mesh(root, source) else {
+    let Some(mesh) = load_render_mesh(root, source) else {
         return;
     };
     if target_w < 2 || target_h < 2 {

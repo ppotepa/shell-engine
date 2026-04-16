@@ -1,10 +1,9 @@
 use rayon::prelude::*;
 
+use engine_asset::load_render_mesh;
 use engine_core::assets::AssetRoot;
 use engine_core::logging;
 use engine_core::scene::{Layer, Scene, Sprite};
-
-use crate::obj_loader::load_obj_mesh;
 
 pub fn warmup_scene_meshes(scene: &Scene, asset_root: &AssetRoot) {
     let sources = collect_obj_sources(&scene.layers);
@@ -23,7 +22,7 @@ pub fn warmup_scene_meshes(scene: &Scene, asset_root: &AssetRoot) {
 
     let loaded = sources
         .par_iter()
-        .filter(|source| load_obj_mesh(asset_root, source).is_some())
+        .filter(|source| load_render_mesh(asset_root, source).is_some())
         .count();
 
     logging::info(

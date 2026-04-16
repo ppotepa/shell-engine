@@ -360,39 +360,6 @@ impl SceneRuntime {
         false
     }
 
-    pub(crate) fn apply_render3d_property_for_target(
-        &mut self,
-        object_id: &str,
-        target: &str,
-        path: &str,
-        value: &JsonValue,
-    ) -> bool {
-        match path {
-            "scene3d.frame" => {
-                let Some(next_frame) = value.as_str() else {
-                    return false;
-                };
-                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                    runtime.set_scene3d_sprite_frame(alias, next_frame)
-                })
-            }
-            path if path.starts_with("planet.") => {
-                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                    runtime.set_planet_sprite_property(alias, path, value)
-                })
-            }
-            path if path.starts_with("obj.")
-                || path.starts_with("terrain.")
-                || path.starts_with("world.") =>
-            {
-                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                    runtime.set_obj_sprite_property(alias, path, value)
-                })
-            }
-            _ => false,
-        }
-    }
-
     // =========================================================================
     // Direct particle mutation — bypasses BehaviorCommand pipeline entirely
     // =========================================================================

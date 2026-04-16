@@ -1,4 +1,4 @@
-﻿//! Compositor system — walks the scene layer/sprite tree and renders each frame into the active `Buffer`.
+//! Compositor system — walks the scene layer/sprite tree and renders each frame into the active `Buffer`.
 
 use crate::buffer::TRUE_BLACK;
 use crate::obj_prerender::{ObjPrerenderStatus, ObjPrerenderedFrames};
@@ -15,12 +15,7 @@ pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
     let (is_pixel_backend, default_font) = world
         .runtime_settings()
-        .map(|s| {
-            (
-                s.is_pixel_backend,
-                s.default_font.clone(),
-            )
-        })
+        .map(|s| (s.is_pixel_backend, s.default_font.clone()))
         .unwrap_or((true, None));
 
     // Extract raw pointer to PipelineStrategies to avoid a long-lived borrow that would
@@ -227,14 +222,16 @@ pub fn compositor_system(world: &mut World) {
             layers,
             ui_enabled,
             scene_space,
-            scene_camera_3d: &scene_camera_3d,
             scene_effects,
             scene_step_dur,
-            camera_x,
-            camera_y,
-            camera_zoom,
         },
-        runtime: engine_compositor::scene_compositor::RuntimeCompositeInputs {
+        prepared: engine_compositor::scene_compositor::PreparedCompositeInputs {
+            camera: engine_compositor::scene_compositor::PreparedCameraInputs {
+                scene_camera_3d: &scene_camera_3d,
+                camera_x,
+                camera_y,
+                camera_zoom,
+            },
             target_resolver: target_resolver.as_ref(),
             object_states: &object_states,
             obj_camera_states: &obj_camera_states,
@@ -242,8 +239,6 @@ pub fn compositor_system(world: &mut World) {
             step_idx,
             elapsed_ms,
             scene_elapsed_ms,
-        },
-        render: engine_compositor::scene_compositor::RenderCompositeInputs {
             asset_root: asset_root.as_ref(),
             celestial_catalogs,
             is_pixel_backend,
@@ -254,11 +249,7 @@ pub fn compositor_system(world: &mut World) {
     let object_regions = engine_compositor::with_runtime_store(runtime_store, || {
         crate::scene3d_atlas::with_atlas(atlas, || {
             engine_compositor::with_prerender_frames(prerender_frames, || {
-                engine_compositor::dispatch_composite(
-                    &params,
-                    layer_strategy,
-                    buffer,
-                )
+                engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
             })
         })
     });

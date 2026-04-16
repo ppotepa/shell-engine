@@ -1,9 +1,10 @@
-//! Image loading and RGBA pixel access, backed by a process-wide cache keyed on mod source + path.
+//! Decoded image assets with process-wide caching keyed by mod source + asset path.
 
 use std::io::Cursor;
 use std::path::Path;
+use std::sync::Arc;
 
-use engine_asset::ModAssetSourceLoader;
+use crate::ModAssetSourceLoader;
 use engine_core::asset_cache::AssetCache;
 use engine_core::asset_source::{
     has_source, load_decoded_source, SourceAdapter, SourceLoader, SourceRef,
@@ -12,15 +13,15 @@ use engine_error::EngineError;
 use image::codecs::gif::GifDecoder;
 use image::{load_from_memory, AnimationDecoder, Delay, RgbaImage};
 
-/// A decoded RGBA image whose pixels are addressable by (x, y) coordinates.
+/// A decoded RGBA image whose pixels are addressable by `(x, y)` coordinates.
 #[derive(Debug, Clone)]
-pub struct LoadedRgbaImage {
+pub struct RgbaImageAsset {
     pub width: u32,
     pub height: u32,
     pixels: Vec<[u8; 4]>,
 }
 
-impl LoadedRgbaImage {
+impl RgbaImageAsset {
     /// Returns the `[r, g, b, a]` pixel at `(x, y)`, or `None` if out of bounds.
     pub fn pixel(&self, x: u32, y: u32) -> Option<[u8; 4]> {
         let idx = (y as usize)
@@ -40,25 +41,25 @@ impl LoadedRgbaImage {
 }
 
 #[derive(Debug, Clone)]
-pub struct LoadedAnimatedImageFrame {
+pub struct AnimatedImageAssetFrame {
     pub duration_ms: u64,
-    pub image: LoadedRgbaImage,
+    pub image: RgbaImageAsset,
 }
 
 #[derive(Debug, Clone)]
-pub struct LoadedAnimatedImage {
+pub struct AnimatedImageAsset {
     pub width: u32,
     pub height: u32,
-    frames: Vec<LoadedAnimatedImageFrame>,
+    frames: Vec<AnimatedImageAssetFrame>,
     total_duration_ms: u64,
 }
 
-impl LoadedAnimatedImage {
-    pub fn first_frame(&self) -> &LoadedRgbaImage {
+impl AnimatedImageAsset {
+    pub fn first_frame(&self) -> &RgbaImageAsset {
         &self.frames[0].image
     }
 
-    pub fn frame_at(&self, elapsed_ms: u64) -> &LoadedRgbaImage {
+    pub fn frame_at(&self, elapsed_ms: u64) -> &RgbaImageAsset {
         if self.frames.len() == 1 {
             return self.first_frame();
         }
@@ -75,20 +76,20 @@ impl LoadedAnimatedImage {
 }
 
 #[derive(Debug, Clone)]
-pub enum LoadedImageAsset {
-    Static(LoadedRgbaImage),
-    Animated(LoadedAnimatedImage),
+pub enum ImageAsset {
+    Static(RgbaImageAsset),
+    Animated(AnimatedImageAsset),
 }
 
-impl LoadedImageAsset {
-    pub fn first_frame(&self) -> &LoadedRgbaImage {
+impl ImageAsset {
+    pub fn first_frame(&self) -> &RgbaImageAsset {
         match self {
             Self::Static(image) => image,
             Self::Animated(animation) => animation.first_frame(),
         }
     }
 
-    pub fn frame_at(&self, elapsed_ms: u64) -> &LoadedRgbaImage {
+    pub fn frame_at(&self, elapsed_ms: u64) -> &RgbaImageAsset {
         match self {
             Self::Static(image) => image,
             Self::Animated(animation) => animation.frame_at(elapsed_ms),
@@ -100,17 +101,17 @@ impl LoadedImageAsset {
     }
 }
 
-static IMAGE_CACHE: AssetCache<LoadedImageAsset> = AssetCache::new();
+static IMAGE_CACHE: AssetCache<ImageAsset> = AssetCache::new();
 
 struct ImageAssetAdapter;
 
-impl SourceAdapter<LoadedImageAsset> for ImageAssetAdapter {
+impl SourceAdapter<ImageAsset> for ImageAssetAdapter {
     fn decode(
         &self,
         source: &SourceRef,
         bytes: &[u8],
         _loader: &dyn SourceLoader,
-    ) -> Result<LoadedImageAsset, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<ImageAsset, Box<dyn std::error::Error + Send + Sync>> {
         if source
             .normalized_value()
             .rsplit('.')
@@ -124,17 +125,15 @@ impl SourceAdapter<LoadedImageAsset> for ImageAssetAdapter {
     }
 }
 
-fn decode_static_image(bytes: &[u8]) -> Result<LoadedImageAsset, EngineError> {
+fn decode_static_image(bytes: &[u8]) -> Result<ImageAsset, EngineError> {
     let decoded = load_from_memory(bytes).map_err(|_| EngineError::StartupCheckFailed {
         check: "image-decode".to_string(),
         details: "failed to decode image bytes".to_string(),
     })?;
-    Ok(LoadedImageAsset::Static(rgba_from_buffer(
-        decoded.to_rgba8(),
-    )))
+    Ok(ImageAsset::Static(rgba_from_buffer(decoded.to_rgba8())))
 }
 
-fn decode_gif(bytes: &[u8]) -> Result<LoadedImageAsset, EngineError> {
+fn decode_gif(bytes: &[u8]) -> Result<ImageAsset, EngineError> {
     let decoder =
         GifDecoder::new(Cursor::new(bytes)).map_err(|_| EngineError::StartupCheckFailed {
             check: "image-decode".to_string(),
@@ -155,33 +154,33 @@ fn decode_gif(bytes: &[u8]) -> Result<LoadedImageAsset, EngineError> {
         });
     }
 
-    let mut loaded_frames = Vec::with_capacity(frames.len());
+    let mut decoded_frames = Vec::with_capacity(frames.len());
     let mut total_duration_ms = 0_u64;
     for frame in frames {
         let duration_ms = delay_to_ms(frame.delay());
         total_duration_ms = total_duration_ms.saturating_add(duration_ms);
-        loaded_frames.push(LoadedAnimatedImageFrame {
+        decoded_frames.push(AnimatedImageAssetFrame {
             duration_ms,
             image: rgba_from_buffer(frame.into_buffer()),
         });
     }
-    let first = loaded_frames
+    let first = decoded_frames
         .first()
         .map(|frame| &frame.image)
         .expect("gif frames should not be empty");
-    Ok(LoadedImageAsset::Animated(LoadedAnimatedImage {
+    Ok(ImageAsset::Animated(AnimatedImageAsset {
         width: first.width,
         height: first.height,
-        frames: loaded_frames,
+        frames: decoded_frames,
         total_duration_ms,
     }))
 }
 
-fn rgba_from_buffer(rgba: RgbaImage) -> LoadedRgbaImage {
+fn rgba_from_buffer(rgba: RgbaImage) -> RgbaImageAsset {
     let width = rgba.width();
     let height = rgba.height();
     let pixels = rgba.pixels().map(|p| p.0).collect();
-    LoadedRgbaImage {
+    RgbaImageAsset {
         width,
         height,
         pixels,
@@ -195,18 +194,15 @@ fn delay_to_ms(delay: Delay) -> u64 {
     numer.div_ceil(denom).max(1)
 }
 
-/// Loads the decoded image asset at `asset_path` from `mod_source`, returning a cached result on repeated calls.
-pub fn load_image_asset(
-    mod_source: &Path,
-    asset_path: &str,
-) -> Option<std::sync::Arc<LoadedImageAsset>> {
+/// Loads the decoded image asset at `asset_path` from `mod_source`.
+pub fn load_image_asset(mod_source: &Path, asset_path: &str) -> Option<Arc<ImageAsset>> {
     let loader = ModAssetSourceLoader::new(mod_source).ok()?;
     let source = SourceRef::mod_asset(asset_path);
     load_decoded_source(&IMAGE_CACHE, &loader, &source, &ImageAssetAdapter)
 }
 
-/// Loads the first RGBA frame at `asset_path` from `mod_source`, returning a cached result on repeated calls.
-pub fn load_rgba_image(mod_source: &Path, asset_path: &str) -> Option<LoadedRgbaImage> {
+/// Loads the first RGBA frame at `asset_path` from `mod_source`.
+pub fn load_rgba_image(mod_source: &Path, asset_path: &str) -> Option<RgbaImageAsset> {
     load_image_asset(mod_source, asset_path).map(|asset| asset.first_frame().clone())
 }
 
@@ -222,7 +218,7 @@ pub fn has_image_asset(mod_source: &Path, asset_path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{load_image_asset, load_rgba_image, LoadedImageAsset};
+    use super::{load_image_asset, load_rgba_image, ImageAsset};
     use image::codecs::gif::GifEncoder;
     use image::{Delay, DynamicImage, Frame, ImageFormat, Rgba, RgbaImage};
     use std::fs;
@@ -303,7 +299,7 @@ mod tests {
 
         let loaded = load_image_asset(&mod_dir, "/assets/images/tiny.gif").expect("load gif");
         match loaded.as_ref() {
-            LoadedImageAsset::Animated(animation) => {
+            ImageAsset::Animated(animation) => {
                 assert_eq!(animation.width, 1);
                 assert_eq!(animation.height, 1);
                 assert_eq!(animation.frame_at(0).pixel(0, 0), Some([255, 0, 0, 255]));
@@ -312,7 +308,7 @@ mod tests {
                 assert_eq!(animation.frame_at(299).pixel(0, 0), Some([0, 0, 255, 255]));
                 assert_eq!(animation.frame_at(300).pixel(0, 0), Some([255, 0, 0, 255]));
             }
-            LoadedImageAsset::Static(_) => panic!("expected animated gif asset, got static"),
+            ImageAsset::Static(_) => panic!("expected animated gif asset, got static"),
         }
     }
 

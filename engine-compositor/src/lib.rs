@@ -11,18 +11,17 @@ pub mod access;
 pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
+mod generated_world_render_adapter;
 pub mod layer_compositor;
-mod obj_render_adapter;
-pub mod obj_loader;
 pub mod obj_prerender;
 pub mod obj_render;
+mod obj_render_adapter;
 pub mod obj_render_helpers;
 pub mod prerender;
 pub mod provider;
 pub mod render;
-mod generated_world_render_adapter;
-mod scene_clip_render_adapter;
 pub mod scene3d_prerender;
+mod scene_clip_render_adapter;
 pub mod scene_compositor;
 pub mod sprite_renderer_2d;
 pub mod systems;
@@ -33,6 +32,10 @@ pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
 pub use compositor::dispatch_composite;
+pub use engine_render_3d::prerender::Scene3DAtlas;
+pub use engine_render_3d::prerender::{
+    build_scene3d_runtime_store, with_runtime_store, Scene3DRuntimeStore,
+};
 pub use obj_render::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
     obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,
@@ -41,13 +44,7 @@ pub use obj_render::{
 };
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
-pub use engine_render_3d::prerender::Scene3DAtlas;
-pub use scene3d_prerender::{
-    prerender_scene3d_atlas, render_scene3d_frame_at,
-};
-pub use engine_render_3d::prerender::{
-    build_scene3d_runtime_store, with_runtime_store, Scene3DRuntimeStore,
-};
+pub use scene3d_prerender::{prerender_scene3d_atlas, render_scene3d_frame_at};
 pub use scene_compositor::CompositeParams;
 pub use systems::postfx;
 pub use warmup::warmup_scene_meshes;

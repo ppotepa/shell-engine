@@ -413,9 +413,6 @@ impl SceneRuntime {
                         self.apply_scene_mutation(resolver, &mutation);
                         continue;
                     }
-                    if self.apply_render3d_property_for_target(object_id, target, path, value) {
-                        continue;
-                    }
                     match path.as_str() {
                         "visible" => {
                             let Some(next_visible) = value.as_bool() else {
@@ -547,37 +544,6 @@ impl SceneRuntime {
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
                                     if self.set_vector_sprite_property(&alias, path, value) {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
-                        path if path.starts_with("obj.")
-                            || path.starts_with("terrain.")
-                            || path.starts_with("world.") =>
-                        {
-                            let mut applied = self.set_obj_sprite_property(target, path, value);
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_obj_sprite_property(&alias, path, value) {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
-                        path if path.starts_with("planet.") => {
-                            let mut applied = self.set_planet_sprite_property(target, path, value);
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_planet_sprite_property(&alias, path, value) {
                                         applied = true;
                                         break;
                                     }
@@ -828,7 +794,9 @@ impl SceneRuntime {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
-                    let Some(json_value) = render3d_material_value_to_json(value) else {
+                    let Some(json_value) =
+                        crate::render3d_state::render3d_material_value_to_json(value)
+                    else {
                         return;
                     };
                     if !self.apply_render3d_property_for_target(
@@ -855,7 +823,9 @@ impl SceneRuntime {
             SceneMutation::DespawnObject { .. } => {}
         }
         if mutation_applied {
-            self.render3d_dirty_mask.insert(dirty_for_scene_mutation(mutation));
+            let dirty = dirty_for_scene_mutation(mutation);
+            self.render3d_dirty_mask.insert(dirty);
+            self.track_render3d_rebuild_cause(dirty);
         }
     }
 
@@ -941,23 +911,6 @@ impl SceneRuntime {
         self.attach_declared_behaviors(bindings, Some(registry));
         // Clear any leftover unknowns — they are unresolvable.
         self.pending_bindings.clear();
-    }
-}
-
-fn render3d_material_value_to_json(
-    value: &engine_core::render_types::MaterialValue,
-) -> Option<JsonValue> {
-    match value {
-        engine_core::render_types::MaterialValue::Scalar(v) => {
-            serde_json::Number::from_f64(*v as f64).map(JsonValue::Number)
-        }
-        engine_core::render_types::MaterialValue::ColorRgb(rgb) => Some(JsonValue::Array(vec![
-            JsonValue::from(rgb[0]),
-            JsonValue::from(rgb[1]),
-            JsonValue::from(rgb[2]),
-        ])),
-        engine_core::render_types::MaterialValue::Bool(v) => Some(JsonValue::Bool(*v)),
-        engine_core::render_types::MaterialValue::Text(v) => Some(JsonValue::String(v.clone())),
     }
 }
 

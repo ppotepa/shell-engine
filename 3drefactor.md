@@ -22,16 +22,67 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [x] Keep renderer and engine-core fully mod-agnostic (no mod-specific names,
       examples, or behavior assumptions in core/render code paths).
 
-Policy notes (verified against current code):
-- No-legacy naming policy: active refactor paths (`engine-render-3d`,
-  `engine-compositor`, `engine-scene-runtime`, `engine-core`, `engine-api`) do
-  not contain newly introduced identifiers/modules/files/types with `legacy` in
-  the name. Existing repository-wide `legacy` references still exist outside
-  this refactor scope and remain cleanup debt.
-- Mod-agnostic renderer/core policy: verified no mod-specific literals (for
-  example `shell-quest`, `planet-generator`, `cognitOS`, `solar-orbit`) in
-  `engine-render-3d`, `engine-compositor`, `engine-core`, and
-  `engine-scene-runtime`.
+Policy notes (verified against current code, audit date: 2026-04-16):
+- Legacy naming policy (active scope audit): newly introduced `legacy` tokens
+  are present in `engine-authoring/src/compile/render_scene.rs:134`,
+  `engine-authoring/src/compile/render_scene.rs:136`,
+  `engine-authoring/src/compile/render_scene.rs:137`.
+- Mod-agnostic renderer/core policy: no mod-specific literals found in
+  `engine-render-3d`, `engine-compositor`, and `engine-core` runtime paths.
+
+## Remaining Blockers (Audit 2026-04-16)
+
+- `legacy` naming rule violation in active refactor scope:
+  `engine-authoring/src/compile/render_scene.rs:134`,
+  `engine-authoring/src/compile/render_scene.rs:136`,
+  `engine-authoring/src/compile/render_scene.rs:137`.
+- String-path mutation flow still active (typed path not converged to one
+  implementation):
+  `engine-api/src/commands.rs:40`,
+  `engine-api/src/scene/api.rs:193`,
+  `engine-api/src/scene/api.rs:225`,
+  `engine-api/src/scene/api.rs:351`,
+  `engine-scene-runtime/src/behavior_runner.rs:411`,
+  `engine-scene-runtime/src/behavior_runner.rs:416`,
+  `engine-scene-runtime/src/behavior_runner.rs:559`,
+  `engine-scene-runtime/src/behavior_runner.rs:560`,
+  `engine-scene-runtime/src/behavior_runner.rs:561`,
+  `engine-scene-runtime/src/behavior_runner.rs:576`,
+  `engine-scene-runtime/src/materialization.rs:363`.
+- `render3d_state.rs` target module is still missing:
+  `engine-scene-runtime/src/lib.rs:16` through
+  `engine-scene-runtime/src/lib.rs:26` (module list has no `render3d_state`);
+  file absent: `engine-scene-runtime/src/render3d_state.rs`.
+- `engine-compositor` still owns render-domain logic instead of only frame
+  assembly:
+  `engine-compositor/src/lib.rs:18`,
+  `engine-compositor/src/lib.rs:25`,
+  `engine-compositor/src/lib.rs:27`,
+  `engine-compositor/src/scene_compositor.rs:23`,
+  `engine-compositor/src/layer_compositor.rs:168`,
+  `engine-compositor/src/sprite_renderer_2d.rs:133`,
+  `engine-compositor/src/obj_render.rs:1798`.
+- Image decode/cache ownership is not moved to `engine-asset`:
+  `engine-render/src/image_loader.rs:103`,
+  `engine-render/src/image_loader.rs:127`,
+  `engine-render/src/image_loader.rs:137`,
+  `engine-render/src/image_loader.rs:199`,
+  `engine-render/src/image_loader.rs:205`,
+  `engine-render-2d/src/image.rs:7`,
+  `engine-render-2d/src/image.rs:68`,
+  `engine-render-2d/src/image.rs:123`.
+- New 3D authoring document surface exists but is not yet the compile source of
+  truth:
+  `engine-authoring/src/document/render_scene3d.rs:9`,
+  `engine-authoring/src/validate/render3d.rs:13`,
+  `engine-authoring/src/compile/render_scene.rs:24`,
+  `engine-authoring/src/compile/render_scene.rs:40`,
+  `engine-authoring/src/compile/render_scene.rs:56`,
+  `engine-authoring/src/compile/scene.rs:87`,
+  `engine-authoring/src/compile/scene.rs:88`.
+- Dirty-mask diagnostics are still mask-only (no rebuild-cause/count telemetry):
+  `engine-scene-runtime/src/dirty_tracking.rs:5`,
+  `engine-scene-runtime/src/dirty_tracking.rs:20`.
 
 ## End State
 

@@ -11,7 +11,6 @@ use engine_core::buffer::Buffer;
 
 mod font_loader;
 pub mod generic;
-pub mod image_loader;
 pub mod overlay;
 pub mod rasterizer;
 pub mod simd_text;

@@ -22,6 +22,7 @@ pub mod lifecycle_controls;
 pub mod materialization;
 pub mod mutations;
 pub mod object_graph;
+pub mod render3d_state;
 pub mod request_adapter;
 pub mod ui_focus;
 
@@ -47,10 +48,8 @@ pub use engine_core::scene_runtime_types::{
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 pub use mutations::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
-pub use request_adapter::{
-    render3d_mutation_from_request, scene_mutation_from_request,
-    scene_mutation_from_set_property_3d,
-};
+pub use render3d_state::{scene_mutation_from_set_property_3d, Render3dRebuildDiagnostics};
+pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -102,6 +101,7 @@ pub struct SceneRuntime {
     camera_zoom: f32,
     scene_camera_3d: SceneCamera3D,
     render3d_dirty_mask: DirtyMask3D,
+    render3d_rebuild_diagnostics: Render3dRebuildDiagnostics,
     /// Palette version when bindings were last applied; 0 means not yet applied.
     palette_applied_version: u64,
     /// GameState version when text bindings were last applied; 0 means not yet applied.
@@ -937,6 +937,25 @@ layers:
         assert!(dirty.contains(DirtyMask3D::MATERIAL));
         assert!(dirty.contains(DirtyMask3D::ATMOSPHERE));
         assert!(dirty.contains(DirtyMask3D::WORLDGEN));
+    }
+
+    #[test]
+    fn apply_behavior_commands_tracks_render3d_rebuild_diagnostics() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetProperty {
+                target: "helsinki-uni-wireframe".to_string(),
+                path: "obj.world.x".to_string(),
+                value: serde_json::json!(2.5),
+            }],
+        );
+
+        let diagnostics = runtime.take_render3d_rebuild_diagnostics();
+        assert_eq!(diagnostics.worldgen_dirty_events, 1);
+        assert_eq!(diagnostics.mesh_dirty_events, 0);
+        assert!(runtime.take_render3d_rebuild_diagnostics().is_empty());
     }
 
     #[test]

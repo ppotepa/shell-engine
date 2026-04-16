@@ -139,6 +139,7 @@ impl SceneRuntime {
             camera_zoom: 1.0,
             scene_camera_3d: SceneCamera3D::default(),
             render3d_dirty_mask: engine_core::render_types::DirtyMask3D::empty(),
+            render3d_rebuild_diagnostics: Render3dRebuildDiagnostics::default(),
             gui_widgets: Vec::new(),
             gui_state: engine_gui::GuiRuntimeState::new(),
             cached_gui_state: None,

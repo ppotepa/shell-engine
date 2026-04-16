@@ -349,7 +349,7 @@ fn run_scene_checks(
             engine::rasterizer::missing_glyphs(mod_src, font, text)
         };
     let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
-        engine::image_loader::has_image_asset(mod_src, source)
+        engine::asset::has_image_asset(mod_src, source)
     };
     let rhai_validator =
         |script: &str, src: Option<&str>, scene: &engine::scene::Scene| -> Result<(), String> {

@@ -5,7 +5,7 @@ use engine_core::effects::Region;
 use engine_effects::apply_effect;
 use engine_pipeline::LayerCompositor;
 
-use crate::layer_compositor::composite_layers;
+use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLayerRenderInputs};
 use crate::CompositeParams;
 
 fn composite_scene(
@@ -15,9 +15,9 @@ fn composite_scene(
 ) -> HashMap<String, Region> {
     buffer.fill(params.bg);
     let scene_state = params
-        .runtime
+        .prepared
         .object_states
-        .get(params.runtime.target_resolver.scene_object_id())
+        .get(params.prepared.target_resolver.scene_object_id())
         .cloned()
         .unwrap_or_default();
     if !scene_state.visible {
@@ -26,7 +26,11 @@ fn composite_scene(
 
     let mut object_regions = HashMap::with_capacity(params.frame.layers.len() + 4);
     object_regions.insert(
-        params.runtime.target_resolver.scene_object_id().to_string(),
+        params
+            .prepared
+            .target_resolver
+            .scene_object_id()
+            .to_string(),
         offset_region(
             buffer.width,
             buffer.height,
@@ -38,45 +42,46 @@ fn composite_scene(
     let scene_w = buffer.width;
     let scene_h = buffer.height;
 
-    composite_layers(
-        params.frame.layers,
-        params.frame.ui_enabled,
+    let mut layer_inputs = LayerCompositeInputs {
+        layers: params.frame.layers,
+        ui_enabled: params.frame.ui_enabled,
         scene_w,
         scene_h,
-        params.frame.scene_space,
-        params.render.asset_root,
-        Some(params.runtime.target_resolver),
-        &mut object_regions,
-        scene_state.offset_x,
-        scene_state.offset_y,
-        params.runtime.object_states,
-        params.runtime.current_stage,
-        params.runtime.step_idx,
-        params.runtime.elapsed_ms,
-        params.runtime.scene_elapsed_ms,
-        params.runtime.obj_camera_states,
-        params.frame.scene_camera_3d,
-        params.render.celestial_catalogs,
-        params.render.is_pixel_backend,
-        params.render.default_font,
-        params.frame.camera_x,
-        params.frame.camera_y,
-        params.frame.camera_zoom,
-        layer,
-        buffer,
-    );
+        scene_space: params.frame.scene_space,
+        target_resolver: Some(params.prepared.target_resolver),
+        object_regions: &mut object_regions,
+        scene_origin_x: scene_state.offset_x,
+        scene_origin_y: scene_state.offset_y,
+        object_states: params.prepared.object_states,
+        current_stage: params.prepared.current_stage,
+        step_idx: params.prepared.step_idx,
+        elapsed_ms: params.prepared.elapsed_ms,
+        scene_elapsed_ms: params.prepared.scene_elapsed_ms,
+        camera_x: params.prepared.camera.camera_x,
+        camera_y: params.prepared.camera.camera_y,
+        camera_zoom: params.prepared.camera.camera_zoom,
+        render: PreparedLayerRenderInputs {
+            asset_root: params.prepared.asset_root,
+            obj_camera_states: params.prepared.obj_camera_states,
+            scene_camera_3d: params.prepared.camera.scene_camera_3d,
+            celestial_catalogs: params.prepared.celestial_catalogs,
+            is_pixel_backend: params.prepared.is_pixel_backend,
+            default_font: params.prepared.default_font,
+        },
+    };
+    composite_layers(&mut layer_inputs, layer, buffer);
 
     let scene_progress = if params.frame.scene_step_dur == 0 {
         0.0_f32
     } else {
-        (params.runtime.elapsed_ms as f32 / params.frame.scene_step_dur as f32).clamp(0.0, 1.0)
+        (params.prepared.elapsed_ms as f32 / params.frame.scene_step_dur as f32).clamp(0.0, 1.0)
     };
     if params.frame.scene_effects.is_empty() {
         return object_regions;
     }
     let full_region = Region::full(buffer);
     for effect in params.frame.scene_effects {
-        let region = params.runtime.target_resolver.effect_region(
+        let region = params.prepared.target_resolver.effect_region(
             effect.params.target.as_deref(),
             full_region,
             &object_regions,

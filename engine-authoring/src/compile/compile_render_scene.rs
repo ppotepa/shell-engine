@@ -70,6 +70,13 @@ layers:
       - type: obj
         id: mesh
         source: /assets/3d/cube.obj
+      - type: planet
+        id: planet
+        body-id: earth
+      - type: scene3_d
+        id: clip
+        src: /assets/3d/clip.scene3d.yml
+        frame: idle
 "#;
 
         let from_existing =

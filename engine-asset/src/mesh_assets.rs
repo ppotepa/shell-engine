@@ -1,7 +1,10 @@
+//! Shared 3D mesh loading and generation for render pipelines.
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
-use engine_asset::ModAssetSourceLoader;
+use crate::ModAssetSourceLoader;
 use engine_core::asset_cache::AssetCache;
 use engine_core::asset_source::{load_decoded_source, SourceAdapter, SourceLoader, SourceRef};
 use engine_core::assets::AssetRoot;
@@ -32,6 +35,7 @@ pub struct ObjFace {
 }
 
 static OBJ_CACHE: AssetCache<ObjMesh> = AssetCache::new();
+static RENDER_MESH_CACHE: OnceLock<Mutex<HashMap<String, Arc<ObjMesh>>>> = OnceLock::new();
 
 struct ObjMeshAdapter;
 
@@ -85,10 +89,79 @@ impl Default for MaterialProps {
     }
 }
 
-pub fn load_obj_mesh(asset_root: &AssetRoot, source: &str) -> Option<std::sync::Arc<ObjMesh>> {
-    let loader = ModAssetSourceLoader::new(asset_root.mod_source()).ok()?;
+/// Loads an OBJ mesh from `mod_source` + `source` through the shared decode cache.
+pub fn load_obj_mesh(mod_source: &Path, source: &str) -> Option<Arc<ObjMesh>> {
+    let loader = ModAssetSourceLoader::new(mod_source).ok()?;
     let source = SourceRef::mod_asset(source);
     load_decoded_source(&OBJ_CACHE, &loader, &source, &ObjMeshAdapter)
+}
+
+/// Loads an OBJ mesh from an [`AssetRoot`] through the shared decode cache.
+pub fn load_obj_mesh_from_root(asset_root: &AssetRoot, source: &str) -> Option<Arc<ObjMesh>> {
+    load_obj_mesh(asset_root.mod_source(), source)
+}
+
+/// Loads any render mesh source (asset path or procedural URI) with shared caching.
+///
+/// Supported procedural sources:
+/// - `cube-sphere://N`
+/// - `terrain-plane://N?amp=A&freq=F&oct=O&rough=R&...`
+/// - `terrain-sphere://N?params`
+/// - `earth-sphere://N?params`
+/// - `world://N?...`
+pub fn load_render_mesh(asset_root: &AssetRoot, source: &str) -> Option<Arc<ObjMesh>> {
+    let cache = RENDER_MESH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let cache_key = render_mesh_cache_key(asset_root.mod_source(), source);
+
+    {
+        let cache_lock = cache.lock().ok()?;
+        if let Some(mesh) = cache_lock.get(&cache_key) {
+            return Some(Arc::clone(mesh));
+        }
+    }
+
+    let mesh = if let Some(rest) = source.strip_prefix("cube-sphere://") {
+        let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
+        let mesh = engine_mesh::primitives::cube_sphere(subdivisions);
+        mesh_to_obj_mesh(&mesh)
+    } else if let Some(rest) = source.strip_prefix("terrain-plane://") {
+        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(64);
+        let params = parse_terrain_params(query);
+        let mesh = engine_mesh::primitives::terrain_plane(subdivisions, params);
+        mesh_to_obj_mesh(&mesh)
+    } else if let Some(rest) = source.strip_prefix("terrain-sphere://") {
+        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
+        let params = parse_terrain_params(query);
+        let mesh = engine_mesh::primitives::terrain_sphere(subdivisions, params);
+        mesh_to_obj_mesh(&mesh)
+    } else if let Some(rest) = source.strip_prefix("earth-sphere://") {
+        let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
+        let params = parse_terrain_params(query);
+        let (mesh, colors) = engine_mesh::primitives::earth_terrain_sphere(subdivisions, params);
+        colored_mesh_to_obj_mesh(&mesh, &colors)
+    } else if source.starts_with("world://") {
+        let params = engine_worldgen::parse_world_params_from_uri(source);
+        let world = engine_worldgen::build_world_mesh(&params);
+        colored_mesh_to_obj_mesh(&world.mesh, &world.face_colors)
+    } else {
+        load_obj_mesh_from_root(asset_root, source)?
+    };
+
+    if let Ok(mut cache_lock) = cache.lock() {
+        cache_lock.insert(cache_key, Arc::clone(&mesh));
+    }
+    Some(mesh)
+}
+
+fn render_mesh_cache_key(mod_source: &Path, source: &str) -> String {
+    if source.contains("://") {
+        return format!("generated::{source}");
+    }
+    let normalized = source.trim_start_matches('/').replace('\\', "/");
+    format!("{}::{normalized}", mod_source.display())
 }
 
 fn load_material_palette(
@@ -104,7 +177,7 @@ fn load_material_palette(
         };
         for rel in rest.split_whitespace() {
             let mtl_path = resolve_relative_asset_path(obj_source.value(), rel);
-            let mtl_source = SourceRef::mod_asset(mtl_path);
+            let mtl_source = SourceRef::mod_asset(mtl_path.as_str());
             let Ok(bytes) = loader.read_bytes(&mtl_source) else {
                 continue;
             };
@@ -283,7 +356,6 @@ fn parse_obj_mesh_from_text(
         let v2 = vertices[face.indices[2]];
         let e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
         let e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
-        // Cross product magnitude = 2 × face area → area-weighted accumulation.
         let n = [
             e1[1] * e2[2] - e1[2] * e2[1],
             e1[2] * e2[0] - e1[0] * e2[2],
@@ -306,6 +378,7 @@ fn parse_obj_mesh_from_text(
             }
         })
         .collect();
+
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
     for v in &vertices {
@@ -337,11 +410,8 @@ fn parse_obj_mesh_from_text(
     })
 }
 
-/// Convert a `engine_mesh::Mesh` into a cached `ObjMesh` for use by the compositor.
-/// Smooth normals for a cube-sphere equal the vertex positions (unit sphere property).
-pub fn mesh_to_obj_mesh(mesh: &engine_mesh::Mesh) -> std::sync::Arc<ObjMesh> {
-    use std::collections::HashSet;
-
+/// Convert an `engine_mesh::Mesh` into an `ObjMesh` for use by renderers.
+pub fn mesh_to_obj_mesh(mesh: &engine_mesh::Mesh) -> Arc<ObjMesh> {
     let mut edges: HashSet<(usize, usize)> = HashSet::new();
     let mut faces: Vec<ObjFace> = Vec::new();
 
@@ -358,7 +428,7 @@ pub fn mesh_to_obj_mesh(mesh: &engine_mesh::Mesh) -> std::sync::Arc<ObjMesh> {
         }
     }
 
-    std::sync::Arc::new(ObjMesh {
+    Arc::new(ObjMesh {
         smooth_normals: mesh.normals.clone(),
         vertices: mesh.vertices.clone(),
         edges: edges.into_iter().collect(),
@@ -369,15 +439,7 @@ pub fn mesh_to_obj_mesh(mesh: &engine_mesh::Mesh) -> std::sync::Arc<ObjMesh> {
 }
 
 /// Like [`mesh_to_obj_mesh`] but applies a pre-computed per-face color palette.
-///
-/// `colors` must have exactly one `[u8; 3]` entry per face in `mesh.faces`.
-/// Any extra entries are ignored; missing entries fall back to grey `[200, 200, 200]`.
-pub fn colored_mesh_to_obj_mesh(
-    mesh: &engine_mesh::Mesh,
-    colors: &[[u8; 3]],
-) -> std::sync::Arc<ObjMesh> {
-    use std::collections::HashSet;
-
+pub fn colored_mesh_to_obj_mesh(mesh: &engine_mesh::Mesh, colors: &[[u8; 3]]) -> Arc<ObjMesh> {
     let mut edges: HashSet<(usize, usize)> = HashSet::new();
     let mut faces: Vec<ObjFace> = Vec::new();
 
@@ -395,7 +457,7 @@ pub fn colored_mesh_to_obj_mesh(
         }
     }
 
-    std::sync::Arc::new(ObjMesh {
+    Arc::new(ObjMesh {
         smooth_normals: mesh.normals.clone(),
         vertices: mesh.vertices.clone(),
         edges: edges.into_iter().collect(),
@@ -421,13 +483,83 @@ fn parse_obj_vertex_index(token: &str, vertex_count: usize) -> Option<usize> {
     None
 }
 
+/// Parse a terrain-plane URI query string into `TerrainParams`.
+fn parse_terrain_params(query: &str) -> engine_mesh::primitives::TerrainParams {
+    let mut p = engine_mesh::primitives::TerrainParams::default();
+    for pair in query.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            match k {
+                "amp" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.amplitude = f.clamp(0.01, 10.0);
+                    }
+                }
+                "freq" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.frequency = f.clamp(0.01, 16.0);
+                    }
+                }
+                "oct" => {
+                    if let Ok(n) = v.parse::<u8>() {
+                        p.octaves = n.clamp(1, 3);
+                    }
+                }
+                "rough" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.roughness = f.clamp(0.0, 1.0);
+                    }
+                }
+                "sx" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.seed_x = f;
+                    }
+                }
+                "sz" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.seed_z = f;
+                    }
+                }
+                "lac" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.lacunarity = f.clamp(1.0, 4.0);
+                    }
+                }
+                "ridge" => {
+                    p.ridge = v == "1";
+                }
+                "plat" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.plateau = f.clamp(0.0, 1.0);
+                    }
+                }
+                "sea" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.sea_level = f.clamp(0.0, 1.0);
+                    }
+                }
+                "scx" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.scale_x = f.clamp(0.25, 4.0);
+                    }
+                }
+                "scz" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.scale_z = f.clamp(0.25, 4.0);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    p
+}
+
 #[cfg(test)]
 mod tests {
+    use super::{load_obj_mesh, load_render_mesh, parse_mtl_palette, parse_obj_mesh_from_text};
+    use engine_core::assets::AssetRoot;
     use std::collections::HashMap;
     use std::fs;
-
-    use super::{load_obj_mesh, parse_mtl_palette, parse_obj_mesh_from_text};
-    use engine_core::assets::AssetRoot;
     use tempfile::tempdir;
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
@@ -483,8 +615,7 @@ Ns 10
         )
         .expect("mtl");
 
-        let mesh = load_obj_mesh(&AssetRoot::new(mod_dir), "/assets/models/test.obj")
-            .expect("mesh should load");
+        let mesh = load_obj_mesh(&mod_dir, "/assets/models/test.obj").expect("mesh should load");
         assert_eq!(mesh.vertices.len(), 3);
         assert_eq!(mesh.faces.len(), 1);
     }
@@ -510,9 +641,20 @@ Ns 10
             .expect("mtl bytes");
         writer.finish().expect("finish zip");
 
-        let mesh = load_obj_mesh(&AssetRoot::new(zip_path), "/assets/models/test.obj")
-            .expect("mesh should load");
+        let mesh = load_obj_mesh(&zip_path, "/assets/models/test.obj").expect("mesh should load");
         assert_eq!(mesh.vertices.len(), 3);
         assert_eq!(mesh.faces.len(), 1);
+    }
+
+    #[test]
+    fn loads_generated_cube_sphere_mesh() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(&mod_dir).expect("mod dir");
+        let root = AssetRoot::new(mod_dir);
+
+        let mesh = load_render_mesh(&root, "cube-sphere://8").expect("generated mesh");
+        assert!(!mesh.vertices.is_empty());
+        assert!(!mesh.faces.is_empty());
     }
 }

@@ -1,17 +1,17 @@
 //! Image sprite rendering for the composed frame buffer.
 
+use engine_asset::{load_image_asset, RgbaImageAsset};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::scene::SpriteSizePreset;
-use engine_render::image_loader::{self, LoadedRgbaImage};
 
 const ALPHA_THRESHOLD: u8 = 16;
 
 /// #9 opt-img-sheetview: zero-copy view into a spritesheet frame.
 /// Avoids cloning/allocating pixels for sub-frame selection.
 struct ImageView<'a> {
-    source: &'a LoadedRgbaImage,
+    source: &'a RgbaImageAsset,
     offset_x: u32,
     offset_y: u32,
     width: u32,
@@ -19,7 +19,7 @@ struct ImageView<'a> {
 }
 
 impl<'a> ImageView<'a> {
-    fn full(image: &'a LoadedRgbaImage) -> Self {
+    fn full(image: &'a RgbaImageAsset) -> Self {
         Self {
             source: image,
             offset_x: 0,
@@ -29,7 +29,7 @@ impl<'a> ImageView<'a> {
         }
     }
 
-    fn sub(image: &'a LoadedRgbaImage, x: u32, y: u32, w: u32, h: u32) -> Self {
+    fn sub(image: &'a RgbaImageAsset, x: u32, y: u32, w: u32, h: u32) -> Self {
         Self {
             source: image,
             offset_x: x,
@@ -65,7 +65,7 @@ pub fn render_image_content(
     let Some(root) = asset_root else {
         return;
     };
-    let Some(image_asset) = image_loader::load_image_asset(root.mod_source(), source) else {
+    let Some(image_asset) = load_image_asset(root.mod_source(), source) else {
         return;
     };
     let base_image = image_asset.frame_at(elapsed_ms);
@@ -120,7 +120,7 @@ pub fn image_sprite_dimensions(
     let Some(root) = asset_root else {
         return (req_width.unwrap_or(1), req_height.unwrap_or(1));
     };
-    let Some(image_asset) = image_loader::load_image_asset(root.mod_source(), source) else {
+    let Some(image_asset) = load_image_asset(root.mod_source(), source) else {
         return (req_width.unwrap_or(1), req_height.unwrap_or(1));
     };
     let image = select_spritesheet_frame(
@@ -133,7 +133,7 @@ pub fn image_sprite_dimensions(
 }
 
 fn select_spritesheet_frame<'a>(
-    image: &'a LoadedRgbaImage,
+    image: &'a RgbaImageAsset,
     sheet_columns: Option<u16>,
     sheet_rows: Option<u16>,
     frame_index: Option<u16>,
@@ -204,10 +204,7 @@ fn scale_dimensions(width: u16, height: u16, ratio: (u16, u16)) -> (u16, u16) {
 fn natural_image_dimensions(image: &ImageView<'_>) -> (u16, u16) {
     let w = image.width.max(1);
     let h = image.height.max(1);
-    (
-        w.min(u16::MAX as u32) as u16,
-        h.min(u16::MAX as u32) as u16,
-    )
+    (w.min(u16::MAX as u32) as u16, h.min(u16::MAX as u32) as u16)
 }
 
 fn rasterize_image_cell(

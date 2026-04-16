@@ -644,6 +644,7 @@ dependencies = [
  "engine-error",
  "engine-mesh",
  "engine-worldgen",
+ "image",
  "serde_yaml",
  "tempfile",
  "zip",
@@ -892,8 +893,6 @@ version = "0.1.0"
 dependencies = [
  "engine-asset",
  "engine-core",
- "engine-error",
- "image",
  "rusttype",
  "serde",
  "serde_yaml",
@@ -907,6 +906,7 @@ name = "engine-render-2d"
 version = "0.1.0"
 dependencies = [
  "engine-animation",
+ "engine-asset",
  "engine-core",
  "engine-effects",
  "engine-layout",

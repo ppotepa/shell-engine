@@ -1,6 +1,5 @@
 use super::effect_applicator::apply_layer_effects;
-use super::generated_world_render_adapter::
-    render_generated_world_sprite as render_generated_world_sprite_adapter;
+use super::generated_world_render_adapter::render_generated_world_sprite as render_generated_world_sprite_adapter;
 use super::obj_render_adapter::render_obj_sprite as render_obj_sprite_adapter;
 use super::scene_clip_render_adapter::render_scene_clip_sprite as render_scene_clip_sprite_adapter;
 use super::sprite_renderer_2d::{render_sprites, Render3dDelegate};
@@ -14,8 +13,8 @@ use engine_core::scene::{Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
-use engine_render_2d::{Render2dInput, Render2dPipeline};
 use engine_pipeline::LayerCompositor;
+use engine_render_2d::{Render2dInput, Render2dPipeline};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -24,6 +23,38 @@ thread_local! {
     // OPT-39: Layer bounds cache for skip rendering layers entirely if outside viewport.
     static LAYER_BOUNDS_CACHE: RefCell<HashMap<usize, (i32, i32, i32, i32)>> = RefCell::new(HashMap::new());
     static NON_UI_JITTER_DIAG: RefCell<HashMap<String, (i32, i32)>> = RefCell::new(HashMap::new());
+}
+
+/// Prepared render-domain dependencies used while assembling one frame.
+pub struct PreparedLayerRenderInputs<'a> {
+    pub asset_root: Option<&'a AssetRoot>,
+    pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
+    pub scene_camera_3d: &'a SceneCamera3D,
+    pub celestial_catalogs: Option<&'a CelestialCatalogs>,
+    pub is_pixel_backend: bool,
+    pub default_font: Option<&'a str>,
+}
+
+/// Prepared layer/frame state consumed by compositor assembly.
+pub struct LayerCompositeInputs<'a> {
+    pub layers: &'a [Layer],
+    pub ui_enabled: bool,
+    pub scene_w: u16,
+    pub scene_h: u16,
+    pub scene_space: SceneSpace,
+    pub target_resolver: Option<&'a TargetResolver>,
+    pub object_regions: &'a mut HashMap<String, Region>,
+    pub scene_origin_x: i32,
+    pub scene_origin_y: i32,
+    pub object_states: &'a HashMap<String, ObjectRuntimeState>,
+    pub current_stage: &'a SceneStage,
+    pub step_idx: usize,
+    pub elapsed_ms: u64,
+    pub scene_elapsed_ms: u64,
+    pub camera_x: i32,
+    pub camera_y: i32,
+    pub camera_zoom: f32,
+    pub render: PreparedLayerRenderInputs<'a>,
 }
 
 struct CompositorRender2dPipeline<'a> {
@@ -134,34 +165,35 @@ impl Render3dDelegate for CompositorRender3dDelegate {
 
 /// Composite all visible layers onto the scene framebuffer.
 #[inline]
-#[allow(clippy::too_many_arguments)]
 pub fn composite_layers(
-    layers: &[Layer],
-    ui_enabled: bool,
-    scene_w: u16,
-    scene_h: u16,
-    scene_space: SceneSpace,
-    asset_root: Option<&AssetRoot>,
-    target_resolver: Option<&TargetResolver>,
-    object_regions: &mut HashMap<String, Region>,
-    scene_origin_x: i32,
-    scene_origin_y: i32,
-    object_states: &HashMap<String, ObjectRuntimeState>,
-    current_stage: &SceneStage,
-    step_idx: usize,
-    elapsed_ms: u64,
-    scene_elapsed_ms: u64,
-    obj_camera_states: &HashMap<String, ObjCameraState>,
-    scene_camera_3d: &SceneCamera3D,
-    celestial_catalogs: Option<&engine_celestial::CelestialCatalogs>,
-    is_pixel_backend: bool,
-    default_font: Option<&str>,
-    camera_x: i32,
-    camera_y: i32,
-    camera_zoom: f32,
+    inputs: &mut LayerCompositeInputs<'_>,
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
+    let layers = inputs.layers;
+    let ui_enabled = inputs.ui_enabled;
+    let scene_w = inputs.scene_w;
+    let scene_h = inputs.scene_h;
+    let scene_space = inputs.scene_space;
+    let target_resolver = inputs.target_resolver;
+    let object_regions = &mut *inputs.object_regions;
+    let scene_origin_x = inputs.scene_origin_x;
+    let scene_origin_y = inputs.scene_origin_y;
+    let object_states = inputs.object_states;
+    let current_stage = inputs.current_stage;
+    let step_idx = inputs.step_idx;
+    let elapsed_ms = inputs.elapsed_ms;
+    let scene_elapsed_ms = inputs.scene_elapsed_ms;
+    let camera_x = inputs.camera_x;
+    let camera_y = inputs.camera_y;
+    let camera_zoom = inputs.camera_zoom;
+    let asset_root = inputs.render.asset_root;
+    let obj_camera_states = inputs.render.obj_camera_states;
+    let scene_camera_3d = inputs.render.scene_camera_3d;
+    let celestial_catalogs = inputs.render.celestial_catalogs;
+    let is_pixel_backend = inputs.render.is_pixel_backend;
+    let default_font = inputs.render.default_font;
+
     let render_3d_delegate = CompositorRender3dDelegate;
     let render_2d_pipeline = CompositorRender2dPipeline {
         obj_camera_states,

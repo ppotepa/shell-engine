@@ -2,6 +2,7 @@ use engine_api::scene::{Camera3dMutationRequest, Render3dMutationRequest, SceneM
 use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
+use crate::render3d_state::material_value_from_json;
 use crate::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
 
 pub fn scene_mutation_from_request(
@@ -123,66 +124,10 @@ pub fn render3d_mutation_from_request(
     }
 }
 
-pub fn scene_mutation_from_set_property_3d(
-    target: &str,
-    path: &str,
-    value: &serde_json::Value,
-) -> Option<SceneMutation> {
-    let worldgen_scalar = |key: &str, n: f64| {
-        Some(SceneMutation::SetRender3D(
-            Render3DMutation::SetWorldgenParam {
-                target: target.to_string(),
-                param: key.to_string(),
-                value: MaterialValue::Scalar(n as f32),
-            },
-        ))
-    };
-
-    match path {
-        "scene3d.frame" => value.as_str().map(|frame| {
-            SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
-                target: target.to_string(),
-                param: path.to_string(),
-                value: MaterialValue::Text(frame.to_string()),
-            })
-        }),
-        "planet.spin_deg"
-        | "planet.cloud_spin_deg"
-        | "planet.cloud2_spin_deg"
-        | "planet.sun_dir.x"
-        | "planet.sun_dir.y"
-        | "planet.sun_dir.z"
-        | "obj.world.x"
-        | "obj.world.y"
-        | "obj.world.z" => value.as_f64().and_then(|n| worldgen_scalar(path, n)),
-        _ => None,
-    }
-}
-
-fn material_value_from_json(value: &serde_json::Value) -> Option<MaterialValue> {
-    if let Some(n) = value.as_f64() {
-        return Some(MaterialValue::Scalar(n as f32));
-    }
-    if let Some(b) = value.as_bool() {
-        return Some(MaterialValue::Bool(b));
-    }
-    if let Some(s) = value.as_str() {
-        return Some(MaterialValue::Text(s.to_string()));
-    }
-    if let Some(arr) = value.as_array() {
-        if arr.len() == 3 {
-            let r = arr.first()?.as_u64().and_then(|v| u8::try_from(v).ok())?;
-            let g = arr.get(1)?.as_u64().and_then(|v| u8::try_from(v).ok())?;
-            let b = arr.get(2)?.as_u64().and_then(|v| u8::try_from(v).ok())?;
-            return Some(MaterialValue::ColorRgb([r, g, b]));
-        }
-    }
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene_mutation_from_set_property_3d;
     use engine_api::scene::SceneMutationRequest;
 
     #[test]
@@ -279,7 +224,7 @@ mod tests {
     fn leaves_unmapped_set_property_for_compatibility_fallback() {
         let mutation = scene_mutation_from_set_property_3d(
             "planet-view",
-            "planet.albedo",
+            "text.content",
             &serde_json::json!(0.42),
         );
 
