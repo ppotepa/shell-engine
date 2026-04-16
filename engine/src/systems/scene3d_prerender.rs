@@ -4,7 +4,7 @@ use crate::scene::Scene;
 use crate::scene_pipeline::ScenePreparationStep;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
-use engine_compositor::{build_scene3d_runtime_store, prerender_scene3d_atlas};
+use engine_render_3d::prerender::{build_scene3d_runtime_store, prerender_scene3d_atlas_with};
 
 // ── Scene preparation step ─────────────────────────────────────────────────────
 
@@ -24,7 +24,11 @@ impl ScenePreparationStep for Scene3DPrerenderStep {
         };
 
         // Build the prerendered atlas (static frames + any explicitly prerendered clips).
-        if let Some(atlas) = prerender_scene3d_atlas(scene, &asset_root) {
+        if let Some(atlas) = prerender_scene3d_atlas_with(
+            scene,
+            &asset_root,
+            engine_compositor::render_scene3d_work_item,
+        ) {
             world.register_scoped(atlas);
         }
 

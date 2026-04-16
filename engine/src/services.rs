@@ -51,7 +51,7 @@ pub(crate) trait EngineWorldAccess {
     fn scene_runtime_mut(&mut self) -> Option<&mut SceneRuntime>;
     fn animator(&self) -> Option<&Animator>;
     fn animator_mut(&mut self) -> Option<&mut Animator>;
-#[allow(dead_code)]
+    #[allow(dead_code)]
     fn buffer(&self) -> Option<&Buffer>;
     fn buffer_mut(&mut self) -> Option<&mut Buffer>;
     fn output_buffer(&self) -> Option<&Buffer>;
@@ -175,7 +175,6 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
         Ok(text)
     }
 }
-
 
 // Implement LifecycleProvider for World to work with engine-animation
 impl LifecycleProvider for World {
@@ -315,7 +314,7 @@ impl engine_compositor::CompositorAccess for World {
     }
 
     fn scene3d_atlas(&self) -> Option<&dyn std::any::Any> {
-        self.resource_any::<engine_compositor::Scene3DAtlas>()
+        self.resource_any::<engine_render_3d::prerender::Scene3DAtlas>()
     }
 
     fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {
@@ -326,7 +325,6 @@ impl engine_compositor::CompositorAccess for World {
         // Layer compositor is a strategy, not stored in World
         None
     }
-
 }
 
 // Implement SceneRuntimeAccess for World

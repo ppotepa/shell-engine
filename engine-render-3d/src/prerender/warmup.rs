@@ -1,9 +1,10 @@
 use rayon::prelude::*;
 
+use crate::pipeline::{extract_generated_world_sprite_spec, extract_obj_sprite_spec};
 use engine_asset::load_render_mesh;
 use engine_core::assets::AssetRoot;
 use engine_core::logging;
-use engine_core::scene::{Layer, Scene, Sprite};
+use engine_core::scene::{Layer, Scene};
 
 pub fn warmup_scene_meshes(scene: &Scene, asset_root: &AssetRoot) {
     let sources = collect_obj_sources(&scene.layers);
@@ -39,26 +40,21 @@ pub fn warmup_scene_meshes(scene: &Scene, asset_root: &AssetRoot) {
 fn collect_obj_sources(layers: &[Layer]) -> Vec<String> {
     let mut sources = Vec::new();
     for layer in layers {
-        collect_from_sprites(&layer.sprites, &mut sources);
+        for root in &layer.sprites {
+            root.walk_recursive(&mut |sprite| {
+                if let Some(spec) = extract_obj_sprite_spec(sprite) {
+                    sources.push(spec.source.to_string());
+                }
+                if let Some(spec) = extract_generated_world_sprite_spec(sprite) {
+                    if let crate::scene::Renderable3D::GeneratedWorld(world) = spec.node.renderable
+                    {
+                        sources.push(world.mesh_key.as_str().to_string());
+                    }
+                }
+            });
+        }
     }
     sources.sort();
     sources.dedup();
     sources
-}
-
-fn collect_from_sprites(sprites: &[Sprite], out: &mut Vec<String>) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj { source, .. } => out.push(source.clone()),
-            Sprite::Planet { mesh_source, .. } => out.push(
-                mesh_source
-                    .clone()
-                    .unwrap_or_else(|| "/assets/3d/sphere.obj".to_string()),
-            ),
-            Sprite::Panel { children, .. }
-            | Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. } => collect_from_sprites(children, out),
-            _ => {}
-        }
-    }
 }

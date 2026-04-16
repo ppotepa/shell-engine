@@ -2,21 +2,19 @@ use engine_core::color::Color;
 
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
-use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    prerender_scene3d_atlas_with, render_scene3d_frame_at_with, render_work_item_buffer_with,
-    Scene3DWorkItem,
+    render_scene3d_frame_at_with, render_work_item_buffer_with, Scene3DWorkItem,
 };
 
-use crate::{blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, Scene3DAtlas};
+use crate::{blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions};
 use engine_render_3d::prerender::Scene3DRuntimeEntry;
 
-pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<Scene3DAtlas> {
-    prerender_scene3d_atlas_with(scene, asset_root, render_frame)
-}
-
-fn render_frame(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
+/// Compositor-provided Scene3D work-item raster callback.
+///
+/// Engine-side Scene3D prerender orchestration lives in `engine-render-3d` and
+/// invokes this callback for each prepared work item.
+pub fn render_scene3d_work_item(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
     render_work_item_buffer_with(
         item,
         asset_root,
@@ -60,6 +58,6 @@ pub fn render_scene3d_frame_at(
         elapsed_ms,
         asset_root,
         camera_override,
-        render_frame,
+        render_scene3d_work_item,
     )
 }

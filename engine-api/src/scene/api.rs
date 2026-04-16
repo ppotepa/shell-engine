@@ -12,7 +12,9 @@ use crate::rhai::conversion::{
     json_to_rhai_dynamic, map_get_path_dynamic, map_set_path_dynamic, merge_rhai_maps,
     normalize_set_path, rhai_dynamic_to_json,
 };
-use crate::{BehaviorCommand, Camera3dMutationRequest, SceneMutationRequest};
+use crate::{
+    BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
+};
 
 /// Helpers for object state conversion (should ideally be shared or generic).
 fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
@@ -65,6 +67,31 @@ fn kind_capabilities(kind: Option<&str>) -> RhaiMap {
         }
     }
     cap
+}
+
+fn scene_mutation_from_compat_set(
+    target: &str,
+    path: &str,
+    value: JsonValue,
+) -> Option<SceneMutationRequest> {
+    if !is_render3d_compat_set_path(path) {
+        return None;
+    }
+    Some(SceneMutationRequest::SetRender3d(
+        Render3dMutationRequest::SetWorldParam {
+            target: target.to_string(),
+            name: path.to_string(),
+            value,
+        },
+    ))
+}
+
+fn is_render3d_compat_set_path(path: &str) -> bool {
+    path == "scene3d.frame"
+        || path.starts_with("planet.")
+        || path.starts_with("obj.")
+        || path.starts_with("terrain.")
+        || path.starts_with("world.")
 }
 
 /// Script-facing API for scene management.
@@ -190,6 +217,12 @@ impl ScriptSceneApi {
         let Ok(mut queue) = self.queue.lock() else {
             return;
         };
+        if let Some(request) =
+            scene_mutation_from_compat_set(&resolved, &normalized_path, value.clone())
+        {
+            queue.push(BehaviorCommand::ApplySceneMutation { request });
+            return;
+        }
         queue.push(BehaviorCommand::SetProperty {
             target: resolved,
             path: normalized_path,
@@ -222,6 +255,12 @@ impl ScriptSceneApi {
                 .resolve_alias(&target_str)
                 .unwrap_or(&target_str)
                 .to_string();
+            if let Some(request) =
+                scene_mutation_from_compat_set(&resolved, &normalized_path, json_value.clone())
+            {
+                queue.push(BehaviorCommand::ApplySceneMutation { request });
+                continue;
+            }
             queue.push(BehaviorCommand::SetProperty {
                 target: resolved,
                 path: normalized_path.clone(),
@@ -340,6 +379,12 @@ impl ScriptObjectApi {
         let Ok(mut queue) = self.queue.lock() else {
             return;
         };
+        if let Some(request) =
+            scene_mutation_from_compat_set(&self.target, &normalized_path, value.clone())
+        {
+            queue.push(BehaviorCommand::ApplySceneMutation { request });
+            return;
+        }
         queue.push(BehaviorCommand::SetProperty {
             target: self.target.clone(),
             path: normalized_path,
@@ -436,7 +481,9 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
 #[cfg(test)]
 mod tests {
     use super::ScriptSceneApi;
-    use crate::{BehaviorCommand, Camera3dMutationRequest, SceneMutationRequest};
+    use crate::{
+        BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
+    };
     use engine_core::effects::Region;
     use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
     use rhai::{Dynamic as RhaiDynamic, Map as RhaiMap};
@@ -572,6 +619,64 @@ mod tests {
                 request: SceneMutationRequest::DespawnObject {
                     target: "enemy-01".to_string(),
                 },
+            }
+        );
+    }
+
+    #[test]
+    fn set_routes_render3d_paths_to_typed_mutation() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        api.set("planet-view", "obj.world.x", RhaiDynamic::from_float(2.5));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 1);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetWorldParam {
+                        target: "planet-view".to_string(),
+                        name: "obj.world.x".to_string(),
+                        value: serde_json::json!(2.5),
+                    },
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn set_keeps_non_render3d_paths_on_set_property_compatibility() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        api.set("title", "text.content", "HELLO".into());
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 1);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::SetProperty {
+                target: "title".to_string(),
+                path: "text.content".to_string(),
+                value: serde_json::json!("HELLO"),
             }
         );
     }

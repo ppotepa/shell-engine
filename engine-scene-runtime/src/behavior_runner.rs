@@ -418,11 +418,6 @@ impl SceneRuntime {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         continue;
                     };
-                    if let Some(mutation) = scene_mutation_from_set_property_3d(target, path, value)
-                    {
-                        self.apply_scene_mutation(resolver, &mutation);
-                        continue;
-                    }
                     match path.as_str() {
                         "visible" => {
                             let Some(next_visible) = value.as_bool() else {
@@ -718,6 +713,11 @@ impl SceneRuntime {
                 }
                 scene_mutation_from_request(request, self.scene_camera_3d)
             }
+            BehaviorCommand::SetProperty {
+                target,
+                path,
+                value,
+            } => scene_mutation_from_set_property_3d(target, path, value),
             _ => None,
         }
     }

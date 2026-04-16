@@ -38,32 +38,39 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `engine-api/src/commands.rs:40`,
   `engine-api/src/scene/api.rs:193`,
   `engine-api/src/scene/api.rs:225`,
-  `engine-api/src/scene/api.rs:351`,
-  `engine-scene-runtime/src/behavior_runner.rs:411`,
-  `engine-scene-runtime/src/behavior_runner.rs:416`,
-  `engine-scene-runtime/src/behavior_runner.rs:559`,
-  `engine-scene-runtime/src/behavior_runner.rs:560`,
-  `engine-scene-runtime/src/behavior_runner.rs:561`,
-  `engine-scene-runtime/src/behavior_runner.rs:576`,
-  `engine-scene-runtime/src/materialization.rs:363`.
+  `engine-api/src/scene/api.rs:343`,
+  `engine-scene-runtime/src/behavior_runner.rs:313`,
+  `engine-scene-runtime/src/behavior_runner.rs:413`,
+  `engine-scene-runtime/src/behavior_runner.rs:421`,
+  `engine-scene-runtime/src/materialization.rs:1539`,
+  `engine-scene-runtime/src/materialization.rs:1547`,
+  `engine-scene-runtime/src/materialization.rs:1555`,
+  `engine-scene-runtime/src/materialization.rs:1693`,
+  `engine-scene-runtime/src/materialization.rs:1702`,
+  `engine-scene-runtime/src/materialization.rs:1711`,
+  `engine-scene-runtime/src/materialization.rs:1720`,
+  `engine-scene-runtime/src/materialization.rs:1730`,
+  `engine-scene-runtime/src/materialization.rs:1739`,
+  `engine-scene-runtime/src/materialization.rs:1748`.
 - `engine-compositor` still owns render-domain logic instead of only frame
   assembly:
   `engine-compositor/src/lib.rs:16`,
   `engine-compositor/src/lib.rs:17`,
   `engine-compositor/src/lib.rs:18`,
   `engine-compositor/src/lib.rs:23`,
-  `engine-compositor/src/obj_render.rs:1795`,
-  `engine-compositor/src/prerender.rs:10`,
+  `engine-compositor/src/lib.rs:47`,
+  `engine-compositor/src/obj_render.rs:1812`,
+  `engine-compositor/src/prerender.rs:16`,
   `engine-compositor/src/scene3d_prerender.rs:15`.
 - New 3D authoring document surface exists but is not yet the compile source of
   truth:
   `engine-authoring/src/document/render_scene3d.rs:9`,
   `engine-authoring/src/validate/render3d.rs:13`,
-  `engine-authoring/src/compile/render_scene.rs:24`,
+  `engine-authoring/src/compile/render_scene.rs:31`,
   `engine-authoring/src/compile/render_scene.rs:40`,
   `engine-authoring/src/compile/render_scene.rs:56`,
-  `engine-authoring/src/compile/scene.rs:87`,
-  `engine-authoring/src/compile/scene.rs:88`.
+  `engine-authoring/src/compile/scene.rs:41`,
+  `engine-authoring/src/compile/scene.rs:60`.
 
 ## End State
 
@@ -290,7 +297,7 @@ PR0 baseline references:
       branching.
 - [x] Remove duplicate `SetProperty` handling for `scene3d.frame` now that the
       typed bridge path is authoritative for that safe case.
-- [x] Collapse `SetProperty` handling onto typed mutations without a second
+- [ ] Collapse `SetProperty` handling onto typed mutations without a second
       runtime path.
 - [x] Wire dirty flag updates from typed mutations.
 
@@ -305,7 +312,7 @@ PR0 baseline references:
 
 - [ ] Remove direct render-domain logic from `engine-compositor`.
 - [ ] Keep only frame composition concerns.
-- [ ] Narrow public compositor APIs to frame assembly inputs.
+- [x] Narrow public compositor APIs to frame assembly inputs.
 - [x] Move mesh warmup ownership to `engine-render-3d::prerender`.
 
 ### PR8 - Public Typed API

@@ -12,18 +12,18 @@ pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
 mod generated_world_render_adapter;
-pub mod layer_compositor;
+mod layer_compositor;
 pub mod obj_prerender;
-pub mod obj_render;
+mod obj_render;
 mod obj_render_adapter;
 pub mod obj_render_helpers;
-pub mod prerender;
+mod prerender;
 pub mod provider;
 pub mod render;
-pub mod scene3d_prerender;
+mod scene3d_prerender;
 mod scene_clip_render_adapter;
-pub mod scene_compositor;
-pub mod sprite_renderer_2d;
+mod scene_compositor;
+mod sprite_renderer_2d;
 pub mod systems;
 
 pub use access::CompositorAccess;
@@ -35,16 +35,19 @@ pub use engine_render_3d::prerender::Scene3DAtlas;
 pub use engine_render_3d::prerender::{
     build_scene3d_runtime_store, with_runtime_store, Scene3DRuntimeStore,
 };
-pub use obj_render::{
+pub(crate) use obj_render::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
     obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,
-    render_obj_to_shared_buffers, try_blit_prerendered, virtual_dimensions, with_prerender_frames,
-    ObjRenderParams,
+    render_obj_to_shared_buffers, try_blit_prerendered, ObjRenderParams,
 };
+pub use obj_render::{virtual_dimensions, with_prerender_frames};
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
-pub use scene3d_prerender::{prerender_scene3d_atlas, render_scene3d_frame_at};
-pub use scene_compositor::{prepare_layer_timed_visibility, CompositeParams};
+pub use scene3d_prerender::render_scene3d_work_item;
+pub use scene_compositor::{
+    prepare_layer_timed_visibility, CompositeParams, FrameAssemblyInputs, PreparedCameraInputs,
+    PreparedCompositeInputs,
+};
 pub use systems::postfx;
 
 /// Clear the per-frame vector primitive collector (call before compositing).
