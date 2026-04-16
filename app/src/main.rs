@@ -1,4 +1,4 @@
-use clap::Parser;
+﻿use clap::Parser;
 use engine::behavior::init_behavior_system;
 use engine::{logging, EngineConfig, ShellEngine};
 use engine_mod::startup::checks::{
@@ -13,11 +13,11 @@ use engine_mod::{load_mod_manifest, StartupOutputSetting};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
-#[command(name = "shell-quest", about = "Shell Quest SDL2 engine launcher")]
+#[command(name = "shell-engine", about = "Shell Engine SDL2 launcher")]
 struct Cli {
-    /// Mod to load by name (resolves to mods/<name>/). Default: shell-quest.
-    #[arg(long = "mod", default_value = "shell-quest")]
-    mod_name: String,
+    /// Mod to load by name (resolves to mods/<name>/). When omitted, the interactive launcher starts.
+    #[arg(long = "mod")]
+    mod_name: Option<String>,
     /// Full mod source path (directory or .zip). Overrides --mod when set.
     #[arg(long = "mod-source", hide = true)]
     mod_source: Option<String>,
@@ -53,7 +53,7 @@ struct Cli {
     #[arg(long = "no-logs")]
     no_logs: bool,
     /// Also print log output to stderr in real time.
-    /// Can also be enabled via SHELL_QUEST_CONSOLE_LOG=1 env var.
+    /// Can also be enabled via SHELL_ENGINE_CONSOLE_LOG=1 env var.
     #[arg(long = "console-log")]
     console_log: bool,
     /// Override run log root directory (default: ./logs).
@@ -141,7 +141,27 @@ fn main() {
     }
     let mod_source = cli
         .mod_source
-        .unwrap_or_else(|| format!("mods/{}/", cli.mod_name));
+        .or_else(|| cli.mod_name.as_ref().map(|name| format!("mods/{}/", name)));
+
+    let mod_source = match mod_source {
+        Some(s) => s,
+        None => {
+            // No mod specified — launch the interactive TUI launcher.
+            let launcher_exe = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|d| d.join("se")))
+                .unwrap_or_else(|| PathBuf::from("se"));
+            logging::info("app.main", "no --mod specified, launching interactive menu");
+            let status = std::process::Command::new(&launcher_exe)
+                .status()
+                .unwrap_or_else(|e| {
+                    eprintln!("Failed to start launcher ({launcher_exe:?}): {e}");
+                    eprintln!("Hint: run `cargo build -p launcher` first, or specify --mod <name>");
+                    std::process::exit(1);
+                });
+            std::process::exit(status.code().unwrap_or(0));
+        }
+    };
     logging::info("app.main", format!("resolved mod_source={mod_source}"));
 
     // Initialize the behavior system with the mod source so Rhai module resolution works
@@ -267,7 +287,7 @@ fn resolve_dev_mode(cli: &Cli) -> bool {
     }
 
     // In release builds, allow env opt-in without CLI flags.
-    env_flag_enabled("SHELL_QUEST_DEV") || env_flag_enabled("SHELL_QUEST_DEBUG_FEATURE")
+    env_flag_enabled("SHELL_ENGINE_DEV") || env_flag_enabled("SHELL_ENGINE_DEBUG_FEATURE")
 }
 
 fn resolve_logs_enabled(cli: &Cli) -> bool {
@@ -394,19 +414,19 @@ mod tests {
 
     #[test]
     fn dev_flag_enables_mode() {
-        let cli = Cli::parse_from(["shell-quest", "--dev"]);
+        let cli = Cli::parse_from(["shell-engine", "--dev"]);
         assert!(resolve_dev_mode(&cli));
     }
 
     #[test]
     fn no_dev_flag_disables_mode() {
-        let cli = Cli::parse_from(["shell-quest", "--dev", "--no-dev"]);
+        let cli = Cli::parse_from(["shell-engine", "--dev", "--no-dev"]);
         assert!(!resolve_dev_mode(&cli));
     }
 
     #[test]
     fn debug_feature_flag_is_compat_alias() {
-        let cli = Cli::parse_from(["shell-quest", "--debug-feature"]);
+        let cli = Cli::parse_from(["shell-engine", "--debug-feature"]);
         assert!(resolve_dev_mode(&cli));
     }
 
@@ -426,43 +446,43 @@ mod tests {
 
     #[test]
     fn opt_comp_is_enabled_by_default() {
-        let cli = Cli::parse_from(["shell-quest"]);
+        let cli = Cli::parse_from(["shell-engine"]);
         assert!(resolve_opt_comp(&cli));
     }
 
     #[test]
     fn no_opt_comp_disables_default() {
-        let cli = Cli::parse_from(["shell-quest", "--no-opt-comp"]);
+        let cli = Cli::parse_from(["shell-engine", "--no-opt-comp"]);
         assert!(!resolve_opt_comp(&cli));
     }
 
     #[test]
     fn no_opt_comp_overrides_opt() {
-        let cli = Cli::parse_from(["shell-quest", "--opt", "--no-opt-comp"]);
+        let cli = Cli::parse_from(["shell-engine", "--opt", "--no-opt-comp"]);
         assert!(!resolve_opt_comp(&cli));
     }
 
     #[test]
     fn opt_rowdiff_is_enabled_by_default() {
-        let cli = Cli::parse_from(["shell-quest"]);
+        let cli = Cli::parse_from(["shell-engine"]);
         assert!(resolve_opt_rowdiff(&cli));
     }
 
     #[test]
     fn no_opt_rowdiff_disables_default() {
-        let cli = Cli::parse_from(["shell-quest", "--no-opt-rowdiff"]);
+        let cli = Cli::parse_from(["shell-engine", "--no-opt-rowdiff"]);
         assert!(!resolve_opt_rowdiff(&cli));
     }
 
     #[test]
     fn no_opt_rowdiff_overrides_opt() {
-        let cli = Cli::parse_from(["shell-quest", "--opt", "--no-opt-rowdiff"]);
+        let cli = Cli::parse_from(["shell-engine", "--opt", "--no-opt-rowdiff"]);
         assert!(!resolve_opt_rowdiff(&cli));
     }
 
     #[test]
     fn parses_check_scenes_flag() {
-        let cli = Cli::parse_from(["shell-quest", "--check-scenes"]);
+        let cli = Cli::parse_from(["shell-engine", "--check-scenes"]);
         assert!(cli.check_scenes);
     }
 }
