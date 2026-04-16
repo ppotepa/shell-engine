@@ -51,10 +51,10 @@ pub use warmup::warmup_scene_meshes;
 
 /// Clear the per-frame vector primitive collector (call before compositing).
 pub fn clear_vector_primitives() {
-    sprite_renderer::VECTOR_PRIMITIVES.with(|v| v.borrow_mut().clear());
+    engine_render_2d::clear_vector_primitives();
 }
 
 /// Take collected vector primitives (call after compositing).
 pub fn take_vector_primitives() -> Vec<engine_render::VectorPrimitive> {
-    sprite_renderer::VECTOR_PRIMITIVES.with(|v| std::mem::take(&mut *v.borrow_mut()))
+    engine_render_2d::take_vector_primitives()
 }

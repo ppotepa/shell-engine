@@ -271,7 +271,7 @@ These are the tasks to start with immediately.
 - [x] Move `image_render.rs`.
 - [x] Move `text_render.rs`.
 - [x] Move 2D layout helpers.
-- [ ] Move 2D container helpers.
+- [x] Move 2D container helpers.
 - [ ] Switch compositor to the 2D pipeline seam.
 
 ## Definition of Done

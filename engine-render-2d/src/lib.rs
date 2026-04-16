@@ -7,6 +7,7 @@ pub mod containers;
 pub mod image;
 pub mod layout;
 pub mod text;
+pub mod vector;
 
 pub use containers::render_children_in_cells;
 pub use image::{image_sprite_dimensions, render_image_content};
@@ -15,3 +16,4 @@ pub use layout::{
     resolve_x, resolve_y, with_render_context, GridCellRect, RenderArea, TrackSpec,
 };
 pub use text::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};
+pub use vector::{clear_vector_primitives, push_vector_primitive, take_vector_primitives};

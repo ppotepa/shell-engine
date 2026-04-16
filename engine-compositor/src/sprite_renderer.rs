@@ -15,12 +15,10 @@ use engine_core::scene_runtime_types::{
 };
 use engine_render_2d::{
     compute_flex_cells, compute_grid_cells, dim_colour, image_sprite_dimensions,
-    measure_sprite_for_layout, render_children_in_cells, render_image_content,
-    render_text_content, resolve_x, resolve_y, text_sprite_dimensions, with_render_context,
-    ClipRect, RenderArea,
+    measure_sprite_for_layout, push_vector_primitive, render_children_in_cells,
+    render_image_content, render_text_content, resolve_x, resolve_y, text_sprite_dimensions,
+    with_render_context, ClipRect, RenderArea,
 };
-use engine_render::VectorPrimitive;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -31,11 +29,8 @@ use std::hash::{Hash, Hasher};
 type GlowCacheKey = u64;
 
 thread_local! {
-    static GLOW_CACHE: RefCell<HashMap<GlowCacheKey, Arc<Buffer>>> =
-        RefCell::new(HashMap::new());
-    /// Collected vector primitives for the current frame (SDL2 native rendering).
-    pub(crate) static VECTOR_PRIMITIVES: RefCell<Vec<VectorPrimitive>> =
-        const { RefCell::new(Vec::new()) };
+    static GLOW_CACHE: std::cell::RefCell<HashMap<GlowCacheKey, Arc<Buffer>>> =
+        std::cell::RefCell::new(HashMap::new());
 }
 
 /// Hash a `engine_core::color::Color` without allocating (avoids `format!("{:?}", col)`).
@@ -718,20 +713,18 @@ fn render_vector_sprite(
     );
 
     // Collect resolved vector for SDL2 native rendering.
-    VECTOR_PRIMITIVES.with(|v| {
-        v.borrow_mut().push(VectorPrimitive {
-            points: draw_points
-                .iter()
-                .map(|p| [(origin_x + p[0]) as f32, (origin_y + p[1]) as f32])
-                .collect(),
-            closed: *closed,
-            fg: fg.to_rgb(),
-            bg: if *closed && !matches!(bg, Color::Reset) {
-                Some(bg.to_rgb())
-            } else {
-                None
-            },
-        });
+    push_vector_primitive(engine_render::VectorPrimitive {
+        points: draw_points
+            .iter()
+            .map(|p| [(origin_x + p[0]) as f32, (origin_y + p[1]) as f32])
+            .collect(),
+        closed: *closed,
+        fg: fg.to_rgb(),
+        bg: if *closed && !matches!(bg, Color::Reset) {
+            Some(bg.to_rgb())
+        } else {
+            None
+        },
     });
 
     let sprite_region = Region {
