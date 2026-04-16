@@ -1,4 +1,5 @@
 pub mod camera_basis;
+pub mod frame_item;
 pub mod frame_schedule;
 pub mod lighting;
 pub mod object_motion;
@@ -12,6 +13,7 @@ pub mod work_items;
 
 pub use engine_3d::scene3d_atlas::{with_atlas, Scene3DAtlas};
 pub use camera_basis::look_at_basis;
+pub use frame_item::build_scene3d_frame_item_at;
 pub use frame_schedule::{clip_progress_at, expand_frame_samples, FrameSample};
 pub use lighting::{extract_light_params, parse_hex_color, LightParams};
 pub use object_motion::{resolve_object_frame_motion, ObjectFrameMotion};
