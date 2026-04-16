@@ -302,6 +302,7 @@ These are the tasks to start with immediately.
 - [x] Move camera look-at basis helper (`look_at_basis`) from compositor Scene3D prerender path into `engine-render-3d::prerender::camera_basis`.
 - [x] Move Scene3D light extraction + hex colour parsing helpers (`extract_light_params`, `parse_hex_color`) from compositor prerender path into `engine-render-3d::prerender::lighting`.
 - [x] Move Scene3D clip progress normalization (`elapsed_ms` -> `t`) into `engine-render-3d::prerender::frame_schedule::clip_progress_at`.
+- [x] Move Scene3D tween evaluation and clip camera-frame state resolution into `engine-render-3d::prerender::tween_eval`.
 
 ## Definition of Done
 

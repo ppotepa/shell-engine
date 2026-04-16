@@ -13,7 +13,8 @@ use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
     clip_progress_at, collect_scene3d_sources, expand_frame_samples, extract_light_params,
-    load_and_resolve_scene3d, look_at_basis, parse_hex_color, LightParams,
+    load_and_resolve_scene3d, parse_hex_color, resolve_camera_frame_state, evaluate_tween_values,
+    LightParams,
 };
 
 use crate::{
@@ -171,69 +172,8 @@ fn build_object_specs(
     tweens: &[TweenDef],
     t: f32,
 ) -> Vec<ObjectRenderSpec> {
-    let mut tween_values: HashMap<String, HashMap<String, f32>> = HashMap::new();
-    for tw in tweens {
-        let et = tw.easing.apply(t);
-        let value = tw.from + (tw.to - tw.from) * et;
-        tween_values
-            .entry(tw.object.clone())
-            .or_default()
-            .insert(tw.property.clone(), value);
-    }
-
-    // ── Camera orbit tween support ──────────────────────────────────────────
-    // Object id "camera" with property "orbit_angle_deg" rotates the camera
-    // around camera.look_at in the horizontal plane, preserving radial distance
-    // and elevation angle from the initial position.
-    let base_cam_pos = camera_override
-        .map(|camera| camera.eye)
-        .unwrap_or_else(|| camera.position.unwrap_or([0.0, 0.0, camera.distance]));
-    let look_at = camera_override
-        .map(|camera| camera.look_at)
-        .or(camera.look_at);
-    let effective_cam_pos =
-        if let (Some(cam_tw), Some(look_at)) = (tween_values.get("camera"), look_at) {
-            if let Some(&orbit_angle_deg) = cam_tw.get("orbit_angle_deg") {
-                let dx = base_cam_pos[0] - look_at[0];
-                let dy = base_cam_pos[1] - look_at[1];
-                let dz = base_cam_pos[2] - look_at[2];
-                let horiz_r = (dx * dx + dz * dz).sqrt();
-                let elevation = dy.atan2(horiz_r); // preserve vertical angle
-                let base_phase = dz.atan2(dx); // initial azimuth
-                let theta = base_phase + orbit_angle_deg.to_radians();
-                let total_r = (dx * dx + dy * dy + dz * dz).sqrt();
-                [
-                    look_at[0] + total_r * elevation.cos() * theta.cos(),
-                    look_at[1] + total_r * elevation.sin(),
-                    look_at[2] + total_r * elevation.cos() * theta.sin(),
-                ]
-            } else {
-                base_cam_pos
-            }
-        } else {
-            base_cam_pos
-        };
-
-    let camera_distance = if camera_override.is_some() {
-        ((effective_cam_pos[0] - look_at.unwrap_or([0.0, 0.0, 0.0])[0]).powi(2)
-            + (effective_cam_pos[1] - look_at.unwrap_or([0.0, 0.0, 0.0])[1]).powi(2)
-            + (effective_cam_pos[2] - look_at.unwrap_or([0.0, 0.0, 0.0])[2]).powi(2))
-        .sqrt()
-        .max(0.001)
-    } else {
-        (effective_cam_pos[0].powi(2) + effective_cam_pos[1].powi(2) + effective_cam_pos[2].powi(2))
-            .sqrt()
-            .max(camera.distance.abs())
-    };
-
-    let (global_view_right, global_view_up, global_view_forward) = if let Some(look_at) = look_at {
-        let up = camera_override
-            .map(|camera| camera.up)
-            .unwrap_or([0.0, 1.0, 0.0]);
-        look_at_basis(effective_cam_pos, look_at, up)
-    } else {
-        ([1.0f32, 0.0, 0.0], [0.0f32, 1.0, 0.0], [0.0f32, 0.0, 1.0])
-    };
+    let tween_values = evaluate_tween_values(tweens, t);
+    let camera_state = resolve_camera_frame_state(camera, camera_override, &tween_values);
 
     objects
         .iter()
@@ -309,9 +249,12 @@ fn build_object_specs(
 
             let tf = &obj.transform;
 
-            let (view_right, view_up, view_forward) =
-                (global_view_right, global_view_up, global_view_forward);
-            let cam_pos = effective_cam_pos;
+            let (view_right, view_up, view_forward) = (
+                camera_state.view_right,
+                camera_state.view_up,
+                camera_state.view_forward,
+            );
+            let cam_pos = camera_state.camera_position;
 
             let wireframe = mat.surface_mode == SurfaceMode::Wireframe;
             let fg = mat
@@ -329,7 +272,7 @@ fn build_object_specs(
                 rotation_y: 0.0,
                 rotation_z: 0.0,
                 rotate_y_deg_per_sec: 0.0,
-                camera_distance,
+                camera_distance: camera_state.camera_distance,
                 fov_degrees: camera.fov_degrees,
                 near_clip: camera.near_clip,
                 light_direction_x: lights.dir1[0],
