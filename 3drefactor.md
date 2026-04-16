@@ -289,6 +289,7 @@ These are the tasks to start with immediately.
 - [x] Move `Obj` sprite render mapping/execution out of `sprite_renderer_3d` into dedicated `obj_render_adapter` module.
 - [x] Move `scene_clip` sprite render mapping/execution out of `sprite_renderer_3d` into dedicated `scene_clip_render_adapter` module.
 - [x] Remove `sprite_renderer_3d` intermediary module and wire compositor delegate directly to 3D adapters.
+- [x] Extract Obj source override resolution (`terrain-*` / `world://`) into `obj_source_resolver` to keep adapter render flow focused.
 
 ## Definition of Done
 

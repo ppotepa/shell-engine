@@ -13,6 +13,7 @@ pub mod compositor;
 pub mod effect_applicator;
 pub mod layer_compositor;
 mod obj_render_adapter;
+mod obj_source_resolver;
 pub mod obj_loader;
 pub mod obj_prerender;
 pub mod obj_render;
