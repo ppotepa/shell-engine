@@ -42,7 +42,7 @@ pub use obj_render::{
 };
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
-pub use engine_3d::scene3d_atlas::Scene3DAtlas;
+pub use engine_render_3d::prerender::Scene3DAtlas;
 pub use scene3d_prerender::{
     build_scene3d_runtime_store, prerender_scene3d_atlas, render_scene3d_frame_at,
 };
