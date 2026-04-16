@@ -112,7 +112,7 @@ impl Render3dDelegate for CompositorRender3dDelegate {
         );
     }
 
-    fn render_scene3d_sprite(
+    fn render_scene_clip_sprite(
         &self,
         sprite: &engine_core::scene::Sprite,
         area: engine_render_2d::RenderArea,

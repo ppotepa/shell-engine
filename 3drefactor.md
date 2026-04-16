@@ -284,6 +284,7 @@ These are the tasks to start with immediately.
 - [x] Route `Scene3D` sprite render path through typed node mapping (`map_sprite_to_node3d`) instead of direct field unpacking.
 - [x] Route `Planet` adapter base identity/transform (`body/preset/mesh/rotation/scale/position`) through typed node mapping.
 - [x] Route `Obj` sprite base source/transform (`source/position/rotation/scale`) through typed node mapping.
+- [x] Rename renderer delegate surface from `scene3d` to agnostic `scene_clip`.
 
 ## Definition of Done
 

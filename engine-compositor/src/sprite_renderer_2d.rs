@@ -114,7 +114,7 @@ pub(crate) trait Render3dDelegate {
         ctx: &mut RenderCtx<'_>,
     );
 
-    fn render_scene3d_sprite(
+    fn render_scene_clip_sprite(
         &self,
         sprite: &Sprite,
         area: RenderArea,
@@ -349,7 +349,7 @@ fn render_sprite(
             ctx,
         ),
         Sprite::Scene3D { .. } => {
-            render_3d.render_scene3d_sprite(
+            render_3d.render_scene_clip_sprite(
                 sprite,
                 area,
                 object_id,
