@@ -1,10 +1,8 @@
 use super::effect_applicator::apply_layer_effects;
+use super::obj_render_adapter::render_obj_sprite as render_obj_sprite_adapter;
 use super::planet_render_adapter::render_planet_sprite as render_planet_sprite_adapter;
+use super::scene_clip_render_adapter::render_scene_clip_sprite as render_scene_clip_sprite_adapter;
 use super::sprite_renderer_2d::{render_sprites, Render3dDelegate};
-use super::sprite_renderer_3d::{
-    render_obj_sprite as render_obj_sprite_3d,
-    render_scene_clip_sprite as render_scene_clip_sprite_3d,
-};
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
@@ -77,7 +75,7 @@ impl Render3dDelegate for CompositorRender3dDelegate {
         sprite_elapsed: u64,
         ctx: &mut super::render::RenderCtx<'_>,
     ) {
-        render_obj_sprite_3d(
+        render_obj_sprite_adapter(
             sprite,
             area,
             target_resolver,
@@ -122,7 +120,14 @@ impl Render3dDelegate for CompositorRender3dDelegate {
         object_regions: &mut HashMap<String, Region>,
         ctx: &mut super::render::RenderCtx<'_>,
     ) {
-        render_scene_clip_sprite_3d(sprite, area, object_id, object_state, object_regions, ctx);
+        render_scene_clip_sprite_adapter(
+            sprite,
+            area,
+            object_id,
+            object_state,
+            object_regions,
+            ctx,
+        );
     }
 }
 

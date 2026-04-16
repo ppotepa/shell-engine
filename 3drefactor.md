@@ -288,6 +288,7 @@ These are the tasks to start with immediately.
 - [x] Rename internal compositor 3D scene clip renderer entrypoint to `render_scene_clip_sprite`.
 - [x] Move `Obj` sprite render mapping/execution out of `sprite_renderer_3d` into dedicated `obj_render_adapter` module.
 - [x] Move `scene_clip` sprite render mapping/execution out of `sprite_renderer_3d` into dedicated `scene_clip_render_adapter` module.
+- [x] Remove `sprite_renderer_3d` intermediary module and wire compositor delegate directly to 3D adapters.
 
 ## Definition of Done
 
