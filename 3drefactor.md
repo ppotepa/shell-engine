@@ -281,6 +281,7 @@ These are the tasks to start with immediately.
 - [x] Introduce `engine-render-3d::scene` module with initial typed scene graph structures.
 - [x] Introduce concrete `Render3dInput` / `Render3dOutput` types in `engine-render-3d::api`.
 - [x] Add `engine-render-3d::pipeline::map_sprite_to_node3d` for `Obj`, `Planet`, and `Scene3D`.
+- [x] Route `Scene3D` sprite render path through typed node mapping (`map_sprite_to_node3d`) instead of direct field unpacking.
 
 ## Definition of Done
 

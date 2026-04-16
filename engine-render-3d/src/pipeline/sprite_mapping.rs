@@ -1,6 +1,8 @@
-use crate::scene::{GeneratedWorldInstance, MeshInstance, Node3DInstance, Renderable3D, SceneClip3DInstance};
-use engine_core::scene::Sprite;
+use crate::scene::{
+    GeneratedWorldInstance, MeshInstance, Node3DInstance, Renderable3D, SceneClip3DInstance,
+};
 use engine_core::render_types::Transform3D;
+use engine_core::scene::{CameraSource, Sprite};
 
 pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
     match sprite {
@@ -71,6 +73,7 @@ pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
             frame,
             x,
             y,
+            camera_source,
             visible,
             ..
         } => Some(Node3DInstance {
@@ -84,6 +87,7 @@ pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
             renderable: Renderable3D::SceneClip(SceneClip3DInstance {
                 source: src.clone(),
                 frame: frame.clone(),
+                use_scene_camera: *camera_source == CameraSource::Scene,
             }),
         }),
         Sprite::Text { .. }
@@ -163,6 +167,7 @@ frame: idle
             Renderable3D::SceneClip(clip) => {
                 assert_eq!(clip.source, "/assets/3d/demo.scene3d.yml");
                 assert_eq!(clip.frame, "idle");
+                assert!(!clip.use_scene_camera);
             }
             _ => panic!("expected scene clip renderable"),
         }

@@ -6,6 +6,8 @@ use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::{CameraSource, Sprite};
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
+use engine_render_3d::pipeline::map_sprite_to_node3d;
+use engine_render_3d::scene::Renderable3D;
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
 use std::collections::HashMap;
 
@@ -595,15 +597,10 @@ pub(crate) fn render_scene3d_sprite(
     object_regions: &mut HashMap<String, Region>,
     ctx: &mut RenderCtx<'_>,
 ) {
-    let Sprite::Scene3D {
-        src,
-        frame,
-        x,
-        y,
-        camera_source,
-        ..
-    } = sprite
-    else {
+    let Some(node) = map_sprite_to_node3d(sprite) else {
+        return;
+    };
+    let Renderable3D::SceneClip(scene_clip) = node.renderable else {
         return;
     };
     use crate::scene3d_atlas::Scene3DAtlas;
@@ -611,12 +608,12 @@ pub(crate) fn render_scene3d_sprite(
     use engine_render::rasterizer::blit;
     let draw_x = area
         .origin_x
-        .saturating_add(*x)
+        .saturating_add(node.transform.translation[0].round() as i32)
         .saturating_add(object_state.offset_x)
         .max(0) as u16;
     let draw_y = area
         .origin_y
-        .saturating_add(*y)
+        .saturating_add(node.transform.translation[1].round() as i32)
         .saturating_add(object_state.offset_y)
         .max(0) as u16;
 
@@ -624,15 +621,15 @@ pub(crate) fn render_scene3d_sprite(
     // index), look up the parsed scene definition and render the current animation frame live.
     // This gives true 60fps 3D animation without startup prerender cost for clip frames.
     let rendered_realtime = if let (Some(entry), Some(asset_root)) =
-        (Scene3DRuntimeStore::current_get(src), ctx.asset_root)
+        (Scene3DRuntimeStore::current_get(&scene_clip.source), ctx.asset_root)
     {
-        if entry.def.frames.contains_key(frame.as_str()) {
+        if entry.def.frames.contains_key(scene_clip.frame.as_str()) {
             let buf = crate::scene3d_prerender::render_scene3d_frame_at(
                 entry,
-                frame,
+                &scene_clip.frame,
                 ctx.scene_elapsed_ms,
                 asset_root,
-                (*camera_source == CameraSource::Scene).then_some(ctx.scene_camera_3d),
+                scene_clip.use_scene_camera.then_some(ctx.scene_camera_3d),
             );
             if let Some(buf) = buf {
                 blit(&buf, ctx.layer_buf, draw_x, draw_y);
@@ -660,8 +657,8 @@ pub(crate) fn render_scene3d_sprite(
 
     // Fallback: look up prerendered buffer from world-scoped atlas via thread-local pointer.
     // Used for static frames and when no runtime store is available.
-    if !rendered_realtime && *camera_source != CameraSource::Scene {
-        if let Some(buf) = Scene3DAtlas::current_get(src, frame) {
+    if !rendered_realtime && !scene_clip.use_scene_camera {
+        if let Some(buf) = Scene3DAtlas::current_get(&scene_clip.source, &scene_clip.frame) {
             blit(&buf, ctx.layer_buf, draw_x, draw_y);
             if let Some(id) = object_id {
                 object_regions.insert(

@@ -27,6 +27,7 @@ pub struct Billboard3DInstance {
 pub struct SceneClip3DInstance {
     pub source: String,
     pub frame: String,
+    pub use_scene_camera: bool,
 }
 
 #[derive(Debug, Clone)]
