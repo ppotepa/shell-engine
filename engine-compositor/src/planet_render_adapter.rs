@@ -7,6 +7,8 @@ use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::{CameraSource, Sprite};
 use engine_core::scene_runtime_types::{ObjectRuntimeState, SceneCamera3D, TargetResolver};
+use engine_render_3d::pipeline::map_sprite_to_node3d;
+use engine_render_3d::scene::Renderable3D;
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
 use std::collections::HashMap;
 
@@ -26,19 +28,17 @@ pub(crate) fn render_planet_sprite(
     sprite_elapsed: u64,
     ctx: &mut RenderCtx<'_>,
 ) {
+    let Some(node) = map_sprite_to_node3d(sprite) else {
+        return;
+    };
+    let Renderable3D::GeneratedWorld(generated_world) = &node.renderable else {
+        return;
+    };
+
     let Sprite::Planet {
-        body_id,
-        preset,
-        mesh_source,
-        x,
-        y,
         size,
         width,
         height,
-        scale,
-        yaw_deg,
-        pitch_deg,
-        roll_deg,
         spin_deg,
         cloud_spin_deg,
         cloud2_spin_deg,
@@ -61,10 +61,13 @@ pub(crate) fn render_planet_sprite(
     let Some(catalogs) = ctx.celestial_catalogs else {
         return;
     };
-    let Some(body) = catalogs.bodies.get(body_id) else {
+    let Some(body) = catalogs.bodies.get(generated_world.body_id.as_str()) else {
         return;
     };
-    let preset_id = preset.as_deref().or(body.planet_type.as_deref());
+    let preset_id = generated_world
+        .preset_id
+        .as_deref()
+        .or(body.planet_type.as_deref());
     let Some(planet) = preset_id.and_then(|id| catalogs.planet_types.get(id)) else {
         return;
     };
@@ -74,8 +77,20 @@ pub(crate) fn render_planet_sprite(
     } else {
         (area.width.max(1), area.height.max(1))
     };
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
+    let base_x = area.origin_x
+        + resolve_x(
+            node.transform.translation[0].round() as i32,
+            align_x,
+            area.width,
+            sprite_width,
+        );
+    let base_y = area.origin_y
+        + resolve_y(
+            node.transform.translation[1].round() as i32,
+            align_y,
+            area.height,
+            sprite_height,
+        );
     let (draw_x, draw_y) = compute_draw_pos(
         base_x,
         base_y,
@@ -91,12 +106,15 @@ pub(crate) fn render_planet_sprite(
         sun_dir_y.unwrap_or(planet.sun_dir_y as f32),
         sun_dir_z.unwrap_or(planet.sun_dir_z as f32),
     ];
-    let surface_scale = scale.unwrap_or(1.0);
+    let surface_scale = node.transform.scale[0];
     let (cloud_scale, cloud2_scale) = planet_cloud_scales(body, surface_scale);
-    let mesh_path = mesh_source.as_deref().unwrap_or(DEFAULT_PLANET_MESH_SOURCE);
-    let base_yaw = yaw_deg.unwrap_or(0.0);
-    let pitch = pitch_deg.unwrap_or(0.0);
-    let roll = roll_deg.unwrap_or(0.0);
+    let mesh_path = generated_world
+        .mesh_source
+        .as_deref()
+        .unwrap_or(DEFAULT_PLANET_MESH_SOURCE);
+    let base_yaw = node.transform.rotation_deg[1];
+    let pitch = node.transform.rotation_deg[0];
+    let roll = node.transform.rotation_deg[2];
     let camera_distance = camera_distance.unwrap_or(3.0);
     let fov_degrees = fov_degrees.unwrap_or(60.0);
     let near_clip = near_clip.unwrap_or(0.001);

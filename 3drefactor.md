@@ -282,6 +282,7 @@ These are the tasks to start with immediately.
 - [x] Introduce concrete `Render3dInput` / `Render3dOutput` types in `engine-render-3d::api`.
 - [x] Add `engine-render-3d::pipeline::map_sprite_to_node3d` for `Obj`, `Planet`, and `Scene3D`.
 - [x] Route `Scene3D` sprite render path through typed node mapping (`map_sprite_to_node3d`) instead of direct field unpacking.
+- [x] Route `Planet` adapter base identity/transform (`body/preset/mesh/rotation/scale/position`) through typed node mapping.
 
 ## Definition of Done
 
