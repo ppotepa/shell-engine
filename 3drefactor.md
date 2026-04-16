@@ -299,6 +299,7 @@ These are the tasks to start with immediately.
 - [x] Remove mod-flavoured Scene3D clip examples from renderer-facing comments (`solar-orbit*` -> neutral `orbit*`) to keep render docs domain-agnostic.
 - [x] Move Scene3D source discovery + load/resolve helpers from compositor prerender path into `engine-render-3d::prerender::scene_sources` and consume them from compositor.
 - [x] Move Scene3D frame sample/keyframe expansion logic from compositor prerender path into `engine-render-3d::prerender::frame_schedule` and consume schedule outputs in compositor.
+- [x] Move camera look-at basis helper (`look_at_basis`) from compositor Scene3D prerender path into `engine-render-3d::prerender::camera_basis`.
 
 ## Definition of Done
 

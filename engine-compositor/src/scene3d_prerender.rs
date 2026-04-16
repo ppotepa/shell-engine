@@ -13,7 +13,7 @@ use engine_core::logging;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    collect_scene3d_sources, expand_frame_samples, load_and_resolve_scene3d,
+    collect_scene3d_sources, expand_frame_samples, load_and_resolve_scene3d, look_at_basis,
 };
 
 use crate::{
@@ -81,35 +81,6 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
     );
 
     Some(atlas)
-}
-
-fn look_at_basis(
-    eye: [f32; 3],
-    target: [f32; 3],
-    world_up: [f32; 3],
-) -> ([f32; 3], [f32; 3], [f32; 3]) {
-    let fwd = {
-        let d = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
-        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(1e-6);
-        [d[0] / len, d[1] / len, d[2] / len]
-    };
-    // right = normalize(cross(fwd, world_up))
-    let right = {
-        let d = [
-            fwd[1] * world_up[2] - fwd[2] * world_up[1],
-            fwd[2] * world_up[0] - fwd[0] * world_up[2],
-            fwd[0] * world_up[1] - fwd[1] * world_up[0],
-        ];
-        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(1e-6);
-        [d[0] / len, d[1] / len, d[2] / len]
-    };
-    // up = cross(right, fwd)
-    let up = [
-        right[1] * fwd[2] - right[2] * fwd[1],
-        right[2] * fwd[0] - right[0] * fwd[2],
-        right[0] * fwd[1] - right[1] * fwd[0],
-    ];
-    (right, up, fwd)
 }
 
 struct WorkItem {
