@@ -16,15 +16,15 @@ mod layer_compositor;
 mod obj_prerender;
 mod obj_render;
 mod obj_render_adapter;
-pub mod obj_render_helpers;
+mod obj_render_helpers;
 mod prerender;
 pub mod provider;
-pub mod render;
+mod render;
 mod scene3d_prerender;
 mod scene_clip_render_adapter;
 mod scene_compositor;
 mod sprite_renderer_2d;
-pub mod systems;
+mod systems;
 
 pub use access::CompositorAccess;
 pub use buffer_pool::{

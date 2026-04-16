@@ -377,6 +377,7 @@ These are the tasks to start with immediately.
 - [x] Add shared prepared 3D sprite spec seam (`engine-render-3d::pipeline::render3d_sprite_spec`) and route compositor 3D dispatch (`obj/generated-world/scene-clip`) through prepared specs instead of direct authored sprite branching.
 - [x] Refactor compositor prerender target collection to reuse shared 3D extraction helpers + recursive sprite walking, removing duplicated direct authored `Sprite::Obj` interpretation blocks from prerender path.
 - [x] Hide `engine-compositor::obj_prerender` module ownership behind top-level compositor exports (`ObjPrerenderedFrames`, `ObjPrerenderStatus`, frame types/constants) and update engine call sites to consume the narrowed public seam.
+- [x] Hide non-assembly internal compositor modules (`systems`, `render`, `obj_render_helpers`) behind crate-private visibility and consume only explicit top-level re-exports from engine integration points.
 - [x] Remove remaining mod-flavoured sample Scene3D source literals in engine tests (`demo.scene3d.yml` -> `sample.scene3d.yml`) to keep renderer/runtime test fixtures domain-agnostic.
 - [x] Extract `Sprite::Obj` field unpacking into `engine-render-3d::pipeline::obj_sprite_spec` and consume it from compositor adapter (reduce render-semantic coupling to authored sprite internals).
 - [x] Extract `Sprite::Planet` field unpacking into `engine-render-3d::pipeline::generated_world_sprite_spec` and consume it from compositor adapter (keep generated-world path renderer-agnostic).
