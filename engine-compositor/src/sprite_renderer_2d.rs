@@ -87,11 +87,47 @@ use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, is_sprite_offscreen,
     sprite_transform_offset, RenderCtx,
 };
-use super::sprite_renderer_3d::{render_obj_sprite, render_planet_sprite, render_scene3d_sprite};
+
+pub(crate) trait Render3dDelegate {
+    fn render_obj_sprite(
+        &self,
+        sprite: &Sprite,
+        area: RenderArea,
+        target_resolver: Option<&TargetResolver>,
+        object_regions: &mut HashMap<String, Region>,
+        object_id: Option<&str>,
+        object_state: &ObjectRuntimeState,
+        appear_at: u64,
+        sprite_elapsed: u64,
+        ctx: &mut RenderCtx<'_>,
+    );
+
+    fn render_planet_sprite(
+        &self,
+        sprite: &Sprite,
+        area: RenderArea,
+        target_resolver: Option<&TargetResolver>,
+        object_regions: &mut HashMap<String, Region>,
+        object_id: Option<&str>,
+        object_state: &ObjectRuntimeState,
+        sprite_elapsed: u64,
+        ctx: &mut RenderCtx<'_>,
+    );
+
+    fn render_scene3d_sprite(
+        &self,
+        sprite: &Sprite,
+        area: RenderArea,
+        object_id: Option<&str>,
+        object_state: &ObjectRuntimeState,
+        object_regions: &mut HashMap<String, Region>,
+        ctx: &mut RenderCtx<'_>,
+    );
+}
 
 /// Render all sprites in a layer onto `layer_buf`.
 #[allow(clippy::too_many_arguments)]
-pub fn render_sprites(
+pub(crate) fn render_sprites(
     layer_idx: usize,
     layer: &Layer,
     scene_w: u16,
@@ -111,6 +147,7 @@ pub fn render_sprites(
     celestial_catalogs: Option<&CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
+    render_3d: &dyn Render3dDelegate,
     layer_buf: &mut Buffer,
 ) {
     let mut ctx = RenderCtx {
@@ -154,6 +191,7 @@ pub fn render_sprites(
                 object_regions,
                 object_states,
                 &mut ctx,
+                render_3d,
             );
         }
     });
@@ -171,6 +209,7 @@ fn render_sprite(
     object_regions: &mut HashMap<String, Region>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
+    render_3d: &dyn Render3dDelegate,
 ) {
     let object_id =
         target_resolver.and_then(|resolver| resolver.sprite_object_id(layer_idx, sprite_path));
@@ -254,6 +293,7 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
+            render_3d,
         ),
         Sprite::Grid { .. } => render_grid_sprite(
             sprite,
@@ -269,6 +309,7 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
+            render_3d,
         ),
         Sprite::Flex { .. } => render_flex_sprite(
             sprite,
@@ -284,8 +325,9 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
+            render_3d,
         ),
-        Sprite::Obj { .. } => render_obj_sprite(
+        Sprite::Obj { .. } => render_3d.render_obj_sprite(
             sprite,
             area,
             target_resolver,
@@ -296,7 +338,7 @@ fn render_sprite(
             sprite_elapsed,
             ctx,
         ),
-        Sprite::Planet { .. } => render_planet_sprite(
+        Sprite::Planet { .. } => render_3d.render_planet_sprite(
             sprite,
             area,
             target_resolver,
@@ -307,7 +349,14 @@ fn render_sprite(
             ctx,
         ),
         Sprite::Scene3D { .. } => {
-            render_scene3d_sprite(sprite, area, object_id, &object_state, object_regions, ctx)
+            render_3d.render_scene3d_sprite(
+                sprite,
+                area,
+                object_id,
+                &object_state,
+                object_regions,
+                ctx,
+            )
         }
     }
 }
@@ -752,6 +801,7 @@ fn render_panel_sprite(
     sprite_path: &mut Vec<usize>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
+    render_3d: &dyn Render3dDelegate,
 ) {
     let Sprite::Panel {
         x,
@@ -858,6 +908,7 @@ fn render_panel_sprite(
             object_regions,
             object_states,
             ctx,
+            render_3d,
         );
         sprite_path.pop();
     }
@@ -894,6 +945,7 @@ fn render_grid_sprite(
     sprite_path: &mut Vec<usize>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
+    render_3d: &dyn Render3dDelegate,
 ) {
     let Sprite::Grid {
         x,
@@ -951,7 +1003,28 @@ fn render_grid_sprite(
         object_regions,
         object_states,
         ctx,
-        render_sprite,
+        |layer_idx,
+         sprite_path,
+         sprite,
+         area,
+         clip_rect,
+         target_resolver,
+         object_regions,
+         object_states,
+         ctx| {
+            render_sprite(
+                layer_idx,
+                sprite_path,
+                sprite,
+                area,
+                clip_rect,
+                target_resolver,
+                object_regions,
+                object_states,
+                ctx,
+                render_3d,
+            );
+        },
     );
 
     let sprite_region = Region {
@@ -986,6 +1059,7 @@ fn render_flex_sprite(
     sprite_path: &mut Vec<usize>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
+    render_3d: &dyn Render3dDelegate,
 ) {
     let Sprite::Flex {
         x,
@@ -1039,7 +1113,28 @@ fn render_flex_sprite(
         object_regions,
         object_states,
         ctx,
-        render_sprite,
+        |layer_idx,
+         sprite_path,
+         sprite,
+         area,
+         clip_rect,
+         target_resolver,
+         object_regions,
+         object_states,
+         ctx| {
+            render_sprite(
+                layer_idx,
+                sprite_path,
+                sprite,
+                area,
+                clip_rect,
+                target_resolver,
+                object_regions,
+                object_states,
+                ctx,
+                render_3d,
+            );
+        },
     );
 
     let sprite_region = Region {

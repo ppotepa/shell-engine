@@ -1,5 +1,9 @@
 use super::effect_applicator::apply_layer_effects;
-use super::sprite_renderer_2d::render_sprites;
+use super::sprite_renderer_2d::{render_sprites, Render3dDelegate};
+use super::sprite_renderer_3d::{
+    render_obj_sprite as render_obj_sprite_3d, render_planet_sprite as render_planet_sprite_3d,
+    render_scene3d_sprite as render_scene3d_sprite_3d,
+};
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
@@ -26,6 +30,7 @@ struct CompositorRender2dPipeline<'a> {
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
     celestial_catalogs: Option<&'a CelestialCatalogs>,
+    render_3d_delegate: &'a dyn Render3dDelegate,
 }
 
 impl Render2dPipeline for CompositorRender2dPipeline<'_> {
@@ -50,8 +55,73 @@ impl Render2dPipeline for CompositorRender2dPipeline<'_> {
             self.celestial_catalogs,
             input.is_pixel_backend,
             input.default_font,
+            self.render_3d_delegate,
             target,
         );
+    }
+}
+
+struct CompositorRender3dDelegate;
+
+impl Render3dDelegate for CompositorRender3dDelegate {
+    fn render_obj_sprite(
+        &self,
+        sprite: &engine_core::scene::Sprite,
+        area: engine_render_2d::RenderArea,
+        target_resolver: Option<&TargetResolver>,
+        object_regions: &mut HashMap<String, Region>,
+        object_id: Option<&str>,
+        object_state: &ObjectRuntimeState,
+        appear_at: u64,
+        sprite_elapsed: u64,
+        ctx: &mut super::render::RenderCtx<'_>,
+    ) {
+        render_obj_sprite_3d(
+            sprite,
+            area,
+            target_resolver,
+            object_regions,
+            object_id,
+            object_state,
+            appear_at,
+            sprite_elapsed,
+            ctx,
+        );
+    }
+
+    fn render_planet_sprite(
+        &self,
+        sprite: &engine_core::scene::Sprite,
+        area: engine_render_2d::RenderArea,
+        target_resolver: Option<&TargetResolver>,
+        object_regions: &mut HashMap<String, Region>,
+        object_id: Option<&str>,
+        object_state: &ObjectRuntimeState,
+        sprite_elapsed: u64,
+        ctx: &mut super::render::RenderCtx<'_>,
+    ) {
+        render_planet_sprite_3d(
+            sprite,
+            area,
+            target_resolver,
+            object_regions,
+            object_id,
+            object_state,
+            sprite_elapsed,
+            ctx,
+        );
+    }
+
+    fn render_scene3d_sprite(
+        &self,
+        sprite: &engine_core::scene::Sprite,
+        area: engine_render_2d::RenderArea,
+        object_id: Option<&str>,
+        object_state: &ObjectRuntimeState,
+        object_regions: &mut HashMap<String, Region>,
+        ctx: &mut super::render::RenderCtx<'_>,
+    ) {
+        render_scene3d_sprite_3d(sprite, area, object_id, object_state, object_regions, ctx);
     }
 }
 
@@ -85,10 +155,12 @@ pub fn composite_layers(
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
+    let render_3d_delegate = CompositorRender3dDelegate;
     let render_2d_pipeline = CompositorRender2dPipeline {
         obj_camera_states,
         scene_camera_3d,
         celestial_catalogs,
+        render_3d_delegate: &render_3d_delegate,
     };
 
     let resolve_layer_space = |layer: &Layer| match layer.space {

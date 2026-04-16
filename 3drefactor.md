@@ -274,6 +274,7 @@ These are the tasks to start with immediately.
 - [x] Move 2D container helpers.
 - [x] Split compositor sprite renderer into `2D` and `3D` modules.
 - [x] Switch compositor to the 2D pipeline seam.
+- [x] Route 3D sprite calls through an injected delegate (remove direct 2D->3D coupling).
 
 ## Definition of Done
 
