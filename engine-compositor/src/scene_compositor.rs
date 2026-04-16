@@ -21,10 +21,10 @@ pub struct CompositeParams<'a> {
 /// Inputs that define how the current frame should be assembled.
 pub struct FrameAssemblyInputs<'a> {
     pub layers: &'a [Layer],
+    pub layer_timed_visibility: &'a [bool],
     pub ui_enabled: bool,
     pub scene_space: SceneSpace,
     pub scene_effects: &'a [Effect],
-    pub scene_step_dur: u64,
 }
 
 /// Camera inputs prepared by engine runtime before frame assembly.
@@ -47,8 +47,17 @@ pub struct PreparedCompositeInputs<'a> {
     pub step_idx: usize,
     pub elapsed_ms: u64,
     pub scene_elapsed_ms: u64,
+    pub scene_effect_progress: f32,
     pub asset_root: Option<&'a AssetRoot>,
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+}
+
+/// Prepare per-layer timing flags used by compositor assembly decisions.
+pub fn prepare_layer_timed_visibility(layers: &[Layer]) -> Vec<bool> {
+    layers
+        .iter()
+        .map(engine_render_2d::layer_has_timed_sprites)
+        .collect()
 }

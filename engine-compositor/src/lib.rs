@@ -45,7 +45,7 @@ pub use obj_render::{
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
 pub use scene3d_prerender::{prerender_scene3d_atlas, render_scene3d_frame_at};
-pub use scene_compositor::CompositeParams;
+pub use scene_compositor::{prepare_layer_timed_visibility, CompositeParams};
 pub use systems::postfx;
 pub use warmup::warmup_scene_meshes;
 

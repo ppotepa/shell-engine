@@ -17,6 +17,13 @@ pub struct SetCamera2DMutation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Render3DCompatProperty {
+    Scene3dFrame { frame: String },
+    PlanetParam { path: String, value: MaterialValue },
+    ObjParam { path: String, value: MaterialValue },
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Render3DMutation {
     SetNodeTransform {
         target: String,
@@ -40,6 +47,10 @@ pub enum Render3DMutation {
         target: String,
         param: String,
         value: MaterialValue,
+    },
+    SetCompatProperty {
+        target: String,
+        property: Render3DCompatProperty,
     },
     SetSceneCamera {
         camera: Camera3DState,

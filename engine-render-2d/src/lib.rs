@@ -11,12 +11,14 @@ pub mod panel;
 pub mod text;
 pub mod vector;
 
-pub use api::{Render2dInput, Render2dPipeline};
+pub use api::{
+    layer_has_timed_sprites, sprites_have_timed_visibility, Render2dInput, Render2dPipeline,
+};
 pub use containers::render_children_in_cells;
 pub use image::{image_sprite_dimensions, render_image_content};
 pub use layout::{
-    compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, parse_track_spec,
-    resolve_x, resolve_y, with_render_context, GridCellRect, RenderArea, TrackSpec,
+    compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, parse_track_spec, resolve_x,
+    resolve_y, with_render_context, GridCellRect, RenderArea, TrackSpec,
 };
 pub use panel::{intersect_clip_rect, render_panel_box};
 pub use text::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};

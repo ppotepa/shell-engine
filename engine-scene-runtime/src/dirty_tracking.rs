@@ -9,6 +9,7 @@ pub fn dirty_for_render3d_mutation(mutation: &Render3DMutation) -> DirtyMask3D {
         Render3DMutation::SetMaterialParam { .. } => DirtyMask3D::MATERIAL,
         Render3DMutation::SetAtmosphereParam { .. } => DirtyMask3D::ATMOSPHERE,
         Render3DMutation::SetWorldgenParam { .. } => DirtyMask3D::WORLDGEN,
+        Render3DMutation::SetCompatProperty { .. } => DirtyMask3D::WORLDGEN,
         Render3DMutation::SetSceneCamera { .. } => DirtyMask3D::CAMERA,
         Render3DMutation::SetLight { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::RebuildMesh { .. } => DirtyMask3D::MESH,
@@ -81,6 +82,16 @@ mod tests {
                     target: "planet".to_string(),
                     param: "seed".to_string(),
                     value: engine_core::render_types::MaterialValue::Scalar(42.0),
+                },
+                DirtyMask3D::WORLDGEN,
+            ),
+            (
+                Render3DMutation::SetCompatProperty {
+                    target: "planet".to_string(),
+                    property: crate::mutations::Render3DCompatProperty::ObjParam {
+                        path: "obj.world.x".to_string(),
+                        value: engine_core::render_types::MaterialValue::Scalar(1.0),
+                    },
                 },
                 DirtyMask3D::WORLDGEN,
             ),

@@ -23,7 +23,7 @@ where
 {
     let runtime_scene = compile_scene_document_with_loader(content, object_loader)?;
     Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_runtime(&runtime_scene),
+        render_scene: build_render_scene_from_scene(&runtime_scene),
         runtime_scene,
     })
 }
@@ -39,7 +39,7 @@ where
     let runtime_scene =
         compile_scene_document_with_loader_and_source(content, scene_source_path, object_loader)?;
     Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_runtime(&runtime_scene),
+        render_scene: build_render_scene_from_scene(&runtime_scene),
         runtime_scene,
     })
 }
@@ -60,12 +60,12 @@ where
         cutscene_filters,
     )?;
     Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_runtime(&runtime_scene),
+        render_scene: build_render_scene_from_scene(&runtime_scene),
         runtime_scene,
     })
 }
 
-fn build_render_scene_from_runtime(scene: &Scene) -> RenderScene {
+pub fn build_render_scene_from_scene(scene: &Scene) -> RenderScene {
     RenderScene {
         layers_2d: compile_2d_layers(scene),
         viewports_3d: compile_3d_viewports(scene),
@@ -131,10 +131,10 @@ layers:
     }
 
     #[test]
-    fn compiles_compat_obj_planet_and_scene3d_sprites_into_viewports() {
+    fn compiles_authored_obj_planet_and_scene3d_sprites_into_viewports() {
         let raw = r#"
-id: compat-3d
-title: Compat 3D
+id: authored-3d
+title: Authored 3D
 layers:
   - name: world
     sprites:

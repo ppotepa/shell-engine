@@ -1,19 +1,10 @@
 use super::cutscene::CutsceneFilterRegistry;
+pub use super::render_scene::build_render_scene_from_scene;
 use super::render_scene::{
     compile_render_scene_document_with_loader_and_source as compile_render_scene_document_with_loader_and_source_impl,
     compile_render_scene_document_with_loader_and_source_and_filters as compile_render_scene_document_with_loader_and_source_and_filters_impl,
 };
-use super::{compile_2d_layers, compile_3d_viewports, CompiledRenderScene};
-use engine_core::render_types::RenderScene;
-use engine_core::scene::Scene;
-
-/// Builds a render-scene view from an already compiled runtime scene.
-pub fn build_render_scene_from_scene(scene: &Scene) -> RenderScene {
-    RenderScene {
-        layers_2d: compile_2d_layers(scene),
-        viewports_3d: compile_3d_viewports(scene),
-    }
-}
+use super::CompiledRenderScene;
 
 /// Compiles authored scene YAML into runtime and render-scene forms.
 pub fn compile_render_scene_document<F>(
@@ -51,11 +42,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::build_render_scene_from_scene;
+    use super::{build_render_scene_from_scene, compile_render_scene_document};
     use crate::compile::{
         compile_render_scene_document_with_loader_and_source,
         compile_scene_document_with_loader_and_source,
     };
+    use engine_core::render_types::{SpriteRef, Viewport3DRef};
 
     #[test]
     fn render_scene_builder_matches_existing_compile_path() {
@@ -87,5 +79,65 @@ layers:
         let from_builder = build_render_scene_from_scene(&scene);
 
         assert_eq!(from_existing.render_scene, from_builder);
+    }
+
+    #[test]
+    fn wrapper_compile_path_keeps_authored_3d_forms_on_single_intermediate_builder() {
+        let raw = r#"
+id: wrapper-3d
+title: Wrapper 3D
+layers:
+  - name: world
+    sprites:
+      - type: obj
+        id: mesh-view
+        source: /assets/3d/sphere.obj
+      - type: panel
+        children:
+          - type: planet
+            id: planet-view
+            body-id: earth
+          - type: scene3_d
+            id: cinematic-view
+            src: /assets/3d/intro.scene3d.yml
+            frame: idle
+"#;
+
+        let from_wrapper =
+            compile_render_scene_document(raw, "test/scene.yml", |_| None).expect("wrapper path");
+        let from_loader =
+            compile_render_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+                .expect("loader path");
+
+        assert_eq!(from_wrapper.render_scene, from_loader.render_scene);
+        assert_eq!(
+            from_wrapper.render_scene.viewports_3d,
+            vec![
+                Viewport3DRef {
+                    id: Some("mesh-view".to_string()),
+                    sprite: SpriteRef {
+                        layer_index: 0,
+                        sprite_path: vec![0],
+                        sprite_id: Some("mesh-view".to_string()),
+                    },
+                },
+                Viewport3DRef {
+                    id: Some("planet-view".to_string()),
+                    sprite: SpriteRef {
+                        layer_index: 0,
+                        sprite_path: vec![1, 0],
+                        sprite_id: Some("planet-view".to_string()),
+                    },
+                },
+                Viewport3DRef {
+                    id: Some("cinematic-view".to_string()),
+                    sprite: SpriteRef {
+                        layer_index: 0,
+                        sprite_path: vec![1, 1],
+                        sprite_id: Some("cinematic-view".to_string()),
+                    },
+                },
+            ]
+        );
     }
 }

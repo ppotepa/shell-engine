@@ -47,7 +47,10 @@ pub use engine_core::scene_runtime_types::{
 };
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
-pub use mutations::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
+pub use mutations::{
+    Render3DCompatProperty, Render3DMutation, SceneMutation, Set2DPropsMutation,
+    SetCamera2DMutation,
+};
 pub use render3d_state::{scene_mutation_from_set_property_3d, Render3dRebuildDiagnostics};
 pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
 use serde_json::{Map as JsonMap, Value as JsonValue};
@@ -1188,6 +1191,169 @@ layers:
             .expect("scene3d frame");
 
         assert_eq!(scene3d_frame, "closeup");
+    }
+
+    #[test]
+    fn render3d_obj_set_property_matches_typed_world_param_mutation() {
+        let mut via_property = SceneRuntime::new(obj_scene(""));
+        let mut via_typed = SceneRuntime::new(obj_scene(""));
+        let resolver_a = via_property.target_resolver();
+        let resolver_b = via_typed.target_resolver();
+
+        via_property.apply_behavior_commands(
+            &resolver_a,
+            &[BehaviorCommand::SetProperty {
+                target: "helsinki-uni-wireframe".to_string(),
+                path: "obj.scale".to_string(),
+                value: serde_json::json!(1.5),
+            }],
+        );
+        via_typed.apply_behavior_commands(
+            &resolver_b,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetWorldParam {
+                        target: "helsinki-uni-wireframe".to_string(),
+                        name: "obj.scale".to_string(),
+                        value: serde_json::json!(1.5),
+                    },
+                ),
+            }],
+        );
+
+        let read_scale = |runtime: &SceneRuntime| {
+            runtime
+                .scene()
+                .layers
+                .iter()
+                .flat_map(|layer| layer.sprites.iter())
+                .find_map(|sprite| match sprite {
+                    Sprite::Obj { id, scale, .. }
+                        if id.as_deref() == Some("helsinki-uni-wireframe") =>
+                    {
+                        *scale
+                    }
+                    _ => None,
+                })
+                .expect("obj scale")
+        };
+        assert_eq!(read_scale(&via_property), read_scale(&via_typed));
+    }
+
+    #[test]
+    fn render3d_planet_set_property_matches_typed_world_param_mutation() {
+        let mut via_property = SceneRuntime::new(planet_scene(""));
+        let mut via_typed = SceneRuntime::new(planet_scene(""));
+        let resolver_a = via_property.target_resolver();
+        let resolver_b = via_typed.target_resolver();
+
+        via_property.apply_behavior_commands(
+            &resolver_a,
+            &[BehaviorCommand::SetProperty {
+                target: "main-planet-view".to_string(),
+                path: "planet.spin_deg".to_string(),
+                value: serde_json::json!(15.0),
+            }],
+        );
+        via_typed.apply_behavior_commands(
+            &resolver_b,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetWorldParam {
+                        target: "main-planet-view".to_string(),
+                        name: "planet.spin_deg".to_string(),
+                        value: serde_json::json!(15.0),
+                    },
+                ),
+            }],
+        );
+
+        let read_spin = |runtime: &SceneRuntime| {
+            runtime
+                .scene()
+                .layers
+                .iter()
+                .flat_map(|layer| layer.sprites.iter())
+                .find_map(|sprite| match sprite {
+                    Sprite::Planet { id, spin_deg, .. }
+                        if id.as_deref() == Some("main-planet-view") =>
+                    {
+                        *spin_deg
+                    }
+                    _ => None,
+                })
+                .expect("planet spin")
+        };
+        assert_eq!(read_spin(&via_property), read_spin(&via_typed));
+    }
+
+    #[test]
+    fn render3d_scene3d_frame_set_property_matches_typed_world_param_mutation() {
+        let mut via_property = SceneRuntime::new(scene3d_scene(""));
+        let mut via_typed = SceneRuntime::new(scene3d_scene(""));
+        let resolver_a = via_property.target_resolver();
+        let resolver_b = via_typed.target_resolver();
+
+        via_property.apply_behavior_commands(
+            &resolver_a,
+            &[BehaviorCommand::SetProperty {
+                target: "intro-view".to_string(),
+                path: "scene3d.frame".to_string(),
+                value: serde_json::json!("closeup"),
+            }],
+        );
+        via_typed.apply_behavior_commands(
+            &resolver_b,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetWorldParam {
+                        target: "intro-view".to_string(),
+                        name: "scene3d.frame".to_string(),
+                        value: serde_json::json!("closeup"),
+                    },
+                ),
+            }],
+        );
+
+        let read_frame = |runtime: &SceneRuntime| {
+            runtime
+                .scene()
+                .layers
+                .iter()
+                .flat_map(|layer| layer.sprites.iter())
+                .find_map(|sprite| match sprite {
+                    Sprite::Scene3D { id, frame, .. } if id.as_deref() == Some("intro-view") => {
+                        Some(frame.clone())
+                    }
+                    _ => None,
+                })
+                .expect("scene3d frame")
+        };
+        assert_eq!(read_frame(&via_property), read_frame(&via_typed));
+    }
+
+    #[test]
+    fn non_render_set_property_still_uses_property_path_fallback() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetProperty {
+                target: "title".to_string(),
+                path: "text.content".to_string(),
+                value: serde_json::json!("HELLO_TYPED"),
+            }],
+        );
+
+        let title_id = resolver.resolve_alias("title").expect("title id");
+        let object_text = runtime.object_text_snapshot();
+        let title_text = object_text
+            .get(title_id)
+            .cloned()
+            .expect("title text in snapshot");
+
+        assert_eq!(title_text, "HELLO_TYPED");
+        assert_eq!(runtime.take_render3d_dirty_mask(), DirtyMask3D::empty());
     }
 
     #[test]

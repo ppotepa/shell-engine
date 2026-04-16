@@ -14,3 +14,6 @@ engine-layout = { workspace = true }
 engine-render = { path = "../engine-render" }
 engine-render-policy = { workspace = true }
 engine-vector = { workspace = true }
+
+[dev-dependencies]
+serde_yaml = { workspace = true }

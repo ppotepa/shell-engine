@@ -62,7 +62,7 @@ pub fn compositor_system(world: &mut World) {
         scene_space,
         scene_camera_3d,
         effects_ptr,
-        scene_step_dur,
+        scene_effect_progress,
         camera_x,
         camera_y,
         camera_zoom,
@@ -104,6 +104,11 @@ pub fn compositor_system(world: &mut World) {
             .map(|s| s.effects.as_slice() as *const _)
             .unwrap_or(&[] as *const _);
         let scene_step_dur = current_step.map(|s| s.duration_ms()).unwrap_or(0);
+        let scene_effect_progress = if scene_step_dur == 0 {
+            0.0_f32
+        } else {
+            (elapsed as f32 / scene_step_dur as f32).clamp(0.0, 1.0)
+        };
 
         let (camera_x, camera_y) = world
             .scene_runtime()
@@ -131,7 +136,7 @@ pub fn compositor_system(world: &mut World) {
             scene.space,
             scene_camera_3d,
             effects_ptr,
-            scene_step_dur,
+            scene_effect_progress,
             camera_x,
             camera_y,
             camera_zoom,
@@ -142,6 +147,7 @@ pub fn compositor_system(world: &mut World) {
     let layers: &[crate::scene::Layer] = unsafe { (*layers_ptr).as_slice() };
     // SAFETY: see comment above effects_ptr declaration (#6).
     let scene_effects: &[crate::scene::Effect] = unsafe { &*effects_ptr };
+    let layer_timed_visibility = engine_compositor::prepare_layer_timed_visibility(layers);
 
     // Determine if prerendering is complete and we can use the prerendered frame store.
     // We extract a raw pointer to avoid holding a borrow while also needing mut access to world.
@@ -220,10 +226,10 @@ pub fn compositor_system(world: &mut World) {
         bg,
         frame: engine_compositor::scene_compositor::FrameAssemblyInputs {
             layers,
+            layer_timed_visibility: &layer_timed_visibility,
             ui_enabled,
             scene_space,
             scene_effects,
-            scene_step_dur,
         },
         prepared: engine_compositor::scene_compositor::PreparedCompositeInputs {
             camera: engine_compositor::scene_compositor::PreparedCameraInputs {
@@ -239,6 +245,7 @@ pub fn compositor_system(world: &mut World) {
             step_idx,
             elapsed_ms,
             scene_elapsed_ms,
+            scene_effect_progress,
             asset_root: asset_root.as_ref(),
             celestial_catalogs,
             is_pixel_backend,

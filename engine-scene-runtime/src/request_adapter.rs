@@ -185,16 +185,19 @@ mod tests {
         )
         .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+            SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
                 target,
-                param,
-                value,
+                property,
             }) => {
                 assert_eq!(target, "scene-view");
-                assert_eq!(param, "scene3d.frame");
-                assert_eq!(value, MaterialValue::Text("main-7".to_string()));
+                assert_eq!(
+                    property,
+                    crate::Render3DCompatProperty::Scene3dFrame {
+                        frame: "main-7".to_string()
+                    }
+                );
             }
-            _ => panic!("expected SetWorldgenParam"),
+            _ => panic!("expected SetCompatProperty"),
         }
     }
 
@@ -207,16 +210,20 @@ mod tests {
         )
         .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+            SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
                 target,
-                param,
-                value,
+                property,
             }) => {
                 assert_eq!(target, "planet-view");
-                assert_eq!(param, "planet.spin_deg");
-                assert_eq!(value, MaterialValue::Scalar(15.0));
+                assert_eq!(
+                    property,
+                    crate::Render3DCompatProperty::PlanetParam {
+                        path: "planet.spin_deg".to_string(),
+                        value: MaterialValue::Scalar(15.0),
+                    }
+                );
             }
-            _ => panic!("expected SetWorldgenParam"),
+            _ => panic!("expected SetCompatProperty"),
         }
     }
 

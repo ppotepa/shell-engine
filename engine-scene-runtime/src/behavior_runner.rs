@@ -794,17 +794,24 @@ impl SceneRuntime {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
-                    let Some(json_value) =
-                        crate::render3d_state::render3d_material_value_to_json(value)
-                    else {
+                    let Some(property) = crate::render3d_state::render3d_compat_property_from_param(
+                        param,
+                        value.clone(),
+                    ) else {
                         return;
                     };
-                    if !self.apply_render3d_property_for_target(
-                        object_id,
-                        target,
-                        param,
-                        &json_value,
-                    ) {
+                    if !self.apply_render3d_compat_property_for_target(object_id, target, &property)
+                    {
+                        return;
+                    }
+                    mutation_applied = true;
+                }
+                Render3DMutation::SetCompatProperty { target, property } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if !self.apply_render3d_compat_property_for_target(object_id, target, property)
+                    {
                         return;
                     }
                     mutation_applied = true;

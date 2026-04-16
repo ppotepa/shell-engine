@@ -7,13 +7,13 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ## Hard Rules
 
-- [ ] Do not introduce new identifiers, modules, files, or types with `legacy`
+- [x] Do not introduce new identifiers, modules, files, or types with `legacy`
       in the name.
 - [ ] Do not keep permanent compatibility layers, duplicate pipelines, or
       shadow implementations in the engine.
-- [ ] Keep `type: image`, `type: text`, and existing 2D layout behavior fully
+- [x] Keep `type: image`, `type: text`, and existing 2D layout behavior fully
       supported.
-- [ ] Keep existing YAML scenes and mods loading during the migration.
+- [x] Keep existing YAML scenes and mods loading during the migration.
 - [ ] Treat planets as one producer of 3D data, not as a special renderer.
 - [ ] Keep 3D domain logic out of `engine-compositor`.
 - [ ] Keep asset loading semantics unchanged for unpacked mods and zip mods.
@@ -23,19 +23,16 @@ stop pushing rendering semantics through `Sprite::Obj`.
       examples, or behavior assumptions in core/render code paths).
 
 Policy notes (verified against current code, audit date: 2026-04-16):
-- Legacy naming policy (active scope audit): newly introduced `legacy` tokens
-  are present in `engine-authoring/src/compile/render_scene.rs:134`,
-  `engine-authoring/src/compile/render_scene.rs:136`,
-  `engine-authoring/src/compile/render_scene.rs:137`.
+- Legacy naming policy (active refactor scope audit): no `legacy` matches in
+  `engine-authoring/src/compile/render_scene.rs`, `engine-compositor`,
+  `engine-render-3d`, `engine-scene-runtime`, `engine-render-2d`,
+  `engine-core`; diff-scan for newly added `legacy` lines also returned no
+  matches.
 - Mod-agnostic renderer/core policy: no mod-specific literals found in
   `engine-render-3d`, `engine-compositor`, and `engine-core` runtime paths.
 
 ## Remaining Blockers (Audit 2026-04-16)
 
-- `legacy` naming rule violation in active refactor scope:
-  `engine-authoring/src/compile/render_scene.rs:134`,
-  `engine-authoring/src/compile/render_scene.rs:136`,
-  `engine-authoring/src/compile/render_scene.rs:137`.
 - String-path mutation flow still active (typed path not converged to one
   implementation):
   `engine-api/src/commands.rs:40`,
@@ -122,7 +119,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - [x] Add `compile/compile_2d.rs`.
 - [x] Add `compile/compile_3d.rs`.
 - [x] Add `validate/render3d.rs`.
-- [ ] Compile `obj`, `planet`, and `scene3d` directly into the new intermediate
+- [x] Compile `obj`, `planet`, and `scene3d` directly into the new intermediate
       model without parallel compiler paths.
 
 ### engine-scene-runtime
@@ -215,8 +212,8 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 
 ## Migration Rules
 
-- [ ] Keep `type: image` untouched.
-- [ ] Keep `type: text` untouched.
+- [x] Keep `type: image` untouched.
+- [x] Keep `type: text` untouched.
 - [ ] Keep `type: obj`, `type: planet`, and `type: scene3d` working while they
       are still first-class authored forms.
 - [ ] Do not build permanent dual execution paths to support migration.
@@ -309,7 +306,7 @@ PR0 baseline references:
       branching.
 - [x] Remove duplicate `SetProperty` handling for `scene3d.frame` now that the
       typed bridge path is authoritative for that safe case.
-- [ ] Collapse `SetProperty` handling onto typed mutations without a second
+- [x] Collapse `SetProperty` handling onto typed mutations without a second
       runtime path.
 - [x] Wire dirty flag updates from typed mutations.
 
@@ -391,6 +388,8 @@ These are the tasks to start with immediately.
 - [x] Update `scene_clip_render_adapter` to consume `extract_scene_clip_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
 - [x] Update `generated_world_render_adapter` to consume `extract_generated_world_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
 - [x] Route `map_sprite_to_node3d` planet-node creation through `extract_generated_world_sprite_spec(...).node` to remove duplicate mapping logic in pipeline core.
+- [x] Prepare per-layer timed-visibility flags outside `layer_compositor` and consume them as frame assembly input (remove direct sprite timing field interpretation from scratch-path selection).
+- [x] Prepare scene-step effect progress before compositor dispatch and pass scalar progress through `CompositeParams` (remove raw step-duration ownership from compositor effect application).
 - [x] Add request bridge in `engine-scene-runtime` (`SceneMutationRequest` -> typed runtime `SceneMutation`) with value conversion helpers for render params.
 - [x] Route core behavior commands (`SetVisibility`/`SetOffset`/`SetText`/`SetProps`/camera commands) through typed `SceneMutation` application path in `SceneRuntime`.
 - [x] Add first end-to-end typed scene mutation channel: `scene.mutate(...)` -> `BehaviorCommand::ApplySceneMutation` -> `SceneRuntime` typed mutation application.
@@ -401,8 +400,22 @@ These are the tasks to start with immediately.
 
 - [ ] 2D-only projects run without any 3D dependency leakage.
 - [ ] 3D no longer grows through new fields on `Sprite::Obj`.
-- [ ] Existing mods still load.
+- [x] Existing mods still load.
 - [ ] Runtime mutation path converges on typed APIs instead of growing more
       string-path branches.
 - [ ] `engine-compositor` no longer owns domain render logic.
-- [ ] No new code introduces `legacy` naming.
+- [x] No new code introduces `legacy` naming.
+
+DoD evidence (audit date: 2026-04-16):
+- `type:image` / `type:text` unchanged behavior:
+  `cargo test -p engine-render-2d` passed (`image::tests::scales_image_dimensions_from_size_preset`, text blit/multiline tests),
+  and `cargo test -p engine-authoring compile::scene::tests::compiles_image_obj_planet_and_scene3d_sprites_for_refactor_baseline -- --exact` passed.
+- Existing mods load (`--check-scenes`):
+  `mods/asteroids` (`logs/16-04-26/run-025/run.log`),
+  `mods/gui-playground` (`logs/16-04-26/run-026/run.log`),
+  `mods/planet-generator` (`logs/16-04-26/run-027/run.log`),
+  `mods/playground` (`logs/16-04-26/run-028/run.log`),
+  `mods/terrain-playground` (`logs/16-04-26/run-029/run.log`) all exited successfully.
+- No new legacy naming in active refactor scope:
+  `rg -n "legacy" engine-authoring/src/compile/render_scene.rs engine-compositor engine-render-3d engine-scene-runtime engine-render-2d engine-core` returned no matches;
+  `git diff -U0 -- . ':(exclude)3drefactor.md' | rg -n "^\\+.*legacy"` returned no matches.

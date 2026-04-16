@@ -38,6 +38,7 @@ pub struct PreparedLayerRenderInputs<'a> {
 /// Prepared layer/frame state consumed by compositor assembly.
 pub struct LayerCompositeInputs<'a> {
     pub layers: &'a [Layer],
+    pub layer_timed_visibility: &'a [bool],
     pub ui_enabled: bool,
     pub scene_w: u16,
     pub scene_h: u16,
@@ -171,6 +172,7 @@ pub fn composite_layers(
     buffer: &mut Buffer,
 ) {
     let layers = inputs.layers;
+    let layer_timed_visibility = inputs.layer_timed_visibility;
     let ui_enabled = inputs.ui_enabled;
     let scene_w = inputs.scene_w;
     let scene_h = inputs.scene_h;
@@ -345,13 +347,13 @@ pub fn composite_layers(
                 SceneStage::OnLeave => &layer.stages.on_leave,
                 SceneStage::Done => &layer.stages.on_idle,
             };
-            // Layer has effects OR layer has sprites with appear/disappear timing.
-            // Sprites with timing need scratch path for proper dirty region tracking when they vanish.
+            // Layer has effects OR timed sprite visibility (prepared by render-domain code).
+            // Timed visibility needs scratch path for proper dirty region tracking when sprites vanish.
             stage_ref.steps.iter().any(|s| !s.effects.is_empty())
-                || layer
-                    .sprites
-                    .iter()
-                    .any(|s| s.appear_at_ms().is_some() || s.disappear_at_ms().is_some())
+                || layer_timed_visibility
+                    .get(layer_idx)
+                    .copied()
+                    .unwrap_or(false)
         };
         let needs_scratch = layer_compositor.use_scratch(layer_has_active_effects);
 

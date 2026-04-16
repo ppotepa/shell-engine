@@ -44,6 +44,7 @@ fn composite_scene(
 
     let mut layer_inputs = LayerCompositeInputs {
         layers: params.frame.layers,
+        layer_timed_visibility: params.frame.layer_timed_visibility,
         ui_enabled: params.frame.ui_enabled,
         scene_w,
         scene_h,
@@ -71,11 +72,6 @@ fn composite_scene(
     };
     composite_layers(&mut layer_inputs, layer, buffer);
 
-    let scene_progress = if params.frame.scene_step_dur == 0 {
-        0.0_f32
-    } else {
-        (params.prepared.elapsed_ms as f32 / params.frame.scene_step_dur as f32).clamp(0.0, 1.0)
-    };
     if params.frame.scene_effects.is_empty() {
         return object_regions;
     }
@@ -86,7 +82,12 @@ fn composite_scene(
             full_region,
             &object_regions,
         );
-        apply_effect(effect, scene_progress, region, buffer);
+        apply_effect(
+            effect,
+            params.prepared.scene_effect_progress,
+            region,
+            buffer,
+        );
     }
     object_regions
 }
