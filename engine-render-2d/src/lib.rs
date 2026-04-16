@@ -6,6 +6,7 @@
 pub mod containers;
 pub mod image;
 pub mod layout;
+pub mod panel;
 pub mod text;
 pub mod vector;
 
@@ -15,5 +16,6 @@ pub use layout::{
     compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, parse_track_spec,
     resolve_x, resolve_y, with_render_context, GridCellRect, RenderArea, TrackSpec,
 };
+pub use panel::{intersect_clip_rect, render_panel_box};
 pub use text::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};
 pub use vector::{clear_vector_primitives, push_vector_primitive, take_vector_primitives};
