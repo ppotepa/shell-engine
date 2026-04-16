@@ -560,4 +560,21 @@ mod tests {
             load_rgba_image(&mod_dir, "/assets/images/shared.png").expect("load path image");
         assert_eq!(key_loaded.pixel(0, 0), path_loaded.pixel(0, 0));
     }
+
+    #[test]
+    fn path_and_key_seam_normalize_windows_style_asset_paths() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        write_png_to_dir(&mod_dir, "assets/images/shared.png", &tiny_png_bytes());
+
+        let from_path = load_image_asset(&mod_dir, r".\assets\images\shared.png")
+            .expect("windows-style path should load");
+        let key = resolve_image_asset_key(r"assets\images\shared.png");
+        let from_key =
+            load_image_asset_with_key(&mod_dir, &key).expect("normalized key should load");
+
+        assert!(Arc::ptr_eq(&from_path, &from_key));
+        assert!(has_image_asset_with_key(&mod_dir, &key));
+        assert!(has_image_asset(&mod_dir, r".\assets\images\shared.png"));
+    }
 }

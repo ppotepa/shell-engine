@@ -2,9 +2,9 @@
 //!
 //! Provides scene and asset repository implementations for loading from
 //! mod sources (unpacked directories or ZIP archives), and scene compilation.
-//! Image entry points (`load_image_asset`, `load_rgba_image`) are the shared
-//! seam used by 2D sprite rendering and any 3D-domain consumers that need
-//! decoded image data.
+//! Image entry points (`load_image_asset`, `load_rgba_image`) and key-based
+//! variants (`*_with_key`, `ImageAssetKey`) are the shared seam used by both
+//! 2D sprite rendering and 3D-domain consumers that need decoded image data.
 
 pub mod build_keys;
 pub mod image_assets;

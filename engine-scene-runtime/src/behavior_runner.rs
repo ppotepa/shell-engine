@@ -385,7 +385,7 @@ impl SceneRuntime {
         let mut had_spawns = false;
 
         for command in commands {
-            if let Some(mutation) = self.scene_mutation_from_behavior_command(command) {
+            if let Some(mutation) = self.scene_mutation_from_behavior_command(resolver, command) {
                 self.apply_scene_mutation(resolver, &mutation);
                 continue;
             }
@@ -416,7 +416,15 @@ impl SceneRuntime {
                     value,
                 } => {
                     if crate::render3d_state::is_render3d_compat_param_path(path)
-                        || matches!(path.as_str(), "visible" | "text.content")
+                        || matches!(
+                            path.as_str(),
+                            "visible"
+                                | "text.content"
+                                | "offset.x"
+                                | "position.x"
+                                | "offset.y"
+                                | "position.y"
+                        )
                     {
                         continue;
                     }
@@ -424,22 +432,6 @@ impl SceneRuntime {
                         continue;
                     };
                     match path.as_str() {
-                        "offset.x" | "position.x" => {
-                            let Some(next_x) = json_value_to_rounded_i32(value) else {
-                                continue;
-                            };
-                            if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.offset_x = next_x;
-                            }
-                        }
-                        "offset.y" | "position.y" => {
-                            let Some(next_y) = json_value_to_rounded_i32(value) else {
-                                continue;
-                            };
-                            if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.offset_y = next_y;
-                            }
-                        }
                         "transform.heading" => {
                             let Some(next_heading) = value.as_f64() else {
                                 continue;
@@ -616,6 +608,7 @@ impl SceneRuntime {
 
     fn scene_mutation_from_behavior_command(
         &self,
+        resolver: &TargetResolver,
         command: &BehaviorCommand,
     ) -> Option<SceneMutation> {
         match command {
@@ -702,8 +695,12 @@ impl SceneRuntime {
                 target,
                 path,
                 value,
-            } => engine_api::commands::scene_mutation_request_from_set_property_compat(
-                target, path, value,
+            } => scene_mutation_request_from_set_property_runtime_compat(
+                resolver,
+                &self.object_states,
+                target,
+                path,
+                value,
             )
             .and_then(|request| scene_mutation_from_request(&request, self.scene_camera_3d)),
             _ => None,
@@ -1743,4 +1740,46 @@ fn json_value_to_rounded_i32(value: &JsonValue) -> Option<i32> {
     value
         .as_f64()
         .and_then(|number| i32::try_from(number.round() as i64).ok())
+}
+
+fn scene_mutation_request_from_set_property_runtime_compat(
+    resolver: &TargetResolver,
+    object_states: &HashMap<String, ObjectRuntimeState>,
+    target: &str,
+    path: &str,
+    value: &JsonValue,
+) -> Option<engine_api::scene::SceneMutationRequest> {
+    if let Some(request) =
+        engine_api::commands::scene_mutation_request_from_set_property_compat(target, path, value)
+    {
+        return Some(request);
+    }
+
+    match path {
+        "offset.x" | "position.x" => {
+            let object_id = resolver.resolve_alias(target)?;
+            let state = object_states.get(object_id)?;
+            let next_x = json_value_to_rounded_i32(value)?;
+            Some(engine_api::scene::SceneMutationRequest::Set2dProps {
+                target: target.to_string(),
+                visible: None,
+                dx: Some(next_x.saturating_sub(state.offset_x)),
+                dy: None,
+                text: None,
+            })
+        }
+        "offset.y" | "position.y" => {
+            let object_id = resolver.resolve_alias(target)?;
+            let state = object_states.get(object_id)?;
+            let next_y = json_value_to_rounded_i32(value)?;
+            Some(engine_api::scene::SceneMutationRequest::Set2dProps {
+                target: target.to_string(),
+                visible: None,
+                dx: None,
+                dy: Some(next_y.saturating_sub(state.offset_y)),
+                text: None,
+            })
+        }
+        _ => None,
+    }
 }

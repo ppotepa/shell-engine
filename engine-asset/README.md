@@ -23,6 +23,7 @@ produced by `engine-authoring`.
 - `ZipSceneRepository` — repository for packaged mod archives
 - `AnySceneRepository` / `AnyAssetRepository` — runtime-selected wrappers
 - `ModAssetSourceLoader` — `SourceLoader` implementation for asset refs inside authored content
+- `ImageAssetKey` — canonical key for shared image lookup across 2D and 3D consumers
 - `compile_scene_document_with_loader_and_source()` — compiles merged authored YAML into a runtime `Scene`
 
 ## How it works
@@ -48,6 +49,18 @@ When changing mod loading behavior:
 
 If a change affects how authored assets are resolved, update
 `ModAssetSourceLoader` as well.
+
+## Image seam (2D + 3D)
+
+Use `resolve_image_asset_key()` to normalize authored image refs once (leading
+slash, separator style, and `./` prefix differences), then load through:
+
+- `load_image_asset_with_key()` for decoded cached image assets
+- `load_rgba_image_with_key()` for first-frame RGBA access
+- `has_image_asset_with_key()` for existence checks
+
+Path-based helpers (`load_image_asset`, `load_rgba_image`, `has_image_asset`)
+delegate to the same key-based seam and are equivalent.
 
 ## Integration points
 

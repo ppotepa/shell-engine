@@ -76,7 +76,8 @@ pub struct ImageAssetKey(String);
 
 impl ImageAssetKey {
     pub fn from_asset_path(asset_path: &str) -> Self {
-        let source = SourceRef::mod_asset(asset_path);
+        let canonical = canonicalize_image_asset_path(asset_path);
+        let source = SourceRef::mod_asset(canonical);
         Self(source.normalized_value().to_string())
     }
 
@@ -110,6 +111,14 @@ impl AsRef<str> for ImageAssetKey {
 /// Resolves a canonical image key used across 2D and 3D consumers.
 pub fn resolve_image_asset_key(asset_path: &str) -> ImageAssetKey {
     ImageAssetKey::from_asset_path(asset_path)
+}
+
+fn canonicalize_image_asset_path(asset_path: &str) -> String {
+    let mut canonical = asset_path.trim().replace('\\', "/");
+    while let Some(stripped) = canonical.strip_prefix("./") {
+        canonical = stripped.to_string();
+    }
+    canonical
 }
 
 /// Resolves a canonical mesh build key for an `obj` sprite source and any
@@ -473,5 +482,13 @@ content: hi
         let without_leading = resolve_image_asset_key("assets/images/logo.png");
         assert_eq!(with_leading, without_leading);
         assert_eq!(with_leading.as_str(), "assets/images/logo.png");
+    }
+
+    #[test]
+    fn image_asset_key_normalizes_windows_slashes_and_whitespace() {
+        let unix = resolve_image_asset_key("/assets/images/logo.png");
+        let windows = resolve_image_asset_key(r"  .\assets\images\logo.png  ");
+        assert_eq!(unix, windows);
+        assert_eq!(windows.as_str(), "assets/images/logo.png");
     }
 }

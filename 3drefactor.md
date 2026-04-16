@@ -198,7 +198,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - [ ] Keep `type: obj`, `type: planet`, and `type: scene3d` working while they
       are still first-class authored forms.
 - [ ] Do not build permanent dual execution paths to support migration.
-- [ ] Route new behavior features through typed mutation APIs, not new string
+- [x] Route new behavior features through typed mutation APIs, not new string
       paths.
 
 ## Dirty Flags and Invalidation
@@ -342,6 +342,7 @@ These are the tasks to start with immediately.
 - [x] Remove `sprite_renderer_3d` intermediary module and wire compositor delegate directly to 3D adapters.
 - [x] Extract Obj source override resolution (`terrain-*` / `world://`) into `obj_source_resolver` to keep adapter render flow focused.
 - [x] Rename compositor planet adapter/module symbols to generated-world naming (`generated_world_render_adapter`, `render_generated_world_sprite`) to keep render path source-agnostic.
+- [x] Move generated-world render execution pipeline from compositor into `engine-render-3d::pipeline::generated_world_renderer`, with compositor reduced to resolver/profile-finalization wrapper.
 - [x] Remove newly added `legacy` wording/identifiers from compositor-side 3D path (`obj_render_adapter`, `obj_render::params`, `pass_underlay`, grid comment) to enforce naming rule in active refactor scope.
 - [x] Remove `Scene3DAtlas` module ownership from `engine-compositor` and switch atlas type/re-exports to shared 3D domain (`engine-3d::scene3d_atlas`).
 - [x] Move `Scene3DRuntimeStore` ownership out of `engine-compositor` into `engine-render-3d::prerender::runtime_store` and keep compositor as API consumer.
@@ -381,6 +382,7 @@ These are the tasks to start with immediately.
 - [x] Route core behavior commands (`SetVisibility`/`SetOffset`/`SetText`/`SetProps`/camera commands) through typed `SceneMutation` application path in `SceneRuntime`.
 - [x] Add first end-to-end typed scene mutation channel: `scene.mutate(...)` -> `BehaviorCommand::ApplySceneMutation` -> `SceneRuntime` typed mutation application.
 - [x] Bridge selected 3D `SetProperty` paths to typed runtime mutations (`scene3d.frame`, `planet.spin_deg`, `planet.cloud_spin_deg`, `planet.cloud2_spin_deg`, `planet.sun_dir.{x,y,z}`, `obj.world.{x,y,z}`) with unchanged fallback for unsupported paths.
+- [x] Bridge additional compatibility property paths through typed request conversion (`visible`, `text.content`, `offset/position.{x,y}`) and skip duplicate runtime fallback for those paths.
 - [x] Route `Render3dMutationRequest::SetWorldParam` through typed compatibility mapping (`SetCompatProperty`) for render3d path namespaces (`scene3d.*`, `planet.*`, `obj.*`, `terrain.*`, `world.*`) before fallback worldgen mapping.
 - [x] Guard runtime non-render `SetProperty` fallback from render3d compatibility namespaces so invalid render3d compatibility values do not mutate via non-render path.
 - [x] Aggregate typed-mutation dirty invalidation in runtime (`DirtyMask3D`) and expose consume/reset APIs with tests.
@@ -413,7 +415,7 @@ DoD evidence (audit date: 2026-04-16):
   `git diff -U0 -- . ':(exclude)3drefactor.md' | rg -n "^\\+.*legacy"` returned no matches.
 
 Checklist progress (audit date: 2026-04-16):
-- Full checklist: `214 / 244` done, `30 / 244` todo (`87.70%` done, `12.30%` todo).
+- Full checklist: `217 / 246` done, `29 / 246` todo (`88.21%` done, `11.79%` todo).
 - Definition of Done: `2 / 6` done, `4 / 6` todo (`33.33%` done, `66.67%` todo).
 - Computed with:
   `rg -n "^- \\[( |x)\\]" 3drefactor.md`

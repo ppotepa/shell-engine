@@ -87,7 +87,12 @@ fn should_compile_viewports_from_document(document: &RenderScene3dDocument) -> b
     }
     !validate_render_scene3d_document(document)
         .iter()
-        .any(|diagnostic| matches!(diagnostic, Render3dDiagnostic::DuplicateViewportSpriteRef { .. }))
+        .any(|diagnostic| {
+            matches!(
+                diagnostic,
+                Render3dDiagnostic::DuplicateViewportSpriteRef { .. }
+            )
+        })
 }
 
 #[cfg(test)]

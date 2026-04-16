@@ -1,5 +1,8 @@
 use super::cutscene::CutsceneFilterRegistry;
-use super::scene::compile_scene_and_authoring_input_with_loader_and_source_and_filters;
+use super::scene::{
+    compile_scene_and_authoring_input_with_loader_and_source_and_filters,
+    CompiledSceneAuthoringInput,
+};
 use super::{compile_2d_layers, compile_3d::compile_3d_viewports_with_authored};
 use crate::document::RenderScene3dDocument;
 use engine_core::render_types::RenderScene;
@@ -20,19 +23,7 @@ where
     F: FnMut(&str) -> Option<String>,
 {
     let filters = CutsceneFilterRegistry::with_builtin_filters();
-    let compiled = compile_scene_and_authoring_input_with_loader_and_source_and_filters(
-        content,
-        "/",
-        object_loader,
-        &filters,
-    )?;
-    Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_scene_with_authored(
-            &compiled.scene,
-            compiled.authored_render_scene_3d.as_ref(),
-        ),
-        runtime_scene: compiled.scene,
-    })
+    compile_render_scene_with_source_and_filters(content, "/", object_loader, &filters)
 }
 
 pub fn compile_render_scene_document_with_loader_and_source<F>(
@@ -44,22 +35,32 @@ where
     F: FnMut(&str) -> Option<String>,
 {
     let filters = CutsceneFilterRegistry::with_builtin_filters();
-    let compiled = compile_scene_and_authoring_input_with_loader_and_source_and_filters(
+    compile_render_scene_with_source_and_filters(
         content,
         scene_source_path,
         object_loader,
         &filters,
-    )?;
-    Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_scene_with_authored(
-            &compiled.scene,
-            compiled.authored_render_scene_3d.as_ref(),
-        ),
-        runtime_scene: compiled.scene,
-    })
+    )
 }
 
 pub fn compile_render_scene_document_with_loader_and_source_and_filters<F>(
+    content: &str,
+    scene_source_path: &str,
+    object_loader: F,
+    cutscene_filters: &CutsceneFilterRegistry,
+) -> Result<CompiledRenderScene, serde_yaml::Error>
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    compile_render_scene_with_source_and_filters(
+        content,
+        scene_source_path,
+        object_loader,
+        cutscene_filters,
+    )
+}
+
+fn compile_render_scene_with_source_and_filters<F>(
     content: &str,
     scene_source_path: &str,
     object_loader: F,
@@ -74,17 +75,20 @@ where
         object_loader,
         cutscene_filters,
     )?;
-    Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_scene_with_authored(
-            &compiled.scene,
-            compiled.authored_render_scene_3d.as_ref(),
-        ),
-        runtime_scene: compiled.scene,
-    })
+    Ok(build_compiled_render_scene(compiled))
 }
 
-pub fn build_render_scene_from_scene(scene: &Scene) -> RenderScene {
-    build_render_scene_from_scene_with_authored(scene, None)
+fn build_compiled_render_scene(compiled: CompiledSceneAuthoringInput) -> CompiledRenderScene {
+    let CompiledSceneAuthoringInput {
+        scene,
+        authored_render_scene_3d,
+    } = compiled;
+    let render_scene =
+        build_render_scene_from_scene_with_authored(&scene, authored_render_scene_3d.as_ref());
+    CompiledRenderScene {
+        runtime_scene: scene,
+        render_scene,
+    }
 }
 
 fn build_render_scene_from_scene_with_authored(
@@ -95,6 +99,10 @@ fn build_render_scene_from_scene_with_authored(
         layers_2d: compile_2d_layers(scene),
         viewports_3d: compile_3d_viewports_with_authored(scene, authored_3d),
     }
+}
+
+pub fn build_render_scene_from_scene(scene: &Scene) -> RenderScene {
+    build_render_scene_from_scene_with_authored(scene, None)
 }
 
 #[cfg(test)]

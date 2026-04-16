@@ -1,5 +1,13 @@
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
+use engine_render_3d::effects::atmosphere::apply_atmosphere_overlay_barycentric;
+use engine_render_3d::effects::biome::{land_biome_signals, polar_ice_mask_ocean_from_view};
+pub(crate) use engine_render_3d::effects::noise::fbm_3d_octaves;
+pub(crate) use engine_render_3d::effects::params::{PlanetBiomeParams, PlanetTerrainParams};
+use engine_render_3d::effects::terrain::{
+    apply_crater_overlay_rgb, land_elevation_relief, normal_perturb_shade, ocean_shade_from_local,
+    ocean_specular_add, snow_line_mask, CraterParams,
+};
 pub(crate) use engine_render_3d::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
 pub(crate) use engine_render_3d::geom::math::{dot3, normalize3, rotate_xyz};
 pub(crate) use engine_render_3d::geom::raster::edge;
@@ -8,18 +16,8 @@ pub(crate) use engine_render_3d::shading::{
     apply_point_light_tint, apply_shading, apply_tone_palette, color_to_rgb,
     face_shading_with_specular, flicker_multiplier, mix_rgb, quantize_shade,
 };
-use engine_render_3d::effects::atmosphere::apply_atmosphere_overlay_barycentric;
-use engine_render_3d::effects::biome::{
-    land_biome_signals, polar_ice_mask_ocean_from_view,
-};
-pub(crate) use engine_render_3d::effects::params::{PlanetBiomeParams, PlanetTerrainParams};
-pub(crate) use engine_render_3d::effects::noise::{fbm_3d_full, fbm_3d_octaves};
-use engine_render_3d::effects::terrain::{
-    apply_crater_overlay_rgb, land_elevation_relief, normal_perturb_shade,
-    ocean_shade_from_local, ocean_specular_add, snow_line_mask, CraterParams,
-};
 
-use super::obj_loader::ObjFace;
+use engine_asset::ObjFace;
 
 #[inline]
 pub fn virtual_dimensions(target_w: u16, target_h: u16) -> (u16, u16) {
@@ -356,8 +354,11 @@ pub(crate) fn rasterize_triangle_gouraud(
                             if let Some(city_c) = b.night_light_color {
                                 if b.night_light_intensity > 0.0 {
                                     if sig.city_mask > 0.01 {
-                                        px_color =
-                                            mix_rgb(px_color, city_c, sig.city_mask.clamp(0.0, 0.95));
+                                        px_color = mix_rgb(
+                                            px_color,
+                                            city_c,
+                                            sig.city_mask.clamp(0.0, 0.95),
+                                        );
                                     }
                                 }
                             }
@@ -395,8 +396,11 @@ pub(crate) fn rasterize_triangle_gouraud(
                         let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
                         let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
                         let ocean_ns = terrain_extra.map(|te| te.ocean_noise_scale).unwrap_or(4.0);
-                        let ocean_base = terrain_extra.and_then(|te| te.ocean_color_override).unwrap_or(base_color);
-                        let os = ocean_shade_from_local(shade, [lx, ly, lz], ocean_ns, marble_depth);
+                        let ocean_base = terrain_extra
+                            .and_then(|te| te.ocean_color_override)
+                            .unwrap_or(base_color);
+                        let os =
+                            ocean_shade_from_local(shade, [lx, ly, lz], ocean_ns, marble_depth);
                         // Ocean specular highlight (sunglint).
                         let os = if let (Some(b), Some(te)) = (biome, terrain_extra) {
                             if te.ocean_specular > 0.0 {
@@ -460,7 +464,8 @@ pub(crate) fn rasterize_triangle_gouraud(
 
                 // Atmosphere overlay.
                 if let Some(b) = biome {
-                    pixel = apply_atmosphere_overlay_barycentric(pixel, &b, &v0, &v1, &v2, w0, w1, w2);
+                    pixel =
+                        apply_atmosphere_overlay_barycentric(pixel, &b, &v0, &v1, &v2, w0, w1, w2);
                 }
 
                 canvas[idx] = Some(pixel);
@@ -750,7 +755,9 @@ pub(crate) fn rasterize_triangle_gouraud_rgba(
 
                         // Atmosphere overlay for opaque surface pass.
                         let pixel = if let Some(b) = &biome {
-                            apply_atmosphere_overlay_barycentric(pixel, b, &v0, &v1, &v2, w0, w1, w2)
+                            apply_atmosphere_overlay_barycentric(
+                                pixel, b, &v0, &v1, &v2, w0, w1, w2,
+                            )
                         } else {
                             pixel
                         };
@@ -790,7 +797,9 @@ pub(crate) fn rasterize_triangle_gouraud_rgba(
                                     pixel = apply_shading(ice_c, cel2);
                                 }
                             }
-                            pixel = apply_atmosphere_overlay_barycentric(pixel, b, &v0, &v1, &v2, w0, w1, w2);
+                            pixel = apply_atmosphere_overlay_barycentric(
+                                pixel, b, &v0, &v1, &v2, w0, w1, w2,
+                            );
                         }
                         canvas[idx] = Some([pixel[0], pixel[1], pixel[2], 255]);
                     }
