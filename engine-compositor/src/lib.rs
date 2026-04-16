@@ -21,6 +21,7 @@ pub mod prerender;
 pub mod provider;
 pub mod render;
 mod planet_render_adapter;
+mod scene_clip_render_adapter;
 pub mod scene3d_atlas;
 pub mod scene3d_prerender;
 pub mod scene3d_runtime_store;
