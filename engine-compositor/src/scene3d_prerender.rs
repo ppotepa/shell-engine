@@ -1,18 +1,18 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use engine_core::color::Color;
 use rayon::prelude::*;
 
 use engine_3d::scene3d_format::{
-    load_scene3d, CameraDef, FrameDef, LightDef, LightKind, MaterialDef, ObjectDef,
-    Scene3DDefinition, SurfaceMode, TweenDef,
+    CameraDef, FrameDef, LightDef, LightKind, MaterialDef, ObjectDef, Scene3DDefinition,
+    SurfaceMode, TweenDef,
 };
-use engine_3d::scene3d_resolve::{resolve_scene3d_refs, Scene3DAssetResolver};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::logging;
-use engine_core::scene::{Layer, Scene, Sprite};
+use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
+use engine_render_3d::prerender::{collect_scene3d_sources, load_and_resolve_scene3d};
 
 use crate::{
     blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, ObjRenderParams,
@@ -36,13 +36,10 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
         ),
     );
 
-    let resolver = AssetRootResolver { asset_root };
     let work_items: Vec<WorkItem> = sources
         .iter()
         .flat_map(|src| {
-            let path = asset_root.resolve(src);
-            let path_str = path.to_string_lossy();
-            let mut def = match load_scene3d(&path_str) {
+            let def = match load_and_resolve_scene3d(asset_root, src) {
                 Ok(d) => d,
                 Err(e) => {
                     logging::warn(
@@ -52,7 +49,6 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
                     return Vec::new();
                 }
             };
-            resolve_scene3d_refs(&mut def, src, &resolver);
             build_work_items(src, def)
         })
         .collect();
@@ -83,51 +79,6 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
     );
 
     Some(atlas)
-}
-
-struct AssetRootResolver<'a> {
-    asset_root: &'a AssetRoot,
-}
-
-impl Scene3DAssetResolver for AssetRootResolver<'_> {
-    fn resolve_and_load_asset(
-        &self,
-        asset_path: &str,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let full = self.asset_root.resolve(asset_path);
-        Ok(std::fs::read_to_string(full)?)
-    }
-}
-
-fn collect_scene3d_sources(layers: &[Layer]) -> Vec<String> {
-    let mut seen = HashSet::new();
-    let mut out = Vec::new();
-    for layer in layers {
-        collect_sources_from_sprites(&layer.sprites, &mut seen, &mut out);
-    }
-    out
-}
-
-fn collect_sources_from_sprites(
-    sprites: &[Sprite],
-    seen: &mut HashSet<String>,
-    out: &mut Vec<String>,
-) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Scene3D { src, .. } => {
-                if seen.insert(src.clone()) {
-                    out.push(src.clone());
-                }
-            }
-            Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => {
-                collect_sources_from_sprites(children, seen, out);
-            }
-            _ => {}
-        }
-    }
 }
 
 fn look_at_basis(

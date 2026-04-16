@@ -297,6 +297,7 @@ These are the tasks to start with immediately.
 - [x] Route compositor `Scene3DAtlas` surface through `engine-render-3d::prerender` API (thin re-export seam) instead of direct `engine-3d` import in compositor.
 - [x] Move `build_scene3d_runtime_store` implementation from `engine-compositor` to `engine-render-3d::prerender::runtime_builder` and keep compositor as orchestration/re-export layer.
 - [x] Remove mod-flavoured Scene3D clip examples from renderer-facing comments (`solar-orbit*` -> neutral `orbit*`) to keep render docs domain-agnostic.
+- [x] Move Scene3D source discovery + load/resolve helpers from compositor prerender path into `engine-render-3d::prerender::scene_sources` and consume them from compositor.
 
 ## Definition of Done
 
