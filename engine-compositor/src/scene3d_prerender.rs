@@ -4,8 +4,7 @@ use engine_core::color::Color;
 use rayon::prelude::*;
 
 use engine_3d::scene3d_format::{
-    CameraDef, FrameDef, LightDef, LightKind, MaterialDef, ObjectDef, Scene3DDefinition,
-    SurfaceMode, TweenDef,
+    CameraDef, FrameDef, MaterialDef, ObjectDef, Scene3DDefinition, SurfaceMode, TweenDef,
 };
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
@@ -13,7 +12,8 @@ use engine_core::logging;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    collect_scene3d_sources, expand_frame_samples, load_and_resolve_scene3d, look_at_basis,
+    collect_scene3d_sources, expand_frame_samples, extract_light_params, load_and_resolve_scene3d,
+    look_at_basis, parse_hex_color, LightParams,
 };
 
 use crate::{
@@ -159,84 +159,6 @@ fn build_work_items(
     items
 }
 
-struct LightParams {
-    dir1: [f32; 3],
-    dir2: [f32; 3],
-    dir2_intensity: f32,
-    point1: [f32; 3],
-    point1_intensity: f32,
-    point1_colour: Option<Color>,
-    point1_snap_hz: f32,
-    point1_falloff: f32,
-    point2: [f32; 3],
-    point2_intensity: f32,
-    point2_colour: Option<Color>,
-    point2_snap_hz: f32,
-    point2_falloff: f32,
-    ambient: f32,
-}
-
-fn extract_light_params(lights: &[LightDef]) -> LightParams {
-    let mut p = LightParams {
-        dir1: [-0.45, 0.70, -0.85],
-        dir2: [0.0, 0.0, -1.0],
-        dir2_intensity: 0.0,
-        point1: [0.0, 2.0, 0.0],
-        point1_intensity: 0.0,
-        point1_colour: None,
-        point1_snap_hz: 0.0,
-        point1_falloff: 0.7,
-        point2: [0.0, 0.0, 0.0],
-        point2_intensity: 0.0,
-        point2_colour: None,
-        point2_snap_hz: 0.0,
-        point2_falloff: 0.7,
-        ambient: 0.0,
-    };
-
-    let mut dir_count = 0u8;
-    let mut point_count = 0u8;
-    for light in lights {
-        match light.kind {
-            LightKind::Directional => {
-                let dir = light.direction.unwrap_or([-0.45, 0.70, -0.85]);
-                if dir_count == 0 {
-                    p.dir1 = dir;
-                    dir_count += 1;
-                } else if dir_count == 1 {
-                    p.dir2 = dir;
-                    p.dir2_intensity = light.intensity;
-                    dir_count += 1;
-                }
-            }
-            LightKind::Point => {
-                let pos = light.position.unwrap_or([0.0, 2.0, 0.0]);
-                let colour = light.colour.as_deref().and_then(parse_hex_color);
-                if point_count == 0 {
-                    p.point1 = pos;
-                    p.point1_intensity = light.intensity;
-                    p.point1_colour = colour;
-                    p.point1_snap_hz = light.snap_hz;
-                    p.point1_falloff = light.falloff_constant;
-                    point_count += 1;
-                } else if point_count == 1 {
-                    p.point2 = pos;
-                    p.point2_intensity = light.intensity;
-                    p.point2_colour = colour;
-                    p.point2_snap_hz = light.snap_hz;
-                    p.point2_falloff = light.falloff_constant;
-                    point_count += 1;
-                }
-            }
-            LightKind::Ambient => {
-                // Sum multiple ambient sources; max avoids unintended brightness stacking.
-                p.ambient = (p.ambient + light.intensity).min(1.0);
-            }
-        }
-    }
-
-    p
-}
 
 fn build_object_specs(
     show: &[String],
@@ -601,17 +523,6 @@ fn render_frame(item: &WorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
     );
 
     Some(buf)
-}
-
-fn parse_hex_color(s: &str) -> Option<Color> {
-    let s = s.trim().trim_start_matches('#');
-    if s.len() != 6 {
-        return None;
-    }
-    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
-    Some(Color::Rgb { r, g, b })
 }
 
 /// Render a single frame of a Scene3D clip at a given `elapsed_ms` within the clip's timeline.

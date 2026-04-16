@@ -34,17 +34,17 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ### engine-core
 
-- [ ] Add `render_types/mod.rs`.
-- [ ] Add `render_types/viewport.rs`.
-- [ ] Add `render_types/transform_2d.rs`.
-- [ ] Add `render_types/transform_3d.rs`.
-- [ ] Add `render_types/camera_2d.rs`.
-- [ ] Add `render_types/camera_3d.rs`.
-- [ ] Add `render_types/light_3d.rs`.
-- [ ] Add `render_types/material.rs`.
-- [ ] Add `render_types/dirty.rs`.
-- [ ] Add `render_types/render_scene.rs`.
-- [ ] Keep these types backend-neutral and authoring-neutral.
+- [x] Add `render_types/mod.rs`.
+- [x] Add `render_types/viewport.rs`.
+- [x] Add `render_types/transform_2d.rs`.
+- [x] Add `render_types/transform_3d.rs`.
+- [x] Add `render_types/camera_2d.rs`.
+- [x] Add `render_types/camera_3d.rs`.
+- [x] Add `render_types/light_3d.rs`.
+- [x] Add `render_types/material.rs`.
+- [x] Add `render_types/dirty.rs`.
+- [x] Add `render_types/render_scene.rs`.
+- [x] Keep these types backend-neutral and authoring-neutral.
 
 ### engine-authoring
 
@@ -72,14 +72,14 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ### engine-render-2d
 
-- [ ] Create crate `engine-render-2d`.
-- [ ] Add `api.rs`.
-- [ ] Move image rendering here.
-- [ ] Move text rendering here.
-- [ ] Move vector rendering here.
-- [ ] Move 2D sprite dispatch here.
-- [ ] Move layout helpers here.
-- [ ] Move container rendering here.
+- [x] Create crate `engine-render-2d`.
+- [x] Add `api.rs`.
+- [x] Move image rendering here.
+- [x] Move text rendering here.
+- [x] Move vector rendering here.
+- [x] Move 2D sprite dispatch here.
+- [x] Move layout helpers here.
+- [x] Move container rendering here.
 
 ### engine-render-3d
 
@@ -99,9 +99,9 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [x] Add `pipeline/mod.rs`.
 - [ ] Add `pipeline/renderer.rs`.
 - [ ] Map `Obj`, `Planet`, and `Scene3D` directly into the 3D scene graph.
-- [ ] Add `prerender/mod.rs`.
+- [x] Add `prerender/mod.rs`.
 - [ ] Add `prerender/scene3d_atlas.rs`.
-- [ ] Add `prerender/scene3d_runtime_store.rs`.
+- [x] Add `prerender/scene3d_runtime_store.rs`.
 - [ ] Add `prerender/scene3d_prerender.rs`.
 
 ### engine-compositor
@@ -128,23 +128,23 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ## Core Types
 
-- [ ] Define `ViewportRect`.
-- [ ] Define `Transform2D`.
-- [ ] Define `Transform3D`.
-- [ ] Define `Camera2DState`.
-- [ ] Define `Camera3DState`.
-- [ ] Define `LightKind3D`.
-- [ ] Define `Light3D`.
-- [ ] Define `DirtyMask3D`.
-- [ ] Define `CompiledRenderScene`.
-- [ ] Define `Scene3DInstance`.
-- [ ] Define `Node3DInstance`.
-- [ ] Define `Renderable3D`.
-- [ ] Define `MeshInstance`.
-- [ ] Define `GeneratedWorldInstance`.
-- [ ] Define `Render2dInput`.
-- [ ] Define `Render3dInput`.
-- [ ] Define `Render3dOutput`.
+- [x] Define `ViewportRect`.
+- [x] Define `Transform2D`.
+- [x] Define `Transform3D`.
+- [x] Define `Camera2DState`.
+- [x] Define `Camera3DState`.
+- [x] Define `LightKind3D`.
+- [x] Define `Light3D`.
+- [x] Define `DirtyMask3D`.
+- [x] Define `CompiledRenderScene`.
+- [x] Define `Scene3DInstance`.
+- [x] Define `Node3DInstance`.
+- [x] Define `Renderable3D`.
+- [x] Define `MeshInstance`.
+- [x] Define `GeneratedWorldInstance`.
+- [x] Define `Render2dInput`.
+- [x] Define `Render3dInput`.
+- [x] Define `Render3dOutput`.
 - [ ] Define `SceneMutation`.
 - [ ] Define `Render3DMutation`.
 - [ ] Define `MeshBuildKey`.
@@ -300,6 +300,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D source discovery + load/resolve helpers from compositor prerender path into `engine-render-3d::prerender::scene_sources` and consume them from compositor.
 - [x] Move Scene3D frame sample/keyframe expansion logic from compositor prerender path into `engine-render-3d::prerender::frame_schedule` and consume schedule outputs in compositor.
 - [x] Move camera look-at basis helper (`look_at_basis`) from compositor Scene3D prerender path into `engine-render-3d::prerender::camera_basis`.
+- [x] Move Scene3D light extraction + hex colour parsing helpers (`extract_light_params`, `parse_hex_color`) from compositor prerender path into `engine-render-3d::prerender::lighting`.
 
 ## Definition of Done
 
