@@ -152,6 +152,16 @@ pub fn world_coloring_str(coloring: WorldColoring) -> &'static str {
     }
 }
 
+/// Metadata-only world generation preparation output.
+///
+/// This type is intentionally render-loop agnostic: callers can resolve
+/// canonical params and a stable mesh build key before any mesh generation.
+#[derive(Debug, Clone)]
+pub struct PreparedWorldGen {
+    pub params: WorldGenParams,
+    pub mesh_build_key: String,
+}
+
 /// Canonical URI serialization for cache keys and runtime updates.
 pub fn world_uri_from_params(p: &WorldGenParams) -> String {
     format!(
@@ -187,6 +197,19 @@ pub fn world_mesh_build_key_from_params(p: &WorldGenParams) -> String {
 pub fn world_mesh_build_key_from_uri(uri: &str) -> String {
     let params = parse_world_params_from_uri(uri);
     world_uri_from_params(&params)
+}
+
+/// Prepare canonical world-generation metadata from a source URI.
+///
+/// This function is allocation/normalization work only; it does not build
+/// terrain or mesh geometry.
+pub fn prepare_world_gen_from_uri(uri: &str) -> PreparedWorldGen {
+    let params = parse_world_params_from_uri(uri);
+    let mesh_build_key = world_mesh_build_key_from_params(&params);
+    PreparedWorldGen {
+        params,
+        mesh_build_key,
+    }
 }
 
 /// Generate world mesh + face colors from high-level params.
@@ -355,4 +378,51 @@ fn sample_planet_xyz(v: &[f32; 3], planet: &GeneratedPlanet) -> HeightmapCell {
     let gx = gx.min(planet.width - 1);
     let gy = gy.min(planet.height - 1);
     *planet.cell(gx, gy)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_world_mesh, parse_world_params_from_uri, prepare_world_gen_from_uri,
+        world_mesh_build_key_from_params, world_mesh_build_key_from_uri, world_uri_from_params,
+    };
+
+    #[test]
+    fn world_mesh_key_from_uri_normalizes_query_order() {
+        let a = "world://48?seed=7&shape=flat&base=uv&coloring=moisture&disp=0.3&ocean=0.2";
+        let b = "world://48?ocean=0.2&disp=0.3&coloring=moisture&base=uv&shape=flat&seed=7";
+        assert_eq!(
+            world_mesh_build_key_from_uri(a),
+            world_mesh_build_key_from_uri(b)
+        );
+    }
+
+    #[test]
+    fn prepare_world_gen_matches_parse_and_key_helpers() {
+        let uri = "world://64?shape=sphere&base=cube&coloring=biome&seed=42&disp=0.25";
+        let prepared = prepare_world_gen_from_uri(uri);
+        let parsed = parse_world_params_from_uri(uri);
+        assert_eq!(prepared.params.subdivisions, parsed.subdivisions);
+        assert_eq!(prepared.params.shape, parsed.shape);
+        assert_eq!(prepared.params.base, parsed.base);
+        assert_eq!(prepared.params.coloring, parsed.coloring);
+        assert_eq!(prepared.params.planet.seed, parsed.planet.seed);
+        assert_eq!(
+            prepared.mesh_build_key,
+            world_mesh_build_key_from_params(&prepared.params)
+        );
+    }
+
+    #[test]
+    fn build_key_generation_is_decoupled_from_mesh_generation() {
+        let uri = "world://32?shape=sphere&base=icosa&coloring=altitude&seed=9&disp=0.1";
+        let prepared = prepare_world_gen_from_uri(uri);
+        let expected = world_uri_from_params(&prepared.params);
+        assert_eq!(prepared.mesh_build_key, expected);
+
+        // Mesh generation remains an explicit, separate step.
+        let generated = build_world_mesh(&prepared.params);
+        assert!(!generated.mesh.vertices.is_empty());
+        assert!(!generated.mesh.faces.is_empty());
+    }
 }

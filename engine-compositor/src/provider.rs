@@ -4,7 +4,9 @@ use std::any::Any;
 use std::collections::HashMap;
 
 use engine_core::effects::Region;
-use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver};
+use engine_core::scene_runtime_types::{
+    ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
+};
 use engine_render_2d::{Render2dInput, Render2dPipeline};
 
 use crate::generated_world_render_adapter::render_generated_world_sprite as render_generated_world_sprite_adapter;
@@ -22,6 +24,36 @@ pub trait CompositorProvider {
     fn debug_features(&self) -> Option<&dyn Any>;
     fn render_2d_pipeline(&self) -> Option<&dyn Render2dPipeline> {
         None
+    }
+}
+
+pub(crate) enum ResolvedRender2dPipeline<'a> {
+    Provided(&'a dyn Render2dPipeline),
+    Default(DefaultCompositorRenderPipelines<'a>),
+}
+
+impl<'a> ResolvedRender2dPipeline<'a> {
+    pub(crate) fn pipeline(&self) -> &dyn Render2dPipeline {
+        match self {
+            Self::Provided(pipeline) => *pipeline,
+            Self::Default(pipelines) => &pipelines.render_2d,
+        }
+    }
+}
+
+pub(crate) fn resolve_render_2d_pipeline<'a>(
+    pipeline: Option<&'a dyn Render2dPipeline>,
+    obj_camera_states: &'a HashMap<String, ObjCameraState>,
+    scene_camera_3d: &'a SceneCamera3D,
+    celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
+) -> ResolvedRender2dPipeline<'a> {
+    match pipeline {
+        Some(pipeline) => ResolvedRender2dPipeline::Provided(pipeline),
+        None => ResolvedRender2dPipeline::Default(DefaultCompositorRenderPipelines::new(
+            obj_camera_states,
+            scene_camera_3d,
+            celestial_catalogs,
+        )),
     }
 }
 

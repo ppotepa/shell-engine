@@ -118,9 +118,93 @@ pub enum BehaviorCommand {
     },
 }
 
+pub fn scene_mutation_request_from_set_property_compat(
+    target: &str,
+    path: &str,
+    value: &JsonValue,
+) -> Option<crate::scene::SceneMutationRequest> {
+    match path {
+        "visible" => Some(crate::scene::SceneMutationRequest::Set2dProps {
+            target: target.to_string(),
+            visible: Some(value.as_bool()?),
+            dx: None,
+            dy: None,
+            text: None,
+        }),
+        "text.content" => Some(crate::scene::SceneMutationRequest::Set2dProps {
+            target: target.to_string(),
+            visible: None,
+            dx: None,
+            dy: None,
+            text: Some(value.as_str()?.to_string()),
+        }),
+        _ if is_render3d_compat_set_path(path) => {
+            Some(crate::scene::SceneMutationRequest::SetRender3d(
+                crate::scene::Render3dMutationRequest::SetWorldParam {
+                    target: target.to_string(),
+                    name: path.to_string(),
+                    value: value.clone(),
+                },
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn is_render3d_compat_set_path(path: &str) -> bool {
+    path == "scene3d.frame"
+        || path.starts_with("planet.")
+        || path.starts_with("obj.")
+        || path.starts_with("terrain.")
+        || path.starts_with("world.")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DebugLogSeverity {
     Info,
     Warn,
     Error,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::{Render3dMutationRequest, SceneMutationRequest};
+
+    #[test]
+    fn maps_render_set_property_to_typed_render3d_request() {
+        let request = scene_mutation_request_from_set_property_compat(
+            "planet",
+            "obj.world.x",
+            &serde_json::json!(1.5),
+        )
+        .expect("typed request");
+
+        assert_eq!(
+            request,
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetWorldParam {
+                target: "planet".to_string(),
+                name: "obj.world.x".to_string(),
+                value: serde_json::json!(1.5),
+            })
+        );
+    }
+
+    #[test]
+    fn maps_text_content_set_property_to_typed_2d_request() {
+        let request =
+            scene_mutation_request_from_set_property_compat("hud", "text.content", &"HELLO".into())
+                .expect("typed request");
+
+        assert_eq!(
+            request,
+            SceneMutationRequest::Set2dProps {
+                target: "hud".to_string(),
+                visible: None,
+                dx: None,
+                dy: None,
+                text: Some("HELLO".to_string()),
+            }
+        );
+    }
 }

@@ -1,3 +1,4 @@
+use engine_core::asset_source::SourceRef;
 use engine_core::scene::Sprite;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -68,6 +69,47 @@ impl AsRef<str> for MaterialBuildKey {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ImageAssetKey(String);
+
+impl ImageAssetKey {
+    pub fn from_asset_path(asset_path: &str) -> Self {
+        let source = SourceRef::mod_asset(asset_path);
+        Self(source.normalized_value().to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl From<String> for ImageAssetKey {
+    fn from(value: String) -> Self {
+        Self::from_asset_path(value.as_str())
+    }
+}
+
+impl From<&str> for ImageAssetKey {
+    fn from(value: &str) -> Self {
+        Self::from_asset_path(value)
+    }
+}
+
+impl AsRef<str> for ImageAssetKey {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+/// Resolves a canonical image key used across 2D and 3D consumers.
+pub fn resolve_image_asset_key(asset_path: &str) -> ImageAssetKey {
+    ImageAssetKey::from_asset_path(asset_path)
 }
 
 /// Resolves a canonical mesh build key for an `obj` sprite source and any
@@ -365,7 +407,10 @@ fn parse_terrain_params_from_uri(uri: &str) -> engine_mesh::primitives::TerrainP
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_generated_world_mesh_build_key, resolve_obj_mesh_build_key, MeshBuildKey};
+    use super::{
+        resolve_generated_world_mesh_build_key, resolve_image_asset_key,
+        resolve_obj_mesh_build_key, MeshBuildKey,
+    };
     use engine_core::scene::Sprite;
 
     #[test]
@@ -420,5 +465,13 @@ content: hi
         .expect("text sprite should parse");
         let key = resolve_obj_mesh_build_key("/assets/3d/a.obj", &sprite);
         assert_eq!(key, MeshBuildKey::from_source("/assets/3d/a.obj"));
+    }
+
+    #[test]
+    fn image_asset_key_normalizes_equivalent_paths() {
+        let with_leading = resolve_image_asset_key("/assets/images/logo.png");
+        let without_leading = resolve_image_asset_key("assets/images/logo.png");
+        assert_eq!(with_leading, without_leading);
+        assert_eq!(with_leading.as_str(), "assets/images/logo.png");
     }
 }

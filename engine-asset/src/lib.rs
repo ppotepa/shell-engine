@@ -2,6 +2,9 @@
 //!
 //! Provides scene and asset repository implementations for loading from
 //! mod sources (unpacked directories or ZIP archives), and scene compilation.
+//! Image entry points (`load_image_asset`, `load_rgba_image`) are the shared
+//! seam used by 2D sprite rendering and any 3D-domain consumers that need
+//! decoded image data.
 
 pub mod build_keys;
 pub mod image_assets;
@@ -18,12 +21,13 @@ pub use repositories::{
 pub use scene_compiler::compile_scene_document_with_loader_and_source;
 pub use {
     build_keys::{
-        resolve_generated_world_mesh_build_key, resolve_obj_mesh_build_key, MaterialBuildKey,
-        MeshBuildKey,
+        resolve_generated_world_mesh_build_key, resolve_image_asset_key,
+        resolve_obj_mesh_build_key, ImageAssetKey, MaterialBuildKey, MeshBuildKey,
     },
     image_assets::{
-        has_image_asset, load_image_asset, load_rgba_image, AnimatedImageAsset,
-        AnimatedImageAssetFrame, ImageAsset, RgbaImageAsset,
+        has_image_asset, has_image_asset_with_key, load_image_asset, load_image_asset_with_key,
+        load_rgba_image, load_rgba_image_with_key, AnimatedImageAsset, AnimatedImageAssetFrame,
+        ImageAsset, RgbaImageAsset,
     },
     material_repository::MaterialRepository,
     mesh_assets::{

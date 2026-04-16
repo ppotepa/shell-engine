@@ -4,12 +4,14 @@ use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_effects::apply_effect;
 use engine_pipeline::LayerCompositor;
+use engine_render_2d::Render2dPipeline;
 
 use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLayerRenderInputs};
-use crate::CompositeParams;
+use crate::{prepare_layer_frames, CompositeParams};
 
 fn composite_scene(
     params: &CompositeParams<'_>,
+    render_2d_pipeline: Option<&dyn Render2dPipeline>,
     layer: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
@@ -41,14 +43,12 @@ fn composite_scene(
 
     let scene_w = buffer.width;
     let scene_h = buffer.height;
+    let prepared_layers = prepare_layer_frames(&params.frame, params.prepared.current_stage);
 
     let mut layer_inputs = LayerCompositeInputs {
-        layers: params.frame.layers,
-        layer_timed_visibility: params.frame.layer_timed_visibility,
-        ui_enabled: params.frame.ui_enabled,
+        prepared_layers: &prepared_layers,
         scene_w,
         scene_h,
-        scene_space: params.frame.scene_space,
         target_resolver: Some(params.prepared.target_resolver),
         object_regions: &mut object_regions,
         scene_origin_x: scene_state.offset_x,
@@ -62,7 +62,7 @@ fn composite_scene(
         camera_y: params.prepared.camera.camera_y,
         camera_zoom: params.prepared.camera.camera_zoom,
         render: PreparedLayerRenderInputs {
-            render_2d_pipeline: None,
+            render_2d_pipeline,
             asset_root: params.prepared.asset_root,
             obj_camera_states: params.prepared.obj_camera_states,
             scene_camera_3d: params.prepared.camera.scene_camera_3d,
@@ -112,5 +112,18 @@ pub fn dispatch_composite(
     layer: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
-    composite_scene(params, layer, buffer)
+    composite_scene(params, None, layer, buffer)
+}
+
+/// Composite a frame using a caller-provided 2D pipeline.
+///
+/// This keeps compositor focused on frame assembly while allowing runtime wiring to
+/// provide render-domain implementation details.
+pub fn dispatch_composite_with_render_2d_pipeline(
+    params: &CompositeParams<'_>,
+    render_2d_pipeline: Option<&dyn Render2dPipeline>,
+    layer: &dyn LayerCompositor,
+    buffer: &mut Buffer,
+) -> HashMap<String, Region> {
+    composite_scene(params, render_2d_pipeline, layer, buffer)
 }

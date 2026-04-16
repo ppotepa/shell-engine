@@ -12,9 +12,7 @@ use crate::rhai::conversion::{
     json_to_rhai_dynamic, map_get_path_dynamic, map_set_path_dynamic, merge_rhai_maps,
     normalize_set_path, rhai_dynamic_to_json,
 };
-use crate::{
-    BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
-};
+use crate::{BehaviorCommand, Camera3dMutationRequest, SceneMutationRequest};
 
 /// Helpers for object state conversion (should ideally be shared or generic).
 fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
@@ -74,24 +72,7 @@ fn scene_mutation_from_compat_set(
     path: &str,
     value: JsonValue,
 ) -> Option<SceneMutationRequest> {
-    if !is_render3d_compat_set_path(path) {
-        return None;
-    }
-    Some(SceneMutationRequest::SetRender3d(
-        Render3dMutationRequest::SetWorldParam {
-            target: target.to_string(),
-            name: path.to_string(),
-            value,
-        },
-    ))
-}
-
-fn is_render3d_compat_set_path(path: &str) -> bool {
-    path == "scene3d.frame"
-        || path.starts_with("planet.")
-        || path.starts_with("obj.")
-        || path.starts_with("terrain.")
-        || path.starts_with("world.")
+    crate::commands::scene_mutation_request_from_set_property_compat(target, path, &value)
 }
 
 /// Script-facing API for scene management.
@@ -655,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn set_keeps_non_render3d_paths_on_set_property_compatibility() {
+    fn set_routes_text_content_to_typed_2d_mutation() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
         let mut api = ScriptSceneApi::new(
             Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
@@ -673,10 +654,41 @@ mod tests {
         assert_eq!(queue.len(), 1);
         assert_eq!(
             queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::Set2dProps {
+                    target: "title".to_string(),
+                    visible: None,
+                    dx: None,
+                    dy: None,
+                    text: Some("HELLO".to_string()),
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn set_keeps_untyped_non_render_paths_on_set_property_compatibility() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        api.set("title", "text.font", "orbitron".into());
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 1);
+        assert_eq!(
+            queue[0],
             BehaviorCommand::SetProperty {
                 target: "title".to_string(),
-                path: "text.content".to_string(),
-                value: serde_json::json!("HELLO"),
+                path: "text.font".to_string(),
+                value: serde_json::json!("orbitron"),
             }
         );
     }

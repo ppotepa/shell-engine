@@ -29,7 +29,7 @@ pub use access::CompositorAccess;
 pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
-pub use compositor::dispatch_composite;
+pub use compositor::{dispatch_composite, dispatch_composite_with_render_2d_pipeline};
 pub use engine_render_3d::prerender::Scene3DAtlas;
 pub use engine_render_3d::prerender::{
     build_scene3d_runtime_store, with_runtime_store, AnimSpriteFrames, ObjPrerenderStatus,
@@ -46,8 +46,8 @@ pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
 pub use scene3d_prerender::render_scene3d_work_item;
 pub use scene_compositor::{
-    prepare_layer_timed_visibility, CompositeParams, FrameAssemblyInputs, PreparedCameraInputs,
-    PreparedCompositeInputs,
+    prepare_layer_frames, prepare_layer_timed_visibility, CompositeParams, FrameAssemblyInputs,
+    PreparedCameraInputs, PreparedCompositeInputs,
 };
 pub use systems::postfx;
 

@@ -4,6 +4,7 @@ use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::build_keys::{resolve_image_asset_key, ImageAssetKey};
 use crate::ModAssetSourceLoader;
 use engine_core::asset_cache::AssetCache;
 use engine_core::asset_source::{
@@ -196,29 +197,57 @@ fn delay_to_ms(delay: Delay) -> u64 {
 
 /// Loads the decoded image asset at `asset_path` from `mod_source`.
 pub fn load_image_asset(mod_source: &Path, asset_path: &str) -> Option<Arc<ImageAsset>> {
+    let key = resolve_image_asset_key(asset_path);
+    load_image_asset_with_key(mod_source, &key)
+}
+
+/// Loads the decoded image asset at the canonical image key from `mod_source`.
+pub fn load_image_asset_with_key(
+    mod_source: &Path,
+    image_key: &ImageAssetKey,
+) -> Option<Arc<ImageAsset>> {
     let loader = ModAssetSourceLoader::new(mod_source).ok()?;
-    let source = SourceRef::mod_asset(asset_path);
+    let source = SourceRef::mod_asset(image_key.as_str());
     load_decoded_source(&IMAGE_CACHE, &loader, &source, &ImageAssetAdapter)
 }
 
 /// Loads the first RGBA frame at `asset_path` from `mod_source`.
 pub fn load_rgba_image(mod_source: &Path, asset_path: &str) -> Option<RgbaImageAsset> {
-    load_image_asset(mod_source, asset_path).map(|asset| asset.first_frame().clone())
+    let key = resolve_image_asset_key(asset_path);
+    load_rgba_image_with_key(mod_source, &key)
+}
+
+/// Loads the first RGBA frame at the canonical image key from `mod_source`.
+pub fn load_rgba_image_with_key(
+    mod_source: &Path,
+    image_key: &ImageAssetKey,
+) -> Option<RgbaImageAsset> {
+    load_image_asset_with_key(mod_source, image_key).map(|asset| asset.first_frame().clone())
 }
 
 /// Returns `true` if `asset_path` resolves to a loadable image within `mod_source`.
 pub fn has_image_asset(mod_source: &Path, asset_path: &str) -> bool {
+    let key = resolve_image_asset_key(asset_path);
+    has_image_asset_with_key(mod_source, &key)
+}
+
+/// Returns `true` if `image_key` resolves to a loadable image within `mod_source`.
+pub fn has_image_asset_with_key(mod_source: &Path, image_key: &ImageAssetKey) -> bool {
     let loader = match ModAssetSourceLoader::new(mod_source) {
         Ok(loader) => loader,
         Err(_) => return false,
     };
-    let source = SourceRef::mod_asset(asset_path);
-    has_source(&loader, &source) && load_image_asset(mod_source, asset_path).is_some()
+    let source = SourceRef::mod_asset(image_key.as_str());
+    has_source(&loader, &source) && load_image_asset_with_key(mod_source, image_key).is_some()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{has_image_asset, load_image_asset, load_rgba_image, ImageAsset};
+    use super::{
+        has_image_asset, has_image_asset_with_key, load_image_asset, load_image_asset_with_key,
+        load_rgba_image, load_rgba_image_with_key, ImageAsset,
+    };
+    use crate::build_keys::resolve_image_asset_key;
     use image::codecs::gif::GifEncoder;
     use image::{Delay, DynamicImage, Frame, ImageFormat, Rgba, RgbaImage};
     use std::fs;
@@ -284,8 +313,8 @@ mod tests {
         let zip_path = temp.path().join("mod.zip");
         write_png_to_zip(&zip_path, "assets/images/tiny.png", &tiny_png_bytes());
 
-        let with_leading =
-            load_image_asset(&zip_path, "/assets/images/tiny.png").expect("load with leading slash");
+        let with_leading = load_image_asset(&zip_path, "/assets/images/tiny.png")
+            .expect("load with leading slash");
         let without_leading =
             load_image_asset(&zip_path, "assets/images/tiny.png").expect("load without leading");
         assert!(
@@ -337,6 +366,59 @@ mod tests {
         assert_eq!(dir_image.width, zip_image.width);
         assert_eq!(dir_image.height, zip_image.height);
         assert_eq!(dir_image.pixel(0, 0), zip_image.pixel(0, 0));
+    }
+
+    #[test]
+    fn directory_and_zip_have_matching_has_image_semantics() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        let zip_path = temp.path().join("mod.zip");
+        let png = tiny_png_bytes();
+        write_png_to_dir(&mod_dir, "assets/images/tiny.png", &png);
+        write_png_to_zip(&zip_path, "assets/images/tiny.png", &png);
+
+        assert!(has_image_asset(&mod_dir, "/assets/images/tiny.png"));
+        assert!(has_image_asset(&zip_path, "/assets/images/tiny.png"));
+        assert!(!has_image_asset(&mod_dir, "/assets/images/missing.png"));
+        assert!(!has_image_asset(&zip_path, "/assets/images/missing.png"));
+    }
+
+    #[test]
+    fn missing_image_returns_none_for_directory_and_zip_sources() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        let zip_path = temp.path().join("mod.zip");
+        write_png_to_dir(&mod_dir, "assets/images/tiny.png", &tiny_png_bytes());
+        write_png_to_zip(&zip_path, "assets/images/tiny.png", &tiny_png_bytes());
+
+        assert!(load_image_asset(&mod_dir, "/assets/images/missing.png").is_none());
+        assert!(load_image_asset(&zip_path, "/assets/images/missing.png").is_none());
+        assert!(load_rgba_image(&mod_dir, "/assets/images/missing.png").is_none());
+        assert!(load_rgba_image(&zip_path, "/assets/images/missing.png").is_none());
+    }
+
+    #[test]
+    fn first_frame_surface_matches_decoded_asset_surface_for_directory_and_zip() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        let zip_path = temp.path().join("mod.zip");
+        let png = tiny_png_bytes();
+        write_png_to_dir(&mod_dir, "assets/images/tiny.png", &png);
+        write_png_to_zip(&zip_path, "assets/images/tiny.png", &png);
+
+        let dir_decoded =
+            load_image_asset(&mod_dir, "/assets/images/tiny.png").expect("dir decoded");
+        let dir_first = load_rgba_image(&mod_dir, "/assets/images/tiny.png").expect("dir first");
+        assert_eq!(dir_first.width, dir_decoded.first_frame().width);
+        assert_eq!(dir_first.height, dir_decoded.first_frame().height);
+        assert_eq!(dir_first.pixel(0, 0), dir_decoded.first_frame().pixel(0, 0));
+
+        let zip_decoded =
+            load_image_asset(&zip_path, "/assets/images/tiny.png").expect("zip decoded");
+        let zip_first = load_rgba_image(&zip_path, "/assets/images/tiny.png").expect("zip first");
+        assert_eq!(zip_first.width, zip_decoded.first_frame().width);
+        assert_eq!(zip_first.height, zip_decoded.first_frame().height);
+        assert_eq!(zip_first.pixel(0, 0), zip_decoded.first_frame().pixel(0, 0));
     }
 
     fn tiny_red_png_bytes() -> Vec<u8> {
@@ -441,5 +523,41 @@ mod tests {
         assert_eq!(loaded.width, 1);
         assert_eq!(loaded.height, 1);
         assert_eq!(loaded.pixel(0, 0), Some([255, 0, 0, 255]));
+    }
+
+    #[test]
+    fn key_seam_unifies_2d_and_3d_image_asset_consumption() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        write_png_to_dir(&mod_dir, "assets/images/shared.png", &tiny_png_bytes());
+
+        let from_2d = load_image_asset(&mod_dir, "/assets/images/shared.png")
+            .expect("2d consumer should load image");
+        let key = resolve_image_asset_key("assets/images/shared.png");
+        let from_3d =
+            load_image_asset_with_key(&mod_dir, &key).expect("3d consumer should load image");
+
+        assert!(
+            Arc::ptr_eq(&from_2d, &from_3d),
+            "2d and 3d consumers should share canonical image cache entry"
+        );
+    }
+
+    #[test]
+    fn key_based_and_path_based_image_queries_match_semantics() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        write_png_to_dir(&mod_dir, "assets/images/shared.png", &tiny_png_bytes());
+        let key = resolve_image_asset_key("/assets/images/shared.png");
+        let missing_key = resolve_image_asset_key("/assets/images/missing.png");
+
+        assert!(has_image_asset_with_key(&mod_dir, &key));
+        assert!(has_image_asset(&mod_dir, "assets/images/shared.png"));
+        assert!(!has_image_asset_with_key(&mod_dir, &missing_key));
+
+        let key_loaded = load_rgba_image_with_key(&mod_dir, &key).expect("load key image");
+        let path_loaded =
+            load_rgba_image(&mod_dir, "/assets/images/shared.png").expect("load path image");
+        assert_eq!(key_loaded.pixel(0, 0), path_loaded.pixel(0, 0));
     }
 }

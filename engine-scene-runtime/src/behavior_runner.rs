@@ -415,21 +415,15 @@ impl SceneRuntime {
                     path,
                     value,
                 } => {
-                    if crate::render3d_state::is_render3d_compat_param_path(path) {
+                    if crate::render3d_state::is_render3d_compat_param_path(path)
+                        || matches!(path.as_str(), "visible" | "text.content")
+                    {
                         continue;
                     }
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         continue;
                     };
                     match path.as_str() {
-                        "visible" => {
-                            let Some(next_visible) = value.as_bool() else {
-                                continue;
-                            };
-                            if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.visible = next_visible;
-                            }
-                        }
                         "offset.x" | "position.x" => {
                             let Some(next_x) = json_value_to_rounded_i32(value) else {
                                 continue;
@@ -467,18 +461,6 @@ impl SceneRuntime {
                                     }
                                 }
                             }
-                        }
-                        "text.content" => {
-                            let Some(next_text) = value.as_str() else {
-                                continue;
-                            };
-                            let _ = self.apply_text_property_for_target(
-                                object_id,
-                                target,
-                                |runtime, alias| {
-                                    runtime.set_text_sprite_content(alias, next_text.to_string())
-                                },
-                            );
                         }
                         "text.font" => {
                             let Some(next_font) = value.as_str() else {
@@ -720,7 +702,10 @@ impl SceneRuntime {
                 target,
                 path,
                 value,
-            } => scene_mutation_from_set_property_3d(target, path, value),
+            } => engine_api::commands::scene_mutation_request_from_set_property_compat(
+                target, path, value,
+            )
+            .and_then(|request| scene_mutation_from_request(&request, self.scene_camera_3d)),
             _ => None,
         }
     }

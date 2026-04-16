@@ -23,7 +23,11 @@ composition — the world mesh pipeline is self-contained here.
 |----------|-------------|
 | `parse_world_params_from_uri(uri)` | Parse `world://N?...` into `WorldGenParams` |
 | `world_uri_from_params(p)` | Canonical URI string for cache key / runtime updates |
+| `prepare_world_gen_from_uri(uri)` | Metadata-only prep (`params` + canonical mesh build key) |
 | `build_world_mesh(p)` | Generate `GeneratedWorldMesh` (mesh + face colors) from params |
+
+`prepare_world_gen_from_uri` is intended for cache/build-key resolution outside
+render hot paths; `build_world_mesh` is the explicit geometry generation step.
 
 ## URI format
 

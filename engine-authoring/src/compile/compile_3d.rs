@@ -1,9 +1,22 @@
 use crate::document::{RenderScene3dDocument, Viewport3dSpriteDocument};
+use crate::validate::{validate_render_scene3d_document, Render3dDiagnostic};
 use engine_core::render_types::{SpriteRef, Viewport3DRef};
 use engine_core::scene::{Scene, Sprite};
 
 /// Compiles 3D viewport references for intermediate render scene construction.
 pub fn compile_3d_viewports(scene: &Scene) -> Vec<Viewport3DRef> {
+    compile_3d_viewports_with_authored(scene, None)
+}
+
+pub(super) fn compile_3d_viewports_with_authored(
+    scene: &Scene,
+    authored: Option<&RenderScene3dDocument>,
+) -> Vec<Viewport3DRef> {
+    if let Some(document) = authored {
+        if should_compile_viewports_from_document(document) {
+            return compile_3d_viewports_from_document(document);
+        }
+    }
     let render_scene_3d = build_render_scene3d_document(scene);
     compile_3d_viewports_from_document(&render_scene_3d)
 }
@@ -68,9 +81,18 @@ fn compile_3d_viewports_from_document(document: &RenderScene3dDocument) -> Vec<V
         .collect()
 }
 
+fn should_compile_viewports_from_document(document: &RenderScene3dDocument) -> bool {
+    if document.viewports_3d.is_empty() {
+        return false;
+    }
+    !validate_render_scene3d_document(document)
+        .iter()
+        .any(|diagnostic| matches!(diagnostic, Render3dDiagnostic::DuplicateViewportSpriteRef { .. }))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::compile_3d_viewports;
+    use super::{compile_3d_viewports, compile_3d_viewports_with_authored};
     use crate::compile::compile_scene_document_with_loader_and_source;
     use crate::document::RenderScene3dDocument;
 
@@ -118,5 +140,71 @@ viewports-3d:
         assert_eq!(viewports[0].sprite.layer_index, 2);
         assert_eq!(viewports[0].sprite.sprite_path, vec![1, 3]);
         assert_eq!(viewports[0].sprite.sprite_id.as_deref(), Some("sprite-a"));
+    }
+
+    #[test]
+    fn authored_viewports_override_scene_derived_viewports_when_present() {
+        let raw = r#"
+id: override-viewports
+title: Override
+layers:
+  - name: world
+    sprites:
+      - type: obj
+        id: mesh-view
+        source: /assets/3d/sphere.obj
+"#;
+        let scene = compile_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+            .expect("scene compile");
+        let authored: RenderScene3dDocument = serde_yaml::from_str(
+            r#"
+viewports-3d:
+  - id: authored-only
+    layer_index: 9
+    sprite_path: [4, 2]
+    sprite_id: authored-only
+"#,
+        )
+        .expect("document parse");
+
+        let viewports = compile_3d_viewports_with_authored(&scene, Some(&authored));
+        assert_eq!(viewports.len(), 1);
+        assert_eq!(viewports[0].id.as_deref(), Some("authored-only"));
+        assert_eq!(viewports[0].sprite.layer_index, 9);
+        assert_eq!(viewports[0].sprite.sprite_path, vec![4, 2]);
+    }
+
+    #[test]
+    fn duplicate_authored_viewports_fall_back_to_scene_derived_viewports() {
+        let raw = r#"
+id: fallback-viewports
+title: Fallback
+layers:
+  - name: world
+    sprites:
+      - type: obj
+        id: mesh-view
+        source: /assets/3d/sphere.obj
+"#;
+        let scene = compile_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+            .expect("scene compile");
+        let authored: RenderScene3dDocument = serde_yaml::from_str(
+            r#"
+viewports-3d:
+  - id: one
+    layer_index: 0
+    sprite_path: [1]
+  - id: two
+    layer_index: 0
+    sprite_path: [1]
+"#,
+        )
+        .expect("document parse");
+
+        let viewports = compile_3d_viewports_with_authored(&scene, Some(&authored));
+        assert_eq!(viewports.len(), 1);
+        assert_eq!(viewports[0].id.as_deref(), Some("mesh-view"));
+        assert_eq!(viewports[0].sprite.layer_index, 0);
+        assert_eq!(viewports[0].sprite.sprite_path, vec![0]);
     }
 }

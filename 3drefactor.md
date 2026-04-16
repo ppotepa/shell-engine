@@ -16,7 +16,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [x] Keep existing YAML scenes and mods loading during the migration.
 - [ ] Treat planets as one producer of 3D data, not as a special renderer.
 - [ ] Keep 3D domain logic out of `engine-compositor`.
-- [ ] Keep asset loading semantics unchanged for unpacked mods and zip mods.
+- [x] Keep asset loading semantics unchanged for unpacked mods and zip mods.
 - [ ] Do not let runtime mutation semantics depend on stringly-typed render
       internals going forward.
 - [x] Keep renderer and engine-core fully mod-agnostic (no mod-specific names,
@@ -41,7 +41,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `engine-api/src/scene/api.rs:388`,
   `engine-scene-runtime/src/behavior_runner.rs:313`,
   `engine-scene-runtime/src/behavior_runner.rs:413`,
-  `engine-scene-runtime/src/behavior_runner.rs:716`,
+  `engine-scene-runtime/src/behavior_runner.rs:701`,
   `engine-scene-runtime/src/materialization.rs:187`,
   `engine-scene-runtime/src/materialization.rs:217`,
   `engine-scene-runtime/src/materialization.rs:247`,
@@ -50,25 +50,17 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `engine-scene-runtime/src/materialization.rs:1772`.
 - `engine-compositor` still owns render-domain logic instead of only frame
   assembly:
-  `engine-compositor/src/lib.rs:17`,
-  `engine-compositor/src/lib.rs:20`,
-  `engine-compositor/src/lib.rs:23`,
-  `engine-compositor/src/lib.rs:50`,
-  `engine-compositor/src/layer_compositor.rs:2`,
-  `engine-compositor/src/layer_compositor.rs:3`,
-  `engine-compositor/src/layer_compositor.rs:4`,
-  `engine-compositor/src/layer_compositor.rs:147`,
+  `engine-compositor/src/lib.rs:16`,
+  `engine-compositor/src/lib.rs:19`,
+  `engine-compositor/src/lib.rs:22`,
+  `engine-compositor/src/lib.rs:47`,
   `engine-compositor/src/scene_clip_render_adapter.rs:10`,
   `engine-compositor/src/scene_clip_render_adapter.rs:43`.
 - New 3D authoring document surface exists but is not yet the compile source of
-  truth:
-  `engine-authoring/src/document/render_scene3d.rs:29`,
-  `engine-authoring/src/validate/render3d.rs:13`,
-  `engine-authoring/src/compile/render_scene.rs:31`,
-  `engine-authoring/src/compile/render_scene.rs:47`,
-  `engine-authoring/src/compile/render_scene.rs:68`,
-  `engine-authoring/src/compile/scene.rs:41`,
-  `engine-authoring/src/compile/scene.rs:60`.
+  truth for all compatibility forms:
+  `engine-authoring/src/compile/scene.rs:85`,
+  `engine-authoring/src/compile/compile_3d.rs:11`,
+  `engine-authoring/src/compile/compile_3d.rs:24`.
 
 ## End State
 
@@ -116,7 +108,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - [x] Add `mutations.rs`.
 - [x] Add `render3d_state.rs`.
 - [x] Add `dirty_tracking.rs`.
-- [ ] Keep `SceneRuntime` as the object graph and mutation center.
+- [x] Keep `SceneRuntime` as the object graph and mutation center.
 - [x] Add typed 3D mutations.
 - [ ] Collapse mutation handling toward one typed implementation path.
 
@@ -174,7 +166,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 
 - [x] Add stable `MeshBuildKey`.
 - [x] Move geometry build key creation here.
-- [ ] Keep procedural world generation independent of the render loop.
+- [x] Keep procedural world generation independent of the render loop.
 
 ## Core Types
 
@@ -227,7 +219,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - [x] Stop constructing geometry keys inside the render hot path.
 - [x] Replace URI rewrite semantics with typed build keys before render.
 - [x] Keep URI parsing out of the core render API.
-- [ ] Allow one image asset to be used as 2D sprite input and as 3D texture
+- [x] Allow one image asset to be used as 2D sprite input and as 3D texture
       input through the same asset layer.
 
 ## PR Sequence
@@ -421,9 +413,18 @@ DoD evidence (audit date: 2026-04-16):
   `git diff -U0 -- . ':(exclude)3drefactor.md' | rg -n "^\\+.*legacy"` returned no matches.
 
 Checklist progress (audit date: 2026-04-16):
-- Full checklist: `205 / 239` done, `34 / 239` todo (`85.77%` done, `14.23%` todo).
+- Full checklist: `214 / 244` done, `30 / 244` todo (`87.70%` done, `12.30%` todo).
 - Definition of Done: `2 / 6` done, `4 / 6` todo (`33.33%` done, `66.67%` todo).
 - Computed with:
   `rg -n "^- \\[( |x)\\]" 3drefactor.md`
   `rg -n "^- \\[x\\]" 3drefactor.md`
   `rg -n "^- \\[ \\]" 3drefactor.md`
+- Blocker audit commands and key hits:
+  `rg -n "SetProperty \\{|ApplySceneMutation|SceneSpawn|SceneDespawn" engine-api/src/commands.rs engine-api/src/scene/api.rs engine-scene-runtime/src/behavior_runner.rs -S`
+  -> `engine-api/src/commands.rs:40`, `engine-api/src/scene/api.rs:226,264,388`, `engine-scene-runtime/src/behavior_runner.rs:313,413,701`.
+  `rg -n "fn set_obj_sprite_property|fn set_planet_sprite_property|fn set_vector_sprite_property|fn set_scene3d_sprite_frame|path: &str" engine-scene-runtime/src/materialization.rs -S`
+  -> `engine-scene-runtime/src/materialization.rs:187,217,247,751,1676,1772`.
+  `rg -n "mod obj_render|mod obj_render_adapter|mod prerender|mod scene3d_prerender|pub use scene3d_prerender::render_scene3d_work_item" engine-compositor/src/lib.rs -S`
+  -> `engine-compositor/src/lib.rs:16,19,22,47`.
+  `rg -n "pub fn validate_render_scene3d_document|pub fn compile_render_scene_document_with_loader_and_source|pub fn compile_render_scene_document_with_loader_and_source_and_filters|pub fn build_render_scene_from_scene|pub fn compile_scene_document_with_loader_and_source|pub fn compile_scene_document_with_loader_and_source_and_filters" engine-authoring/src/validate/render3d.rs engine-authoring/src/compile/render_scene.rs engine-authoring/src/compile/scene.rs -S`
+  -> `engine-authoring/src/validate/render3d.rs:18`, `engine-authoring/src/compile/render_scene.rs:36,56,81`, `engine-authoring/src/compile/scene.rs:41,60`.

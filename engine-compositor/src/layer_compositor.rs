@@ -1,12 +1,12 @@
 use super::effect_applicator::apply_layer_effects;
-use super::provider::DefaultCompositorRenderPipelines;
+use super::provider::resolve_render_2d_pipeline;
+use super::scene_compositor::PreparedLayerFrame;
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
-use engine_core::scene::{Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -35,12 +35,9 @@ pub struct PreparedLayerRenderInputs<'a> {
 
 /// Prepared layer/frame state consumed by compositor assembly.
 pub struct LayerCompositeInputs<'a> {
-    pub layers: &'a [Layer],
-    pub layer_timed_visibility: &'a [bool],
-    pub ui_enabled: bool,
+    pub prepared_layers: &'a [PreparedLayerFrame<'a>],
     pub scene_w: u16,
     pub scene_h: u16,
-    pub scene_space: SceneSpace,
     pub target_resolver: Option<&'a TargetResolver>,
     pub object_regions: &'a mut HashMap<String, Region>,
     pub scene_origin_x: i32,
@@ -63,12 +60,9 @@ pub fn composite_layers(
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
-    let layers = inputs.layers;
-    let layer_timed_visibility = inputs.layer_timed_visibility;
-    let ui_enabled = inputs.ui_enabled;
+    let prepared_layers = inputs.prepared_layers;
     let scene_w = inputs.scene_w;
     let scene_h = inputs.scene_h;
-    let scene_space = inputs.scene_space;
     let target_resolver = inputs.target_resolver;
     let object_regions = &mut *inputs.object_regions;
     let scene_origin_x = inputs.scene_origin_x;
@@ -87,44 +81,24 @@ pub fn composite_layers(
     let celestial_catalogs = inputs.render.celestial_catalogs;
     let is_pixel_backend = inputs.render.is_pixel_backend;
     let default_font = inputs.render.default_font;
-    let default_render_pipelines;
-    let render_2d_pipeline: &dyn Render2dPipeline =
-        if let Some(pipeline) = inputs.render.render_2d_pipeline {
-            pipeline
-        } else {
-            default_render_pipelines = DefaultCompositorRenderPipelines::new(
-                obj_camera_states,
-                scene_camera_3d,
-                celestial_catalogs,
-            );
-            &default_render_pipelines.render_2d
-        };
+    let resolved_render_pipeline = resolve_render_2d_pipeline(
+        inputs.render.render_2d_pipeline,
+        obj_camera_states,
+        scene_camera_3d,
+        celestial_catalogs,
+    );
+    let render_2d_pipeline: &dyn Render2dPipeline = resolved_render_pipeline.pipeline();
 
-    let resolve_layer_space = |layer: &Layer| match layer.space {
-        LayerSpace::Inherit => {
-            if layer.ui {
-                LayerSpace::Screen
-            } else {
-                match scene_space {
-                    SceneSpace::TwoD => LayerSpace::TwoD,
-                    SceneSpace::ThreeD => LayerSpace::ThreeD,
-                }
-            }
-        }
-        other => other,
-    };
-
-    for (layer_idx, layer) in layers.iter().enumerate() {
-        if layer.ui && !ui_enabled {
-            continue;
-        }
+    for prepared in prepared_layers {
+        let layer_idx = prepared.index;
+        let layer = prepared.layer;
         let layer_object_id =
             target_resolver.and_then(|resolver| resolver.layer_object_id(layer_idx));
         let layer_state = layer_object_id
             .and_then(|object_id| object_states.get(object_id))
             .cloned()
             .unwrap_or_default();
-        if !layer.visible {
+        if !prepared.authored_visible {
             continue;
         }
         if !layer_state.visible {
@@ -132,8 +106,7 @@ pub fn composite_layers(
         }
         let base_x = scene_origin_x.saturating_add(layer_state.offset_x);
         let base_y = scene_origin_y.saturating_add(layer_state.offset_y);
-        let layer_space = resolve_layer_space(layer);
-        let use_2d_camera = matches!(layer_space, LayerSpace::TwoD);
+        let use_2d_camera = prepared.uses_2d_camera;
         let (total_origin_x, total_origin_y) = if use_2d_camera && (camera_zoom - 1.0).abs() > 0.001
         {
             // Zoom scales world pixels around the camera centre (viewport midpoint).
@@ -158,7 +131,7 @@ pub fn composite_layers(
         if !layer.ui {
             use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
             static JITTER_COUNT: AtomicU64 = AtomicU64::new(0);
-            if layer_idx >= layers.len().saturating_sub(10)
+            if layer_idx >= prepared_layers.len().saturating_sub(10)
                 || layer.name.starts_with("ship")
                 || layer.name.contains("ship")
             {
@@ -236,22 +209,7 @@ pub fn composite_layers(
         // #4 opt-comp-layerscratch: LayerCompositor strategy — DirectLayerCompositor skips
         // scratch fill+blit for layers without active effects.
         // ScratchLayerCompositor (safe default) always uses the scratch path.
-        let layer_has_active_effects = {
-            let stage_ref = match current_stage {
-                SceneStage::OnEnter => &layer.stages.on_enter,
-                SceneStage::OnIdle => &layer.stages.on_idle,
-                SceneStage::OnLeave => &layer.stages.on_leave,
-                SceneStage::Done => &layer.stages.on_idle,
-            };
-            // Layer has effects OR timed sprite visibility (prepared by render-domain code).
-            // Timed visibility needs scratch path for proper dirty region tracking when sprites vanish.
-            stage_ref.steps.iter().any(|s| !s.effects.is_empty())
-                || layer_timed_visibility
-                    .get(layer_idx)
-                    .copied()
-                    .unwrap_or(false)
-        };
-        let needs_scratch = layer_compositor.use_scratch(layer_has_active_effects);
+        let needs_scratch = layer_compositor.use_scratch(prepared.has_active_effects);
 
         if needs_scratch {
             // Full scratch path: fill + render + effects + blit.

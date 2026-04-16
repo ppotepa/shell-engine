@@ -5,12 +5,17 @@ pub(super) mod scene_effects;
 pub(super) mod scene_logic;
 
 use super::cutscene::{expand_scene_cutscene_ref_with_filters, CutsceneFilterRegistry};
-use crate::document::{LogicKind, ObjectDocument, SceneDocument};
+use crate::document::{LogicKind, ObjectDocument, RenderScene3dDocument, SceneDocument};
 use engine_core::scene::Scene;
 use scene_effects::*;
 use scene_logic::*;
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeMap;
+
+pub(super) struct CompiledSceneAuthoringInput {
+    pub scene: Scene,
+    pub authored_render_scene_3d: Option<RenderScene3dDocument>,
+}
 
 /// Compiles authored scene YAML into a runtime [`Scene`] using the default
 /// root path when resolving referenced object documents.
@@ -60,13 +65,35 @@ where
 pub fn compile_scene_document_with_loader_and_source_and_filters<F>(
     content: &str,
     scene_source_path: &str,
-    mut object_loader: F,
+    object_loader: F,
     cutscene_filters: &CutsceneFilterRegistry,
 ) -> Result<Scene, serde_yaml::Error>
 where
     F: FnMut(&str) -> Option<String>,
 {
+    Ok(
+        compile_scene_and_authoring_input_with_loader_and_source_and_filters(
+            content,
+            scene_source_path,
+            object_loader,
+            cutscene_filters,
+        )?
+        .scene,
+    )
+}
+
+pub(super) fn compile_scene_and_authoring_input_with_loader_and_source_and_filters<F>(
+    content: &str,
+    scene_source_path: &str,
+    mut object_loader: F,
+    cutscene_filters: &CutsceneFilterRegistry,
+) -> Result<CompiledSceneAuthoringInput, serde_yaml::Error>
+where
+    F: FnMut(&str) -> Option<String>,
+{
     let mut raw = serde_yaml::from_str::<Value>(content)?;
+    let authored_render_scene_3d =
+        serde_yaml::from_value::<RenderScene3dDocument>(raw.clone()).ok();
     expand_scene_layer_refs(&mut raw, scene_source_path, &mut object_loader);
     expand_scene_stages_ref(&mut raw, scene_source_path, &mut object_loader)?;
     expand_scene_effect_presets_ref(&mut raw, scene_source_path, &mut object_loader)?;
@@ -85,7 +112,10 @@ where
         compiled_input.push('\n');
     }
     let document = serde_yaml::from_str::<SceneDocument>(&compiled_input)?;
-    document.compile()
+    Ok(CompiledSceneAuthoringInput {
+        scene: document.compile()?,
+        authored_render_scene_3d,
+    })
 }
 
 fn expand_scene_layer_refs<F>(root: &mut Value, scene_source_path: &str, asset_loader: &mut F)

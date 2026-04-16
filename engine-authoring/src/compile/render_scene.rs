@@ -1,9 +1,7 @@
 use super::cutscene::CutsceneFilterRegistry;
-use super::scene::{
-    compile_scene_document_with_loader, compile_scene_document_with_loader_and_source,
-    compile_scene_document_with_loader_and_source_and_filters,
-};
-use super::{compile_2d_layers, compile_3d_viewports};
+use super::scene::compile_scene_and_authoring_input_with_loader_and_source_and_filters;
+use super::{compile_2d_layers, compile_3d::compile_3d_viewports_with_authored};
+use crate::document::RenderScene3dDocument;
 use engine_core::render_types::RenderScene;
 use engine_core::scene::Scene;
 
@@ -21,10 +19,19 @@ pub fn compile_render_scene_document_with_loader<F>(
 where
     F: FnMut(&str) -> Option<String>,
 {
-    let runtime_scene = compile_scene_document_with_loader(content, object_loader)?;
+    let filters = CutsceneFilterRegistry::with_builtin_filters();
+    let compiled = compile_scene_and_authoring_input_with_loader_and_source_and_filters(
+        content,
+        "/",
+        object_loader,
+        &filters,
+    )?;
     Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_scene(&runtime_scene),
-        runtime_scene,
+        render_scene: build_render_scene_from_scene_with_authored(
+            &compiled.scene,
+            compiled.authored_render_scene_3d.as_ref(),
+        ),
+        runtime_scene: compiled.scene,
     })
 }
 
@@ -36,11 +43,19 @@ pub fn compile_render_scene_document_with_loader_and_source<F>(
 where
     F: FnMut(&str) -> Option<String>,
 {
-    let runtime_scene =
-        compile_scene_document_with_loader_and_source(content, scene_source_path, object_loader)?;
+    let filters = CutsceneFilterRegistry::with_builtin_filters();
+    let compiled = compile_scene_and_authoring_input_with_loader_and_source_and_filters(
+        content,
+        scene_source_path,
+        object_loader,
+        &filters,
+    )?;
     Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_scene(&runtime_scene),
-        runtime_scene,
+        render_scene: build_render_scene_from_scene_with_authored(
+            &compiled.scene,
+            compiled.authored_render_scene_3d.as_ref(),
+        ),
+        runtime_scene: compiled.scene,
     })
 }
 
@@ -53,22 +68,32 @@ pub fn compile_render_scene_document_with_loader_and_source_and_filters<F>(
 where
     F: FnMut(&str) -> Option<String>,
 {
-    let runtime_scene = compile_scene_document_with_loader_and_source_and_filters(
+    let compiled = compile_scene_and_authoring_input_with_loader_and_source_and_filters(
         content,
         scene_source_path,
         object_loader,
         cutscene_filters,
     )?;
     Ok(CompiledRenderScene {
-        render_scene: build_render_scene_from_scene(&runtime_scene),
-        runtime_scene,
+        render_scene: build_render_scene_from_scene_with_authored(
+            &compiled.scene,
+            compiled.authored_render_scene_3d.as_ref(),
+        ),
+        runtime_scene: compiled.scene,
     })
 }
 
 pub fn build_render_scene_from_scene(scene: &Scene) -> RenderScene {
+    build_render_scene_from_scene_with_authored(scene, None)
+}
+
+fn build_render_scene_from_scene_with_authored(
+    scene: &Scene,
+    authored_3d: Option<&RenderScene3dDocument>,
+) -> RenderScene {
     RenderScene {
         layers_2d: compile_2d_layers(scene),
-        viewports_3d: compile_3d_viewports(scene),
+        viewports_3d: compile_3d_viewports_with_authored(scene, authored_3d),
     }
 }
 
@@ -184,6 +209,41 @@ layers:
                     },
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn uses_authored_viewports_3d_when_declared() {
+        let raw = r#"
+id: authored-viewports
+title: Authored Viewports
+layers:
+  - name: ui
+    sprites:
+      - type: text
+        id: title
+        content: HELLO
+viewports-3d:
+  - id: authored-camera
+    layer_index: 0
+    sprite_path: [0]
+    sprite_id: authored-camera
+"#;
+
+        let compiled =
+            compile_render_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+                .expect("render scene should compile");
+
+        assert_eq!(
+            compiled.render_scene.viewports_3d,
+            vec![Viewport3DRef {
+                id: Some("authored-camera".to_string()),
+                sprite: SpriteRef {
+                    layer_index: 0,
+                    sprite_path: vec![0],
+                    sprite_id: Some("authored-camera".to_string()),
+                },
+            }]
         );
     }
 }
