@@ -918,6 +918,7 @@ name = "engine-render-3d"
 version = "0.1.0"
 dependencies = [
  "engine-core",
+ "serde_yaml",
 ]
 
 [[package]]

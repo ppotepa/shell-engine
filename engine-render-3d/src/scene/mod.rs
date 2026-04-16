@@ -11,5 +11,8 @@ pub use dirty::DirtyState3D;
 pub use instance::Scene3DInstance;
 pub use lights::Light3DInstance;
 pub use materials::MaterialInstance;
-pub use nodes::{Billboard3DInstance, GeneratedWorldInstance, MeshInstance, Node3DInstance, Renderable3D};
+pub use nodes::{
+    Billboard3DInstance, GeneratedWorldInstance, MeshInstance, Node3DInstance, Renderable3D,
+    SceneClip3DInstance,
+};
 pub use viewport::Viewport3DInstance;

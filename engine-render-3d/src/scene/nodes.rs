@@ -9,7 +9,9 @@ pub struct MeshInstance {
 
 #[derive(Debug, Clone)]
 pub struct GeneratedWorldInstance {
-    pub profile_id: Option<String>,
+    pub body_id: String,
+    pub preset_id: Option<String>,
+    pub mesh_source: Option<String>,
     pub params_uri: Option<String>,
     pub material: Option<MaterialInstance>,
 }
@@ -22,10 +24,17 @@ pub struct Billboard3DInstance {
 }
 
 #[derive(Debug, Clone)]
+pub struct SceneClip3DInstance {
+    pub source: String,
+    pub frame: String,
+}
+
+#[derive(Debug, Clone)]
 pub enum Renderable3D {
     Mesh(MeshInstance),
     GeneratedWorld(GeneratedWorldInstance),
     Billboard(Billboard3DInstance),
+    SceneClip(SceneClip3DInstance),
 }
 
 #[derive(Debug, Clone)]
