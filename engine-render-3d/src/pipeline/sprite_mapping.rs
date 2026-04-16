@@ -1,7 +1,7 @@
+use super::generated_world_sprite_spec::extract_generated_world_sprite_spec;
 use super::obj_sprite_spec::extract_obj_sprite_spec;
 use super::scene_clip_sprite_spec::extract_scene_clip_sprite_spec;
-use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D};
-use engine_core::render_types::Transform3D;
+use crate::scene::Node3DInstance;
 use engine_core::scene::Sprite;
 
 pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
@@ -11,46 +11,13 @@ pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
     if let Some(spec) = extract_scene_clip_sprite_spec(sprite) {
         return Some(spec.node);
     }
+    if let Some(spec) = extract_generated_world_sprite_spec(sprite) {
+        return Some(spec.node);
+    }
 
     match sprite {
         Sprite::Obj { .. } => None,
-        Sprite::Planet {
-            id,
-            body_id,
-            preset,
-            mesh_source,
-            x,
-            y,
-            scale,
-            pitch_deg,
-            yaw_deg,
-            roll_deg,
-            visible,
-            ..
-        } => Some(Node3DInstance {
-            id: id.clone().unwrap_or_else(|| format!("planet-{body_id}")),
-            transform: Transform3D {
-                translation: [*x as f32, *y as f32, 0.0],
-                rotation_deg: [
-                    pitch_deg.unwrap_or(0.0),
-                    yaw_deg.unwrap_or(0.0),
-                    roll_deg.unwrap_or(0.0),
-                ],
-                scale: [
-                    scale.unwrap_or(1.0),
-                    scale.unwrap_or(1.0),
-                    scale.unwrap_or(1.0),
-                ],
-            },
-            visible: *visible,
-            renderable: Renderable3D::GeneratedWorld(GeneratedWorldInstance {
-                body_id: body_id.clone(),
-                preset_id: preset.clone(),
-                mesh_source: mesh_source.clone(),
-                params_uri: None,
-                material: None,
-            }),
-        }),
+        Sprite::Planet { .. } => None,
         Sprite::Scene3D { .. } => None,
         Sprite::Text { .. }
         | Sprite::Image { .. }

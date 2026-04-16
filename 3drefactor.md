@@ -320,6 +320,7 @@ These are the tasks to start with immediately.
 - [x] Extract `Sprite::Scene3D` field unpacking into `engine-render-3d::pipeline::scene_clip_sprite_spec` and route scene-clip node mapping through typed spec extraction.
 - [x] Update `scene_clip_render_adapter` to consume `extract_scene_clip_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
 - [x] Update `generated_world_render_adapter` to consume `extract_generated_world_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
+- [x] Route `map_sprite_to_node3d` planet-node creation through `extract_generated_world_sprite_spec(...).node` to remove duplicate mapping logic in pipeline core.
 
 ## Definition of Done
 
