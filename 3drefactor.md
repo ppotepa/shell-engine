@@ -374,6 +374,8 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D work-item object pass execution (solid pass + wireframe pass + depth-buffer ownership) into `engine-render-3d::prerender::render_item::render_work_item_canvas_with`.
 - [x] Move Scene3D `work item -> Buffer` orchestration into `engine-render-3d::prerender::render_item::render_work_item_buffer_with` (compositor now provides only technical callbacks: dimensions, object raster call, blit).
 - [x] Move mesh warmup entrypoint from `engine-compositor` to `engine-render-3d::prerender::warmup_scene_meshes`; `engine` warmup system now depends on the 3D domain seam directly.
+- [x] Add shared prepared 3D sprite spec seam (`engine-render-3d::pipeline::render3d_sprite_spec`) and route compositor 3D dispatch (`obj/generated-world/scene-clip`) through prepared specs instead of direct authored sprite branching.
+- [x] Refactor compositor prerender target collection to reuse shared 3D extraction helpers + recursive sprite walking, removing duplicated direct authored `Sprite::Obj` interpretation blocks from prerender path.
 - [x] Remove remaining mod-flavoured sample Scene3D source literals in engine tests (`demo.scene3d.yml` -> `sample.scene3d.yml`) to keep renderer/runtime test fixtures domain-agnostic.
 - [x] Extract `Sprite::Obj` field unpacking into `engine-render-3d::pipeline::obj_sprite_spec` and consume it from compositor adapter (reduce render-semantic coupling to authored sprite internals).
 - [x] Extract `Sprite::Planet` field unpacking into `engine-render-3d::pipeline::generated_world_sprite_spec` and consume it from compositor adapter (keep generated-world path renderer-agnostic).
