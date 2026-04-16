@@ -283,6 +283,7 @@ These are the tasks to start with immediately.
 - [x] Add `engine-render-3d::pipeline::map_sprite_to_node3d` for `Obj`, `Planet`, and `Scene3D`.
 - [x] Route `Scene3D` sprite render path through typed node mapping (`map_sprite_to_node3d`) instead of direct field unpacking.
 - [x] Route `Planet` adapter base identity/transform (`body/preset/mesh/rotation/scale/position`) through typed node mapping.
+- [x] Route `Obj` sprite base source/transform (`source/position/rotation/scale`) through typed node mapping.
 
 ## Definition of Done
 

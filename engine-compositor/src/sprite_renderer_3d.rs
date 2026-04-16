@@ -23,11 +23,15 @@ pub(crate) fn render_obj_sprite(
     sprite_elapsed: u64,
     ctx: &mut RenderCtx<'_>,
 ) {
+    let Some(node) = map_sprite_to_node3d(sprite) else {
+        return;
+    };
+    let Renderable3D::Mesh(mesh_node) = &node.renderable else {
+        return;
+    };
+
     let Sprite::Obj {
         id,
-        source,
-        x,
-        y,
         size,
         width,
         height,
@@ -35,10 +39,6 @@ pub(crate) fn render_obj_sprite(
         backface_cull,
         clip_y_min,
         clip_y_max,
-        scale,
-        yaw_deg,
-        pitch_deg,
-        roll_deg,
         rotation_x,
         rotation_y,
         rotation_z,
@@ -177,6 +177,14 @@ pub(crate) fn render_obj_sprite(
         return;
     };
 
+    let source = mesh_node.source.as_str();
+    let node_x = node.transform.translation[0].round() as i32;
+    let node_y = node.transform.translation[1].round() as i32;
+    let node_scale = node.transform.scale[0];
+    let node_pitch = node.transform.rotation_deg[0];
+    let node_yaw = node.transform.rotation_deg[1];
+    let node_roll = node.transform.rotation_deg[2];
+
     let effective_source_buf: String;
     let effective_source: &str = if (source.starts_with("terrain-plane://") || source.starts_with("terrain-sphere://") || source.starts_with("earth-sphere://"))
         && (terrain_plane_amplitude.is_some()
@@ -268,15 +276,15 @@ pub(crate) fn render_obj_sprite(
         effective_source_buf = engine_worldgen::world_uri_from_params(&p);
         &effective_source_buf
     } else {
-        source.as_str()
+        source
     };
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(*width, *height, *size)
     } else {
         (area.width.max(1), area.height.max(1))
     };
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
+    let base_x = area.origin_x + resolve_x(node_x, align_x, area.width, sprite_width);
+    let base_y = area.origin_y + resolve_y(node_y, align_y, area.height, sprite_height);
     let (draw_x, draw_y) = compute_draw_pos(
         base_x,
         base_y,
@@ -305,10 +313,9 @@ pub(crate) fn render_obj_sprite(
     // Prerender fast path: check if this sprite has a cached frame.
     let sprite_id_opt = id.as_deref();
     let elapsed_s = sprite_elapsed as f32 / 1000.0;
-    let live_total_yaw = rotation_y.unwrap_or(0.0)
-        + yaw_deg.unwrap_or(0.0)
-        + rotate_y_deg_per_sec.unwrap_or(0.0) * elapsed_s;
-    let current_pitch = pitch_deg.unwrap_or(0.0);
+    let live_total_yaw =
+        rotation_y.unwrap_or(0.0) + node_yaw + rotate_y_deg_per_sec.unwrap_or(0.0) * elapsed_s;
+    let current_pitch = node_pitch;
     let clip_min = clip_y_min.unwrap_or(0.0);
     let clip_max = clip_y_max.unwrap_or(1.0);
     if let Some(sid) = sprite_id_opt {
@@ -349,10 +356,10 @@ pub(crate) fn render_obj_sprite(
         Some(sprite_height),
         *size,
         ObjRenderParams {
-            scale: scale.unwrap_or(1.0),
-            yaw_deg: yaw_deg.unwrap_or(0.0),
-            pitch_deg: pitch_deg.unwrap_or(0.0),
-            roll_deg: roll_deg.unwrap_or(0.0),
+            scale: node_scale,
+            yaw_deg: node_yaw,
+            pitch_deg: node_pitch,
+            roll_deg: node_roll,
             rotation_x: rotation_x.unwrap_or(0.0),
             rotation_y: rotation_y.unwrap_or(0.0),
             rotation_z: rotation_z.unwrap_or(0.0),
