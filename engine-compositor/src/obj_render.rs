@@ -21,9 +21,7 @@ mod terrain_eval;
 use mesh_source::get_or_load_obj_mesh;
 pub(crate) use mesh_source::parse_terrain_params_from_uri;
 pub use params::ObjRenderParams;
-use setup::{
-    build_biome_params, build_terrain_extra_params, normalized_light_and_view_dirs,
-};
+use setup::{build_biome_params, build_terrain_extra_params, normalized_light_and_view_dirs};
 use terrain_eval::{compute_terrain_noise_at, displace_sphere_vertex};
 
 /// Minimum vertex/face count to use parallel processing.
@@ -216,11 +214,12 @@ pub fn render_obj_to_canvas(
         ];
         // Compute terrain noise at the raw sphere surface position.
         // This drives both displacement (vertex position) and coloring, keeping them in sync.
-        let terrain_noise_val = if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
-            compute_terrain_noise_at(centered_raw, &params)
-        } else {
-            0.0
-        };
+        let terrain_noise_val =
+            if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
+                compute_terrain_noise_at(centered_raw, &params)
+            } else {
+                0.0
+            };
         // Displace vertex outward along sphere normal before rotation.
         let centered = if params.terrain_displacement > 0.0 {
             displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
@@ -390,24 +389,33 @@ pub fn render_obj_to_canvas(
             .faces
             .iter()
             .filter(|f| {
-                if !backface_cull { return true; }
+                if !backface_cull {
+                    return true;
+                }
                 let v0 = projected.get(f.indices[0]).and_then(|p| *p);
                 let v1 = projected.get(f.indices[1]).and_then(|p| *p);
                 let v2 = projected.get(f.indices[2]).and_then(|p| *p);
                 match (v0, v1, v2) {
-                    (Some(v0), Some(v1), Some(v2)) => edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0,
+                    (Some(v0), Some(v1), Some(v2)) => {
+                        edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0
+                    }
                     _ => false,
                 }
             })
             .map(|f| {
                 // Only pay the depth-key cost when sorting is actually needed.
-                let key = if params.depth_sort_faces { face_avg_depth(&projected, f) } else { 0.0 };
+                let key = if params.depth_sort_faces {
+                    face_avg_depth(&projected, f)
+                } else {
+                    0.0
+                };
                 (key, f)
             })
             .collect();
         if params.depth_sort_faces {
-            sorted_faces
-                .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            sorted_faces.sort_unstable_by(|a, b| {
+                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
         }
 
         // Parallel shading: compute face color for each visible face independently.
@@ -458,11 +466,6 @@ pub fn render_obj_to_canvas(
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    // Backface cull is already applied before the sort; this guard is a
-                    // cheap safety-net for faces that slipped through (e.g. near-edge area=0).
-                    if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
-                        return None;
-                    }
                     let (s0, s1, s2) = if unlit {
                         (1.0, 1.0, 1.0)
                     } else {
@@ -540,56 +543,52 @@ pub fn render_obj_to_canvas(
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    // Back-face culling check
-                    if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
-                        return None;
+                    // Unlit: render at flat fg color, skip all lighting.
+                    if unlit {
+                        return Some((v0, v1, v2, fg_rgb));
                     }
-                        // Unlit: render at flat fg color, skip all lighting.
-                        if unlit {
-                            return Some((v0, v1, v2, fg_rgb));
-                        }
-                        let shading = face_shading_with_specular(
-                            v0.view,
-                            v1.view,
-                            v2.view,
-                            face.ka,
-                            face.ks,
-                            face.ns,
-                            light_dir_norm,
-                            light_2_dir_norm,
-                            half_dir_1,
-                            half_dir_2,
-                            light_2_intensity,
-                            [light_1_x, light_point_y, light_1_z],
-                            light_point_intensity * point_1_flicker,
-                            [light_2_x, light_point_2_y, light_2_z],
-                            light_point_2_intensity * point_2_flicker,
-                            cel_levels,
-                            tone_mix,
-                            ambient,
-                            view_dir,
-                            light_point_falloff,
-                            light_point_2_falloff,
-                        );
-                        let shaded_base = apply_shading(face.color, shading.0);
-                        let toned_color = apply_tone_palette(
-                            shaded_base,
-                            shading.1,
-                            shadow_colour,
-                            midtone_colour,
-                            highlight_colour,
-                            tone_mix,
-                        );
-                        let shaded_color = apply_point_light_tint(
-                            toned_color,
-                            light_point_colour,
-                            shading.2,
-                            light_point_2_colour,
-                            shading.3,
-                        );
-                        Some((v0, v1, v2, shaded_color))
-                    })
-                    .collect();
+                    let shading = face_shading_with_specular(
+                        v0.view,
+                        v1.view,
+                        v2.view,
+                        face.ka,
+                        face.ks,
+                        face.ns,
+                        light_dir_norm,
+                        light_2_dir_norm,
+                        half_dir_1,
+                        half_dir_2,
+                        light_2_intensity,
+                        [light_1_x, light_point_y, light_1_z],
+                        light_point_intensity * point_1_flicker,
+                        [light_2_x, light_point_2_y, light_2_z],
+                        light_point_2_intensity * point_2_flicker,
+                        cel_levels,
+                        tone_mix,
+                        ambient,
+                        view_dir,
+                        light_point_falloff,
+                        light_point_2_falloff,
+                    );
+                    let shaded_base = apply_shading(face.color, shading.0);
+                    let toned_color = apply_tone_palette(
+                        shaded_base,
+                        shading.1,
+                        shadow_colour,
+                        midtone_colour,
+                        highlight_colour,
+                        tone_mix,
+                    );
+                    let shaded_color = apply_point_light_tint(
+                        toned_color,
+                        light_point_colour,
+                        shading.2,
+                        light_point_2_colour,
+                        shading.3,
+                    );
+                    Some((v0, v1, v2, shaded_color))
+                })
+                .collect();
 
             let count = shaded_faces.len();
             // Phase 2 (sequential): rasterize. Depth buffer handles occlusion order.
@@ -660,10 +659,10 @@ pub fn render_obj_to_canvas(
                 + 0.46 * params.atmo_rayleigh_amount.clamp(0.0, 1.0)
                 + 0.36 * params.atmo_haze_amount.clamp(0.0, 1.0))
             * params.atmo_limb_boost.max(0.0))
-            .clamp(0.0, 0.98);
-        let halo_width =
-            (0.02 + params.atmo_height * (0.58 + 1.05 * params.atmo_haze_amount.clamp(0.0, 1.0)))
-                .clamp(0.02, 0.75);
+        .clamp(0.0, 0.98);
+        let halo_width = (0.02
+            + params.atmo_height * (0.58 + 1.05 * params.atmo_haze_amount.clamp(0.0, 1.0)))
+        .clamp(0.02, 0.75);
         let halo_power = (2.4 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.1
             + (1.0 - params.atmo_haze_amount.clamp(0.0, 1.0)) * 0.35)
             .clamp(0.55, 4.0);
@@ -789,34 +788,45 @@ fn apply_atmosphere_halo_canvas(
     let absorption_amount = absorption_amount.clamp(0.0, 1.0);
     let forward_scatter = forward_scatter.clamp(0.0, 1.0);
 
-    let original = canvas.to_vec();
+    let occupied: Vec<bool> = canvas.iter().map(Option::is_some).collect();
+    let scan_w = scan_max_x.saturating_sub(scan_min_x) + 1;
+    let mut nearest_sq = vec![f32::INFINITY; scan_w * (scan_max_y.saturating_sub(scan_min_y) + 1)];
+
+    // Build a local distance field around the silhouette once, then shade halo pixels from it.
+    // This preserves the existing silhouette-following halo while avoiding an expensive
+    // edge-pixels × candidate-pixels nearest-neighbour scan every frame.
+    for &(ex, ey) in &edge_pixels {
+        let local_min_x = ((ex - search).max(scan_min_x as i32)) as usize;
+        let local_max_x = ((ex + search).min(scan_max_x as i32)) as usize;
+        let local_min_y = ((ey - search).max(scan_min_y as i32)) as usize;
+        let local_max_y = ((ey + search).min(scan_max_y as i32)) as usize;
+        for y in local_min_y..=local_max_y {
+            let dy = y as i32 - ey;
+            let row_offset = (y - scan_min_y) * scan_w;
+            let canvas_row = y * w;
+            for x in local_min_x..=local_max_x {
+                let canvas_idx = canvas_row + x;
+                if occupied[canvas_idx] {
+                    continue;
+                }
+                let dx = x as i32 - ex;
+                let dist_sq = (dx * dx + dy * dy) as f32;
+                let local_idx = row_offset + (x - scan_min_x);
+                if dist_sq < nearest_sq[local_idx] {
+                    nearest_sq[local_idx] = dist_sq;
+                }
+            }
+        }
+    }
+
     for y in scan_min_y..=scan_max_y {
+        let row_offset = (y - scan_min_y) * scan_w;
         for x in scan_min_x..=scan_max_x {
             let idx = y * w + x;
-            if original[idx].is_some() {
+            if occupied[idx] {
                 continue;
             }
-
-            let x_i32 = x as i32;
-            let y_i32 = y as i32;
-            let mut nearest_sq = f32::INFINITY;
-            for &(ex, ey) in &edge_pixels {
-                let dx = x_i32 - ex;
-                if dx.abs() > search {
-                    continue;
-                }
-                let dy = y_i32 - ey;
-                if dy.abs() > search {
-                    continue;
-                }
-                let dist_sq = (dx * dx + dy * dy) as f32;
-                if dist_sq < nearest_sq {
-                    nearest_sq = dist_sq;
-                    if nearest_sq <= 1.0 {
-                        break;
-                    }
-                }
-            }
+            let nearest_sq = nearest_sq[row_offset + (x - scan_min_x)];
             if !nearest_sq.is_finite() || nearest_sq > halo_px_sq {
                 continue;
             }
@@ -837,14 +847,12 @@ fn apply_atmosphere_halo_canvas(
                 0.08 + halo_width * 0.10,
             );
             let wide_scatter = skirt * (0.18 + 0.52 * day);
-            let forward_lobe = skirt.powf(0.52)
-                * smoothstep(0.10, 1.0, sun_alignment).powf(1.8)
-                * forward_scatter;
+            let forward_lobe =
+                skirt.powf(0.52) * smoothstep(0.10, 1.0, sun_alignment).powf(1.8) * forward_scatter;
             let twilight_arc = gaussian(sun_alignment, 0.0, 0.28 + 0.30 * (1.0 - forward_scatter));
             let haze_alpha = (halo_strength
                 * (0.12 + 0.88 * haze_amount)
-                * (core_ring * (0.55 + 0.35 * day + 0.45 * forward_lobe)
-                    + wide_scatter * 0.18))
+                * (core_ring * (0.55 + 0.35 * day + 0.45 * forward_lobe) + wide_scatter * 0.18))
                 .clamp(0.0, 0.97);
             let ray_alpha = (halo_strength
                 * (0.10 + 0.90 * rayleigh_amount)
@@ -950,7 +958,10 @@ mod tests {
             })
             .count();
 
-        assert!(outside_pixels > 0, "expected halo pixels outside the original sphere");
+        assert!(
+            outside_pixels > 0,
+            "expected halo pixels outside the original sphere"
+        );
     }
 }
 
@@ -1030,7 +1041,8 @@ pub fn render_obj_to_rgba_canvas(
             (v[1] - center[1]) * model_scale,
             (v[2] - center[2]) * model_scale,
         ];
-        let terrain_noise_val = if params.terrain_color.is_some() && params.cloud_alpha_softness <= 0.0
+        let terrain_noise_val = if params.terrain_color.is_some()
+            && params.cloud_alpha_softness <= 0.0
             || params.terrain_displacement > 0.0
         {
             compute_terrain_noise_at(centered_raw, &params)
@@ -1178,9 +1190,6 @@ pub fn render_obj_to_rgba_canvas(
             let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
             let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
             let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-            if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
-                return None;
-            }
             let (s0, s1, s2) = if unlit {
                 (1.0, 1.0, 1.0)
             } else {
@@ -1363,11 +1372,12 @@ fn render_mesh_projected(
                 (v[1] - center[1]) * model_scale,
                 (v[2] - center[2]) * model_scale,
             ];
-            let terrain_noise_val = if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
-                compute_terrain_noise_at(centered_raw, &params)
-            } else {
-                0.0
-            };
+            let terrain_noise_val =
+                if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
+                    compute_terrain_noise_at(centered_raw, &params)
+                } else {
+                    0.0
+                };
             let centered = if params.terrain_displacement > 0.0 {
                 displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
             } else {
@@ -1492,7 +1502,9 @@ fn render_mesh_projected(
                 let v1 = projected.get(f.indices[1]).and_then(|p| *p);
                 let v2 = projected.get(f.indices[2]).and_then(|p| *p);
                 match (v0, v1, v2) {
-                    (Some(v0), Some(v1), Some(v2)) => edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0,
+                    (Some(v0), Some(v1), Some(v2)) => {
+                        edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0
+                    }
                     _ => false,
                 }
             })
@@ -1506,8 +1518,9 @@ fn render_mesh_projected(
             })
             .collect();
         if params.depth_sort_faces {
-            sorted_faces
-                .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            sorted_faces.sort_unstable_by(|a, b| {
+                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
         }
 
         let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
@@ -1560,9 +1573,6 @@ fn render_mesh_projected(
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
-                        return None;
-                    }
                     let (s0, s1, s2) = if unlit {
                         (1.0, 1.0, 1.0)
                     } else {
@@ -1619,9 +1629,6 @@ fn render_mesh_projected(
                         let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                         let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                         let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                        if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
-                            return None;
-                        }
                         if unlit {
                             return Some((v0, v1, v2, fg_rgb));
                         }
@@ -1771,7 +1778,10 @@ struct ObjCanvasPipeline;
 impl<'a> Render3dPipeline<ObjCanvasRenderRequest<'a>, Option<(Vec<Option<[u8; 3]>>, u16, u16)>>
     for ObjCanvasPipeline
 {
-    fn render(&self, input: ObjCanvasRenderRequest<'a>) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
+    fn render(
+        &self,
+        input: ObjCanvasRenderRequest<'a>,
+    ) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
         render_obj_to_canvas(
             input.source,
             input.width,
