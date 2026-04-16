@@ -1,39 +1,15 @@
-use crate::scene::{
-    GeneratedWorldInstance, MeshInstance, Node3DInstance, Renderable3D, SceneClip3DInstance,
-};
+use super::obj_sprite_spec::extract_obj_sprite_spec;
+use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D, SceneClip3DInstance};
 use engine_core::render_types::Transform3D;
 use engine_core::scene::{CameraSource, Sprite};
 
 pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
+    if let Some(spec) = extract_obj_sprite_spec(sprite) {
+        return Some(spec.node);
+    }
+
     match sprite {
-        Sprite::Obj {
-            id,
-            source,
-            x,
-            y,
-            scale,
-            pitch_deg,
-            yaw_deg,
-            roll_deg,
-            visible,
-            ..
-        } => Some(Node3DInstance {
-            id: id.clone().unwrap_or_else(|| "obj-node".to_string()),
-            transform: Transform3D {
-                translation: [*x as f32, *y as f32, 0.0],
-                rotation_deg: [
-                    pitch_deg.unwrap_or(0.0),
-                    yaw_deg.unwrap_or(0.0),
-                    roll_deg.unwrap_or(0.0),
-                ],
-                scale: [scale.unwrap_or(1.0), scale.unwrap_or(1.0), scale.unwrap_or(1.0)],
-            },
-            visible: *visible,
-            renderable: Renderable3D::Mesh(MeshInstance {
-                source: source.clone(),
-                material: None,
-            }),
-        }),
+        Sprite::Obj { .. } => None,
         Sprite::Planet {
             id,
             body_id,
@@ -56,7 +32,11 @@ pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
                     yaw_deg.unwrap_or(0.0),
                     roll_deg.unwrap_or(0.0),
                 ],
-                scale: [scale.unwrap_or(1.0), scale.unwrap_or(1.0), scale.unwrap_or(1.0)],
+                scale: [
+                    scale.unwrap_or(1.0),
+                    scale.unwrap_or(1.0),
+                    scale.unwrap_or(1.0),
+                ],
             },
             visible: *visible,
             renderable: Renderable3D::GeneratedWorld(GeneratedWorldInstance {

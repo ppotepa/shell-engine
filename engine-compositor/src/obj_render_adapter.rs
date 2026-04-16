@@ -1,14 +1,12 @@
 use crate::obj_source_resolver::resolve_effective_obj_source;
-use crate::{
-    obj_sprite_dimensions, render_obj_content, try_blit_prerendered, ObjRenderParams,
-};
+use crate::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered, ObjRenderParams};
 use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::{CameraSource, Sprite};
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
-use engine_render_3d::pipeline::map_sprite_to_node3d;
-use engine_render_3d::scene::Renderable3D;
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
+use engine_render_3d::pipeline::{extract_obj_sprite_spec, ObjSpriteSpec};
+use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
@@ -23,14 +21,12 @@ pub(crate) fn render_obj_sprite(
     sprite_elapsed: u64,
     ctx: &mut RenderCtx<'_>,
 ) {
-    let Some(node) = map_sprite_to_node3d(sprite) else {
+    let Some(spec) = extract_obj_sprite_spec(sprite) else {
         return;
     };
-    let Renderable3D::Mesh(mesh_node) = &node.renderable else {
-        return;
-    };
-
-    let Sprite::Obj {
+    let ObjSpriteSpec {
+        sprite,
+        node,
         id,
         size,
         width,
@@ -44,6 +40,7 @@ pub(crate) fn render_obj_sprite(
         rotation_z,
         rotate_y_deg_per_sec,
         camera_distance,
+        camera_source,
         fov_degrees,
         near_clip,
         light_direction_x,
@@ -91,10 +88,8 @@ pub(crate) fn render_obj_sprite(
         polar_ice_end,
         desert_color,
         desert_strength,
-        atmo_color: _atmo_color,
         atmo_height,
         atmo_density,
-        atmo_strength: _atmo_strength,
         atmo_rayleigh_amount,
         atmo_rayleigh_color,
         atmo_rayleigh_falloff,
@@ -110,14 +105,6 @@ pub(crate) fn render_obj_sprite(
         atmo_terminator_softness,
         atmo_night_glow,
         atmo_night_glow_color,
-        atmo_rim_power: _atmo_rim_power,
-        atmo_haze_strength: _atmo_haze_strength,
-        atmo_haze_power: _atmo_haze_power,
-        atmo_veil_strength: _atmo_veil_strength,
-        atmo_veil_power: _atmo_veil_power,
-        atmo_halo_strength: _atmo_halo_strength,
-        atmo_halo_width: _atmo_halo_width,
-        atmo_halo_power: _atmo_halo_power,
         night_light_color,
         night_light_threshold,
         night_light_intensity,
@@ -141,10 +128,9 @@ pub(crate) fn render_obj_sprite(
         view_fwd_x,
         view_fwd_y,
         view_fwd_z,
-        camera_source,
         ..
-    } = sprite
-    else {
+    } = spec;
+    let Renderable3D::Mesh(mesh_node) = &node.renderable else {
         return;
     };
 
@@ -159,12 +145,12 @@ pub(crate) fn render_obj_sprite(
     let effective_source_buf = resolve_effective_obj_source(source, sprite);
     let effective_source: &str = effective_source_buf.as_str();
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
-        obj_sprite_dimensions(*width, *height, *size)
+        obj_sprite_dimensions(width, height, size)
     } else {
         (area.width.max(1), area.height.max(1))
     };
-    let base_x = area.origin_x + resolve_x(node_x, align_x, area.width, sprite_width);
-    let base_y = area.origin_y + resolve_y(node_y, align_y, area.height, sprite_height);
+    let base_x = area.origin_x + resolve_x(node_x, &align_x, area.width, sprite_width);
+    let base_y = area.origin_y + resolve_y(node_y, &align_y, area.height, sprite_height);
     let (draw_x, draw_y) = compute_draw_pos(
         base_x,
         base_y,
@@ -173,8 +159,8 @@ pub(crate) fn render_obj_sprite(
         object_state,
     );
 
-    let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
-    let bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
+    let fg = fg_colour.map(Color::from).unwrap_or(Color::White);
+    let bg = bg_colour.map(Color::from).unwrap_or(Color::Reset);
     let draw_glyph = draw_char
         .as_deref()
         .and_then(|s| s.chars().next())
@@ -228,13 +214,13 @@ pub(crate) fn render_obj_sprite(
         }
     }
 
-    let use_scene_camera = *camera_source == CameraSource::Scene;
+    let use_scene_camera = camera_source == CameraSource::Scene;
     let scene_camera = ctx.scene_camera_3d;
     render_obj_content(
         effective_source,
         Some(sprite_width),
         Some(sprite_height),
-        *size,
+        size,
         ObjRenderParams {
             scale: node_scale,
             yaw_deg: node_yaw,
@@ -258,7 +244,7 @@ pub(crate) fn render_obj_sprite(
             light_point_y: light_point_y.unwrap_or(2.0),
             light_point_z: light_point_z.unwrap_or(0.0),
             light_point_intensity: light_point_intensity.unwrap_or(0.0),
-            light_point_colour: light_point_colour.as_ref().map(Color::from),
+            light_point_colour: light_point_colour.map(Color::from),
             light_point_flicker_depth: light_point_flicker_depth.unwrap_or(0.0),
             light_point_flicker_hz: light_point_flicker_hz.unwrap_or(0.0),
             light_point_orbit_hz: light_point_orbit_hz.unwrap_or(0.0),
@@ -267,15 +253,15 @@ pub(crate) fn render_obj_sprite(
             light_point_2_y: light_point_2_y.unwrap_or(0.0),
             light_point_2_z: light_point_2_z.unwrap_or(0.0),
             light_point_2_intensity: light_point_2_intensity.unwrap_or(0.0),
-            light_point_2_colour: light_point_2_colour.as_ref().map(Color::from),
+            light_point_2_colour: light_point_2_colour.map(Color::from),
             light_point_2_flicker_depth: light_point_2_flicker_depth.unwrap_or(0.0),
             light_point_2_flicker_hz: light_point_2_flicker_hz.unwrap_or(0.0),
             light_point_2_orbit_hz: light_point_2_orbit_hz.unwrap_or(0.0),
             light_point_2_snap_hz: light_point_2_snap_hz.unwrap_or(0.0),
             cel_levels: cel_levels.unwrap_or(0),
-            shadow_colour: shadow_colour.as_ref().map(Color::from),
-            midtone_colour: midtone_colour.as_ref().map(Color::from),
-            highlight_colour: highlight_colour.as_ref().map(Color::from),
+            shadow_colour: shadow_colour.map(Color::from),
+            midtone_colour: midtone_colour.map(Color::from),
+            highlight_colour: highlight_colour.map(Color::from),
             tone_mix: tone_mix.unwrap_or(0.0),
             scene_elapsed_ms: sprite_elapsed,
             camera_pan_x: camera_state.pan_x,
@@ -356,7 +342,7 @@ pub(crate) fn render_obj_sprite(
             smooth_shading: smooth_shading.unwrap_or(false),
             latitude_bands: latitude_bands.unwrap_or(0),
             latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
-            terrain_color: terrain_color.as_ref().map(|c| {
+            terrain_color: terrain_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
@@ -376,15 +362,15 @@ pub(crate) fn render_obj_sprite(
             crater_rim_height: 0.35,
             snow_line_altitude: 0.0,
             terrain_displacement: 0.0,
-            below_threshold_transparent: *below_threshold_transparent,
+            below_threshold_transparent,
             cloud_alpha_softness: 0.0,
-            polar_ice_color: polar_ice_color.as_ref().map(|c| {
+            polar_ice_color: polar_ice_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
             polar_ice_start: polar_ice_start.unwrap_or(0.78),
             polar_ice_end: polar_ice_end.unwrap_or(0.92),
-            desert_color: desert_color.as_ref().map(|c| {
+            desert_color: desert_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
@@ -395,7 +381,6 @@ pub(crate) fn render_obj_sprite(
             atmo_strength: 0.0,
             atmo_rayleigh_amount: atmo_rayleigh_amount.unwrap_or(0.0),
             atmo_rayleigh_color: atmo_rayleigh_color
-                .as_ref()
                 .map(|c| {
                     let (r, g, b) = Color::from(c).to_rgb();
                     [r, g, b]
@@ -404,7 +389,6 @@ pub(crate) fn render_obj_sprite(
             atmo_rayleigh_falloff: atmo_rayleigh_falloff.unwrap_or(0.32),
             atmo_haze_amount: atmo_haze_amount.unwrap_or(0.0),
             atmo_haze_color: atmo_haze_color
-                .as_ref()
                 .map(|c| {
                     let (r, g, b) = Color::from(c).to_rgb();
                     [r, g, b]
@@ -412,7 +396,7 @@ pub(crate) fn render_obj_sprite(
                 .or(Some([212, 225, 240])),
             atmo_haze_falloff: atmo_haze_falloff.unwrap_or(0.18),
             atmo_absorption_amount: atmo_absorption_amount.unwrap_or(0.0),
-            atmo_absorption_color: atmo_absorption_color.as_ref().map(|c| {
+            atmo_absorption_color: atmo_absorption_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
@@ -422,7 +406,7 @@ pub(crate) fn render_obj_sprite(
             atmo_limb_boost: atmo_limb_boost.unwrap_or(1.0),
             atmo_terminator_softness: atmo_terminator_softness.unwrap_or(1.0),
             atmo_night_glow: atmo_night_glow.unwrap_or(0.0),
-            atmo_night_glow_color: atmo_night_glow_color.as_ref().map(|c| {
+            atmo_night_glow_color: atmo_night_glow_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
@@ -436,7 +420,7 @@ pub(crate) fn render_obj_sprite(
             atmo_halo_power: 2.2,
             ocean_noise_scale: 4.0,
             ocean_color_rgb: None,
-            night_light_color: night_light_color.as_ref().map(|c| {
+            night_light_color: night_light_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
@@ -475,4 +459,3 @@ pub(crate) fn render_obj_sprite(
         object_regions,
     );
 }
-

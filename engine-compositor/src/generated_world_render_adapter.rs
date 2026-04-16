@@ -7,9 +7,9 @@ use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::{CameraSource, Sprite};
 use engine_core::scene_runtime_types::{ObjectRuntimeState, SceneCamera3D, TargetResolver};
-use engine_render_3d::pipeline::map_sprite_to_node3d;
-use engine_render_3d::scene::Renderable3D;
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
+use engine_render_3d::pipeline::{extract_generated_world_sprite_spec, map_sprite_to_node3d};
+use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
@@ -35,26 +35,7 @@ pub(crate) fn render_generated_world_sprite(
         return;
     };
 
-    let Sprite::Planet {
-        size,
-        width,
-        height,
-        spin_deg,
-        cloud_spin_deg,
-        cloud2_spin_deg,
-        observer_altitude_km,
-        camera_distance,
-        camera_source,
-        fov_degrees,
-        near_clip,
-        sun_dir_x,
-        sun_dir_y,
-        sun_dir_z,
-        align_x,
-        align_y,
-        ..
-    } = sprite
-    else {
+    let Some(spec) = extract_generated_world_sprite_spec(sprite) else {
         return;
     };
 
@@ -72,22 +53,23 @@ pub(crate) fn render_generated_world_sprite(
         return;
     };
 
-    let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
-        obj_sprite_dimensions(*width, *height, *size)
-    } else {
-        (area.width.max(1), area.height.max(1))
-    };
+    let (sprite_width, sprite_height) =
+        if spec.width.is_some() || spec.height.is_some() || spec.size.is_some() {
+            obj_sprite_dimensions(spec.width, spec.height, spec.size)
+        } else {
+            (area.width.max(1), area.height.max(1))
+        };
     let base_x = area.origin_x
         + resolve_x(
             node.transform.translation[0].round() as i32,
-            align_x,
+            &spec.align_x,
             area.width,
             sprite_width,
         );
     let base_y = area.origin_y
         + resolve_y(
             node.transform.translation[1].round() as i32,
-            align_y,
+            &spec.align_y,
             area.height,
             sprite_height,
         );
@@ -99,12 +81,12 @@ pub(crate) fn render_generated_world_sprite(
         object_state,
     );
 
-    let use_scene_camera = *camera_source == CameraSource::Scene;
+    let use_scene_camera = spec.camera_source == CameraSource::Scene;
     let scene_camera = ctx.scene_camera_3d;
     let sun_dir = [
-        sun_dir_x.unwrap_or(planet.sun_dir_x as f32),
-        sun_dir_y.unwrap_or(planet.sun_dir_y as f32),
-        sun_dir_z.unwrap_or(planet.sun_dir_z as f32),
+        spec.sun_dir_x.unwrap_or(planet.sun_dir_x as f32),
+        spec.sun_dir_y.unwrap_or(planet.sun_dir_y as f32),
+        spec.sun_dir_z.unwrap_or(planet.sun_dir_z as f32),
     ];
     let surface_scale = node.transform.scale[0];
     let (cloud_scale, cloud2_scale) = generated_world_cloud_scales(body, surface_scale);
@@ -115,15 +97,15 @@ pub(crate) fn render_generated_world_sprite(
     let base_yaw = node.transform.rotation_deg[1];
     let pitch = node.transform.rotation_deg[0];
     let roll = node.transform.rotation_deg[2];
-    let camera_distance = camera_distance.unwrap_or(3.0);
-    let fov_degrees = fov_degrees.unwrap_or(60.0);
-    let near_clip = near_clip.unwrap_or(0.001);
+    let camera_distance = spec.camera_distance.unwrap_or(3.0);
+    let fov_degrees = spec.fov_degrees.unwrap_or(60.0);
+    let near_clip = spec.near_clip.unwrap_or(0.001);
     let atmo_visibility =
-        generated_world_atmosphere_visibility(body, observer_altitude_km.unwrap_or(0.0));
+        generated_world_atmosphere_visibility(body, spec.observer_altitude_km.unwrap_or(0.0));
 
     let mut surface_params = build_generated_world_base_params(
         surface_scale,
-        base_yaw + spin_deg.unwrap_or(0.0),
+        base_yaw + spec.spin_deg.unwrap_or(0.0),
         pitch,
         roll,
         camera_distance,
@@ -160,13 +142,15 @@ pub(crate) fn render_generated_world_sprite(
     surface_params.atmo_height = 0.12;
     surface_params.atmo_density = (planet.atmo_strength as f32 * atmo_visibility).clamp(0.0, 1.0);
     surface_params.atmo_strength = 0.0;
-    surface_params.atmo_rayleigh_amount = (planet.atmo_strength as f32 * atmo_visibility).clamp(0.0, 1.0);
+    surface_params.atmo_rayleigh_amount =
+        (planet.atmo_strength as f32 * atmo_visibility).clamp(0.0, 1.0);
     surface_params.atmo_rayleigh_color = planet
         .atmo_color
         .as_deref()
         .and_then(|value| colour_rgb(Some(value)));
     surface_params.atmo_rayleigh_falloff = 0.32;
-    surface_params.atmo_haze_amount = (planet.atmo_strength as f32 * 0.45 * atmo_visibility).clamp(0.0, 1.0);
+    surface_params.atmo_haze_amount =
+        (planet.atmo_strength as f32 * 0.45 * atmo_visibility).clamp(0.0, 1.0);
     surface_params.atmo_haze_color = surface_params.atmo_rayleigh_color;
     surface_params.atmo_haze_falloff = 0.18;
     surface_params.atmo_absorption_amount = 0.0;
@@ -235,7 +219,7 @@ pub(crate) fn render_generated_world_sprite(
         mesh_path,
         Some(sprite_width),
         Some(sprite_height),
-        *size,
+        spec.size,
         surface_params,
         false,
         false,
@@ -255,7 +239,7 @@ pub(crate) fn render_generated_world_sprite(
     let cloud_threshold = (planet.cloud_threshold as f32).clamp(0.0, 0.999);
     let mut cloud_params = build_generated_world_base_params(
         cloud_scale,
-        base_yaw + cloud_spin_deg.unwrap_or(0.0),
+        base_yaw + spec.cloud_spin_deg.unwrap_or(0.0),
         pitch,
         roll,
         camera_distance,
@@ -280,7 +264,7 @@ pub(crate) fn render_generated_world_sprite(
         mesh_path,
         Some(sprite_width),
         Some(sprite_height),
-        *size,
+        spec.size,
         cloud_params,
         false,
         colour_value(Some(cloud_colour), Color::White),
@@ -293,7 +277,7 @@ pub(crate) fn render_generated_world_sprite(
     let cloud2_colour = DEFAULT_WORLD_CLOUD_2_COLOR;
     let mut cloud2_params = build_generated_world_base_params(
         cloud2_scale,
-        base_yaw + 180.0 + cloud2_spin_deg.unwrap_or(0.0),
+        base_yaw + 180.0 + spec.cloud2_spin_deg.unwrap_or(0.0),
         pitch,
         roll,
         camera_distance,
@@ -318,7 +302,7 @@ pub(crate) fn render_generated_world_sprite(
         mesh_path,
         Some(sprite_width),
         Some(sprite_height),
-        *size,
+        spec.size,
         cloud2_params,
         false,
         colour_value(Some(cloud2_colour), Color::White),
@@ -329,7 +313,7 @@ pub(crate) fn render_generated_world_sprite(
 
     // 4. Blit composited RGBA canvas to buffer.
     let (target_w, _target_h) =
-        obj_sprite_dimensions(Some(sprite_width), Some(sprite_height), *size);
+        obj_sprite_dimensions(Some(sprite_width), Some(sprite_height), spec.size);
     blit_rgba_canvas(
         ctx.layer_buf,
         &composited,
@@ -602,5 +586,3 @@ fn generated_world_atmosphere_visibility(body: &BodyDef, observer_altitude_km: f
     }
     (1.0 - (observer_altitude_km / (top_km * 8.0)).clamp(0.0, 0.65)).clamp(0.35, 1.0)
 }
-
-

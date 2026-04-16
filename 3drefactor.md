@@ -19,6 +19,8 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] Keep asset loading semantics unchanged for unpacked mods and zip mods.
 - [ ] Do not let runtime mutation semantics depend on stringly-typed render
       internals going forward.
+- [ ] Keep renderer and engine-core fully mod-agnostic (no mod-specific names,
+      examples, or behavior assumptions in core/render code paths).
 
 ## End State
 
@@ -313,6 +315,8 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D work-item object pass execution (solid pass + wireframe pass + depth-buffer ownership) into `engine-render-3d::prerender::render_item::render_work_item_canvas_with`.
 - [x] Move Scene3D `work item -> Buffer` orchestration into `engine-render-3d::prerender::render_item::render_work_item_buffer_with` (compositor now provides only technical callbacks: dimensions, object raster call, blit).
 - [x] Remove remaining mod-flavoured sample Scene3D source literals in engine tests (`demo.scene3d.yml` -> `sample.scene3d.yml`) to keep renderer/runtime test fixtures domain-agnostic.
+- [x] Extract `Sprite::Obj` field unpacking into `engine-render-3d::pipeline::obj_sprite_spec` and consume it from compositor adapter (reduce render-semantic coupling to authored sprite internals).
+- [x] Extract `Sprite::Planet` field unpacking into `engine-render-3d::pipeline::generated_world_sprite_spec` and consume it from compositor adapter (keep generated-world path renderer-agnostic).
 
 ## Definition of Done
 
