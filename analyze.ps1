@@ -1,4 +1,4 @@
-# analyze.ps1 — Shell Quest project analysis tool
+﻿# analyze.ps1 — Shell Engine project analysis tool
 #
 # Produces a complete dependency + reference graph and reports dead code,
 # orphan crates, unreferenced mod assets, and scene navigation maps.
@@ -61,7 +61,7 @@ function Out-Section {
 
 if ($Help) {
     Write-Host @"
-analyze.ps1 — Shell Quest project analysis
+analyze.ps1 — Shell Engine project analysis
 
 Options:
   --dead-code     Include cargo dead-code pass (slow, ~1-2 min)

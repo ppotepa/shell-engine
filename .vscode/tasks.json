@@ -1,8 +1,8 @@
-{
+﻿{
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Shell Quest (app)",
+      "label": "Run Shell Engine (app)",
       "type": "shell",
       "command": "cargo run -p app",
       "group": {
@@ -17,7 +17,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Run Shell Quest (release)",
+      "label": "Run Shell Engine (release)",
       "type": "shell",
       "command": "cargo run -p app --release",
       "presentation": {

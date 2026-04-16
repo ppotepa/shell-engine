@@ -1,4 +1,4 @@
-mod cli;
+﻿mod cli;
 mod edit;
 mod fs_utils;
 mod scaffold;
@@ -125,8 +125,8 @@ mod tests {
     #[test]
     fn scene_id_defaults_are_stable() {
         assert_eq!(
-            default_scene_id("shell-quest", "intro-logo"),
-            "shell-quest.intro-logo"
+            default_scene_id("shell-engine", "intro-logo"),
+            "shell-engine.intro-logo"
         );
         assert_eq!(
             default_scene_id("my_mod", "foo/bar_scene"),

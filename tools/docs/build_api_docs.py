@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 from __future__ import annotations
 
 import json
@@ -28,7 +28,7 @@ VARIANT_RE = re.compile(r"^(\w+)\b")
 IMPL_FOR_RE = re.compile(r"^impl(?:<[^>]+>)?\s+(.+?)\s+for\s+(.+?)\s*(?:where\b.*)?\{$", re.S)
 IMPL_RE = re.compile(r"^impl(?:<[^>]+>)?\s+(.+?)\s*(?:where\b.*)?\{$", re.S)
 IDENT_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]*)\b")
-HTML_TITLE = "Shell Quest Engine API Reference"
+HTML_TITLE = "Shell Engine Engine API Reference"
 
 
 @dataclass
@@ -1336,7 +1336,7 @@ def inject_runtime_scripts() -> None:
         html_file.write_text(text, encoding='utf-8')
 
 
-BASE_STYLES = """/* Shell Quest API docs */
+BASE_STYLES = """/* Shell Engine API docs */
 :root {
   --primary: #1e3a8a;
   --secondary: #0f766e;
@@ -1508,7 +1508,7 @@ def render_root_pages(meta: dict[str, str], modules: dict[str, ModuleRecord], en
     }
     home_body = f"""
   <header class="header hero">
-    <h1>Shell Quest API Docs</h1>
+    <h1>Shell Engine API Docs</h1>
     <p class="tagline">Canonical type reference generated from concat-report.txt</p>
   </header>
   <div class="container">

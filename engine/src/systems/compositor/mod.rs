@@ -1,4 +1,4 @@
-//! Compositor system — walks the scene layer/sprite tree and renders each frame into the active `Buffer`.
+﻿//! Compositor system — walks the scene layer/sprite tree and renders each frame into the active `Buffer`.
 
 use crate::buffer::TRUE_BLACK;
 use crate::obj_prerender::{ObjPrerenderStatus, ObjPrerenderedFrames};
@@ -417,16 +417,16 @@ layers:
     }
 
     #[test]
-    fn shell_quest_intro_logo_renders_non_black_cells() {
+    fn playground_rhai_image_lab_renders_non_black_cells() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("engine crate should live under repo root")
             .to_path_buf();
-        let mod_root = repo_root.join("mods/shell-quest");
+        let mod_root = repo_root.join("mods/playground");
         let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
         let scene = loader
-            .load_by_ref("00.intro.logo")
-            .expect("load shell-quest intro logo");
+            .load_by_ref("playground-rhai-image-lab")
+            .expect("load playground scene");
 
         let mut world = World::new();
         world.register(Buffer::new(120, 40));

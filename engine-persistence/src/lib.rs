@@ -1,4 +1,4 @@
-//! Persistent JSON storage domain for cross-run game data.
+﻿//! Persistent JSON storage domain for cross-run game data.
 //!
 //! This crate intentionally stays domain-agnostic. It provides a path-based
 //! JSON store with immediate disk flush on mutation.
@@ -119,12 +119,12 @@ impl PersistenceStore {
 
 impl Default for PersistenceStore {
     fn default() -> Self {
-        Self::new("shell-quest")
+        Self::new("shell-engine")
     }
 }
 
 fn default_save_root() -> PathBuf {
-    std::env::var("SHELL_QUEST_SAVE_ROOT")
+    std::env::var("SHELL_ENGINE_SAVE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from(DEFAULT_SAVE_ROOT))
 }

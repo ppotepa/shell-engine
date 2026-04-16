@@ -11,11 +11,14 @@ pub struct PlanetBiomeParams {
     pub atmo_rim_power: f32,
     pub atmo_haze_strength: f32,
     pub atmo_haze_power: f32,
+    pub atmo_veil_strength: f32,
+    pub atmo_veil_power: f32,
     pub night_light_color: Option<[u8; 3]>,
     pub night_light_threshold: f32,
     pub night_light_intensity: f32,
     pub sun_dir: [f32; 3],
     pub view_dir: [f32; 3],
+    pub camera_pos: [f32; 3],
 }
 
 /// Extra per-pixel terrain rendering parameters for Gouraud rasterization.

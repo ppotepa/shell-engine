@@ -1,4 +1,4 @@
-//! Application state: mode, cursor positions, project index, and all UI-level state.
+﻿//! Application state: mode, cursor positions, project index, and all UI-level state.
 
 pub mod cutscene;
 pub mod editor_pane;
@@ -360,7 +360,7 @@ impl AppState {
         let mut lines = match self.mode {
             AppMode::Start => match self.start_dialog {
                 StartDialog::RecentMenu => vec![
-                    "Open a Shell Quest project from recents or from the action list.".to_string(),
+                    "Open a Shell Engine project from recents or from the action list.".to_string(),
                     "Tab switches between Recent Projects and Actions.".to_string(),
                     "Use j/k to move and Enter to open the highlighted item.".to_string(),
                     "Press f to scan schema-tagged YAML files or o to browse directories."
@@ -373,7 +373,7 @@ impl AppState {
                     "Press Enter to open the inferred project or Esc to return.".to_string(),
                 ],
                 StartDialog::DirectoryBrowser => vec![
-                    "Browse directories and open a valid Shell Quest mod root.".to_string(),
+                    "Browse directories and open a valid Shell Engine mod root.".to_string(),
                     "The left column is the navigator, the right side previews the selected folder."
                         .to_string(),
                     "Press F5 to toggle the live preview popup for the selected folder."

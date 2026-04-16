@@ -1,4 +1,4 @@
-# App Layer — CLI, Startup, Configuration
+﻿# App Layer — CLI, Startup, Configuration
 
 ## Build Script
 
@@ -86,7 +86,7 @@ pub struct PipelineFlags {
    - Load optional `audio/sfx.yaml` and `audio/songs/**/*.yml`
 
 4. **Load mod** (if `--mod-source` provided)
-   - Otherwise use built-in shell-quest mod
+   - Otherwise use built-in shell-engine mod
    - Load scenes, assets, schemas
 
 5. **Create World** (engine registry)
@@ -101,7 +101,7 @@ pub struct PipelineFlags {
 
 ## Environment Variables
 
-- `SHELL_QUEST_MOD_SOURCE` — Same as `--mod-source` (CLI takes precedence)
+- `SHELL_ENGINE_MOD_SOURCE` — Same as `--mod-source` (CLI takes precedence)
 
 ## Engine Integration Points
 

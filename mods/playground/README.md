@@ -1,4 +1,4 @@
-# playground
+﻿# playground
 
 Development sandbox mod for experiments.
 
@@ -19,5 +19,5 @@ effects, and authoring experiments without disturbing the main game content.
 ## Typical usage
 
 ```bash
-SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app
+SHELL_ENGINE_MOD_SOURCE=mods/playground cargo run -p app
 ```

@@ -1,6 +1,6 @@
-# Content Authoring Guide
+﻿# Content Authoring Guide
 
-Shell Quest content is metadata-driven. Effect metadata, scene schemas, CLI
+Shell Engine content is metadata-driven. Effect metadata, scene schemas, CLI
 tools, and the TUI editor all derive from a single source of truth defined in
 `engine-core`. When metadata is correct, everything else follows.
 

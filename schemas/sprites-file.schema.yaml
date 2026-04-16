@@ -1,5 +1,5 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/sprites-file.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/sprites-file.schema.yaml"
 title: Sprites File Schema
 description: >
   Partial file schema for a flat list of sprite definitions in folder-based scene packages.

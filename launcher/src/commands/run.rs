@@ -1,4 +1,4 @@
-use crate::cargo::CargoCommand;
+﻿use crate::cargo::CargoCommand;
 use crate::cli::RunArgs;
 use crate::workspace;
 use anyhow::Result;
@@ -147,7 +147,14 @@ pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
 }
 
 fn build_sidecar(workspace_root: &Path) -> Result<()> {
-    let sidecar_dir = workspace_root.join("mods/shell-quest/os/cognitOS");
+    let sidecar_dir = workspace_root.join("mods/asteroids/os/cognitOS");
+
+    if !sidecar_dir.exists() {
+        anyhow::bail!(
+            "sidecar source not present in this workspace: {}",
+            sidecar_dir.display()
+        );
+    }
 
     let status = std::process::Command::new("dotnet")
         .arg("build")

@@ -1,6 +1,6 @@
-# Changelog
+﻿# Changelog
 
-Daily progress updates for Shell Quest development.
+Daily progress updates for Shell Engine development.
 
 ## Format Guidelines
 
@@ -120,7 +120,7 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 - **engine**: removed `SceneRenderedMode` enum and `rendered_mode` field from Scene; removed `HalfblockPacker`, `FullScanPacker`, `DirtyRegionPacker` strategies; removed `ratatui` and `crossterm` dependencies from all crates
 - **engine-render**: removed `DisplaySink`/`DisplayFrame` traits; `CellPatch` renamed to `GlyphPatch` in SDL2 renderer
 - **engine-render-policy**: removed `resolve_renderer_mode()`; `renderer-mode` and `force-renderer-mode` config fields gone
-- **engine-runtime**: removed `SHELL_QUEST_RENDERER_MODE` env var and `SceneRenderedMode` parsing
+- **engine-runtime**: removed `SHELL_ENGINE_RENDERER_MODE` env var and `SceneRenderedMode` parsing
 - **engine-pipeline**: removed `HalfblockPacker` from `PipelineStrategies`; `renderer-mode locking` flag removed
 - **engine-compositor**: halfblock packing path removed; `convert_to_terminal_colors` renamed to `convert_rgba_to_rgb_samples`; `terminal_crt` effect renamed to `crt-filter`
 - **editor**: terminal TUI (ratatui/crossterm) replaced with SDL2 stub; terminal launcher menu replaced with stdin-based menu
@@ -352,7 +352,7 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 - **Difficulty animation**: Portrait rotation + forward lean on confirm, periodic glitch flashes, neon cycles
 - **Strategy optimization**: 9 traits with safe/optimized implementations; CLI flags (--opt-comp, --opt-present, etc)
 - **Benchmark system**: --bench flag with per-frame sampling, scene breakdown, CSV reports
-- **Test mod**: shell-quest-tests with compressed scenes (~9.4s loop, all timeouts, no user input)
+- **Test mod**: shell-engine-tests with compressed scenes (~9.4s loop, all timeouts, no user input)
 - **Frame capture**: --capture-frames with binary comparison for regression testing
 
 ### Fixed

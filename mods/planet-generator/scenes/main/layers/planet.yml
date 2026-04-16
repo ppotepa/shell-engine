@@ -31,7 +31,12 @@
       world-moisture-scale: 3.0
       world-displacement-scale: 0.22
       atmo-color: "#7cc8ff"
-      atmo-strength: 0.55
-      atmo-rim-power: 3.2
-      atmo-haze-strength: 0.38
-      atmo-haze-power: 1.5
+      atmo-strength: 0.48
+      atmo-halo-width: 0.11
+      atmo-halo-strength: 0.78
+      atmo-veil-strength: 0.12
+      atmo-rim-power: 3.6
+      atmo-haze-strength: 0.22
+      atmo-haze-power: 1.75
+      atmo-veil-power: 1.6
+      atmo-halo-power: 2.2

@@ -1,4 +1,4 @@
-//! 3D scene rendering system for Shell Quest.
+﻿//! 3D scene rendering system for Shell Engine.
 //!
 //! Provides:
 //! - Scene3D asset format and parsing

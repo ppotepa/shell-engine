@@ -1,6 +1,6 @@
-# engine-render-sdl2
+﻿# engine-render-sdl2
 
-SDL2 output backend for the Shell Quest runtime.
+SDL2 output backend for the Shell Engine runtime.
 
 ## Purpose
 

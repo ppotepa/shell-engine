@@ -1,4 +1,4 @@
-//! Run-scoped file logging shared by launcher, runtime, and editor.
+﻿//! Run-scoped file logging shared by launcher, runtime, and editor.
 //!
 //! Directory layout (default):
 //! `logs/<dd-mm-yy>/run-XXX/run.log`
@@ -46,7 +46,7 @@ pub struct RunLoggerConfig {
     pub enabled: bool,
     pub root_dir: Option<PathBuf>,
     /// Also write log lines to stderr in real time (for console diagnostics).
-    /// Automatically true when `SHELL_QUEST_CONSOLE_LOG=1` is set.
+    /// Automatically true when `SHELL_ENGINE_CONSOLE_LOG=1` is set.
     pub also_stderr: bool,
 }
 
@@ -121,7 +121,7 @@ fn append_to_log_ring(level: LogLevel, target: &str, message: &str) {
 /// 1. `--no-logs` (`force_disabled`)
 /// 2. `--logs` (`force_enabled`)
 /// 3. debug build (`cfg!(debug_assertions)`)
-/// 4. `SHELL_QUEST_LOGS=1|true|yes|on`
+/// 4. `SHELL_ENGINE_LOGS=1|true|yes|on`
 pub fn resolve_enabled(force_enabled: bool, force_disabled: bool) -> bool {
     if force_disabled {
         return false;
@@ -132,7 +132,7 @@ pub fn resolve_enabled(force_enabled: bool, force_disabled: bool) -> bool {
     if cfg!(debug_assertions) {
         return true;
     }
-    env_flag_enabled("SHELL_QUEST_LOGS")
+    env_flag_enabled("SHELL_ENGINE_LOGS")
 }
 
 /// Initializes the process-global run logger.
@@ -148,7 +148,7 @@ pub fn init_run_logger(config: RunLoggerConfig) -> io::Result<Option<RunLogInfo>
         return Ok(Some(existing.info.clone()));
     }
 
-    let also_stderr = config.also_stderr || env_flag_enabled("SHELL_QUEST_CONSOLE_LOG");
+    let also_stderr = config.also_stderr || env_flag_enabled("SHELL_ENGINE_CONSOLE_LOG");
 
     let root_dir = config.root_dir.unwrap_or_else(|| PathBuf::from("logs"));
     let run_info = create_run_layout(&root_dir)?;

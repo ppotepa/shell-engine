@@ -1,8 +1,8 @@
-# Editor Subsystem
+﻿# Editor Subsystem
 
 ## Architecture Overview
 
-The editor is an SDL2-backed stub for authoring shell-quest scenes. The original
+The editor is an SDL2-backed stub for authoring shell-engine scenes. The original
 terminal TUI (crossterm/ratatui) has been replaced; a full SDL2 editor UI is not
 yet implemented.
 

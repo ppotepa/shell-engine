@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!--
   ASTEROIDS — HUD LAYOUT DESIGN (v2)
   ════════════════════════════════════
@@ -458,7 +458,7 @@
        FOOTER
   ══════════════════════════════════════════════════════ -->
   <line x1="40" y1="802" x2="1240" y2="802" stroke="#21262d"/>
-  <text x="40"   y="815" font-size="9" fill="#3d4a6b">shell-quest · asteroids mod · HUD design v2 · docs/layout/hud-design.svg</text>
+  <text x="40"   y="815" font-size="9" fill="#3d4a6b">shell-engine · asteroids mod · HUD design v2 · docs/layout/hud-design.svg</text>
   <text x="1240" y="815" font-size="9" fill="#3d4a6b" text-anchor="end">640×360 · 3-plane composite · halfblock terminal renderer · taffy grid</text>
 
 </svg>

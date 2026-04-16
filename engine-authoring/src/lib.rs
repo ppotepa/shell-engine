@@ -1,4 +1,4 @@
-//! Shared authoring pipeline for Shell Quest YAML assets.
+﻿//! Shared authoring pipeline for Shell Engine YAML assets.
 //!
 //! This crate is the future source of truth for authored scene/object input:
 //! parsing, package assembly, normalization, validation, and schema metadata.

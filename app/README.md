@@ -1,6 +1,6 @@
-# app
+﻿# app
 
-CLI launcher for running Shell Quest.
+CLI launcher for running Shell Engine.
 
 ## Purpose
 
@@ -18,7 +18,7 @@ initializes logging, builds `EngineConfig`, and starts `ShellEngine`.
 
 ```bash
 cargo run -p app
-cargo run -p app -- --mod shell-quest-tests --bench 5 --opt
+cargo run -p app -- --mod shell-engine-tests --bench 5 --opt
 cargo run -p app -- --mod-source=mods/playground --debug-feature
 ```
 

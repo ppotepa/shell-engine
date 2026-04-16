@@ -1,4 +1,4 @@
-//! Schema source-of-truth for authoring files.
+﻿//! Schema source-of-truth for authoring files.
 //!
 //! This module owns generated authoring schema fragments so the generator CLI,
 //! tests, and future editor integrations all consume the same descriptors.
@@ -74,7 +74,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/catalog.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/catalog.yaml"
         )),
     );
     root.insert(

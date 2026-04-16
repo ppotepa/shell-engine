@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/input-profiles.schema.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/schemas/generated/input-profiles.schema.yaml
 title: Generated input profile schemas from metadata
 $defs:
   input_profile:

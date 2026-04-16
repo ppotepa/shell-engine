@@ -1,11 +1,11 @@
-# Planet Generator Mod
+﻿# Planet Generator Mod
 
 Procedural planet viewer with a multi-tab parameter UI.
 
 ## Running
 
 ```bash
-SHELL_QUEST_MOD_SOURCE=mods/planet-generator cargo run -p app
+SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 ```
 
 ## Controls

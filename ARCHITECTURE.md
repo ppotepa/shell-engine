@@ -1,9 +1,9 @@
-# Shell Quest Architecture
+﻿# Shell Engine Architecture
 
 ## 1. Repository Structure
 
 ```
-shell-quest/
+shell-engine/
 ├── app/                       CLI launcher
 ├── editor/                    TUI authoring tool
 ├── engine/                    Runtime orchestrator (re-exports all subsystems)
@@ -34,8 +34,8 @@ shell-quest/
 ├── engine-render-sdl2/        SDL2 presenter + input backend
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
 ├── mods/                      Content mods
-│   ├── shell-quest/           Main game mod
-│   ├── shell-quest-tests/     Automated test mod (no user input)
+│   ├── shell-engine/           Main game mod
+│   ├── shell-engine-tests/     Automated test mod (no user input)
 │   ├── playground/            Development playground
 │   └── planet-generator/      Procedural planet viewer + HUD
 ├── schemas/                   JSON schemas for YAML validation
@@ -477,7 +477,7 @@ the underlying runtime order.
 
 | Flag | Description |
 |------|-------------|
-| `--mod <NAME>` | Mod to load by name (default: `shell-quest`) |
+| `--mod <NAME>` | Mod to load by name (default: `shell-engine`) |
 | `--mod-source <PATH>` | Full mod source path (dir or .zip), overrides `--mod` |
 | `--dev` | Enable dev helpers (overlays, scene nav). Auto in debug builds |
 | `--no-dev` | Disable dev helpers even in debug builds |
@@ -501,13 +501,13 @@ the underlying runtime order.
 | `--bench [SECS]` | Benchmark mode (default 5s), saves report |
 | `--capture-frames <DIR>` | Capture frames for visual regression testing |
 
-**Environment variables**: `SHELL_QUEST_DEV`, `SHELL_QUEST_DEBUG_FEATURE`, `SHELL_QUEST_MOD_SOURCE`
+**Environment variables**: `SHELL_ENGINE_DEV`, `SHELL_ENGINE_DEBUG_FEATURE`, `SHELL_ENGINE_MOD_SOURCE`
 
 ### Editor (`cargo run -p editor`)
 
 | Flag | Description |
 |------|-------------|
-| `--mod-source <PATH>` | Path to mod root (default: `mods/shell-quest`) |
+| `--mod-source <PATH>` | Path to mod root (default: `mods/shell-engine`) |
 | `--logs` | Force-enable run logging |
 | `--no-logs` | Force-disable run logging |
 | `--log-root <DIR>` | Override log root directory |

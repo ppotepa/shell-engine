@@ -823,7 +823,7 @@ pub(crate) fn rgb_to_color(rgb: [u8; 3]) -> Color {
 
 #[cfg(test)]
 mod tests {
-    use super::obj_sprite_dimensions;
+    use crate::obj_render::obj_sprite_dimensions;
     use engine_core::scene::SpriteSizePreset;
 
     #[test]

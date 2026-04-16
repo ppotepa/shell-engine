@@ -1,11 +1,11 @@
-use crate::cargo::CargoCommand;
+﻿use crate::cargo::CargoCommand;
 use crate::cli::CaptureArgs;
 use anyhow::Result;
 use std::path::Path;
 
 pub fn run(workspace_root: &Path, args: &CaptureArgs) -> Result<()> {
     let mod_name = if args.tests {
-        "shell-quest-tests"
+        "asteroids"
     } else {
         &args.mod_name
     };
@@ -67,7 +67,7 @@ fn capture_frames(
         cmd = cmd.app_arg("--opt");
     }
 
-    std::env::set_var("SHELL_QUEST_CAPTURE_FRAMES", count.to_string());
+    std::env::set_var("SHELL_ENGINE_CAPTURE_FRAMES", count.to_string());
 
     let status = cmd.exec(workspace_root)?;
 

@@ -1,9 +1,9 @@
-# Tools — developer utilities
+﻿# Tools — developer utilities
 
 ## Purpose
 
 `tools/` contains helper utilities used while authoring, validating, and
-benchmarking Shell Quest content. Some are Rust binaries in the workspace and
+benchmarking Shell Engine content. Some are Rust binaries in the workspace and
 some are standalone scripts.
 
 ## Main entries
@@ -18,7 +18,7 @@ Primary commands:
 ```bash
 cargo run -p schema-gen -- --all-mods
 cargo run -p schema-gen -- --all-mods --check
-cargo run -p schema-gen -- --mod mods/shell-quest
+cargo run -p schema-gen -- --mod mods/shell-engine
 ```
 
 Use it whenever scene/effect schema surfaces change.

@@ -240,6 +240,7 @@ layers:
             z_index: 0,
             visible: true,
             ui: false,
+            space: Default::default(),
             stages: LayerStages {
                 on_enter: Stage::default(),
                 on_idle: Stage {
@@ -290,6 +291,7 @@ layers:
             z_index: 0,
             visible: true,
             ui: false,
+            space: Default::default(),
             stages: LayerStages {
                 on_enter: Stage::default(),
                 on_idle: Stage::default(),

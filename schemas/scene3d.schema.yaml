@@ -1,8 +1,8 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/scene3d.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/scene3d.schema.yaml"
 title: Scene3D Schema
 description: >
-  Defines a pre-rendered 3D scene (`.scene3d.yml`) for Shell Quest.
+  Defines a pre-rendered 3D scene (`.scene3d.yml`) for Shell Engine.
   All named frames are rendered to buffers before the scene activates
   and stored in the Scene3DAtlas for zero-cost blitting at runtime.
 type: object

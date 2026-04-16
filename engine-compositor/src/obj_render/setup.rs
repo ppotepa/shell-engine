@@ -47,11 +47,18 @@ pub(super) fn build_biome_params(
         atmo_rim_power: params.atmo_rim_power,
         atmo_haze_strength: params.atmo_haze_strength,
         atmo_haze_power: params.atmo_haze_power,
+        atmo_veil_strength: params.atmo_veil_strength,
+        atmo_veil_power: params.atmo_veil_power,
         night_light_color: params.night_light_color,
         night_light_threshold: params.night_light_threshold,
         night_light_intensity: params.night_light_intensity,
         sun_dir: light_dir_norm,
         view_dir,
+        camera_pos: [
+            params.camera_world_x,
+            params.camera_world_y,
+            params.camera_world_z,
+        ],
     })
 }
 

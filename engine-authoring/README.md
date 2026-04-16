@@ -1,10 +1,10 @@
-# engine-authoring
+﻿# engine-authoring
 
 YAML authoring pipeline for scenes, packages, validation, and schema metadata.
 
 ## Purpose
 
-`engine-authoring` is the shared content-ingest layer for authored Shell Quest
+`engine-authoring` is the shared content-ingest layer for authored Shell Engine
 data. It parses YAML documents, assembles scene packages, normalizes authored
 input, validates it, and exposes schema-generation metadata consumed by tooling.
 

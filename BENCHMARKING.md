@@ -1,4 +1,4 @@
-# Shell Quest Benchmark Guide
+﻿# Shell Engine Benchmark Guide
 
 Covers performance benchmarking, the test mod, and frame capture regression testing.
 
@@ -8,13 +8,13 @@ Covers performance benchmarking, the test mod, and frame capture regression test
 
 ```bash
 # Baseline (disable default comp+rowdiff), 10 seconds
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --no-opt-comp --no-opt-rowdiff
+cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --no-opt-comp --no-opt-rowdiff
 
 # With all optimizations
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
+cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --opt
 
 # Release build example
-cargo run -p app --release -- --mod-source=mods/shell-quest-tests --bench 10 --opt
+cargo run -p app --release -- --mod-source=mods/shell-engine-tests --bench 10 --opt
 ```
 
 `--bench` automatically skips the splash screen. Reports are saved to
@@ -37,7 +37,7 @@ Recommendations: keep default `opt-comp` + `opt-rowdiff`, add `--opt-skip` for r
 
 ---
 
-## 3. Test Mod (shell-quest-tests)
+## 3. Test Mod (shell-engine-tests)
 
 Lightweight variant of the main mod: timeout triggers instead of user input,
 compressed timings (~9.4s per loop), continuous looping (scene 04 wraps to 00).
@@ -147,13 +147,13 @@ Renderer (SDL2 diff/present), Behavior (Rhai script execution).
 ## 7. Automated Testing Script
 
 The `capture-frames-tests.sh` script captures baseline and optimized frames using
-the `shell-quest-tests` mod automatically:
+the `shell-engine-tests` mod automatically:
 
 ```bash
 ./capture-frames-tests.sh baseline optimized 2
 ```
 
-This runs both captures with `--mod-source=mods/shell-quest-tests`, then invokes the
+This runs both captures with `--mod-source=mods/shell-engine-tests`, then invokes the
 comparison test. Useful for CI and pre-merge visual regression checks.
 
 ---
@@ -174,7 +174,7 @@ For SDL2 backend stage timings (diff/build, runtime apply, texture upload, prese
 enable profiling logs:
 
 ```bash
-SHELL_QUEST_SDL_PROFILE=1 cargo run -p app --
+SHELL_ENGINE_SDL_PROFILE=1 cargo run -p app --
 ```
 
 When run logging is enabled, look for `sdl2.backend` and `sdl2.runtime`

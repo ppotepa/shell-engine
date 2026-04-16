@@ -1,8 +1,8 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/scene.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/scene.schema.yaml"
 title: Scene Schema
 description: >
-  Defines a scene in a Shell Quest mod.
+  Defines a scene in a Shell Engine mod.
   Scenes have a lifecycle managed through stages (on_enter, on_idle, on_leave),
   each containing sequential steps of parallel effects.
 type: object

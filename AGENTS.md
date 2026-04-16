@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## 0) Documentation Roadmap
 
@@ -8,7 +8,7 @@
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repository structure, dependency graph, per-frame systems, strategy pattern, scene model, buffer architecture, SDL2 pixel rendering, timeline system, input system, logging, schema system, editor design, change playbook
 - **[AUTHORING.md](AUTHORING.md)** — Metadata-first approach, mod structure, asset system, sprite types, scene contract, PostFX pipeline, OBJ lighting, terminal HUD, Rhai scripting, compilation pipeline, author checklist, daily workflow
-- **[MODS.md](MODS.md)** — Shell Quest main mod, shell-quest-tests benchmark mod, playground dev mod, creating custom mods
+- **[MODS.md](MODS.md)** — Shell Engine main mod, shell-engine-tests benchmark mod, playground dev mod, creating custom mods
 - **[BENCHMARKING.md](BENCHMARKING.md)** — Quick start, optimization flags, test mod specs, frame capture regression testing, benchmark scenarios and reports
 - **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — CLI flags, strategy pattern, 20 optimization implementations, summary stats, key invariants, usage examples
 
@@ -25,8 +25,8 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - **[engine-gui/README.md](engine-gui/README.md)** — GUI widget model, input contract (`InputEvent`), `GuiSystem`, Rhai script API integration
 - **[engine-behavior/README.AGENTS.md](engine-behavior/README.AGENTS.md)** — Behavior contract, `BehaviorContext`, `BehaviorCommand`, script-facing API reminders
 - **[engine-*/README.md](engine-3d/README.md)** — crate-specific READMEs (purpose, key types, dependencies, usage)
-- **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
-- **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
+- **[mods/shell-engine/README.AGENTS.MD](mods/shell-engine/README.AGENTS.MD)** — Content structure, scenes, assets
+- **[mods/shell-engine-tests/README.AGENTS.MD](mods/shell-engine-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
 - **[mods/planet-generator/README.md](mods/planet-generator/README.md)** — Procedural planet viewer mod, controls, authoring new planet types
 - **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
 - **[schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — Schema generation, validation, drift checking
@@ -46,7 +46,7 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - `engine-io/` transport-agnostic IPC bridge (sidecar communication)
 - `editor/` TUI authoring tool
 - `mods/` content mods
-  - `mods/shell-quest/os/cognitOS/` C# sidecar (simulated MinixOS)
+  - `mods/shell-engine/os/cognitOS/` C# sidecar (simulated MinixOS)
 - `schemas/` shared base schemas
 
 Scenes are loaded as:
@@ -111,16 +111,16 @@ cargo run -p editor
 Run playground mod:
 
 ```bash
-SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app
+SHELL_ENGINE_MOD_SOURCE=mods/playground cargo run -p app
 ```
 
 Run playground mod with debug helpers:
 
 ```bash
-SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app -- --debug-feature
+SHELL_ENGINE_MOD_SOURCE=mods/playground cargo run -p app -- --debug-feature
 ```
 
-Run shell-quest with debug helpers:
+Run shell-engine with debug helpers:
 
 ```bash
 cargo run -p app -- --debug-feature
@@ -142,7 +142,7 @@ cargo test -p engine-authoring
 Build C# sidecar:
 
 ```bash
-cd mods/shell-quest/os/cognitOS
+cd mods/shell-engine/os/cognitOS
 dotnet build -c Release
 ```
 
@@ -150,10 +150,10 @@ Benchmarking:
 
 ```bash
 # Baseline 10-second benchmark (splash auto-skipped)
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
+cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10
 
 # With all optimizations
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
+cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --opt
 
 # Aggregate reports to CSV
 python3 collect-benchmarks.py
@@ -257,7 +257,7 @@ When adding new shell commands:
 - add `Commands/<Name>Command.cs` implementing `ICommand`,
 - register in `Program.cs` commands array,
 - if command changes `SessionMode`, handle in `AppHost.HandleSubmit` switch,
-- update `mods/shell-quest/docs/scripts.md` if gameplay-relevant.
+- update `mods/shell-engine/docs/scripts.md` if gameplay-relevant.
 
 When changing difficulty levels:
 

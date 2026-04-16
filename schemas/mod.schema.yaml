@@ -1,8 +1,8 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/mod.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/mod.schema.yaml"
 title: Mod Manifest Schema
 description: |
-  Root manifest for a Shell Quest mod.
+  Root manifest for a Shell Engine mod.
   Defines entrypoint scene and optional display/runtime presentation settings.
 type: object
 additionalProperties: true

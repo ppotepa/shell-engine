@@ -1,4 +1,4 @@
-# Build Profiles for Shell Quest
+﻿# Build Profiles for Shell Engine
 
 Three optimized build profiles to match your workflow:
 

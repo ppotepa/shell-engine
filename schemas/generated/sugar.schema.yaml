@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/sugar.schema.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/schemas/generated/sugar.schema.yaml
 title: Authoring sugar transformations catalog
 description: Documents all shorthand syntax, aliases, and normalizers applied during YAML authoring. These are automatically expanded by the compiler before deserialization.
 $defs:

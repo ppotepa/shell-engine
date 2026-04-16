@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+﻿use anyhow::{Context, Result};
 use clap::Parser;
 use engine_authoring::schema::{generate_mod_schema_files, render_schema_file};
 use engine_effects::{shared_dispatcher, EffectDispatcher, ParamControl};
@@ -148,7 +148,7 @@ fn generate_shared_effect_schema() -> Value {
     );
     root.insert(
         yaml_str("$id"),
-        yaml_str("https://shell-quest.local/schemas/effect.schema.yaml"),
+        yaml_str("https://shell-engine.local/schemas/effect.schema.yaml"),
     );
     root.insert(yaml_str("title"), yaml_str("Effect Schema"));
     root.insert(
@@ -243,7 +243,7 @@ fn generate_shared_effect_params_schema() -> Result<Value> {
     );
     root.insert(
         yaml_str("$id"),
-        yaml_str("https://shell-quest.local/schemas/effect-params.schema.yaml"),
+        yaml_str("https://shell-engine.local/schemas/effect-params.schema.yaml"),
     );
     root.insert(yaml_str("title"), yaml_str("Effect Params Schema"));
     root.insert(
@@ -538,7 +538,7 @@ mod tests {
             .join("../..")
             .canonicalize()
             .expect("repo root");
-        for mod_name in ["playground", "shell-quest"] {
+        for mod_name in ["playground", "asteroids"] {
             let mod_root = repo_root.join("mods").join(mod_name);
             sync_fragment_for_mod(&mod_root, true).unwrap_or_else(|err| {
                 panic!("{mod_name} generated schemas should be current: {err}")

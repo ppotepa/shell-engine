@@ -1,11 +1,11 @@
-//! File-system scanning helpers for discovering project assets and validating mod layouts.
+﻿//! File-system scanning helpers for discovering project assets and validating mod layouts.
 
 use crate::domain::mod_manifest::ModManifestSummary;
 use engine_authoring::repository::is_discoverable_scene_path;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-/// Result of validating a directory as a Shell Quest mod project.
+/// Result of validating a directory as a Shell Engine mod project.
 #[derive(Debug, Clone)]
 pub struct ProjectValidation {
     pub valid: bool,
@@ -30,7 +30,7 @@ pub fn collect_project_files(root: &Path) -> Vec<String> {
     out
 }
 
-/// Validates the given directory as a Shell Quest mod project, checking `mod.yaml` and entrypoint.
+/// Validates the given directory as a Shell Engine mod project, checking `mod.yaml` and entrypoint.
 pub fn validate_project_dir(dir: &Path) -> ProjectValidation {
     validate_project_dir_with_manifest(dir).1
 }
@@ -167,7 +167,7 @@ fn walk_all_files(path: &Path, out: &mut Vec<String>) {
     }
 }
 
-/// Collects all `.yml` files under `root` that reference a Shell Quest schema header.
+/// Collects all `.yml` files under `root` that reference a Shell Engine schema header.
 pub fn collect_schema_project_yml_files(root: &Path) -> Vec<String> {
     let mut out = Vec::new();
     walk_schema_yml(root, &mut out);
@@ -201,17 +201,17 @@ fn file_uses_sq_schema(path: &Path) -> bool {
     };
     raw.lines()
         .take(3)
-        .any(|line| line.contains("$schema=") && is_shell_quest_schema_ref(line))
+        .any(|line| line.contains("$schema=") && is_shell_engine_schema_ref(line))
 }
 
-fn is_shell_quest_schema_ref(line: &str) -> bool {
+fn is_shell_engine_schema_ref(line: &str) -> bool {
     let Some((_, schema_ref)) = line.split_once("$schema=") else {
         return false;
     };
     let schema_ref = schema_ref.trim();
     let references_sq_schema = schema_ref.contains("schemas/")
         || schema_ref.contains("/schemas/")
-        || schema_ref.contains("shell-quest.local/schemas/");
+        || schema_ref.contains("shell-engine.local/schemas/");
     let references_schema_file = schema_ref.ends_with(".schema.yaml")
         || schema_ref.ends_with(".schema.yml")
         || schema_ref.ends_with(".yaml")
@@ -237,10 +237,10 @@ fn resolve_schema_ref_path(
     yaml_path: &Path,
     schema_ref: &str,
 ) -> Option<PathBuf> {
-    if let Some(relative) = schema_ref.strip_prefix("https://shell-quest.local/") {
+    if let Some(relative) = schema_ref.strip_prefix("https://shell-engine.local/") {
         return Some(normalize_path(&repo_root.join(relative)));
     }
-    if let Some(relative) = schema_ref.strip_prefix("http://shell-quest.local/") {
+    if let Some(relative) = schema_ref.strip_prefix("http://shell-engine.local/") {
         return Some(normalize_path(&repo_root.join(relative)));
     }
     if schema_ref.contains("://") {
@@ -722,9 +722,9 @@ mod tests {
         }
 
         let target_path =
-            if let Some(relative) = path_part.strip_prefix("https://shell-quest.local/") {
+            if let Some(relative) = path_part.strip_prefix("https://shell-engine.local/") {
                 normalize_ref_path(&repo_root.join(relative))
-            } else if let Some(relative) = path_part.strip_prefix("http://shell-quest.local/") {
+            } else if let Some(relative) = path_part.strip_prefix("http://shell-engine.local/") {
                 normalize_ref_path(&repo_root.join(relative))
             } else if path_part.contains("://") {
                 return;

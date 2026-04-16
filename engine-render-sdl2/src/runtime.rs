@@ -1,4 +1,4 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
+﻿use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -53,7 +53,7 @@ pub(crate) struct Sdl2RuntimeClient {
 pub(crate) fn sdl_profile_enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
-        std::env::var("SHELL_QUEST_SDL_PROFILE")
+        std::env::var("SHELL_ENGINE_SDL_PROFILE")
             .ok()
             .map(|raw| {
                 matches!(
@@ -158,6 +158,7 @@ impl Sdl2RuntimeClient {
         window_ratio: Option<(u32, u32)>,
         pixel_scale: u32,
         vsync: bool,
+        window_title: String,
     ) -> Result<Self, String> {
         let (command_tx, command_rx) = channel();
         let (response_tx, response_rx) = channel();
@@ -172,6 +173,7 @@ impl Sdl2RuntimeClient {
                     window_ratio,
                     pixel_scale,
                     vsync,
+                    window_title,
                     command_rx,
                     response_tx,
                 )
@@ -210,6 +212,7 @@ fn runtime_thread(
     window_ratio: Option<(u32, u32)>,
     pixel_scale: u32,
     vsync: bool,
+    window_title: String,
     command_rx: Receiver<RuntimeCommand>,
     response_tx: Sender<RuntimeResponse>,
 ) {
@@ -227,7 +230,7 @@ fn runtime_thread(
     let (window_width, window_height) =
         window_dimensions(output_width, output_height, pixel_scale, window_ratio);
     let Ok(window) = video
-        .window("Shell Quest", window_width, window_height)
+        .window(&window_title, window_width, window_height)
         .position_centered()
         .resizable()
         .build()

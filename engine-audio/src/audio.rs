@@ -1,4 +1,4 @@
-//! Audio command queue and backend abstraction used by the engine's audio system.
+﻿//! Audio command queue and backend abstraction used by the engine's audio system.
 //!
 //! When audio is enabled, the engine uses an embedded [`RodioAudioBackend`] that plays
 //! WAV/MP3 files directly via the system audio device — no external process needed.
@@ -269,11 +269,11 @@ impl AudioRuntime {
 
     /// Creates an audio runtime from env toggles.
     ///
-    /// - `SHELL_QUEST_AUDIO=1|true|yes|on` enables embedded audio backend.
+    /// - `SHELL_ENGINE_AUDIO=1|true|yes|on` enables embedded audio backend.
     pub fn from_env() -> Self {
-        let enabled = env_flag("SHELL_QUEST_AUDIO");
+        let enabled = env_flag("SHELL_ENGINE_AUDIO");
         let mod_source =
-            env::var("SHELL_QUEST_MOD_SOURCE").unwrap_or_else(|_| "mods/shell-quest".to_string());
+            env::var("SHELL_ENGINE_MOD_SOURCE").unwrap_or_else(|_| "mods/asteroids".to_string());
         Self::from_options(enabled, &mod_source)
     }
 
@@ -406,13 +406,13 @@ mod tests {
 
     #[test]
     fn env_flag_parses_truthy_values() {
-        std::env::set_var("SHELL_QUEST_AUDIO_TEST_FLAG", "true");
-        assert!(env_flag("SHELL_QUEST_AUDIO_TEST_FLAG"));
+        std::env::set_var("SHELL_ENGINE_AUDIO_TEST_FLAG", "true");
+        assert!(env_flag("SHELL_ENGINE_AUDIO_TEST_FLAG"));
 
-        std::env::set_var("SHELL_QUEST_AUDIO_TEST_FLAG", "0");
-        assert!(!env_flag("SHELL_QUEST_AUDIO_TEST_FLAG"));
+        std::env::set_var("SHELL_ENGINE_AUDIO_TEST_FLAG", "0");
+        assert!(!env_flag("SHELL_ENGINE_AUDIO_TEST_FLAG"));
 
-        std::env::remove_var("SHELL_QUEST_AUDIO_TEST_FLAG");
-        assert!(!env_flag("SHELL_QUEST_AUDIO_TEST_FLAG"));
+        std::env::remove_var("SHELL_ENGINE_AUDIO_TEST_FLAG");
+        assert!(!env_flag("SHELL_ENGINE_AUDIO_TEST_FLAG"));
     }
 }

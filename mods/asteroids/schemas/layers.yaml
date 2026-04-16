@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/asteroids/schemas/layers.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/asteroids/schemas/layers.yaml
 title: schema asteroids layers
 $defs:
   step_overlay:

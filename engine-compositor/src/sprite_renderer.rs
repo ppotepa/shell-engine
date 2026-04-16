@@ -1157,6 +1157,11 @@ fn render_obj_sprite(
         atmo_rim_power,
         atmo_haze_strength,
         atmo_haze_power,
+        atmo_veil_strength,
+        atmo_veil_power,
+        atmo_halo_strength,
+        atmo_halo_width,
+        atmo_halo_power,
         night_light_color,
         night_light_threshold,
         night_light_intensity,
@@ -1549,6 +1554,11 @@ fn render_obj_sprite(
             atmo_rim_power: atmo_rim_power.unwrap_or(4.5),
             atmo_haze_strength: atmo_haze_strength.unwrap_or(0.0),
             atmo_haze_power: atmo_haze_power.unwrap_or(1.8),
+            atmo_veil_strength: atmo_veil_strength.unwrap_or(atmo_strength.unwrap_or(0.0) * 0.28),
+            atmo_veil_power: atmo_veil_power.unwrap_or(1.6),
+            atmo_halo_strength: atmo_halo_strength.unwrap_or(atmo_strength.unwrap_or(0.0) * 0.95),
+            atmo_halo_width: atmo_halo_width.unwrap_or((0.05 + atmo_haze_strength.unwrap_or(0.0) * 0.20).clamp(0.0, 1.0)),
+            atmo_halo_power: atmo_halo_power.unwrap_or(2.2),
             ocean_noise_scale: 4.0,
             ocean_color_rgb: None,
             night_light_color: night_light_color.as_ref().map(|c| {
@@ -1724,6 +1734,11 @@ fn render_planet_sprite(
     surface_params.atmo_rim_power = planet.atmo_rim_power as f32;
     surface_params.atmo_haze_strength = (planet.atmo_strength as f32 * 0.45) * atmo_visibility;
     surface_params.atmo_haze_power = planet.atmo_haze_power as f32;
+    surface_params.atmo_veil_strength = (planet.atmo_strength as f32 * 0.22) * atmo_visibility;
+    surface_params.atmo_veil_power = 1.6;
+    surface_params.atmo_halo_strength = (planet.atmo_strength as f32 * 0.90) * atmo_visibility;
+    surface_params.atmo_halo_width = 0.14;
+    surface_params.atmo_halo_power = 2.2;
     surface_params.night_light_color = planet
         .night_light_color
         .as_deref()
@@ -2057,6 +2072,11 @@ fn build_planet_base_params(
         atmo_rim_power: 4.5,
         atmo_haze_strength: 0.0,
         atmo_haze_power: 1.8,
+        atmo_veil_strength: 0.0,
+        atmo_veil_power: 1.6,
+        atmo_halo_strength: 0.0,
+        atmo_halo_width: 0.12,
+        atmo_halo_power: 2.2,
         ocean_noise_scale: 4.0,
         ocean_color_rgb: None,
         night_light_color: None,

@@ -1,4 +1,4 @@
-//! Root crate for the Shell Quest engine — initialises a mod, runs startup checks, and drives the game loop.
+﻿//! Root crate for Shell Engine — initialises a mod, runs startup checks, and drives the game loop.
 
 pub mod bench;
 pub mod debug_features;
@@ -274,6 +274,13 @@ impl ShellEngine {
             .config
             .target_fps_override
             .unwrap_or_else(|| target_fps_from_manifest(&self.mod_manifest));
+        let window_title = self
+            .mod_manifest
+            .get("name")
+            .and_then(serde_yaml::Value::as_str)
+            .filter(|name| !name.trim().is_empty())
+            .map(|name| format!("{name} - Shell Engine"))
+            .unwrap_or_else(|| "Shell Engine".to_string());
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
         runtime_settings.is_pixel_backend = true;
 
@@ -371,7 +378,7 @@ impl ShellEngine {
             .mod_manifest
             .get("name")
             .and_then(serde_yaml::Value::as_str)
-            .unwrap_or("shell-quest");
+            .unwrap_or("shell-engine");
         world.register(engine_persistence::PersistenceStore::new(
             persistence_namespace,
         ));
@@ -432,6 +439,7 @@ impl ShellEngine {
                     self.config.sdl_window_ratio,
                     self.config.sdl_pixel_scale,
                     self.config.sdl_vsync,
+                    window_title,
                 )
                 .map_err(|error| EngineError::Render(std::io::Error::other(error)))?;
                 renderer.clear().map_err(|error| {
@@ -551,7 +559,7 @@ mod tests {
         fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes dir");
         fs::write(
             mod_dir.join("mod.yaml"),
-            "name: Shell Quest\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
+            "name: Shell Engine\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
         )
         .expect("write manifest");
         fs::write(
@@ -564,12 +572,12 @@ mod tests {
     #[test]
     fn loads_mod_from_directory_when_mod_yaml_and_scene_exist() {
         let temp = tempdir().expect("temp dir");
-        let mod_dir = temp.path().join("shell-quest");
+        let mod_dir = temp.path().join("shell-engine");
         write_valid_mod(&mod_dir);
 
         let engine = ShellEngine::new(mod_dir).expect("engine should initialize");
 
-        assert_eq!(engine.mod_manifest()["name"], "Shell Quest");
+        assert_eq!(engine.mod_manifest()["name"], "Shell Engine");
     }
 
     #[test]
@@ -586,11 +594,11 @@ mod tests {
     #[test]
     fn fails_when_entrypoint_scene_is_missing() {
         let temp = tempdir().expect("temp dir");
-        let mod_dir = temp.path().join("shell-quest");
+        let mod_dir = temp.path().join("shell-engine");
         fs::create_dir_all(&mod_dir).expect("create mod dir");
         fs::write(
             mod_dir.join("mod.yaml"),
-            "name: Shell Quest\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
+            "name: Shell Engine\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
         )
         .expect("write manifest");
 
@@ -605,8 +613,8 @@ mod tests {
     }
 
     #[test]
-    fn real_shell_quest_mod_manifest_and_entrypoint_load() {
-        assert_real_mod_starts("shell-quest");
+    fn real_asteroids_mod_manifest_and_entrypoint_load() {
+        assert_real_mod_starts("asteroids");
     }
 
     #[test]
@@ -615,8 +623,8 @@ mod tests {
     }
 
     #[test]
-    fn real_shell_quest_scenes_all_load() {
-        assert_real_mod_scenes_load("shell-quest");
+    fn real_asteroids_scenes_all_load() {
+        assert_real_mod_scenes_load("asteroids");
     }
 
     #[test]

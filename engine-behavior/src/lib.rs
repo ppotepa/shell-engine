@@ -1,4 +1,4 @@
-//! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
+﻿//! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
 
 pub mod builtins;
 pub mod catalog;
@@ -176,7 +176,7 @@ pub fn behavior_metadata(name: &str) -> Vec<FieldMetadata> {
 
 /// Initialize the mod source directory for Rhai module resolution.
 /// Called from app startup to ensure scripts can import shared modules.
-/// If not called explicitly, falls back to SHELL_QUEST_MOD_SOURCE env var or "mods/shell-quest".
+/// If not called explicitly, falls back to SHELL_ENGINE_MOD_SOURCE env var or "mods/asteroids".
 pub fn init_behavior_system(mod_source: &str) {
     set_mod_source(mod_source.to_string());
 }
@@ -230,8 +230,8 @@ fn set_mod_source(mod_source: String) {
 fn get_mod_source() -> String {
     MOD_SOURCE.with(|source| {
         source.borrow().clone().unwrap_or_else(|| {
-            std::env::var("SHELL_QUEST_MOD_SOURCE")
-                .unwrap_or_else(|_| "mods/shell-quest".to_string())
+            std::env::var("SHELL_ENGINE_MOD_SOURCE")
+                .unwrap_or_else(|_| "mods/asteroids".to_string())
         })
     })
 }
@@ -2974,7 +2974,7 @@ out
     fn intro_login_scene_rhai_compiles_without_complexity_error() {
         let script = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../mods/shell-quest/scenes/06-intro-login/scene.rhai"
+            "/../mods/shell-engine/scenes/06-intro-login/scene.rhai"
         ));
         let behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(script.to_string()),

@@ -1,4 +1,4 @@
-# engine-runtime
+﻿# engine-runtime
 
 Runtime settings parsed from mod manifests and environment overrides.
 
@@ -24,8 +24,8 @@ how runtime options such as render size and presentation policy are interpreted.
 - reads display settings from the manifest `display` block,
 - accepts both kebab-case and snake_case YAML keys,
 - applies environment overrides such as:
-  - `SHELL_QUEST_RENDER_SIZE`
-  - `SHELL_QUEST_PRESENTATION_POLICY`
+  - `SHELL_ENGINE_RENDER_SIZE`
+  - `SHELL_ENGINE_PRESENTATION_POLICY`
 - prefers fixed authored render sizes and still resolves `match-output` / `max-available`
   for compatibility when older content tracks the current output dimensions.
 - supports display policies:

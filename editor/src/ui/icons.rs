@@ -1,15 +1,15 @@
-#![allow(dead_code)]
+﻿#![allow(dead_code)]
 
 //! Icon glyph helpers with automatic fallback when Nerd Fonts are unavailable.
 //!
 //! The default output is ASCII-safe so icons still render on basic terminals.
-//! Set `SHELL_QUEST_ICON_THEME` to `emoji` or `nerd` to opt into richer glyphs.
+//! Set `SHELL_ENGINE_ICON_THEME` to `emoji` or `nerd` to opt into richer glyphs.
 
 use std::sync::OnceLock;
 
 use crate::state::SidebarItem;
 
-const ICON_THEME_VAR: &str = "SHELL_QUEST_ICON_THEME";
+const ICON_THEME_VAR: &str = "SHELL_ENGINE_ICON_THEME";
 
 /// Active icon theme determining which glyph set is used at runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

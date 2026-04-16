@@ -1,6 +1,6 @@
-# engine-mesh
+﻿# engine-mesh
 
-Procedural 3D mesh generation for Shell Quest.
+Procedural 3D mesh generation for Shell Engine.
 
 ## Purpose
 

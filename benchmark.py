@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Comprehensive benchmarking suite for Shell Quest engine optimizations.
+Comprehensive benchmarking suite for Shell Engine engine optimizations.
 Tests all flag combinations and generates detailed CSV reports.
 
 Usage:
@@ -21,7 +21,7 @@ from collections import defaultdict
 
 # Configuration
 REPO_ROOT = Path(__file__).parent
-MOD_SOURCE = REPO_ROOT / "mods" / "shell-quest-tests"
+MOD_SOURCE = REPO_ROOT / "mods" / "shell-engine-tests"
 REPORT_DIR = REPO_ROOT / "reports" / "benchmark"
 
 SCENARIOS = {
@@ -178,7 +178,7 @@ def run_benchmark(flags, duration, name):
     return None
 
 def main():
-    log_info("Shell Quest Benchmark Suite")
+    log_info("Shell Engine Benchmark Suite")
     log_info(f"Mod source: {MOD_SOURCE}")
     
     # Parse arguments

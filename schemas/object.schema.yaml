@@ -1,5 +1,5 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/object.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/object.schema.yaml"
 title: Object Schema
 description: >
   Defines a reusable object/prefab blueprint that scenes can instantiate via the objects[] list.

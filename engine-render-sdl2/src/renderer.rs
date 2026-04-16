@@ -87,6 +87,7 @@ impl Sdl2Backend {
         window_ratio: Option<(u32, u32)>,
         pixel_scale: u32,
         vsync: bool,
+        window_title: String,
     ) -> Result<(Self, Sdl2InputBackend), String> {
         let client = Arc::new(Mutex::new(Sdl2RuntimeClient::spawn(
             width,
@@ -95,6 +96,7 @@ impl Sdl2Backend {
             window_ratio,
             pixel_scale,
             vsync,
+            window_title,
         )?));
         Ok((
             Self {

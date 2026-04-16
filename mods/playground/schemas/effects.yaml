@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/playground/schemas/effects.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/playground/schemas/effects.yaml
 title: schema playground effects
 type: array
 items:

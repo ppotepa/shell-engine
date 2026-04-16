@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+﻿use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -128,10 +128,10 @@ pub fn scan_mods(workspace_root: &Path) -> Result<Vec<ModEntry>> {
     }
 
     mods.sort_by(|a, b| {
-        if a.manifest.name == "Shell Quest" {
+        if a.manifest.name == "Shell Engine" {
             return std::cmp::Ordering::Less;
         }
-        if b.manifest.name == "Shell Quest" {
+        if b.manifest.name == "Shell Engine" {
             return std::cmp::Ordering::Greater;
         }
         a.manifest.name.cmp(&b.manifest.name)

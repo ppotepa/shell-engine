@@ -1,6 +1,6 @@
-# editor
+﻿# editor
 
-SDL2-backed authoring tool stub for Shell Quest content.
+SDL2-backed authoring tool stub for Shell Engine content.
 
 ## Purpose
 

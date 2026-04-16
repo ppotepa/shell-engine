@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/terrain-playground/schemas/catalog.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/terrain-playground/schemas/catalog.yaml
 title: schema terrain-playground catalog
 $defs:
   scene_ids:

@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/behaviors.schema.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/schemas/generated/behaviors.schema.yaml
 title: Generated behavior schemas from metadata
 $defs:
   behavior:

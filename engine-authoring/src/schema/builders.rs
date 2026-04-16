@@ -1,4 +1,4 @@
-//! Core schema builders and file-level overlay schema generators.
+﻿//! Core schema builders and file-level overlay schema generators.
 
 use anyhow::Result;
 use engine_effects::{shared_dispatcher, ParamControl};
@@ -79,7 +79,7 @@ pub(super) fn build_behavior_schema() -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(
-            "https://shell-quest.local/schemas/generated/behaviors.schema.yaml".to_string(),
+            "https://shell-engine.local/schemas/generated/behaviors.schema.yaml".to_string(),
         ),
     );
     root.insert(
@@ -197,7 +197,7 @@ pub(super) fn build_animation_schema() -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(
-            "https://shell-quest.local/schemas/generated/animations.schema.yaml".to_string(),
+            "https://shell-engine.local/schemas/generated/animations.schema.yaml".to_string(),
         ),
     );
     root.insert(
@@ -313,7 +313,7 @@ pub(super) fn build_input_profile_schema() -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(
-            "https://shell-quest.local/schemas/generated/input-profiles.schema.yaml".to_string(),
+            "https://shell-engine.local/schemas/generated/input-profiles.schema.yaml".to_string(),
         ),
     );
     root.insert(
@@ -407,7 +407,7 @@ pub(super) fn build_scene_fields_schema() -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(
-            "https://shell-quest.local/schemas/generated/scene-fields.schema.yaml".to_string(),
+            "https://shell-engine.local/schemas/generated/scene-fields.schema.yaml".to_string(),
         ),
     );
     root.insert(
@@ -499,7 +499,7 @@ pub(super) fn build_sugar_schema() -> Value {
     );
     root.insert(
         Value::String("$id".to_string()),
-        Value::String("https://shell-quest.local/schemas/generated/sugar.schema.yaml".to_string()),
+        Value::String("https://shell-engine.local/schemas/generated/sugar.schema.yaml".to_string()),
     );
     root.insert(
         Value::String("title".to_string()),
@@ -626,7 +626,7 @@ pub(super) fn build_mod_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/mod.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/mod.yaml"
         )),
     );
     root.insert(
@@ -692,7 +692,7 @@ pub(super) fn build_scene_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/scenes.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/scenes.yaml"
         )),
     );
     root.insert(
@@ -722,7 +722,7 @@ pub(super) fn build_object_doc_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/object.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/object.yaml"
         )),
     );
     root.insert(
@@ -755,7 +755,7 @@ pub(super) fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/objects.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/objects.yaml"
         )),
     );
     root.insert(
@@ -788,7 +788,7 @@ pub(super) fn build_layers_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/layers.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/layers.yaml"
         )),
     );
     root.insert(
@@ -819,7 +819,7 @@ pub(super) fn build_templates_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/templates.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/templates.yaml"
         )),
     );
     root.insert(
@@ -854,7 +854,7 @@ pub(super) fn build_sprites_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/sprites.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/sprites.yaml"
         )),
     );
     root.insert(
@@ -888,7 +888,7 @@ pub(super) fn build_effect_file_overlay_schema(
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/mods/{mod_name}/schemas/effects.yaml"
+            "https://shell-engine.local/mods/{mod_name}/schemas/effects.yaml"
         )),
     );
     root.insert(

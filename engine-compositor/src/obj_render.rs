@@ -644,8 +644,227 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
+    if let Some(atmo_color) = params.atmo_color {
+        apply_atmosphere_halo_canvas(
+            &mut canvas,
+            virtual_w,
+            virtual_h,
+            atmo_color,
+            params.atmo_halo_strength,
+            params.atmo_halo_width,
+            params.atmo_halo_power,
+            normalize3([
+                params.light_direction_x,
+                params.light_direction_y,
+                params.light_direction_z,
+            ]),
+            [
+                params.view_right_x,
+                params.view_right_y,
+                params.view_right_z,
+            ],
+            [params.view_up_x, params.view_up_y, params.view_up_z],
+        );
+    }
+
     OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
     Some((canvas, virtual_w, virtual_h))
+}
+
+fn apply_atmosphere_halo_canvas(
+    canvas: &mut [Option<[u8; 3]>],
+    virtual_w: u16,
+    virtual_h: u16,
+    halo_color: [u8; 3],
+    halo_strength: f32,
+    halo_width: f32,
+    halo_power: f32,
+    light_dir: [f32; 3],
+    view_right: [f32; 3],
+    view_up: [f32; 3],
+) {
+    if halo_strength <= 0.0 || halo_width <= 0.0 {
+        return;
+    }
+
+    let w = virtual_w as usize;
+    let h = virtual_h as usize;
+    let mut sum_x = 0.0f32;
+    let mut sum_y = 0.0f32;
+    let mut count = 0usize;
+    let mut edge_pixels = Vec::new();
+    let mut min_x = w;
+    let mut min_y = h;
+    let mut max_x = 0usize;
+    let mut max_y = 0usize;
+    for y in 0..h {
+        for x in 0..w {
+            if canvas[y * w + x].is_none() {
+                continue;
+            }
+            sum_x += x as f32;
+            sum_y += y as f32;
+            count += 1;
+            min_x = min_x.min(x);
+            min_y = min_y.min(y);
+            max_x = max_x.max(x);
+            max_y = max_y.max(y);
+
+            let left_empty = x == 0 || canvas[y * w + (x - 1)].is_none();
+            let right_empty = x + 1 >= w || canvas[y * w + (x + 1)].is_none();
+            let up_empty = y == 0 || canvas[(y - 1) * w + x].is_none();
+            let down_empty = y + 1 >= h || canvas[(y + 1) * w + x].is_none();
+            if left_empty || right_empty || up_empty || down_empty {
+                edge_pixels.push((x as i32, y as i32));
+            }
+        }
+    }
+    if count == 0 || edge_pixels.is_empty() {
+        return;
+    }
+
+    let cx = sum_x / count as f32;
+    let cy = sum_y / count as f32;
+    let bbox_radius_x = ((max_x.saturating_sub(min_x) + 1) as f32) * 0.5;
+    let bbox_radius_y = ((max_y.saturating_sub(min_y) + 1) as f32) * 0.5;
+    let area_radius = (count as f32 / std::f32::consts::PI).sqrt();
+    let radius = bbox_radius_x.max(bbox_radius_y).max(area_radius).max(1.0);
+    let halo_px = (radius * halo_width.clamp(0.0, 1.0)).max(1.0);
+    let halo_px_sq = halo_px * halo_px;
+    let search = halo_px.ceil() as i32;
+    let scan_min_x = min_x.saturating_sub(search as usize);
+    let scan_min_y = min_y.saturating_sub(search as usize);
+    let scan_max_x = (max_x + search as usize).min(w.saturating_sub(1));
+    let scan_max_y = (max_y + search as usize).min(h.saturating_sub(1));
+
+    let sx = dot3(light_dir, view_right);
+    let sy = dot3(light_dir, view_up);
+    let sl = (sx * sx + sy * sy).sqrt();
+    let sun2d = if sl > 1e-5 {
+        [sx / sl, -sy / sl]
+    } else {
+        [0.0, -1.0]
+    };
+
+    let original = canvas.to_vec();
+    for y in scan_min_y..=scan_max_y {
+        for x in scan_min_x..=scan_max_x {
+            let idx = y * w + x;
+            if original[idx].is_some() {
+                continue;
+            }
+
+            let x_i32 = x as i32;
+            let y_i32 = y as i32;
+            let mut nearest_sq = f32::INFINITY;
+            for &(ex, ey) in &edge_pixels {
+                let dx = x_i32 - ex;
+                if dx.abs() > search {
+                    continue;
+                }
+                let dy = y_i32 - ey;
+                if dy.abs() > search {
+                    continue;
+                }
+                let dist_sq = (dx * dx + dy * dy) as f32;
+                if dist_sq < nearest_sq {
+                    nearest_sq = dist_sq;
+                    if nearest_sq <= 1.0 {
+                        break;
+                    }
+                }
+            }
+            if !nearest_sq.is_finite() || nearest_sq > halo_px_sq {
+                continue;
+            }
+
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let dl = (dx * dx + dy * dy).sqrt().max(1e-5);
+            let edge_dir = [dx / dl, dy / dl];
+            let sun_alignment = edge_dir[0] * sun2d[0] + edge_dir[1] * sun2d[1];
+            let day = smoothstep(-0.18, 0.92, sun_alignment);
+            let radial = (1.0 - nearest_sq.sqrt() / halo_px)
+                .clamp(0.0, 1.0)
+                .powf(halo_power.max(0.1));
+            let wide_scatter = radial * (0.10 + 0.52 * day);
+            let forward_scatter =
+                radial.powf(0.55) * smoothstep(0.12, 1.0, sun_alignment).powf(2.0) * 0.65;
+            let alpha =
+                (halo_strength * (wide_scatter + forward_scatter)).clamp(0.0, 0.96);
+            if alpha <= 0.01 {
+                continue;
+            }
+
+            let lit_color = mix_rgb(halo_color, [255, 252, 244], 0.18 * day);
+            canvas[idx] = Some(mix_rgb([0, 0, 0], lit_color, alpha));
+        }
+    }
+}
+
+#[inline]
+fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+#[inline]
+fn mix_rgb(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
+    let t = t.clamp(0.0, 1.0);
+    [
+        (a[0] as f32 + (b[0] as f32 - a[0] as f32) * t) as u8,
+        (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t) as u8,
+        (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t) as u8,
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_atmosphere_halo_canvas;
+
+    #[test]
+    fn atmosphere_halo_paints_pixels_outside_the_planet_silhouette() {
+        let w = 48u16;
+        let h = 48u16;
+        let cx = 24i32;
+        let cy = 24i32;
+        let radius = 10i32;
+        let mut canvas = vec![None; w as usize * h as usize];
+        for y in 0..h as i32 {
+            for x in 0..w as i32 {
+                let dx = x - cx;
+                let dy = y - cy;
+                if dx * dx + dy * dy <= radius * radius {
+                    canvas[y as usize * w as usize + x as usize] = Some([20, 40, 70]);
+                }
+            }
+        }
+
+        apply_atmosphere_halo_canvas(
+            &mut canvas,
+            w,
+            h,
+            [124, 200, 255],
+            0.75,
+            0.22,
+            2.2,
+            [1.0, 0.2, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        );
+
+        let outside_pixels = (0..h as i32)
+            .flat_map(|y| (0..w as i32).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                let dx = x - cx;
+                let dy = y - cy;
+                dx * dx + dy * dy > radius * radius
+                    && canvas[y as usize * w as usize + x as usize].is_some()
+            })
+            .count();
+
+        assert!(outside_pixels > 0, "expected halo pixels outside the original sphere");
+    }
 }
 
 /// Convert an RGB canvas (from `render_obj_to_canvas`) to RGBA with alpha=255 for every painted pixel.

@@ -1,4 +1,4 @@
-pub mod access;
+﻿pub mod access;
 
 use serde_yaml::Value;
 use std::env;
@@ -147,7 +147,7 @@ impl RuntimeSettings {
             }
         }
 
-        if let Some(size) = env::var("SHELL_QUEST_RENDER_SIZE")
+        if let Some(size) = env::var("SHELL_ENGINE_RENDER_SIZE")
             .ok()
             .as_deref()
             .and_then(parse_render_size)
@@ -155,7 +155,7 @@ impl RuntimeSettings {
             settings.render_size = size;
         }
 
-        if let Some(policy) = env::var("SHELL_QUEST_PRESENTATION_POLICY")
+        if let Some(policy) = env::var("SHELL_ENGINE_PRESENTATION_POLICY")
             .ok()
             .as_deref()
             .and_then(parse_presentation_policy)
@@ -163,7 +163,7 @@ impl RuntimeSettings {
             settings.presentation_policy = policy;
         }
 
-        if let Some(default_font) = env::var("SHELL_QUEST_DEFAULT_FONT")
+        if let Some(default_font) = env::var("SHELL_ENGINE_DEFAULT_FONT")
             .ok()
             .map(|raw| raw.trim().to_string())
             .filter(|raw| !raw.is_empty())

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -8,7 +8,7 @@ use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
-#[command(name = "sound-server", about = "Shell Quest audio playback server")]
+#[command(name = "sound-server", about = "Shell Engine audio playback server")]
 struct Cli {
     /// Emit structured ack lines for each accepted command.
     #[arg(long)]

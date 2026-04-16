@@ -1,4 +1,4 @@
-//! Runtime debug feature toggles that can be enabled independently from build profile.
+﻿//! Runtime debug feature toggles that can be enabled independently from build profile.
 
 pub mod access;
 pub mod log;
@@ -86,7 +86,7 @@ impl DebugFeatures {
     /// - `yes`
     /// - `on`
     pub fn from_env() -> Self {
-        let enabled = env_flag_enabled("SHELL_QUEST_DEBUG_FEATURE");
+        let enabled = env_flag_enabled("SHELL_ENGINE_DEBUG_FEATURE");
         Self::from_enabled(enabled)
     }
 }

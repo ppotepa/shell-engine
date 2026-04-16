@@ -1,4 +1,4 @@
-# Asteroids Mod — Project Status
+﻿# Asteroids Mod — Project Status
 
 > **Snapshot date**: 2026-04-12
 > **Phase**: Surface-launch flight sim foundation (post-cleanup)
@@ -8,7 +8,7 @@
 
 ## What This Project Is Now
 
-A **surface-launch orbital flight simulator** built on top of the shell-quest engine.
+A **surface-launch orbital flight simulator** built on top of the shell-engine engine.
 Ship spawns on a procedurally-shaded Earth, lifts off with SPACE, orbits using realistic
 Keplerian mechanics, and returns. No combat, no scoring, no game-over — just flight.
 

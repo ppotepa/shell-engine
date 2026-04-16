@@ -1,5 +1,5 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/templates-file.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/templates-file.schema.yaml"
 title: Templates File Schema
 description: >
   Partial file schema for scene-local sprite templates in folder-based scene packages.

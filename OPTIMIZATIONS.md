@@ -1,4 +1,4 @@
-# Shell Quest Optimization Reference
+﻿# Shell Engine Optimization Reference
 
 Pipeline: `simulate -> composite -> postfx -> present`
 
@@ -168,10 +168,10 @@ cargo run -p app -- --opt
 cargo run -p app -- --no-opt-comp --no-opt-rowdiff
 
 # Benchmark with optimizations
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
+cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --opt
 
 # Release example with optimizations
-cargo run -p app --release -- --mod-source=mods/shell-quest-tests --bench 10 --opt
+cargo run -p app --release -- --mod-source=mods/shell-engine-tests --bench 10 --opt
 ```
 
 ---
@@ -269,7 +269,7 @@ cargo test -p engine-render-sdl2
 cargo run -p app -- --mod-source=mods/playground --start-scene=3d-scene --bench 5
 
 # Profile before/after
-time cargo run -p app --release -- --mod-source=mods/shell-quest-tests --start-scene=intro --bench 1
+time cargo run -p app --release -- --mod-source=mods/shell-engine-tests --start-scene=intro --bench 1
 ```
 
 ---

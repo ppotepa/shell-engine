@@ -1,4 +1,4 @@
-ARCH.MD — CRATE REBALANCING PLAN (REFINED)
+﻿ARCH.MD — CRATE REBALANCING PLAN (REFINED)
 ==========================================
 
 NOTE: historical planning snapshot from the crate-rebalancing pass.
@@ -10,7 +10,7 @@ removed from the codebase as part of the SDL2-only migration. PipelineStrategies
 no longer has a `halfblock` field.
 
 STATUS: REFINED FOR DEPENDENCY SAFETY — Ready for execution
-CONTEXT: Shell Quest engine was split into 20 sub-crates, but extraction moved
+CONTEXT: Shell Engine engine was split into 20 sub-crates, but extraction moved
          only type definitions, leaving ~30K LOC of systems/logic in engine/.
          Eight sub-crates are empty shells. This plan reorders extractions to
          avoid circular dependencies.

@@ -1,6 +1,6 @@
-//! `engine-io` is a transport-agnostic bridge between the game engine and external sidecar apps.
+﻿//! `engine-io` is a transport-agnostic bridge between the game engine and external sidecar apps.
 //!
-//! This crate intentionally contains no game logic and no knowledge of Shell Quest scenes.
+//! This crate intentionally contains no game logic and no knowledge of Shell Engine scenes.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;

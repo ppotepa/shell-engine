@@ -1,4 +1,4 @@
-# Shell Quest Mod System
+﻿# Shell Engine Mod System
 
 ## Overview
 
@@ -7,9 +7,9 @@ A mod can be an unpacked directory or a `.zip` archive. The engine selects
 which mod to load via:
 
 - `--mod-source` CLI flag, or
-- `SHELL_QUEST_MOD_SOURCE` environment variable.
+- `SHELL_ENGINE_MOD_SOURCE` environment variable.
 
-If neither is set, the default mod (`mods/shell-quest`) is used.
+If neither is set, the default mod (`mods/shell-engine`) is used.
 
 ## Asteroids (SDL2 Mod)
 
@@ -126,7 +126,7 @@ HEAT_DAMAGE_START = 0.72
 HEAT_KILL_THRESHOLD = 0.97
 ```
 
-## Shell Quest (Main Mod)
+## Shell Engine (Main Mod)
 
 The primary game content. Contains all intro sequences, menus, gameplay
 scenes, assets, and the C# sidecar for the simulated CognitOS terminal.
@@ -134,7 +134,7 @@ scenes, assets, and the C# sidecar for the simulated CognitOS terminal.
 ### Structure
 
 ```
-mods/shell-quest/
+mods/shell-engine/
 +-- mod.yaml
 +-- assets/
 |   +-- images/
@@ -175,17 +175,17 @@ mods/shell-quest/
 - Prerender pass for 3D scenes (OBJ model rasterization).
 - IPC bridge to C# sidecar (`os/cognitOS/`) for CognitOS simulation.
 
-## Shell Quest Tests (Benchmark Mod)
+## Shell Engine Tests (Benchmark Mod)
 
 Automated testing variant of the main mod. All user-input triggers are
 replaced with timeouts so scenes advance without interaction.
 
-Assets, behaviors, objects, and schemas are symlinked back to `mods/shell-quest/`.
+Assets, behaviors, objects, and schemas are symlinked back to `mods/shell-engine/`.
 
 ### Running
 
 ```bash
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
+cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10
 ```
 
 ### Timeline Per Loop
@@ -209,7 +209,7 @@ Contains scenes for 3d-scene, rhai-lab, rhai-time, and many more.
 ### Running
 
 ```bash
-SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app
+SHELL_ENGINE_MOD_SOURCE=mods/playground cargo run -p app
 ```
 
 Navigation: Esc returns to the playground menu (does not quit the app).

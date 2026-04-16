@@ -1,13 +1,13 @@
-use clap::Parser;
+﻿use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "sq-editor",
-    about = "Shell Quest scene editor/browser (MVP)"
+    about = "Shell Engine scene editor/browser (MVP)"
 )]
 pub struct Cli {
     /// Path to mod root directory
-    #[arg(long, default_value = "mods/shell-quest")]
+    #[arg(long, default_value = "mods/playground")]
     pub mod_source: String,
     /// Force-enable run logging (also enabled by default in debug builds).
     #[arg(long = "logs")]

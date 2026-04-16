@@ -1,8 +1,8 @@
-{
+﻿{
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Shell Quest (app)",
+      "name": "Debug Shell Engine (app)",
       "type": "lldb",
       "request": "launch",
       "cargo": {

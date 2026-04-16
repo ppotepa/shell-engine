@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+﻿use std::path::PathBuf;
 
 use serde::Serialize;
 
@@ -175,8 +175,8 @@ pub fn build_preview_scene_yaml_default(effect_name: &str, params: &EffectParams
 
 pub fn preview_asset_root() -> Option<PathBuf> {
     let candidates = [
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../mods/shell-quest"),
-        PathBuf::from("mods/shell-quest"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../mods/playground"),
+        PathBuf::from("mods/playground"),
     ];
 
     candidates

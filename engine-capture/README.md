@@ -1,4 +1,4 @@
-# engine-capture
+﻿# engine-capture
 
 Frame capture and frame-comparison utilities for regression workflows.
 
@@ -23,7 +23,7 @@ gameplay.
 Typical usage flows through repository scripts and app flags such as:
 
 ```bash
-cargo run -p app -- --capture-frames reports/frames --mod-source=mods/shell-quest-tests
+cargo run -p app -- --capture-frames reports/frames --mod-source=mods/shell-engine-tests
 ```
 
 and comparison/reporting utilities built on top of the serialized format.

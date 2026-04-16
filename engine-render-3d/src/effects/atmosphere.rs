@@ -8,6 +8,8 @@ pub struct AtmosphereParams {
     pub rim_power: f32,
     pub haze_strength: f32,
     pub haze_power: f32,
+    pub veil_strength: f32,
+    pub veil_power: f32,
 }
 
 /// Apply atmosphere rim + haze to an RGB pixel.
@@ -18,20 +20,22 @@ pub fn apply_atmosphere_overlay_rgb(
     sun_dir: [f32; 3],
     view_dir: [f32; 3],
 ) -> [u8; 3] {
-    if params.strength <= 0.0 && params.haze_strength <= 0.0 {
+    if params.strength <= 0.0 && params.haze_strength <= 0.0 && params.veil_strength <= 0.0 {
         return pixel;
     }
     let n = normalize3(normal);
     let nd = dot3(n, view_dir).abs().clamp(0.0, 1.0);
     let rim = (1.0 - nd).powf(params.rim_power.max(0.1));
     let haze = (1.0 - nd).powf(params.haze_power.max(0.1));
-    if rim <= 0.01 && haze <= 0.01 {
+    let veil = (1.0 - nd * 0.88).clamp(0.0, 1.0).powf(params.veil_power.max(0.1));
+    if rim <= 0.01 && haze <= 0.01 && veil <= 0.01 {
         return pixel;
     }
     let day = smoothstep(-0.1, 0.3, dot3(n, sun_dir));
     let rim_alpha = rim * (0.55 + 0.90 * day) * params.strength.max(0.0);
     let haze_alpha = haze * (0.32 + 0.38 * day) * params.haze_strength.max(0.0);
-    let a = (rim_alpha + haze_alpha).clamp(0.0, 0.92);
+    let veil_alpha = veil * (0.24 + 0.46 * day) * params.veil_strength.max(0.0);
+    let a = (rim_alpha + haze_alpha + veil_alpha).clamp(0.0, 0.92);
     mix_rgb(pixel, params.color, a)
 }
 
@@ -55,6 +59,16 @@ pub fn apply_atmosphere_overlay_barycentric(
         w0 * v0.normal[1] + w1 * v1.normal[1] + w2 * v2.normal[1],
         w0 * v0.normal[2] + w1 * v1.normal[2] + w2 * v2.normal[2],
     ];
+    let world_pos = [
+        w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0],
+        w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1],
+        w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2],
+    ];
+    let view_dir = normalize3([
+        biome.camera_pos[0] - world_pos[0],
+        biome.camera_pos[1] - world_pos[1],
+        biome.camera_pos[2] - world_pos[2],
+    ]);
     apply_atmosphere_overlay_rgb(
         pixel,
         AtmosphereParams {
@@ -63,11 +77,58 @@ pub fn apply_atmosphere_overlay_barycentric(
             rim_power: biome.atmo_rim_power,
             haze_strength: biome.atmo_haze_strength,
             haze_power: biome.atmo_haze_power,
+            veil_strength: biome.atmo_veil_strength,
+            veil_power: biome.atmo_veil_power,
         },
         normal,
         biome.sun_dir,
-        biome.view_dir,
+        view_dir,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_atmosphere_overlay_barycentric;
+    use crate::effects::params::PlanetBiomeParams;
+    use crate::geom::types::ProjectedVertex;
+
+    #[test]
+    fn atmosphere_uses_camera_position_per_pixel() {
+        let biome = PlanetBiomeParams {
+            polar_ice_color: None,
+            polar_ice_start: 0.0,
+            polar_ice_end: 0.0,
+            desert_color: None,
+            desert_strength: 0.0,
+            atmo_color: Some([124, 200, 255]),
+            atmo_strength: 0.8,
+            atmo_rim_power: 2.5,
+            atmo_haze_strength: 0.4,
+            atmo_haze_power: 1.4,
+            atmo_veil_strength: 0.25,
+            atmo_veil_power: 1.6,
+            night_light_color: None,
+            night_light_threshold: 0.0,
+            night_light_intensity: 0.0,
+            sun_dir: [0.0, 0.0, -1.0],
+            view_dir: [0.0, 0.0, -1.0],
+            camera_pos: [0.0, 0.0, -3.0],
+        };
+        let v0 = ProjectedVertex {
+            x: 0.0,
+            y: 0.0,
+            depth: 1.0,
+            view: [1.0, 0.0, 0.0],
+            normal: [1.0, 0.0, 0.0],
+            local: [1.0, 0.0, 0.0],
+            terrain_noise: 0.0,
+        };
+        let v1 = v0;
+        let v2 = v0;
+
+        let pixel = apply_atmosphere_overlay_barycentric([10, 20, 30], &biome, &v0, &v1, &v2, 1.0, 0.0, 0.0);
+        assert_ne!(pixel, [10, 20, 30]);
+    }
 }
 
 #[inline]

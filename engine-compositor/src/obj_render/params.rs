@@ -153,6 +153,16 @@ pub struct ObjRenderParams {
     pub atmo_haze_strength: f32,
     /// Haze falloff power (lower = broader). Default 1.8.
     pub atmo_haze_power: f32,
+    /// Veil strength across the visible planet disk.
+    pub atmo_veil_strength: f32,
+    /// Veil falloff power (lower = broader disk tint/occlusion).
+    pub atmo_veil_power: f32,
+    /// Strength of the outer halo rendered beyond the silhouette.
+    pub atmo_halo_strength: f32,
+    /// Halo width as a fraction of apparent disk radius.
+    pub atmo_halo_width: f32,
+    /// Halo falloff power (higher = tighter halo).
+    pub atmo_halo_power: f32,
     /// Scale for ocean surface noise(higher = finer waves). Default 4.0.
     pub ocean_noise_scale: f32,
     /// Ocean base color override (RGB). When Some, replaces OBJ face color for ocean pixels.

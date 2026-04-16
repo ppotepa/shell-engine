@@ -1,6 +1,6 @@
-# engine
+﻿# engine
 
-Top-level runtime orchestrator for Shell Quest.
+Top-level runtime orchestrator for Shell Engine.
 
 ## Purpose
 

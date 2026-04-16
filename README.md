@@ -1,4 +1,4 @@
-# Shell Quest - Inspired by One Lone Coder https://www.youtube.com/javidx9
+﻿# Shell Engine - Inspired by One Lone Coder https://www.youtube.com/javidx9
 
 ## about this project
 
@@ -13,9 +13,9 @@ this is a work-in-progress playground.
 
 ## Demo
 
-![Shell Quest demo](./docs/demo.gif)
+![Shell Engine demo](./docs/demo.gif)
 
-Shell Quest is a terminal game + engine for learning shell stuff by actually using commands.
+Shell Engine is a terminal game + engine for learning shell stuff by actually using commands.
 
 You run YAML-based scenes, solve quests, and get old-school terminal effects on top.
 
@@ -24,8 +24,8 @@ You run YAML-based scenes, solve quests, and get old-school terminal effects on 
 1. Install Rust (1.75+)
 2. Clone the repository:
 ```bash
-git clone https://github.com/ppotepa/shell-quest.git
-cd shell-quest
+git clone https://github.com/ppotepa/shell-engine.git
+cd shell-engine
 ```
 3. Run the game:
 ```bash
@@ -54,7 +54,7 @@ difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidt
 - `engine-authoring/` — yaml compile/normalize/schema pipeline
 - `engine-io/` — ipc bridge between engine and sidecar processes
 - `editor/` — tui authoring editor
-- `mods/shell-quest/` — main game mod
+- `mods/shell-engine/` — main game mod
   - `os/cognitOS/` — c# simulated minix sidecar
   - `docs/` — quest scripts, design docs
 - `mods/` — other content mods
@@ -85,7 +85,7 @@ lives next to the code it describes.
 - `engine-behavior/README.md` — behavior runtime and Rhai integration
 - `engine-compositor/README.md` — composition, rendering, PostFX, prerender
 - `engine-scene-runtime/README.md` — mutable scene runtime and control routing
-- `mods/shell-quest/README.AGENTS.MD` — main mod structure and content
-- `mods/shell-quest-tests/README.AGENTS.MD` — automated test mod and benchmarking usage
+- `mods/shell-engine/README.AGENTS.MD` — main mod structure and content
+- `mods/shell-engine-tests/README.AGENTS.MD` — automated test mod and benchmarking usage
 - `tools/README.AGENTS.MD` — tooling entry points
 - `schemas/README.AGENTS.MD` — schema generation and validation

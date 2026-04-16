@@ -1,5 +1,5 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/playground/schemas/object.yaml
+﻿$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/playground/schemas/object.yaml
 title: schema playground object
 $defs:
   object_logic_overlay:

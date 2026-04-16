@@ -1,4 +1,4 @@
-//! `engine-mesh` — procedural 3D mesh generation for Shell Quest.
+﻿//! `engine-mesh` — procedural 3D mesh generation for Shell Engine.
 //!
 //! Provides a [`Mesh`] type and primitive generators:
 //!

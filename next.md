@@ -39,21 +39,37 @@ Planet Generator (`mods/planet-generator`) to interaktywny mod do generowania pl
 | 1 — Mountains | Mtn Spacing, Mtn Height, Ridge Detail |
 | 2 — Climate | Moisture, Ice Caps, Alt Cooling, Rain Shadow |
 | 3 — Visual | Resolution, Displacement, Coloring Mode, Rotation Speed, Sun Az/El, Ambient |
-| 4 — Atmosphere | Color (discrete 6), Density, Rim Power, Haze Density, Haze Power |
+| 4 — Atmosphere | Color (discrete 6), Density, Halo Width, Halo Bright, Veil Density, Rim Power, Haze Density, Haze Power |
 
 **7 presetów:** Earth, Mars, Ocean, Desert, Ice, Volcanic, Archipelago — każdy to Rhai map ze wszystkimi parametrami.
 
 ### Atmosfera — obecny model
 
-Geometry shell (atmo_shell.rs) został **całkowicie usunięty** (~325 linii). Jedyny system atmosfery to:
+Geometry shell (atmo_shell.rs) pozostaje usunięty. Aktualny model atmosfery jest 2-warstwowy:
 
-- **Per-pixel rim/haze glow** (`apply_atmosphere_overlay_barycentric` w `engine-render-3d/src/effects/atmosphere.rs`)
-- Działa wewnątrz rasteryzera trójkątów Gouraud — każdy piksel dostaje rim factor `(1 - N·V)^power`
-- Sun-aware: dzień/noc z smoothstep, wyższa luminancja po stronie oświetlonej
-- Kontrolowane przez: `atmo_color`, `atmo_strength`, `atmo_rim_power`, `atmo_haze_strength`, `atmo_haze_power`
-- **Nie tworzy dodatkowej siatki** — glow podąża za kształtem planety pixel-perfect
+- **Inner atmosphere overlay** (`engine-render-3d/src/effects/atmosphere.rs`)
+  - działa per-pixel na powierzchni planety
+  - liczy `view_dir` z rzeczywistej pozycji kamery per piksel (`camera_pos - world_pos`), więc nie opiera się już na jednym globalnym kierunku widoku
+  - składa się z 3 wkładów: `rim`, `haze`, `veil`
+- **Outer halo pass** (`engine-compositor/src/obj_render.rs`)
+  - działa jako prosty screenspace pass po renderze planety
+  - dodaje świecącą koronę tuż poza sylwetką
+  - wzmacnia stronę dzienną względem nocnej na podstawie projekcji kierunku światła
 
-**Znany problem:** Atmosfera jest aktualnie niewidoczna runtime. Debug wykazał, że `view_dir` w `PlanetBiomeParams` wynosi `(0.022, 1.0, 0.0)` zamiast oczekiwanego `(0, 0, -1)`. Prawdopodobna przyczyna: orbit camera (dodana po `870131af`) ustawia `camera_look_yaw/pitch` na sprite, co obraca `view_forward` w `ObjRenderParams`, ale `CameraSource::Local` (default) nie synchronizuje `view_forward` z faktyczną pozycją kamery. Wymaga dalszej analizy i fixa.
+Kontrolowane przez:
+
+- `atmo_color`
+- `atmo_strength`
+- `atmo_rim_power`
+- `atmo_haze_strength`
+- `atmo_haze_power`
+- `atmo_veil_strength`
+- `atmo_veil_power`
+- `atmo_halo_strength`
+- `atmo_halo_width`
+- `atmo_halo_power`
+
+**Status:** problem z niewidzialną atmosferą został naprawiony przez przejście z globalnego `view_dir` na per-pixel `camera_pos - world_pos`. Atmosfera jest nadal modelem uproszczonym: nie ma prawdziwego volumetric scattering ani osobnej geometrii shell, ale ma już wizualną furtkę pod gęstszą atmosferę i halo poza dyskiem.
 
 ### App Startup — zmiana domyślnego zachowania
 
@@ -83,18 +99,14 @@ Geometry shell (atmo_shell.rs) został **całkowicie usunięty** (~325 linii). J
 
 ## Co dalej (Potential Next Steps)
 
-### Priorytet — Atmosphere Fix
-- [ ] **Fix invisible atmosphere** — `view_dir` w biome params jest nieprawidłowy przy orbit camera. Trzeba albo:
-  - Dodać `camera-source: scene` do planet.yml (żeby `view_forward` brane było ze `scene_camera_3d`)
-  - Albo naprawić propagację orbit camera → view_forward w `CameraSource::Local` path
-  - Albo hardcodować view_dir jako `-camera_eye_normalized` w `setup.rs`
+### Priorytet — Atmosphere Polish
+- [ ] **Tune halo shape** — obecny outer halo to prosty screenspace ring. Warto dopracować szerokość/falloff i stronę nocną, żeby mniej przypominał bloom, a bardziej cienką warstwę rozpraszającą.
+- [ ] **Tune veil vs surface contrast** — dla gęstych presetów (`Ocean`, przyszły `Venus-like`) veil powinien mocniej obniżać kontrast powierzchni na tarczy planety.
+- [ ] **Promote atmosphere profile** — obecne parametry są już rozdzielone logicznie; kolejnym krokiem może być `PlanetAtmosphereVisualProfile`, żeby obecny mod i przyszły realistic generator korzystały z tego samego adaptera.
 
 ### Krótkoterminowe
 - [ ] **Slider snapping / discrete indicators** — slidery GUI nie mają wizualnych markerów dla wartości dyskretnych (np. atmo color ma 6 opcji). Przydałby się system ticków/snap w `engine-gui`
 - [ ] **Schema regeneration** — po usunięciu `atmo-shell-scale` i `atmo-scale-height` z modelu, warto przebudować schematy: `cargo run -p schema-gen -- --all-mods`
-- [ ] **Atmosphere glow beyond silhouette** — per-pixel rim jest ograniczony do pikseli na powierzchni planety. Prawdziwa atmosfera widoczna jest też poza dyskiem (korona). Opcje:
-  - Post-process bloom/glow pass na krawędziach planety
-  - Screenspace ring/halo rasteryzowany po planecie
 - [ ] **Cloud layer** — planeta ma już support na `below_threshold_transparent` + `cloud_alpha_softness` w RGBA path
 
 ### Średnioterminowe
@@ -104,7 +116,7 @@ Geometry shell (atmo_shell.rs) został **całkowicie usunięty** (~325 linii). J
 - [ ] **Ring system** — Saturn-style rings jako oddzielny flat-disc OBJ z transparency
 
 ### Znane problemy
-- **Atmosphere invisible** — view_dir mismatch (patrz wyżej). Atmosfera renderuje się ale z błędnym kątem kamery, więc rim factor jest ~0 na widocznych pikselach.
+- **Atmosphere is still stylized, not physical** — obecny model daje halo + veil + haze, ale nie symuluje jeszcze składu chemicznego, wysokości skali, anisotropic scattering ani oddzielnej warstwy chmur.
 - 3 testy w `engine` failują — `shell_engine_intro_logo_renders_non_black_cells`, `real_shell_engine_mod_manifest_and_entrypoint_load`, `real_shell_engine_scenes_all_load` — bo `mods/shell-engine` nie istnieje lokalnie. **Nie nasze bugi.**
 - `engine-compositor` lib tests mają failing test z powodu brakującego pola `space` w `Layer` test initializers — **pre-existing, nie nasze.**
 

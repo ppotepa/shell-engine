@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+﻿use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(name = "se", about = "Shell Engine launcher", version)]
@@ -33,7 +33,7 @@ pub enum Command {
 #[derive(Parser, Debug)]
 pub struct RunArgs {
     /// Mod name (resolves to mods/<name>/)
-    #[arg(short = 'm', long = "mod", default_value = "shell-quest")]
+    #[arg(short = 'm', long = "mod", default_value = "asteroids")]
     pub mod_name: String,
 
     /// Explicit mod source path (overrides --mod)
@@ -155,7 +155,7 @@ pub struct BenchArgs {
     pub scenario: Option<String>,
 
     /// Mod to benchmark
-    #[arg(short = 'm', long = "mod", default_value = "shell-quest-tests")]
+    #[arg(short = 'm', long = "mod", default_value = "asteroids")]
     pub mod_name: String,
 
     /// Single flag combo (e.g. "opt")
@@ -185,12 +185,12 @@ pub struct CaptureArgs {
     #[arg(long = "frames", default_value_t = 5)]
     pub frames: u32,
 
-    /// Use shell-quest-tests mod
+    /// Use the default capture mod
     #[arg(long = "tests")]
     pub tests: bool,
 
     /// Mod to capture
-    #[arg(short = 'm', long = "mod", default_value = "shell-quest")]
+    #[arg(short = 'm', long = "mod", default_value = "asteroids")]
     pub mod_name: String,
 }
 
@@ -219,7 +219,7 @@ pub struct SetupArgs {
 #[derive(Parser, Debug)]
 pub struct EditorArgs {
     /// Mod to edit
-    #[arg(short = 'm', long = "mod", default_value = "shell-quest")]
+    #[arg(short = 'm', long = "mod", default_value = "playground")]
     pub mod_name: String,
 
     /// Extra args passed to editor binary

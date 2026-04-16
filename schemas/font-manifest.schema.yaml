@@ -1,8 +1,8 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/font-manifest.schema.yaml"
+﻿$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/font-manifest.schema.yaml"
 title: Font Manifest Schema
 description: >
-  Describes a bitmap font asset used by the Shell Quest engine rasterizer.
+  Describes a bitmap font asset used by the Shell Engine engine rasterizer.
   Each font variant (ascii / raster) has its own manifest.yaml alongside a glyphs/ directory.
   The engine locates manifests by searching for a directory matching the font label,
   then the mode subdirectory (ascii or raster).

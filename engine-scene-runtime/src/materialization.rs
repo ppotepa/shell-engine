@@ -768,6 +768,11 @@ fn set_obj_property_recursive(
                 atmo_rim_power,
                 atmo_haze_strength,
                 atmo_haze_power,
+                atmo_veil_strength,
+                atmo_veil_power,
+                atmo_halo_strength,
+                atmo_halo_width,
+                atmo_halo_power,
                 light_direction_x,
                 light_direction_y,
                 light_direction_z,
@@ -1210,6 +1215,51 @@ fn set_obj_property_recursive(
                         let next = next.clamp(0.1, 8.0);
                         if atmo_haze_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
                             *atmo_haze_power = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.veil_strength" | "obj.atmo.veil-strength" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_veil_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_veil_strength = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.veil_power" | "obj.atmo.veil-power" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.1, 8.0);
+                        if atmo_veil_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_veil_power = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.halo_strength" | "obj.atmo.halo-strength" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_halo_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_halo_strength = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.halo_width" | "obj.atmo.halo-width" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_halo_width.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_halo_width = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.halo_power" | "obj.atmo.halo-power" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.1, 8.0);
+                        if atmo_halo_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_halo_power = Some(next);
                             *updated = true;
                         }
                     }

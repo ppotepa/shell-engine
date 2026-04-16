@@ -530,6 +530,21 @@ pub enum Sprite {
         /// Haze falloff power for atmosphere effect (lower = broader). Default 1.8.
         #[serde(default, rename = "atmo-haze-power")]
         atmo_haze_power: Option<f32>,
+        /// Atmospheric veil strength across the visible disk (0.0–1.0). Higher values can soften or obscure surface detail.
+        #[serde(default, rename = "atmo-veil-strength")]
+        atmo_veil_strength: Option<f32>,
+        /// Veil falloff power (lower = broader coverage across the disk). Default 1.6.
+        #[serde(default, rename = "atmo-veil-power")]
+        atmo_veil_power: Option<f32>,
+        /// Outer halo strength outside the planet silhouette (0.0–1.0). Default 0.0.
+        #[serde(default, rename = "atmo-halo-strength")]
+        atmo_halo_strength: Option<f32>,
+        /// Outer halo width as a fraction of apparent planet radius (0.0–1.0). Default 0.12.
+        #[serde(default, rename = "atmo-halo-width")]
+        atmo_halo_width: Option<f32>,
+        /// Outer halo falloff power (higher = tighter halo). Default 2.2.
+        #[serde(default, rename = "atmo-halo-power")]
+        atmo_halo_power: Option<f32>,
         /// Night-side city lights color. When set, renders procedural light clusters on the dark side.
         #[serde(default, rename = "night-light-color")]
         night_light_color: Option<TermColour>,

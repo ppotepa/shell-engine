@@ -1,4 +1,4 @@
-use super::builders::{
+﻿use super::builders::{
     build_animation_schema, build_behavior_schema, build_input_profile_schema, build_sugar_schema,
 };
 use super::collectors::{
@@ -211,7 +211,7 @@ fn committed_generated_schemas_are_current() {
         .join("..")
         .canonicalize()
         .expect("repo root");
-    for mod_name in ["playground", "shell-quest"] {
+    for mod_name in ["playground", "asteroids"] {
         let mod_root = repo_root.join("mods").join(mod_name);
         let files = generate_mod_schema_files(&mod_root).expect("generate committed schemas");
         assert!(!files.is_empty(), "expected schema files for {mod_name}");

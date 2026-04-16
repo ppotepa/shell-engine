@@ -1,16 +1,16 @@
-# GUI Playground Mod
+﻿# GUI Playground Mod
 
 Interactive test-bench for the engine GUI widget system.
 
 ## Running
 
 ```bash
-SHELL_QUEST_MOD_SOURCE=mods/gui-playground cargo run -p app
+SHELL_ENGINE_MOD_SOURCE=mods/gui-playground cargo run -p app
 ```
 
 Or on Windows:
 ```powershell
-$env:SHELL_QUEST_MOD_SOURCE="mods/gui-playground"; cargo run -p app
+$env:SHELL_ENGINE_MOD_SOURCE="mods/gui-playground"; cargo run -p app
 ```
 
 ## What it tests
