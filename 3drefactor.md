@@ -83,15 +83,15 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ### engine-render-3d
 
-- [ ] Expand `api.rs` into concrete `Render3dInput` and `Render3dOutput`.
-- [ ] Add `scene/mod.rs`.
-- [ ] Add `scene/instance.rs`.
-- [ ] Add `scene/nodes.rs`.
-- [ ] Add `scene/camera.rs`.
-- [ ] Add `scene/lights.rs`.
-- [ ] Add `scene/materials.rs`.
-- [ ] Add `scene/viewport.rs`.
-- [ ] Add `scene/dirty.rs`.
+- [x] Expand `api.rs` into concrete `Render3dInput` and `Render3dOutput`.
+- [x] Add `scene/mod.rs`.
+- [x] Add `scene/instance.rs`.
+- [x] Add `scene/nodes.rs`.
+- [x] Add `scene/camera.rs`.
+- [x] Add `scene/lights.rs`.
+- [x] Add `scene/materials.rs`.
+- [x] Add `scene/viewport.rs`.
+- [x] Add `scene/dirty.rs`.
 - [ ] Add `mesh/mod.rs`.
 - [ ] Add `mesh/asset_mesh.rs`.
 - [ ] Add `mesh/generated_mesh.rs`.
@@ -214,7 +214,7 @@ PR0 baseline references:
 
 ### PR2 - Real 3D Input Model
 
-- [ ] Add concrete scene graph types to `engine-render-3d`.
+- [x] Add concrete scene graph types to `engine-render-3d`.
 - [ ] Map authored 3D sprite forms directly into scene graph nodes.
 - [ ] Stop unpacking full 3D semantics directly inside sprite rendering.
 
@@ -278,6 +278,8 @@ These are the tasks to start with immediately.
 - [x] Move planet-specific render mapping out of renderer path into a dedicated adapter module.
 - [x] Wire planet rendering delegate directly to adapter and remove intermediary 3D wrapper hop.
 - [x] Rename renderer delegate surface from `planet` to `generated_world` to keep render API feature-agnostic.
+- [x] Introduce `engine-render-3d::scene` module with initial typed scene graph structures.
+- [x] Introduce concrete `Render3dInput` / `Render3dOutput` types in `engine-render-3d::api`.
 
 ## Definition of Done
 
