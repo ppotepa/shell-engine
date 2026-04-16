@@ -1,10 +1,14 @@
 use super::obj_sprite_spec::extract_obj_sprite_spec;
-use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D, SceneClip3DInstance};
+use super::scene_clip_sprite_spec::extract_scene_clip_sprite_spec;
+use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D};
 use engine_core::render_types::Transform3D;
-use engine_core::scene::{CameraSource, Sprite};
+use engine_core::scene::Sprite;
 
 pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
     if let Some(spec) = extract_obj_sprite_spec(sprite) {
+        return Some(spec.node);
+    }
+    if let Some(spec) = extract_scene_clip_sprite_spec(sprite) {
         return Some(spec.node);
     }
 
@@ -47,29 +51,7 @@ pub fn map_sprite_to_node3d(sprite: &Sprite) -> Option<Node3DInstance> {
                 material: None,
             }),
         }),
-        Sprite::Scene3D {
-            id,
-            src,
-            frame,
-            x,
-            y,
-            camera_source,
-            visible,
-            ..
-        } => Some(Node3DInstance {
-            id: id.clone().unwrap_or_else(|| "scene3d-node".to_string()),
-            transform: Transform3D {
-                translation: [*x as f32, *y as f32, 0.0],
-                rotation_deg: [0.0, 0.0, 0.0],
-                scale: [1.0, 1.0, 1.0],
-            },
-            visible: *visible,
-            renderable: Renderable3D::SceneClip(SceneClip3DInstance {
-                source: src.clone(),
-                frame: frame.clone(),
-                use_scene_camera: *camera_source == CameraSource::Scene,
-            }),
-        }),
+        Sprite::Scene3D { .. } => None,
         Sprite::Text { .. }
         | Sprite::Image { .. }
         | Sprite::Vector { .. }

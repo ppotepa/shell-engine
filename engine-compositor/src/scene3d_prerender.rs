@@ -9,9 +9,7 @@ use engine_render_3d::prerender::{
     Scene3DWorkItem,
 };
 
-use crate::{
-    blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, Scene3DAtlas,
-};
+use crate::{blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, Scene3DAtlas};
 use engine_render_3d::prerender::Scene3DRuntimeEntry;
 
 pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<Scene3DAtlas> {
@@ -47,8 +45,8 @@ fn render_frame(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer
 
 /// Render a single frame of a Scene3D clip at a given `elapsed_ms` within the clip's timeline.
 ///
-/// `clip_name` must be the bare clip frame key (e.g. `"orbit"`), **not** a keyframe id
-/// like `"orbit-7"`. Returns `None` if the clip is not found or the scene has no objects.
+/// `clip_name` must be the bare clip frame key (e.g. `"main"`), **not** a keyframe id
+/// like `"main-7"`. Returns `None` if the clip is not found or the scene has no objects.
 pub fn render_scene3d_frame_at(
     entry: &Scene3DRuntimeEntry,
     frame_name: &str,
