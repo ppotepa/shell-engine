@@ -1033,6 +1033,7 @@ scene.set(target, path, value)             // write a value
 scene.set_visible(id, bool)                 // show/hide a sprite or layer
 scene.set_vector(id, points, fg, bg)        // set all vector props at once
 scene.batch(id, map)                        // set multiple props: #{fg:.., bg:.., points:..}
+scene.mutate(#{ ... })                      // apply a typed scene mutation request
 scene.spawn_object(template, target)        // clone a scene object/layer template at runtime
 scene.despawn_object(target)                // soft-despawn a scene object/layer
 ```

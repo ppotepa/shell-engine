@@ -260,7 +260,7 @@ PR0 baseline references:
 
 - [x] Add typed public scene mutation APIs in `engine-api`.
 - [ ] Retire string-path setters after typed APIs take over.
-- [ ] Update scripting documentation when the typed API lands.
+- [x] Update scripting documentation when the typed API lands.
 
 ## First Work Queue
 

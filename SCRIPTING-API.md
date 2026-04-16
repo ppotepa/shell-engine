@@ -571,6 +571,14 @@ scene.set("main-planet", "planet.sun_dir.x", 0.72)
 
 // Set the same property on multiple objects at once (cheaper than a Rhai for-loop):
 scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
+
+// Typed mutation request (preferred for new 2D/3D camera + render mutations):
+scene.mutate(#{
+  type: "set_camera3d",
+  kind: "look_at",
+  eye: [0.0, 0.0, 6.0],
+  look_at: [0.0, 0.0, 0.0]
+})
 ```
 
 **Writable paths**:
