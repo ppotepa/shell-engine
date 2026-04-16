@@ -6,6 +6,15 @@ pub struct FrameSample {
     pub t: f32,
 }
 
+/// Convert elapsed time to normalized clip progress in `[0, 1]`.
+pub fn clip_progress_at(elapsed_ms: u64, duration_ms: u64) -> f32 {
+    if duration_ms == 0 {
+        0.0
+    } else {
+        (elapsed_ms % duration_ms) as f32 / duration_ms as f32
+    }
+}
+
 /// Expand Scene3D frame definitions into concrete sample outputs.
 ///
 /// - Static frames produce one sample with `t = 0.0`.

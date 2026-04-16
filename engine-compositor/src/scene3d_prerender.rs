@@ -12,8 +12,8 @@ use engine_core::logging;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    collect_scene3d_sources, expand_frame_samples, extract_light_params, load_and_resolve_scene3d,
-    look_at_basis, parse_hex_color, LightParams,
+    clip_progress_at, collect_scene3d_sources, expand_frame_samples, extract_light_params,
+    load_and_resolve_scene3d, look_at_basis, parse_hex_color, LightParams,
 };
 
 use crate::{
@@ -551,12 +551,7 @@ pub fn render_scene3d_frame_at(
             0.0,
         ),
         FrameDef::Clip(clip) => {
-            let duration_ms = clip.clip.duration_ms as u64;
-            let t = if duration_ms == 0 {
-                0.0f32
-            } else {
-                (elapsed_ms % duration_ms) as f32 / duration_ms as f32
-            };
+            let t = clip_progress_at(elapsed_ms, clip.clip.duration_ms as u64);
             build_object_specs(
                 &clip.show,
                 &entry.def.objects,

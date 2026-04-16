@@ -220,7 +220,7 @@ PR0 baseline references:
 
 ### PR3 - Move Scene3D Prerender into 3D Domain
 
-- [ ] Move Scene3D atlas ownership to `engine-render-3d`.
+- [x] Move Scene3D atlas ownership to `engine-render-3d`.
 - [x] Move Scene3D runtime store ownership to `engine-render-3d`.
 - [ ] Move Scene3D prerender pipeline to `engine-render-3d`.
 - [ ] Keep scene pipeline orchestration in `engine`.
@@ -301,6 +301,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D frame sample/keyframe expansion logic from compositor prerender path into `engine-render-3d::prerender::frame_schedule` and consume schedule outputs in compositor.
 - [x] Move camera look-at basis helper (`look_at_basis`) from compositor Scene3D prerender path into `engine-render-3d::prerender::camera_basis`.
 - [x] Move Scene3D light extraction + hex colour parsing helpers (`extract_light_params`, `parse_hex_color`) from compositor prerender path into `engine-render-3d::prerender::lighting`.
+- [x] Move Scene3D clip progress normalization (`elapsed_ms` -> `t`) into `engine-render-3d::prerender::frame_schedule::clip_progress_at`.
 
 ## Definition of Done
 
