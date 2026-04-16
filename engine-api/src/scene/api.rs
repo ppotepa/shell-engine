@@ -268,7 +268,18 @@ impl ScriptSceneApi {
 
     /// Set object visibility.
     pub fn set_visible(&mut self, id: &str, visible: bool) {
-        self.set(id, "props.visible", visible.into());
+        let resolved = self
+            .target_resolver
+            .resolve_alias(id)
+            .unwrap_or(id)
+            .to_string();
+        let _ = self.enqueue_scene_mutation(SceneMutationRequest::Set2dProps {
+            target: resolved,
+            visible: Some(visible),
+            dx: None,
+            dy: None,
+            text: None,
+        });
     }
 
     /// Change the scene background color.
@@ -499,6 +510,39 @@ mod tests {
                 request: SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::Up {
                     up: [0.0, 1.0, 0.0],
                 }),
+            }
+        );
+    }
+
+    #[test]
+    fn set_visible_enqueues_typed_2d_mutation() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut resolver = TargetResolver::new("scene-root".to_string());
+        resolver.register_alias("hud".to_string(), "scene-root/layer:0:ui/hud".to_string());
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(resolver),
+            Arc::clone(&queue),
+        );
+
+        api.set_visible("hud", false);
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 1);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::Set2dProps {
+                    target: "scene-root/layer:0:ui/hud".to_string(),
+                    visible: Some(false),
+                    dx: None,
+                    dy: None,
+                    text: None,
+                },
             }
         );
     }

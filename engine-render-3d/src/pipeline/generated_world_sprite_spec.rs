@@ -1,6 +1,9 @@
 use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D};
+use engine_asset::resolve_generated_world_mesh_build_key;
 use engine_core::render_types::Transform3D;
 use engine_core::scene::{CameraSource, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
+
+const DEFAULT_GENERATED_WORLD_MESH_SOURCE: &str = "cube-sphere://64";
 
 #[derive(Debug, Clone)]
 pub struct GeneratedWorldSpriteSpec {
@@ -58,11 +61,14 @@ pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedW
         return None;
     };
 
+    let mesh_key = resolve_generated_world_mesh_build_key(
+        mesh_source.as_deref(),
+        DEFAULT_GENERATED_WORLD_MESH_SOURCE,
+    );
+
     Some(GeneratedWorldSpriteSpec {
         node: Node3DInstance {
-            id: id
-                .clone()
-                .unwrap_or_else(|| format!("planet-{body_id}")),
+            id: id.clone().unwrap_or_else(|| format!("planet-{body_id}")),
             transform: Transform3D {
                 translation: [*x as f32, *y as f32, 0.0],
                 rotation_deg: [
@@ -81,7 +87,7 @@ pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedW
                 body_id: body_id.clone(),
                 preset_id: preset.clone(),
                 mesh_source: mesh_source.clone(),
-                params_uri: None,
+                mesh_key,
                 material: None,
             }),
         },

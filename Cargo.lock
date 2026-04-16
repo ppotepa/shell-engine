@@ -642,6 +642,8 @@ dependencies = [
  "engine-authoring",
  "engine-core",
  "engine-error",
+ "engine-mesh",
+ "engine-worldgen",
  "serde_yaml",
  "tempfile",
  "zip",
@@ -918,6 +920,7 @@ name = "engine-render-3d"
 version = "0.1.0"
 dependencies = [
  "engine-3d",
+ "engine-asset",
  "engine-core",
  "rayon",
  "serde_yaml",
@@ -955,6 +958,7 @@ name = "engine-scene-runtime"
 version = "0.1.0"
 dependencies = [
  "engine-animation",
+ "engine-api",
  "engine-behavior",
  "engine-behavior-registry",
  "engine-core",

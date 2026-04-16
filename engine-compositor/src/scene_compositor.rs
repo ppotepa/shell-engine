@@ -14,23 +14,19 @@ use std::collections::HashMap;
 /// `composite_scene` and its callers.
 pub struct CompositeParams<'a> {
     pub bg: Color,
+    pub frame: FrameAssemblyInputs<'a>,
+    pub runtime: RuntimeCompositeInputs<'a>,
+    pub render: RenderCompositeInputs<'a>,
+}
+
+/// Inputs that define how the current frame should be assembled.
+pub struct FrameAssemblyInputs<'a> {
     pub layers: &'a [Layer],
     pub ui_enabled: bool,
-    pub asset_root: Option<&'a AssetRoot>,
-    pub target_resolver: &'a TargetResolver,
-    pub object_states: &'a HashMap<String, ObjectRuntimeState>,
-    pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
-    pub current_stage: &'a SceneStage,
-    pub step_idx: usize,
-    pub elapsed_ms: u64,
-    pub scene_elapsed_ms: u64,
     pub scene_space: SceneSpace,
     pub scene_camera_3d: &'a SceneCamera3D,
-    pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub scene_effects: &'a [Effect],
     pub scene_step_dur: u64,
-    pub is_pixel_backend: bool,
-    pub default_font: Option<&'a str>,
     /// World-space camera origin. Non-UI layer origins are shifted by `(-camera_x, -camera_y)`.
     pub camera_x: i32,
     pub camera_y: i32,
@@ -38,3 +34,21 @@ pub struct CompositeParams<'a> {
     pub camera_zoom: f32,
 }
 
+/// Per-frame runtime state that drives layer/sprite visibility and progression.
+pub struct RuntimeCompositeInputs<'a> {
+    pub target_resolver: &'a TargetResolver,
+    pub object_states: &'a HashMap<String, ObjectRuntimeState>,
+    pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
+    pub current_stage: &'a SceneStage,
+    pub step_idx: usize,
+    pub elapsed_ms: u64,
+    pub scene_elapsed_ms: u64,
+}
+
+/// Render-domain inputs used by compositor adapters and 2D/3D pipelines.
+pub struct RenderCompositeInputs<'a> {
+    pub asset_root: Option<&'a AssetRoot>,
+    pub celestial_catalogs: Option<&'a CelestialCatalogs>,
+    pub is_pixel_backend: bool,
+    pub default_font: Option<&'a str>,
+}

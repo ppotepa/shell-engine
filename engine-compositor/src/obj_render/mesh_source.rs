@@ -82,14 +82,6 @@ fn parse_terrain_params(query: &str) -> engine_mesh::primitives::TerrainParams {
     p
 }
 
-/// Parse terrain params from a `terrain-plane://N[?params]` or `terrain-sphere://N[?params]` URI.
-///
-/// Returns default params if the URI has no query string or cannot be parsed.
-pub(crate) fn parse_terrain_params_from_uri(uri: &str) -> engine_mesh::primitives::TerrainParams {
-    let query = uri.splitn(2, '?').nth(1).unwrap_or("");
-    parse_terrain_params(query)
-}
-
 /// Get or load an OBJ mesh from cache.
 /// Supports the `cube-sphere://N` and `terrain-plane://N[?params]` URI schemes for procedurally generated meshes.
 pub(super) fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMesh>> {

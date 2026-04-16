@@ -1,4 +1,7 @@
-use engine_terrain::{moisture_color, GeneratedPlanet, HeightmapCell, WorldBase, WorldColoring, WorldGenParams, WorldShape};
+use engine_terrain::{
+    moisture_color, GeneratedPlanet, HeightmapCell, WorldBase, WorldColoring, WorldGenParams,
+    WorldShape,
+};
 
 #[derive(Debug, Clone)]
 pub struct GeneratedWorldMesh {
@@ -173,6 +176,19 @@ pub fn world_uri_from_params(p: &WorldGenParams) -> String {
     )
 }
 
+/// Stable mesh build key for world-generated geometry.
+#[inline]
+pub fn world_mesh_build_key_from_params(p: &WorldGenParams) -> String {
+    world_uri_from_params(p)
+}
+
+/// Stable mesh build key normalized from a `world://` URI.
+#[inline]
+pub fn world_mesh_build_key_from_uri(uri: &str) -> String {
+    let params = parse_world_params_from_uri(uri);
+    world_uri_from_params(&params)
+}
+
 /// Generate world mesh + face colors from high-level params.
 pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
     let planet = engine_terrain::generate(&p.planet);
@@ -233,10 +249,10 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                     let v = row as f32 / rows as f32;
                     let x = u * 2.0 - 1.0;
                     let z = v * 2.0 - 1.0;
-                    let gx = ((u * (planet.width - 1) as f32).round() as usize)
-                        .min(planet.width - 1);
-                    let gy = ((v * (planet.height - 1) as f32).round() as usize)
-                        .min(planet.height - 1);
+                    let gx =
+                        ((u * (planet.width - 1) as f32).round() as usize).min(planet.width - 1);
+                    let gy =
+                        ((v * (planet.height - 1) as f32).round() as usize).min(planet.height - 1);
                     let cell = planet.cell(gx, gy);
                     let y = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
                     vertices.push([x, y, z]);
@@ -279,13 +295,18 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                 .collect();
 
             let mesh = engine_mesh::Mesh::new(vertices, normals, faces);
-            GeneratedWorldMesh { mesh, face_colors: colors }
+            GeneratedWorldMesh {
+                mesh,
+                face_colors: colors,
+            }
         }
     }
 }
 
 fn build_world_base_mesh(base: WorldBase, subdivisions: u32) -> engine_mesh::Mesh {
-    use engine_mesh::primitives::{cube_sphere, icosa_sphere, octa_sphere, tetra_sphere, uv_sphere};
+    use engine_mesh::primitives::{
+        cube_sphere, icosa_sphere, octa_sphere, tetra_sphere, uv_sphere,
+    };
     match base {
         // Cube and UV sphere face counts scale as O(N²) — cap at 256 subdivisions to avoid
         // generating millions of sub-pixel triangles that cost CPU time but add no visible detail.

@@ -399,13 +399,7 @@ impl SceneRuntime {
                 BehaviorCommand::SetOffset { .. } => {}
                 BehaviorCommand::SetText { .. } => {}
                 BehaviorCommand::SetProps { .. } => {}
-                BehaviorCommand::ApplySceneMutation { request } => {
-                    if let Some(mutation) =
-                        scene_mutation_from_request(request, self.scene_camera_3d)
-                    {
-                        self.apply_scene_mutation(resolver, &mutation);
-                    }
-                }
+                BehaviorCommand::ApplySceneMutation { .. } => {}
                 BehaviorCommand::SetProperty {
                     target,
                     path,
@@ -612,23 +606,6 @@ impl SceneRuntime {
                                 continue;
                             }
                         }
-                        "scene3d.frame" => {
-                            let Some(next_frame) = value.as_str() else {
-                                continue;
-                            };
-                            let mut applied = self.set_scene3d_sprite_frame(target, next_frame);
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_scene3d_sprite_frame(&alias, next_frame) {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
                         _ => {}
                     }
                 }
@@ -740,26 +717,23 @@ impl SceneRuntime {
                     zoom: Some(*zoom),
                 }))
             }
-            BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
-                let mut camera = engine_core::render_types::Camera3DState {
-                    eye: self.scene_camera_3d.eye,
-                    look_at: self.scene_camera_3d.look_at,
-                    up: self.scene_camera_3d.up,
-                    fov_deg: self.scene_camera_3d.fov_degrees,
-                };
-                camera.eye = *eye;
-                camera.look_at = *look_at;
-                Some(SceneMutation::SetCamera3D(camera))
-            }
-            BehaviorCommand::SetCamera3DUp { up } => {
-                let mut camera = engine_core::render_types::Camera3DState {
-                    eye: self.scene_camera_3d.eye,
-                    look_at: self.scene_camera_3d.look_at,
-                    up: self.scene_camera_3d.up,
-                    fov_deg: self.scene_camera_3d.fov_degrees,
-                };
-                camera.up = *up;
-                Some(SceneMutation::SetCamera3D(camera))
+            BehaviorCommand::SetCamera3DLookAt { eye, look_at } => scene_mutation_from_request(
+                &engine_api::scene::SceneMutationRequest::SetCamera3d(
+                    engine_api::scene::Camera3dMutationRequest::LookAt {
+                        eye: *eye,
+                        look_at: *look_at,
+                    },
+                ),
+                self.scene_camera_3d,
+            ),
+            BehaviorCommand::SetCamera3DUp { up } => scene_mutation_from_request(
+                &engine_api::scene::SceneMutationRequest::SetCamera3d(
+                    engine_api::scene::Camera3dMutationRequest::Up { up: *up },
+                ),
+                self.scene_camera_3d,
+            ),
+            BehaviorCommand::ApplySceneMutation { request } => {
+                scene_mutation_from_request(request, self.scene_camera_3d)
             }
             _ => None,
         }

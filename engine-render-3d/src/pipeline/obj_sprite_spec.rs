@@ -1,4 +1,6 @@
+use crate::mesh::normalize_asset_mesh_source;
 use crate::scene::{MeshInstance, Node3DInstance, Renderable3D};
+use engine_asset::resolve_obj_mesh_build_key;
 use engine_core::render_types::Transform3D;
 use engine_core::scene::{
     CameraSource, HorizontalAlign, Sprite, SpriteSizePreset, TermColour, VerticalAlign,
@@ -233,6 +235,9 @@ pub fn extract_obj_sprite_spec(sprite: &Sprite) -> Option<ObjSpriteSpec<'_>> {
         return None;
     };
 
+    let normalized_source = normalize_asset_mesh_source(source);
+    let mesh_key = resolve_obj_mesh_build_key(normalized_source.as_str(), sprite);
+
     Some(ObjSpriteSpec {
         sprite,
         node: Node3DInstance {
@@ -252,7 +257,8 @@ pub fn extract_obj_sprite_spec(sprite: &Sprite) -> Option<ObjSpriteSpec<'_>> {
             },
             visible: *visible,
             renderable: Renderable3D::Mesh(MeshInstance {
-                source: source.clone(),
+                source: normalized_source,
+                mesh_key,
                 material: None,
             }),
         },

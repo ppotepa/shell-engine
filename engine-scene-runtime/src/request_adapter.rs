@@ -29,24 +29,9 @@ pub fn scene_mutation_from_request(
                 zoom: *zoom,
             }))
         }
-        SceneMutationRequest::SetCamera3d(camera_request) => {
-            let mut camera = Camera3DState {
-                eye: current_camera_3d.eye,
-                look_at: current_camera_3d.look_at,
-                up: current_camera_3d.up,
-                fov_deg: current_camera_3d.fov_degrees,
-            };
-            match camera_request {
-                Camera3dMutationRequest::LookAt { eye, look_at } => {
-                    camera.eye = *eye;
-                    camera.look_at = *look_at;
-                }
-                Camera3dMutationRequest::Up { up } => {
-                    camera.up = *up;
-                }
-            }
-            Some(SceneMutation::SetCamera3D(camera))
-        }
+        SceneMutationRequest::SetCamera3d(camera_request) => Some(SceneMutation::SetCamera3D(
+            camera3d_state_from_request(camera_request, current_camera_3d),
+        )),
         SceneMutationRequest::SetRender3d(render_request) => {
             render3d_mutation_from_request(render_request).map(SceneMutation::SetRender3D)
         }
@@ -60,6 +45,28 @@ pub fn scene_mutation_from_request(
             target: target.clone(),
         }),
     }
+}
+
+pub fn camera3d_state_from_request(
+    request: &Camera3dMutationRequest,
+    current_camera_3d: SceneCamera3D,
+) -> Camera3DState {
+    let mut camera = Camera3DState {
+        eye: current_camera_3d.eye,
+        look_at: current_camera_3d.look_at,
+        up: current_camera_3d.up,
+        fov_deg: current_camera_3d.fov_degrees,
+    };
+    match request {
+        Camera3dMutationRequest::LookAt { eye, look_at } => {
+            camera.eye = *eye;
+            camera.look_at = *look_at;
+        }
+        Camera3dMutationRequest::Up { up } => {
+            camera.up = *up;
+        }
+    }
+    camera
 }
 
 pub fn render3d_mutation_from_request(

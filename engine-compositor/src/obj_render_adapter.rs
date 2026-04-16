@@ -1,4 +1,3 @@
-use crate::obj_source_resolver::resolve_effective_obj_source;
 use crate::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered, ObjRenderParams};
 use engine_core::color::Color;
 use engine_core::effects::Region;
@@ -134,7 +133,7 @@ pub(crate) fn render_obj_sprite(
         return;
     };
 
-    let source = mesh_node.source.as_str();
+    let source = mesh_node.mesh_key.as_str();
     let node_x = node.transform.translation[0].round() as i32;
     let node_y = node.transform.translation[1].round() as i32;
     let node_scale = node.transform.scale[0];
@@ -142,8 +141,6 @@ pub(crate) fn render_obj_sprite(
     let node_yaw = node.transform.rotation_deg[1];
     let node_roll = node.transform.rotation_deg[2];
 
-    let effective_source_buf = resolve_effective_obj_source(source, sprite);
-    let effective_source: &str = effective_source_buf.as_str();
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(width, height, size)
     } else {
@@ -217,7 +214,7 @@ pub(crate) fn render_obj_sprite(
     let use_scene_camera = camera_source == CameraSource::Scene;
     let scene_camera = ctx.scene_camera_3d;
     render_obj_content(
-        effective_source,
+        source,
         Some(sprite_width),
         Some(sprite_height),
         size,

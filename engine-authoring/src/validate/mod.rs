@@ -3,7 +3,10 @@
 //! This module will contain reusable authoring checks shared by tests, editor
 //! tooling, and future compile-time diagnostics.
 
+mod render3d;
+
 use engine_core::scene::{Scene, Sprite};
+pub use render3d::{validate_render_scene3d_document, Render3dDiagnostic};
 
 /// Validation diagnostic for sprite timeline issues.
 #[derive(Debug, Clone, PartialEq, Eq)]

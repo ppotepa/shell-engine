@@ -61,16 +61,16 @@ Policy notes (verified against current code):
 
 ### engine-authoring
 
-- [ ] Add `document/viewport3d.rs`.
-- [ ] Add `document/render_scene3d.rs`.
-- [ ] Add `document/material.rs`.
-- [ ] Add `document/atmosphere_profile.rs`.
-- [ ] Add `document/world_profile.rs`.
-- [ ] Add `document/camera_profile.rs`.
-- [ ] Add `compile/compile_render_scene.rs`.
-- [ ] Add `compile/compile_2d.rs`.
-- [ ] Add `compile/compile_3d.rs`.
-- [ ] Add `validate/render3d.rs`.
+- [x] Add `document/viewport3d.rs`.
+- [x] Add `document/render_scene3d.rs`.
+- [x] Add `document/material.rs`.
+- [x] Add `document/atmosphere_profile.rs`.
+- [x] Add `document/world_profile.rs`.
+- [x] Add `document/camera_profile.rs`.
+- [x] Add `compile/compile_render_scene.rs`.
+- [x] Add `compile/compile_2d.rs`.
+- [x] Add `compile/compile_3d.rs`.
+- [x] Add `validate/render3d.rs`.
 - [ ] Compile `obj`, `planet`, and `scene3d` directly into the new intermediate
       model without parallel compiler paths.
 
@@ -105,17 +105,17 @@ Policy notes (verified against current code):
 - [x] Add `scene/materials.rs`.
 - [x] Add `scene/viewport.rs`.
 - [x] Add `scene/dirty.rs`.
-- [ ] Add `mesh/mod.rs`.
-- [ ] Add `mesh/asset_mesh.rs`.
-- [ ] Add `mesh/generated_mesh.rs`.
-- [ ] Add `mesh/cache.rs`.
+- [x] Add `mesh/mod.rs`.
+- [x] Add `mesh/asset_mesh.rs`.
+- [x] Add `mesh/generated_mesh.rs`.
+- [x] Add `mesh/cache.rs`.
 - [x] Add `pipeline/mod.rs`.
-- [ ] Add `pipeline/renderer.rs`.
+- [x] Add `pipeline/renderer.rs`.
 - [x] Map `Obj`, `Planet`, and `Scene3D` directly into the 3D scene graph.
 - [x] Add `prerender/mod.rs`.
-- [ ] Add `prerender/scene3d_atlas.rs`.
+- [x] Add `prerender/scene3d_atlas.rs`.
 - [x] Add `prerender/scene3d_runtime_store.rs`.
-- [ ] Add `prerender/scene3d_prerender.rs`.
+- [x] Add `prerender/scene3d_prerender.rs`.
 
 ### engine-compositor
 
@@ -128,15 +128,15 @@ Policy notes (verified against current code):
 ### engine-asset
 
 - [ ] Move image decode/cache concerns here.
-- [ ] Add `mesh_repository.rs`.
-- [ ] Add `material_repository.rs`.
-- [ ] Add `build_keys.rs`.
+- [x] Add `mesh_repository.rs`.
+- [x] Add `material_repository.rs`.
+- [x] Add `build_keys.rs`.
 - [ ] Expose shared image and mesh access for both renderers.
 
 ### engine-worldgen
 
-- [ ] Add stable `MeshBuildKey`.
-- [ ] Move geometry build key creation here.
+- [x] Add stable `MeshBuildKey`.
+- [x] Move geometry build key creation here.
 - [ ] Keep procedural world generation independent of the render loop.
 
 ## Core Types
@@ -160,7 +160,7 @@ Policy notes (verified against current code):
 - [x] Define `Render3dOutput`.
 - [x] Define `SceneMutation`.
 - [x] Define `Render3DMutation`.
-- [ ] Define `MeshBuildKey`.
+- [x] Define `MeshBuildKey`.
 
 ## Migration Rules
 
@@ -187,9 +187,9 @@ Policy notes (verified against current code):
 
 ## Asset and Build Keys
 
-- [ ] Stop constructing geometry keys inside the render hot path.
-- [ ] Replace URI rewrite semantics with typed build keys before render.
-- [ ] Keep URI parsing out of the core render API.
+- [x] Stop constructing geometry keys inside the render hot path.
+- [x] Replace URI rewrite semantics with typed build keys before render.
+- [x] Keep URI parsing out of the core render API.
 - [ ] Allow one image asset to be used as 2D sprite input and as 3D texture
       input through the same asset layer.
 
@@ -241,10 +241,10 @@ PR0 baseline references:
 ### PR4 - Asset and Mesh Build Layer
 
 - [ ] Move image decode/cache into `engine-asset`.
-- [ ] Add mesh repository APIs.
-- [ ] Add material repository APIs.
-- [ ] Introduce `MeshBuildKey`.
-- [ ] Remove geometry key construction from render paths.
+- [x] Add mesh repository APIs.
+- [x] Add material repository APIs.
+- [x] Introduce `MeshBuildKey`.
+- [x] Remove geometry key construction from render paths.
 
 ### PR5 - Typed Runtime Mutations
 
@@ -253,14 +253,19 @@ PR0 baseline references:
 - [x] Bridge selected 3D `SetProperty` paths into typed `SceneMutation` flow
       (`scene3d.frame`, `planet.*` subset, `obj.world.*`) while preserving
       fallback behavior for unsupported paths.
+- [x] Route `ApplySceneMutation` and legacy camera behavior commands through the
+      shared typed request-adapter conversion path to reduce duplicate mutation
+      branching.
+- [x] Remove duplicate `SetProperty` handling for `scene3d.frame` now that the
+      typed bridge path is authoritative for that safe case.
 - [ ] Collapse `SetProperty` handling onto typed mutations without a second
       runtime path.
 - [x] Wire dirty flag updates from typed mutations.
 
 ### PR6 - New 3D Authoring Surface
 
-- [ ] Add new 3D authored document types.
-- [ ] Add new validation rules.
+- [x] Add new 3D authored document types.
+- [x] Add new validation rules.
 - [ ] Replace old authored forms by moving compilation into the new model, not
       by keeping duplicate compilers.
 

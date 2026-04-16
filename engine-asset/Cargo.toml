@@ -9,6 +9,8 @@ license.workspace = true
 engine-core = { path = "../engine-core", version = "0.1.0" }
 engine-authoring = { path = "../engine-authoring", version = "0.1.0" }
 engine-error = { path = "../engine-error", version = "0.1.0" }
+engine-mesh = { path = "../engine-mesh", version = "0.1.0" }
+engine-worldgen = { path = "../engine-worldgen", version = "0.1.0" }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 serde_yaml = "0.9"
 

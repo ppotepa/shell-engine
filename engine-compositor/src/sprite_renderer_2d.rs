@@ -18,6 +18,9 @@ use engine_render_2d::{
     render_children_in_cells, render_image_content, render_panel_box, render_text_content,
     resolve_x, resolve_y, text_sprite_dimensions, with_render_context, ClipRect, RenderArea,
 };
+use engine_render_3d::pipeline::{
+    extract_generated_world_sprite_spec, extract_obj_sprite_spec, extract_scene_clip_sprite_spec,
+};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -242,6 +245,45 @@ fn render_sprite(
     };
     let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
 
+    if extract_obj_sprite_spec(sprite).is_some() {
+        render_3d.render_obj_sprite(
+            sprite,
+            area,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            ctx,
+        );
+        return;
+    }
+    if extract_generated_world_sprite_spec(sprite).is_some() {
+        render_3d.render_generated_world_sprite(
+            sprite,
+            area,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            sprite_elapsed,
+            ctx,
+        );
+        return;
+    }
+    if extract_scene_clip_sprite_spec(sprite).is_some() {
+        render_3d.render_scene_clip_sprite(
+            sprite,
+            area,
+            object_id,
+            &object_state,
+            object_regions,
+            ctx,
+        );
+        return;
+    }
+
     match sprite {
         Sprite::Text { .. } => render_text_sprite(
             sprite,
@@ -327,37 +369,7 @@ fn render_sprite(
             ctx,
             render_3d,
         ),
-        Sprite::Obj { .. } => render_3d.render_obj_sprite(
-            sprite,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            &object_state,
-            appear_at,
-            sprite_elapsed,
-            ctx,
-        ),
-        Sprite::Planet { .. } => render_3d.render_generated_world_sprite(
-            sprite,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            &object_state,
-            sprite_elapsed,
-            ctx,
-        ),
-        Sprite::Scene3D { .. } => {
-            render_3d.render_scene_clip_sprite(
-                sprite,
-                area,
-                object_id,
-                &object_state,
-                object_regions,
-                ctx,
-            )
-        }
+        Sprite::Obj { .. } | Sprite::Planet { .. } | Sprite::Scene3D { .. } => {}
     }
 }
 fn render_text_sprite(
@@ -1153,4 +1165,3 @@ fn render_flex_sprite(
         object_regions,
     );
 }
-

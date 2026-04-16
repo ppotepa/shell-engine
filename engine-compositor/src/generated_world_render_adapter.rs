@@ -13,7 +13,6 @@ use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
-const DEFAULT_WORLD_MESH_SOURCE: &str = "cube-sphere://64";
 const DEFAULT_WORLD_CLOUD_COLOR: &str = "#eaf2f8";
 const DEFAULT_WORLD_CLOUD_2_COLOR: &str = "#d7e2ec";
 
@@ -87,10 +86,7 @@ pub(crate) fn render_generated_world_sprite(
     ];
     let surface_scale = node.transform.scale[0];
     let (cloud_scale, cloud2_scale) = generated_world_cloud_scales(body, surface_scale);
-    let mesh_path = generated_world
-        .mesh_source
-        .as_deref()
-        .unwrap_or(DEFAULT_WORLD_MESH_SOURCE);
+    let mesh_path = generated_world.mesh_key.as_str();
     let base_yaw = node.transform.rotation_deg[1];
     let pitch = node.transform.rotation_deg[0];
     let roll = node.transform.rotation_deg[2];

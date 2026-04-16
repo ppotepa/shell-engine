@@ -1,9 +1,11 @@
 use super::materials::MaterialInstance;
+use engine_asset::MeshBuildKey;
 use engine_core::render_types::Transform3D;
 
 #[derive(Debug, Clone)]
 pub struct MeshInstance {
     pub source: String,
+    pub mesh_key: MeshBuildKey,
     pub material: Option<MaterialInstance>,
 }
 
@@ -12,7 +14,7 @@ pub struct GeneratedWorldInstance {
     pub body_id: String,
     pub preset_id: Option<String>,
     pub mesh_source: Option<String>,
-    pub params_uri: Option<String>,
+    pub mesh_key: MeshBuildKey,
     pub material: Option<MaterialInstance>,
 }
 
