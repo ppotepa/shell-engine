@@ -125,6 +125,8 @@ fn atmo_color_to_01(v)      { (v / 5.0).max(0.0).min(1.0) }
 fn atmo_color_from_01(v)    { (v * 5.0).round().max(0.0).min(5.0) }
 fn atmo_color_name(v)       { if v < 0.5 { "AMBER" } else if v < 1.5 { "ROSE" } else if v < 2.5 { "CYAN" } else if v < 3.5 { "LIME" } else if v < 4.5 { "AZURE" } else { "VIOLET" } }
 fn atmo_color_hex(v)        { if v < 0.5 { "#d9b36a" } else if v < 1.5 { "#cf7a8c" } else if v < 2.5 { "#7cc8ff" } else if v < 3.5 { "#9bcf86" } else if v < 4.5 { "#9ab8ff" } else { "#b79dff" } }
+fn atmo_haze_hex(v)         { if v < 0.5 { "#f6eddc" } else if v < 1.5 { "#f6ebef" } else if v < 2.5 { "#edf7ff" } else if v < 3.5 { "#eef7ea" } else if v < 4.5 { "#eef4ff" } else { "#f2eeff" } }
+fn atmo_absorption_hex(v)   { if v < 0.5 { "#ffbf7b" } else if v < 1.5 { "#ffc0ad" } else if v < 2.5 { "#ffd59d" } else if v < 3.5 { "#ffd08f" } else if v < 4.5 { "#ffd9b4" } else { "#ffd0dc" } }
 fn atmo_density_to_01(v)   { v.max(0.0).min(1.0) }
 fn atmo_density_from_01(v) { v.max(0.0).min(1.0) }
 fn atmo_height_to_01(v) { v.max(0.0).min(1.0) }
@@ -604,10 +606,12 @@ scene.set("planet-mesh", "obj.ambient",         ambient);
 let atmo_height_rel = (0.02 + atmo_height * 0.88).max(0.02).min(0.90);
 let atmo_density_profile = atmo_density.max(0.0).min(1.0);
 let atmo_forward = atmo_forward_scatter.max(0.0).min(1.0);
-let atmo_limb = (0.9 + atmo_density * 1.9 + atmo_haze_amount * 0.9).max(0.2).min(4.0);
-let atmo_term_soft = (0.7 + atmo_haze_amount * 1.4).max(0.05).min(4.0);
+let atmo_limb = (0.95 + atmo_density * 1.7 + atmo_haze_amount * 1.15 + atmo_height * 0.55).max(0.2).min(4.0);
+let atmo_term_soft = (0.75 + atmo_haze_amount * 1.55 + atmo_density * 0.35).max(0.05).min(4.0);
 let atmo_absorb = atmo_absorption.max(0.0).min(1.0);
-let atmo_ray_amount = (0.15 + atmo_density * 0.85).max(0.0).min(1.0);
+let atmo_ray_amount = (0.08 + atmo_density * 0.72).max(0.0).min(1.0);
+let atmo_absorb_height = (0.70 + atmo_height * 0.10).max(0.50).min(0.92);
+let atmo_absorb_width = (0.10 + atmo_haze_amount * 0.18 + atmo_absorb * 0.10).max(0.06).min(0.32);
 
 scene.set("planet-mesh", "obj.atmo.height",              atmo_height_rel);
 scene.set("planet-mesh", "obj.atmo.density",             atmo_density_profile);
@@ -615,12 +619,12 @@ scene.set("planet-mesh", "obj.atmo.rayleigh_amount",     atmo_ray_amount);
 scene.set("planet-mesh", "obj.atmo.rayleigh_color",      atmo_color_hex(atmo_color));
 scene.set("planet-mesh", "obj.atmo.rayleigh_falloff",    atmo_rayleigh_falloff);
 scene.set("planet-mesh", "obj.atmo.haze_amount",         atmo_haze_amount);
-scene.set("planet-mesh", "obj.atmo.haze_color",          atmo_color_hex(atmo_color));
+scene.set("planet-mesh", "obj.atmo.haze_color",          atmo_haze_hex(atmo_color));
 scene.set("planet-mesh", "obj.atmo.haze_falloff",        atmo_haze_falloff);
 scene.set("planet-mesh", "obj.atmo.absorption_amount",   atmo_absorb);
-scene.set("planet-mesh", "obj.atmo.absorption_color",    atmo_color_hex(atmo_color));
-scene.set("planet-mesh", "obj.atmo.absorption_height",   0.55);
-scene.set("planet-mesh", "obj.atmo.absorption_width",    0.18);
+scene.set("planet-mesh", "obj.atmo.absorption_color",    atmo_absorption_hex(atmo_color));
+scene.set("planet-mesh", "obj.atmo.absorption_height",   atmo_absorb_height);
+scene.set("planet-mesh", "obj.atmo.absorption_width",    atmo_absorb_width);
 scene.set("planet-mesh", "obj.atmo.forward_scatter",     atmo_forward);
 scene.set("planet-mesh", "obj.atmo.limb_boost",          atmo_limb);
 scene.set("planet-mesh", "obj.atmo.terminator_softness", atmo_term_soft);

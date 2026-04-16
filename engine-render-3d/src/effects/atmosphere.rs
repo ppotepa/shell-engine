@@ -38,60 +38,103 @@ pub fn apply_atmosphere_overlay_rgb(
         return pixel;
     }
     let n = normalize3(normal);
-    let nd = dot3(n, view_dir).abs().clamp(0.0, 1.0);
-    let edge = 1.0 - nd;
+    let sun_dir = normalize3(sun_dir);
+    let view_dir = normalize3(view_dir);
+    let mu_view = dot3(n, view_dir).abs().clamp(0.0, 1.0);
+    let edge = 1.0 - mu_view;
+    let horizon = smoothstep(0.03, 1.0, edge);
     let rayleigh_exp = (1.0 / (params.rayleigh_falloff.max(0.01) + 0.12)).clamp(0.6, 8.0);
     let haze_exp = (1.0 / (params.haze_falloff.max(0.01) + 0.18)).clamp(0.35, 6.0);
-    let rayleigh_limb = edge.powf(rayleigh_exp);
-    let haze_limb = edge.powf(haze_exp);
-    let profile_height_boost = (0.45 + params.height.clamp(0.0, 1.0) * 1.55).clamp(0.25, 2.0);
+    let rayleigh_limb = edge.powf(rayleigh_exp * 0.78);
+    let haze_limb = edge.powf(haze_exp * 0.62);
+    let height = params.height.clamp(0.0, 1.0);
     let density = params.density.clamp(0.0, 1.0).powf(0.72);
+    let profile_height_boost = (0.45 + height * 1.55).clamp(0.25, 2.0);
     let soft = params.terminator_softness.max(0.05);
-    let day = smoothstep(-0.12 * soft, 0.28 * soft, dot3(n, sun_dir));
+    let sun_mu = dot3(n, sun_dir);
+    let day = smoothstep(-0.12 * soft, 0.28 * soft, sun_mu);
     let night = (1.0 - day).clamp(0.0, 1.0);
-    let forward = smoothstep(0.15, 1.0, dot3(view_dir, sun_dir)).powf(2.0) * params.forward_scatter.clamp(0.0, 1.0);
+    let twilight = gaussian(sun_mu, 0.04, 0.12 + 0.16 * soft);
+    let forward =
+        smoothstep(0.12, 1.0, dot3(view_dir, sun_dir)).powf(2.2) * params.forward_scatter.clamp(0.0, 1.0);
+    let view_airmass = ((1.0 / (mu_view * 0.86 + 0.14)) - 0.78).clamp(0.0, 4.5);
+    let optical_depth = density * profile_height_boost * (0.18 + view_airmass);
+    let optical = (1.0 - (-optical_depth).exp()).clamp(0.0, 1.0);
     let absorption_profile = gaussian(
         edge,
         params.absorption_height.clamp(0.0, 1.0),
         params.absorption_width.max(0.01),
     );
+    let limb_ring = gaussian(edge, (0.90 + height * 0.05).clamp(0.82, 0.98), 0.07 + height * 0.07);
     if rayleigh_limb <= 0.01
         && haze_limb <= 0.01
         && absorption_profile <= 0.01
+        && optical <= 0.01
     {
         return pixel;
     }
 
-    let ray_alpha = (density
-        * params.rayleigh_amount.clamp(0.0, 1.0)
-        * rayleigh_limb
-        * (0.40 + 1.30 * day + 0.65 * forward)
-        * profile_height_boost
-        * params.limb_boost.max(0.0))
-        .clamp(0.0, 0.98);
-    let haze_alpha2 = (density
-        * params.haze_amount.clamp(0.0, 1.0)
-        * haze_limb
-        * (0.24 + 0.85 * day + 0.55 * forward)
-        * profile_height_boost)
-        .clamp(0.0, 0.96);
-    let absorb_alpha = (density * params.absorption_amount.clamp(0.0, 1.0) * absorption_profile)
+    let near_white_haze = mix_rgb([255, 252, 246], params.haze_color, 0.18);
+    let bright_limb = mix_rgb([255, 255, 252], near_white_haze, 0.40);
+    let rayleigh_tint = mix_rgb(near_white_haze, params.rayleigh_color, 0.72);
+    let sunset_tint = mix_rgb([255, 214, 156], params.absorption_color, 0.65);
+
+    let extinction_alpha = (optical
+        * (0.05 + 0.30 * params.haze_amount.clamp(0.0, 1.0) + 0.22 * params.absorption_amount.clamp(0.0, 1.0))
+        * (0.18 + 0.82 * horizon))
+        .clamp(0.0, 0.78);
+    let disk_haze_alpha = (optical
+        * (0.08 + 0.74 * params.haze_amount.clamp(0.0, 1.0))
+        * (0.22 + 0.78 * day)
+        * (0.18 + 0.82 * horizon.powf(0.82)))
         .clamp(0.0, 0.88);
+    let disk_ray_alpha = (optical
+        * (0.05 + 0.70 * params.rayleigh_amount.clamp(0.0, 1.0))
+        * (0.10 + 0.85 * day + 0.35 * forward)
+        * (0.02 + 0.98 * rayleigh_limb)
+        * (0.55 + 0.75 * height))
+        .clamp(0.0, 0.82);
+    let white_limb_alpha = (density
+        * (0.10 + 0.95 * params.haze_amount.clamp(0.0, 1.0))
+        * (0.30 + 0.75 * day + 0.55 * forward)
+        * limb_ring
+        * params.limb_boost.max(0.0)
+        * (0.55 + height))
+        .clamp(0.0, 0.96);
+    let ray_limb_alpha = (density
+        * (0.08 + 0.88 * params.rayleigh_amount.clamp(0.0, 1.0))
+        * (0.25 + 1.15 * day + 0.45 * forward)
+        * rayleigh_limb
+        * params.limb_boost.max(0.0)
+        * (0.45 + 0.85 * height))
+        .clamp(0.0, 0.94);
+    let sunset_alpha = (density
+        * params.absorption_amount.clamp(0.0, 1.0)
+        * twilight
+        * (0.16 + 0.84 * absorption_profile.max(horizon))
+        * (0.30 + 0.70 * day + 0.18 * forward))
+        .clamp(0.0, 0.76);
     let night_glow_alpha = (params.night_glow.clamp(0.0, 1.0)
         * density
-        * (0.20 + 0.80 * edge)
+        * (0.16 + 0.84 * horizon)
         * night)
         .clamp(0.0, 0.55);
 
-    let mut out = pixel;
-    if ray_alpha > 0.0 {
-        out = mix_rgb(out, params.rayleigh_color, ray_alpha);
+    let mut out = scale_rgb(pixel, 1.0 - extinction_alpha * 0.38);
+    if disk_haze_alpha > 0.0 {
+        out = mix_rgb(out, near_white_haze, disk_haze_alpha);
     }
-    if haze_alpha2 > 0.0 {
-        out = mix_rgb(out, params.haze_color, haze_alpha2);
+    if disk_ray_alpha > 0.0 {
+        out = mix_rgb(out, rayleigh_tint, disk_ray_alpha);
     }
-    if absorb_alpha > 0.0 {
-        out = mix_rgb(out, params.absorption_color, absorb_alpha);
+    if sunset_alpha > 0.0 {
+        out = mix_rgb(out, sunset_tint, sunset_alpha);
+    }
+    if white_limb_alpha > 0.0 {
+        out = mix_rgb(out, bright_limb, white_limb_alpha);
+    }
+    if ray_limb_alpha > 0.0 {
+        out = mix_rgb(out, rayleigh_tint, ray_limb_alpha);
     }
     if night_glow_alpha > 0.0 {
         out = mix_rgb(out, params.night_glow_color, night_glow_alpha);
@@ -247,6 +290,16 @@ fn mix_rgb(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
         (a[0] as f32 + (b[0] as f32 - a[0] as f32) * t) as u8,
         (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t) as u8,
         (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t) as u8,
+    ]
+}
+
+#[inline]
+fn scale_rgb(rgb: [u8; 3], factor: f32) -> [u8; 3] {
+    let factor = factor.clamp(0.0, 1.0);
+    [
+        (rgb[0] as f32 * factor) as u8,
+        (rgb[1] as f32 * factor) as u8,
+        (rgb[2] as f32 * factor) as u8,
     ]
 }
 

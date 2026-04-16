@@ -655,26 +655,32 @@ pub fn render_obj_to_canvas(
             .unwrap_or([124, 200, 255]);
         let haze_color = params.atmo_haze_color.unwrap_or(ray_color);
         let absorption_color = params.atmo_absorption_color.unwrap_or([255, 170, 110]);
-        let base_color = mix_rgb(
-            mix_rgb(ray_color, haze_color, params.atmo_haze_amount.clamp(0.0, 1.0)),
-            absorption_color,
-            (params.atmo_absorption_amount * 0.35).clamp(0.0, 1.0),
-        );
         let halo_strength = (params.atmo_density
-            * (0.22 + 0.78 * params.atmo_rayleigh_amount.clamp(0.0, 1.0))
+            * (0.18
+                + 0.46 * params.atmo_rayleigh_amount.clamp(0.0, 1.0)
+                + 0.36 * params.atmo_haze_amount.clamp(0.0, 1.0))
             * params.atmo_limb_boost.max(0.0))
             .clamp(0.0, 0.98);
-        let halo_width = (params.atmo_height * (0.50 + 0.85 * params.atmo_haze_amount.clamp(0.0, 1.0)))
-            .clamp(0.01, 0.6);
-        let halo_power = (2.8 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.6).clamp(0.6, 4.0);
+        let halo_width =
+            (0.02 + params.atmo_height * (0.58 + 1.05 * params.atmo_haze_amount.clamp(0.0, 1.0)))
+                .clamp(0.02, 0.75);
+        let halo_power = (2.4 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.1
+            + (1.0 - params.atmo_haze_amount.clamp(0.0, 1.0)) * 0.35)
+            .clamp(0.55, 4.0);
         apply_atmosphere_halo_canvas(
             &mut canvas,
             virtual_w,
             virtual_h,
-            base_color,
+            ray_color,
+            haze_color,
+            absorption_color,
             halo_strength,
             halo_width,
             halo_power,
+            params.atmo_rayleigh_amount,
+            params.atmo_haze_amount,
+            params.atmo_absorption_amount,
+            params.atmo_forward_scatter,
             normalize3([
                 params.light_direction_x,
                 params.light_direction_y,
@@ -693,14 +699,21 @@ pub fn render_obj_to_canvas(
     Some((canvas, virtual_w, virtual_h))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_atmosphere_halo_canvas(
     canvas: &mut [Option<[u8; 3]>],
     virtual_w: u16,
     virtual_h: u16,
-    halo_color: [u8; 3],
+    ray_color: [u8; 3],
+    haze_color: [u8; 3],
+    absorption_color: [u8; 3],
     halo_strength: f32,
     halo_width: f32,
     halo_power: f32,
+    rayleigh_amount: f32,
+    haze_amount: f32,
+    absorption_amount: f32,
+    forward_scatter: f32,
     light_dir: [f32; 3],
     view_right: [f32; 3],
     view_up: [f32; 3],
@@ -767,6 +780,14 @@ fn apply_atmosphere_halo_canvas(
     } else {
         [0.0, -1.0]
     };
+    let haze_white = mix_rgb([255, 252, 246], haze_color, 0.20);
+    let bright_ring = mix_rgb([255, 255, 252], haze_white, 0.42);
+    let ray_tint = mix_rgb(haze_white, ray_color, 0.74);
+    let sunset_tint = mix_rgb([255, 214, 156], absorption_color, 0.65);
+    let haze_amount = haze_amount.clamp(0.0, 1.0);
+    let rayleigh_amount = rayleigh_amount.clamp(0.0, 1.0);
+    let absorption_amount = absorption_amount.clamp(0.0, 1.0);
+    let forward_scatter = forward_scatter.clamp(0.0, 1.0);
 
     let original = canvas.to_vec();
     for y in scan_min_y..=scan_max_y {
@@ -806,20 +827,51 @@ fn apply_atmosphere_halo_canvas(
             let edge_dir = [dx / dl, dy / dl];
             let sun_alignment = edge_dir[0] * sun2d[0] + edge_dir[1] * sun2d[1];
             let day = smoothstep(-0.18, 0.92, sun_alignment);
-            let radial = (1.0 - nearest_sq.sqrt() / halo_px)
+            let dist01 = (nearest_sq.sqrt() / halo_px).clamp(0.0, 1.0);
+            let skirt = (1.0 - dist01)
                 .clamp(0.0, 1.0)
-                .powf(halo_power.max(0.1));
-            let wide_scatter = radial * (0.10 + 0.52 * day);
-            let forward_scatter =
-                radial.powf(0.55) * smoothstep(0.12, 1.0, sun_alignment).powf(2.0) * 0.65;
-            let alpha =
-                (halo_strength * (wide_scatter + forward_scatter)).clamp(0.0, 0.96);
-            if alpha <= 0.01 {
+                .powf((halo_power * 0.55).max(0.3));
+            let core_ring = gaussian(
+                dist01,
+                0.08 + 0.04 * (1.0 - haze_amount),
+                0.08 + halo_width * 0.10,
+            );
+            let wide_scatter = skirt * (0.18 + 0.52 * day);
+            let forward_lobe = skirt.powf(0.52)
+                * smoothstep(0.10, 1.0, sun_alignment).powf(1.8)
+                * forward_scatter;
+            let twilight_arc = gaussian(sun_alignment, 0.0, 0.28 + 0.30 * (1.0 - forward_scatter));
+            let haze_alpha = (halo_strength
+                * (0.12 + 0.88 * haze_amount)
+                * (core_ring * (0.55 + 0.35 * day + 0.45 * forward_lobe)
+                    + wide_scatter * 0.18))
+                .clamp(0.0, 0.97);
+            let ray_alpha = (halo_strength
+                * (0.10 + 0.90 * rayleigh_amount)
+                * (wide_scatter + forward_lobe)
+                * (0.35 + 0.85 * day))
+                .clamp(0.0, 0.95);
+            let sunset_alpha = (halo_strength
+                * absorption_amount
+                * twilight_arc
+                * (0.10 + 0.90 * skirt)
+                * (0.16 + 0.40 * day + 0.20 * forward_lobe))
+                .clamp(0.0, 0.78);
+            if haze_alpha <= 0.01 && ray_alpha <= 0.01 && sunset_alpha <= 0.01 {
                 continue;
             }
 
-            let lit_color = mix_rgb(halo_color, [255, 252, 244], 0.18 * day);
-            canvas[idx] = Some(mix_rgb([0, 0, 0], lit_color, alpha));
+            let mut out = [0, 0, 0];
+            if haze_alpha > 0.0 {
+                out = mix_rgb(out, bright_ring, haze_alpha);
+            }
+            if ray_alpha > 0.0 {
+                out = mix_rgb(out, ray_tint, ray_alpha);
+            }
+            if sunset_alpha > 0.0 {
+                out = mix_rgb(out, sunset_tint, sunset_alpha);
+            }
+            canvas[idx] = Some(out);
         }
     }
 }
@@ -838,6 +890,13 @@ fn mix_rgb(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
         (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t) as u8,
         (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t) as u8,
     ]
+}
+
+#[inline]
+fn gaussian(x: f32, center: f32, width: f32) -> f32 {
+    let w = width.max(0.001);
+    let z = (x - center) / w;
+    (-0.5 * z * z).exp()
 }
 
 #[cfg(test)]
@@ -867,9 +926,15 @@ mod tests {
             w,
             h,
             [124, 200, 255],
+            [236, 246, 255],
+            [255, 214, 156],
             0.75,
             0.22,
             2.2,
+            0.7,
+            0.4,
+            0.2,
+            0.8,
             [1.0, 0.2, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],

@@ -38,11 +38,12 @@
       atmo-rayleigh-color: "#7cc8ff"
       atmo-rayleigh-falloff: 0.22
       atmo-haze-amount: 0.22
-      atmo-haze-color: "#7cc8ff"
+      atmo-haze-color: "#edf7ff"
       atmo-haze-falloff: 0.46
-      atmo-absorption-amount: 0.0
-      atmo-absorption-height: 0.55
-      atmo-absorption-width: 0.18
+      atmo-absorption-amount: 0.12
+      atmo-absorption-color: "#ffd59d"
+      atmo-absorption-height: 0.72
+      atmo-absorption-width: 0.16
       atmo-forward-scatter: 0.78
       atmo-limb-boost: 1.9
       atmo-terminator-softness: 1.05
