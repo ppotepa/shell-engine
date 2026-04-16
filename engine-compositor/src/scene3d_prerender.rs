@@ -1,17 +1,15 @@
 use engine_core::color::Color;
 use rayon::prelude::*;
 
-use engine_3d::scene3d_format::{
-    FrameDef, Scene3DDefinition,
-};
+use engine_3d::scene3d_format::FrameDef;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::logging;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    build_object_specs, clip_progress_at, collect_scene3d_sources, expand_frame_samples,
-    extract_light_params, load_and_resolve_scene3d, ObjectRenderSpec,
+    build_object_specs, build_work_items, clip_progress_at, collect_scene3d_sources,
+    extract_light_params, load_and_resolve_scene3d, Scene3DWorkItem,
 };
 
 use crate::{
@@ -35,7 +33,7 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
         ),
     );
 
-    let work_items: Vec<WorkItem> = sources
+    let work_items: Vec<Scene3DWorkItem> = sources
         .iter()
         .flat_map(|src| {
             let def = match load_and_resolve_scene3d(asset_root, src) {
@@ -48,7 +46,7 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
                     return Vec::new();
                 }
             };
-            build_work_items(src, def)
+            build_work_items(src, &def)
         })
         .collect();
 
@@ -80,76 +78,7 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
     Some(atlas)
 }
 
-struct WorkItem {
-    src: String,
-    frame_id: String,
-    viewport_w: u16,
-    viewport_h: u16,
-    objects: Vec<ObjectRenderSpec>,
-}
-
-fn build_work_items(
-    src: &str,
-    def: Scene3DDefinition,
-) -> Vec<WorkItem> {
-    let vw = def.viewport.width;
-    let vh = def.viewport.height;
-    let light_params = extract_light_params(&def.lights);
-
-    let mut items = Vec::new();
-    for sample in expand_frame_samples(&def) {
-        let Some(frame_def) = def.frames.get(sample.base_frame_id.as_str()) else {
-            continue;
-        };
-        match frame_def {
-            FrameDef::Static(static_def) => {
-                let objects = build_object_specs(
-                    &static_def.show,
-                    &def.objects,
-                    &def.materials,
-                    &def.camera,
-                    None,
-                    &light_params,
-                    None,
-                    &[],
-                    0.0,
-                );
-                items.push(WorkItem {
-                    src: src.to_string(),
-                    frame_id: sample.output_frame_id,
-                    viewport_w: vw,
-                    viewport_h: vh,
-                    objects,
-                });
-            }
-            FrameDef::Clip(clip_def) => {
-                let objects = build_object_specs(
-                    &clip_def.show,
-                    &def.objects,
-                    &def.materials,
-                    &def.camera,
-                    None,
-                    &light_params,
-                    clip_def.clip.orbit_origin,
-                    &clip_def.clip.tweens,
-                    sample.t,
-                );
-                items.push(WorkItem {
-                    src: src.to_string(),
-                    frame_id: sample.output_frame_id,
-                    viewport_w: vw,
-                    viewport_h: vh,
-                    objects,
-                });
-            }
-        }
-    }
-
-    items
-}
-
-
-fn render_frame(item: &WorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
+fn render_frame(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
     let mut buf = Buffer::new(item.viewport_w, item.viewport_h);
     let (virtual_w, virtual_h) = virtual_dimensions(item.viewport_w, item.viewport_h);
     let canvas_size = virtual_w as usize * virtual_h as usize;
@@ -250,7 +179,7 @@ pub fn render_scene3d_frame_at(
         }
     };
 
-    let item = WorkItem {
+    let item = Scene3DWorkItem {
         src: String::new(),
         frame_id: frame_name.to_string(),
         viewport_w: entry.def.viewport.width,

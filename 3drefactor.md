@@ -306,6 +306,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D object clip motion resolution (`translation/orbit/yaw_offset/clip_y`) into `engine-render-3d::prerender::object_motion`.
 - [x] Move `ObjRenderParams` type ownership from `engine-compositor` to `engine-render-3d` (`engine-render-3d::obj_render_params`).
 - [x] Move Scene3D object spec assembly (`build_object_specs` + `ObjectRenderSpec`) into `engine-render-3d::prerender::object_specs`.
+- [x] Move Scene3D prerender work-item planning (`Scene3DWorkItem` + `build_work_items`) into `engine-render-3d::prerender::work_items`.
 
 ## Definition of Done
 
