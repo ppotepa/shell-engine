@@ -308,7 +308,7 @@ layers:
     sprites:
       - type: scene3_d
         id: intro-view
-        src: /assets/3d/demo.scene3d.yml
+        src: /assets/3d/sample.scene3d.yml
         frame: idle
 {extra_fields}"#
         ))

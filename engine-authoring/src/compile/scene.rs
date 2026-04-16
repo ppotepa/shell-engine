@@ -1848,7 +1848,7 @@ layers:
         camera-source: scene
       - type: scene3_d
         id: cinematic-view
-        src: /assets/3d/demo.scene3d.yml
+        src: /assets/3d/sample.scene3d.yml
         frame: idle
         camera-source: scene
 "#;
@@ -1911,7 +1911,7 @@ layers:
                 ..
             } => {
                 assert_eq!(id.as_deref(), Some("cinematic-view"));
-                assert_eq!(src, "/assets/3d/demo.scene3d.yml");
+                assert_eq!(src, "/assets/3d/sample.scene3d.yml");
                 assert_eq!(frame, "idle");
                 assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
             }

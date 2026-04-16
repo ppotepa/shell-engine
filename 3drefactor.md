@@ -222,8 +222,8 @@ PR0 baseline references:
 
 - [x] Move Scene3D atlas ownership to `engine-render-3d`.
 - [x] Move Scene3D runtime store ownership to `engine-render-3d`.
-- [ ] Move Scene3D prerender pipeline to `engine-render-3d`.
-- [ ] Keep scene pipeline orchestration in `engine`.
+- [x] Move Scene3D prerender pipeline to `engine-render-3d`.
+- [x] Keep scene pipeline orchestration in `engine`.
 
 ### PR4 - Asset and Mesh Build Layer
 
@@ -312,6 +312,7 @@ These are the tasks to start with immediately.
 - [x] Add Scene3D single-frame render orchestration seam in `engine-render-3d::prerender::pipeline::render_scene3d_frame_at_with`; compositor now delegates orchestration and keeps only raster callback.
 - [x] Move Scene3D work-item object pass execution (solid pass + wireframe pass + depth-buffer ownership) into `engine-render-3d::prerender::render_item::render_work_item_canvas_with`.
 - [x] Move Scene3D `work item -> Buffer` orchestration into `engine-render-3d::prerender::render_item::render_work_item_buffer_with` (compositor now provides only technical callbacks: dimensions, object raster call, blit).
+- [x] Remove remaining mod-flavoured sample Scene3D source literals in engine tests (`demo.scene3d.yml` -> `sample.scene3d.yml`) to keep renderer/runtime test fixtures domain-agnostic.
 
 ## Definition of Done
 

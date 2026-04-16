@@ -155,7 +155,7 @@ preset: earth-like
             r#"
 type: scene3_d
 id: clip-view
-src: /assets/3d/demo.scene3d.yml
+src: /assets/3d/sample.scene3d.yml
 frame: idle
 "#,
         )
@@ -165,7 +165,7 @@ frame: idle
         assert_eq!(node.id, "clip-view");
         match node.renderable {
             Renderable3D::SceneClip(clip) => {
-                assert_eq!(clip.source, "/assets/3d/demo.scene3d.yml");
+                assert_eq!(clip.source, "/assets/3d/sample.scene3d.yml");
                 assert_eq!(clip.frame, "idle");
                 assert!(!clip.use_scene_camera);
             }

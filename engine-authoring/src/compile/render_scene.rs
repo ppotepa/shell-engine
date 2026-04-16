@@ -154,7 +154,7 @@ layers:
     sprites:
       - type: scene3_d
         id: clip-view
-        src: /assets/3d/demo.scene3d.yml
+        src: /assets/3d/sample.scene3d.yml
         frame: idle
 "#;
         let compiled =
