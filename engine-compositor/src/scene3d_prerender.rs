@@ -12,7 +12,9 @@ use engine_core::buffer::Buffer;
 use engine_core::logging;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
-use engine_render_3d::prerender::{collect_scene3d_sources, load_and_resolve_scene3d};
+use engine_render_3d::prerender::{
+    collect_scene3d_sources, expand_frame_samples, load_and_resolve_scene3d,
+};
 
 use crate::{
     blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, ObjRenderParams,
@@ -135,7 +137,10 @@ fn build_work_items(
     let light_params = extract_light_params(&def.lights);
 
     let mut items = Vec::new();
-    for (frame_id, frame_def) in &def.frames {
+    for sample in expand_frame_samples(&def) {
+        let Some(frame_def) = def.frames.get(sample.base_frame_id.as_str()) else {
+            continue;
+        };
         match frame_def {
             FrameDef::Static(static_def) => {
                 let objects = build_object_specs(
@@ -151,39 +156,31 @@ fn build_work_items(
                 );
                 items.push(WorkItem {
                     src: src.to_string(),
-                    frame_id: frame_id.clone(),
+                    frame_id: sample.output_frame_id,
                     viewport_w: vw,
                     viewport_h: vh,
                     objects,
                 });
             }
             FrameDef::Clip(clip_def) => {
-                let n = clip_def.clip.keyframes.max(1);
-                for kf in 0..n {
-                    let t = if n <= 1 {
-                        0.0
-                    } else {
-                        kf as f32 / (n - 1) as f32
-                    };
-                    let objects = build_object_specs(
-                        &clip_def.show,
-                        &def.objects,
-                        &def.materials,
-                        &def.camera,
-                        None,
-                        &light_params,
-                        clip_def.clip.orbit_origin,
-                        &clip_def.clip.tweens,
-                        t,
-                    );
-                    items.push(WorkItem {
-                        src: src.to_string(),
-                        frame_id: format!("{frame_id}-{kf}"),
-                        viewport_w: vw,
-                        viewport_h: vh,
-                        objects,
-                    });
-                }
+                let objects = build_object_specs(
+                    &clip_def.show,
+                    &def.objects,
+                    &def.materials,
+                    &def.camera,
+                    None,
+                    &light_params,
+                    clip_def.clip.orbit_origin,
+                    &clip_def.clip.tweens,
+                    sample.t,
+                );
+                items.push(WorkItem {
+                    src: src.to_string(),
+                    frame_id: sample.output_frame_id,
+                    viewport_w: vw,
+                    viewport_h: vh,
+                    objects,
+                });
             }
         }
     }
