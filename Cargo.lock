@@ -904,6 +904,7 @@ dependencies = [
 name = "engine-render-2d"
 version = "0.1.0"
 dependencies = [
+ "engine-animation",
  "engine-core",
  "engine-effects",
  "engine-layout",

@@ -1,6 +1,7 @@
 use super::effect_applicator::apply_layer_effects;
 use super::sprite_renderer_2d::render_sprites;
 use engine_animation::SceneStage;
+use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
@@ -9,6 +10,7 @@ use engine_core::scene::{Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use engine_render_2d::{Render2dInput, Render2dPipeline};
 use engine_pipeline::LayerCompositor;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,6 +20,39 @@ thread_local! {
     // OPT-39: Layer bounds cache for skip rendering layers entirely if outside viewport.
     static LAYER_BOUNDS_CACHE: RefCell<HashMap<usize, (i32, i32, i32, i32)>> = RefCell::new(HashMap::new());
     static NON_UI_JITTER_DIAG: RefCell<HashMap<String, (i32, i32)>> = RefCell::new(HashMap::new());
+}
+
+struct CompositorRender2dPipeline<'a> {
+    obj_camera_states: &'a HashMap<String, ObjCameraState>,
+    scene_camera_3d: &'a SceneCamera3D,
+    celestial_catalogs: Option<&'a CelestialCatalogs>,
+}
+
+impl Render2dPipeline for CompositorRender2dPipeline<'_> {
+    fn render(&self, input: Render2dInput<'_>, target: &mut Buffer) {
+        render_sprites(
+            input.layer_idx,
+            input.layer,
+            input.scene_w,
+            input.scene_h,
+            input.asset_root,
+            input.target_resolver,
+            input.object_regions,
+            input.root_origin_x,
+            input.root_origin_y,
+            input.object_states,
+            input.scene_elapsed_ms,
+            input.current_stage,
+            input.step_idx,
+            input.elapsed_ms,
+            self.obj_camera_states,
+            self.scene_camera_3d,
+            self.celestial_catalogs,
+            input.is_pixel_backend,
+            input.default_font,
+            target,
+        );
+    }
 }
 
 /// Composite all visible layers onto the scene framebuffer.
@@ -50,6 +85,12 @@ pub fn composite_layers(
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
+    let render_2d_pipeline = CompositorRender2dPipeline {
+        obj_camera_states,
+        scene_camera_3d,
+        celestial_catalogs,
+    };
+
     let resolve_layer_space = |layer: &Layer| match layer.space {
         LayerSpace::Inherit => {
             if layer.ui {
@@ -212,26 +253,25 @@ pub fn composite_layers(
                 }
                 layer_buf.fill(Color::Reset);
 
-                render_sprites(
-                    layer_idx,
-                    layer,
-                    scene_w,
-                    scene_h,
-                    asset_root,
-                    target_resolver,
-                    object_regions,
-                    total_origin_x,
-                    total_origin_y,
-                    object_states,
-                    scene_elapsed_ms,
-                    current_stage,
-                    step_idx,
-                    elapsed_ms,
-                    obj_camera_states,
-                    scene_camera_3d,
-                    celestial_catalogs,
-                    is_pixel_backend,
-                    default_font,
+                render_2d_pipeline.render(
+                    Render2dInput {
+                        layer_idx,
+                        layer,
+                        scene_w,
+                        scene_h,
+                        asset_root,
+                        target_resolver,
+                        object_regions,
+                        root_origin_x: total_origin_x,
+                        root_origin_y: total_origin_y,
+                        object_states,
+                        scene_elapsed_ms,
+                        current_stage,
+                        step_idx,
+                        elapsed_ms,
+                        is_pixel_backend,
+                        default_font,
+                    },
                     &mut layer_buf,
                 );
 
@@ -252,26 +292,25 @@ pub fn composite_layers(
             // No effects: render sprites directly onto scene buffer (skip scratch).
             // Note: We still need to preserve transparency for this layer.
             // Render directly but rely on sprite rendering to skip transparent cells.
-            render_sprites(
-                layer_idx,
-                layer,
-                scene_w,
-                scene_h,
-                asset_root,
-                target_resolver,
-                object_regions,
-                total_origin_x,
-                total_origin_y,
-                object_states,
-                scene_elapsed_ms,
-                current_stage,
-                step_idx,
-                elapsed_ms,
-                obj_camera_states,
-                scene_camera_3d,
-                celestial_catalogs,
-                is_pixel_backend,
-                default_font,
+            render_2d_pipeline.render(
+                Render2dInput {
+                    layer_idx,
+                    layer,
+                    scene_w,
+                    scene_h,
+                    asset_root,
+                    target_resolver,
+                    object_regions,
+                    root_origin_x: total_origin_x,
+                    root_origin_y: total_origin_y,
+                    object_states,
+                    scene_elapsed_ms,
+                    current_stage,
+                    step_idx,
+                    elapsed_ms,
+                    is_pixel_backend,
+                    default_font,
+                },
                 buffer,
             );
         }

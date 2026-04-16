@@ -3,6 +3,7 @@
 //! This crate owns text and image rasterization logic. Higher-level scene
 //! assembly stays in `engine-compositor`.
 
+pub mod api;
 pub mod containers;
 pub mod image;
 pub mod layout;
@@ -10,6 +11,7 @@ pub mod panel;
 pub mod text;
 pub mod vector;
 
+pub use api::{Render2dInput, Render2dPipeline};
 pub use containers::render_children_in_cells;
 pub use image::{image_sprite_dimensions, render_image_content};
 pub use layout::{

@@ -6,6 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+engine-animation = { workspace = true }
 engine-core = { workspace = true }
 engine-effects = { workspace = true }
 engine-layout = { workspace = true }
