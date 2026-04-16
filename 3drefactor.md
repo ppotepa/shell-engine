@@ -31,6 +31,26 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - Mod-agnostic renderer/core policy: no mod-specific literals found in
   `engine-render-3d`, `engine-compositor`, and `engine-core` runtime paths.
 
+## Session Notes (Audit 2026-04-16)
+
+- Completed: removed dead `is_render3d_compat_param_path` in
+  `engine-scene-runtime/src/render3d_state.rs` and verified `engine-scene-runtime`
+  tests pass.
+- Completed: removed stale `engine-compositor/src/lib.rs` re-export entries
+  (`blit_color_canvas`, `render_obj_to_shared_buffers`) and cleaned an unused
+  `Scene3DRuntimeEntry` import in
+  `engine-compositor/src/scene_clip_render_adapter.rs`.
+- Completed: removed stale compositor-local render-domain duplicates:
+  `engine-compositor/src/obj_prerender.rs` and
+  `engine-compositor/src/scene3d_prerender.rs` (now provided from
+  `engine-render-3d` ownership).
+- Completed: updated `engine-compositor/README.md` and
+  `engine-compositor/README.AGENTS.md` to match render-orchestration intent.
+- Completed: restored end-to-end engine build after the 3D prerender migration by
+  re-exporting `render_scene3d_work_item` from `engine-compositor` and keeping it
+  as the `engine_render_3d` callback boundary used by
+  `engine/src/systems/scene3d_prerender.rs`.
+
 ## Remaining Blockers (Audit 2026-04-16)
 
 - String-path mutation flow still active (typed path not converged to one

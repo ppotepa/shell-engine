@@ -2,7 +2,7 @@
 //!
 //! This crate provides:
 //! - PostFX: post-processing effect passes (CRT distort, bloom, burn-in, etc.)
-//! - OBJ prerender frame store and Scene3D atlas
+//! - OBJ prerender/scene3d precompute coordination
 //! - Scene compositor strategy pattern types and dispatch
 //! - CompositorProvider trait for decoupling from engine's World type
 //! - BufferPool: reusable buffer allocation for efficient frame rendering
@@ -19,7 +19,6 @@ mod obj_render_helpers;
 mod prerender;
 pub mod provider;
 mod render;
-mod scene3d_prerender;
 mod scene_clip_render_adapter;
 mod scene_compositor;
 mod sprite_renderer_2d;
@@ -37,18 +36,18 @@ pub use engine_render_3d::prerender::{
     YAW_FRAME_COUNT, YAW_STEP_DEG,
 };
 pub(crate) use obj_render::{
-    blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
-    obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,
-    render_obj_to_shared_buffers, try_blit_prerendered, ObjRenderParams,
+    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
+    render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas, try_blit_prerendered,
+    ObjRenderParams,
 };
 pub use obj_render::{virtual_dimensions, with_prerender_frames};
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
-pub use scene3d_prerender::render_scene3d_work_item;
 pub use scene_compositor::{
     prepare_layer_frames, prepare_layer_timed_visibility, CompositeParams, FrameAssemblyInputs,
     PreparedCameraInputs, PreparedCompositeInputs,
 };
+pub use scene_clip_render_adapter::render_scene3d_work_item;
 pub use systems::postfx;
 
 /// Clear the per-frame vector primitive collector (call before compositing).

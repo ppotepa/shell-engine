@@ -1,7 +1,15 @@
+use engine_core::assets::AssetRoot;
+use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene_runtime_types::ObjectRuntimeState;
+use engine_render::rasterizer::blit;
 use engine_render_2d::RenderArea;
 use engine_render_3d::pipeline::SceneClipSpriteSpec;
+use engine_render_3d::prerender::{
+    render_scene3d_frame_at_with, render_work_item_buffer_with, Scene3DAtlas, Scene3DWorkItem,
+    Scene3DRuntimeStore,
+};
 use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
@@ -20,10 +28,6 @@ pub(crate) fn render_scene_clip_sprite(
         return;
     };
 
-    use crate::Scene3DAtlas;
-    use crate::Scene3DRuntimeStore;
-    use engine_render::rasterizer::blit;
-
     let draw_x = area
         .origin_x
         .saturating_add(node.transform.translation[0].round() as i32)
@@ -40,12 +44,13 @@ pub(crate) fn render_scene_clip_sprite(
         ctx.asset_root,
     ) {
         if entry.def.frames.contains_key(scene_clip.frame.as_str()) {
-            let buf = crate::scene3d_prerender::render_scene3d_frame_at(
+            let buf = render_scene3d_frame_at_with(
                 entry,
                 &scene_clip.frame,
                 ctx.scene_elapsed_ms,
                 asset_root,
                 scene_clip.use_scene_camera.then_some(ctx.scene_camera_3d),
+                render_scene3d_work_item,
             );
             if let Some(buf) = buf {
                 blit(&buf, ctx.layer_buf, draw_x, draw_y);
@@ -87,4 +92,31 @@ pub(crate) fn render_scene_clip_sprite(
             }
         }
     }
+}
+
+pub fn render_scene3d_work_item(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
+    render_work_item_buffer_with(
+        item,
+        asset_root,
+        crate::obj_render::virtual_dimensions,
+        crate::obj_render::render_obj_to_shared_buffers,
+        |buf, canvas, viewport_w, viewport_h| {
+            crate::obj_render::blit_color_canvas(
+                buf,
+                &canvas.colors,
+                canvas.virtual_w,
+                canvas.virtual_h,
+                viewport_w,
+                viewport_h,
+                0,
+                0,
+                false,
+                '#',
+                Color::White,
+                Color::Reset,
+                0,
+                canvas.virtual_h as usize,
+            );
+        },
+    )
 }
