@@ -1,5 +1,5 @@
 use super::effect_applicator::apply_layer_effects;
-use super::sprite_renderer::render_sprites;
+use super::sprite_renderer_2d::render_sprites;
 use engine_animation::SceneStage;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;

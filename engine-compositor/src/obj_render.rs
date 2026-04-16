@@ -1814,7 +1814,7 @@ pub fn render_obj_content(
     buf: &mut Buffer,
 ) {
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
-    // Live render path — cache-hit is checked in sprite_renderer.rs BEFORE calling this fn.
+    // Live render path — cache-hit is checked in sprite_renderer_2d.rs before calling this fn.
     let pipeline = ObjCanvasPipeline;
     let request = ObjCanvasRenderRequest {
         source,
