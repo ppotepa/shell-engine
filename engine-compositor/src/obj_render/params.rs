@@ -59,11 +59,11 @@ pub struct ObjRenderParams {
     pub clip_y_min: f32,
     pub clip_y_max: f32,
     /// Camera world-space position for look_at view transform.
-    /// Default [0,0,-camera_distance] reproduces the legacy +z-forward camera.
+    /// Default [0,0,-camera_distance] reproduces the baseline +z-forward camera.
     pub camera_world_x: f32,
     pub camera_world_y: f32,
     pub camera_world_z: f32,
-    /// View-space basis vectors (right, up, forward). Identity reproduces legacy behavior.
+    /// View-space basis vectors (right, up, forward). Identity reproduces baseline behavior.
     pub view_right_x: f32,
     pub view_right_y: f32,
     pub view_right_z: f32,

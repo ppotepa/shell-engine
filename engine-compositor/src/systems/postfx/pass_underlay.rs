@@ -20,7 +20,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
     let brightness = pass.params.brightness.unwrap_or(1.08).clamp(0.6, 2.0);
     let speed = pass.params.speed.unwrap_or(0.35).clamp(0.0, 1.2);
     // Keep underlay spatially aligned with source by default (offset 0x0).
-    let _legacy_offset = pass.params.sphericality.unwrap_or(0.18).clamp(0.0, 1.0);
+    let _baseline_offset = pass.params.sphericality.unwrap_or(0.18).clamp(0.0, 1.0);
     let frame = ctx.frame_count as u32;
 
     GLOW_SCRATCH.with(|scratch| {

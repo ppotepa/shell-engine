@@ -291,6 +291,7 @@ These are the tasks to start with immediately.
 - [x] Remove `sprite_renderer_3d` intermediary module and wire compositor delegate directly to 3D adapters.
 - [x] Extract Obj source override resolution (`terrain-*` / `world://`) into `obj_source_resolver` to keep adapter render flow focused.
 - [x] Rename compositor planet adapter/module symbols to generated-world naming (`generated_world_render_adapter`, `render_generated_world_sprite`) to keep render path source-agnostic.
+- [x] Remove newly added `legacy` wording/identifiers from compositor-side 3D path (`obj_render_adapter`, `obj_render::params`, `pass_underlay`, grid comment) to enforce naming rule in active refactor scope.
 
 ## Definition of Done
 

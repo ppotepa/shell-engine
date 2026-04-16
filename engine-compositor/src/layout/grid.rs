@@ -141,7 +141,7 @@ pub fn compute_grid_cells(
                     width: min_width,
                     height: min_height,
                 },
-                // Preserve legacy compositor semantics: every child gets the full
+                // Preserve prior compositor semantics: every child gets the full
                 // resolved grid cell area, and sprite-local alignment (`at`) is
                 // applied inside that cell by our renderer.
                 justify_self: Some(JustifySelf::Stretch),

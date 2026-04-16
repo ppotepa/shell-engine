@@ -288,7 +288,7 @@ pub(crate) fn render_obj_sprite(
             clip_y_min: clip_y_min.unwrap_or(0.0),
             clip_y_max: clip_y_max.unwrap_or(1.0),
             // Cockpit camera override: when cam_world_x/y/z are set, use them; otherwise fall
-            // back to the legacy (0, 0, -camera_distance) position.
+            // back to the default (0, 0, -camera_distance) position.
             camera_world_x: if use_scene_camera {
                 scene_camera.eye[0]
             } else {
