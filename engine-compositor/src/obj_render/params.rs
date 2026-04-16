@@ -153,15 +153,7 @@ pub struct ObjRenderParams {
     pub atmo_haze_strength: f32,
     /// Haze falloff power (lower = broader). Default 1.8.
     pub atmo_haze_power: f32,
-    /// Atmosphere shell scale (1.07 = typical, 1.0 = disabled). Default 0.0.
-    pub atmo_shell_scale: f32,
-    /// Physical atmosphere scale height in world units (H in the barometric formula).
-    /// When > 0, enables the physics-based atmosphere model (Steps 1–3):
-    ///   density = exp(-altitude / H),  column = density / (cos_θ + sqrt(H/2πR))
-    /// Typical values: 0.10–0.30 for game-scale planets (scale ≈ 3.0).
-    /// 0.0 = disabled (falls back to empirical rim_power model).
-    pub atmo_scale_height: f32,
-    /// Scale for ocean surface noise (higher = finer waves). Default 4.0.
+    /// Scale for ocean surface noise(higher = finer waves). Default 4.0.
     pub ocean_noise_scale: f32,
     /// Ocean base color override (RGB). When Some, replaces OBJ face color for ocean pixels.
     pub ocean_color_rgb: Option<[u8; 3]>,
