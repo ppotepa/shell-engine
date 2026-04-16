@@ -318,7 +318,7 @@ impl engine_compositor::CompositorAccess for World {
     }
 
     fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {
-        self.resource_any::<engine_compositor::obj_prerender::ObjPrerenderedFrames>()
+        self.resource_any::<engine_compositor::ObjPrerenderedFrames>()
     }
 
     fn layer_compositor(&self) -> Option<&dyn std::any::Any> {
