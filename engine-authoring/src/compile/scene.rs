@@ -704,7 +704,7 @@ mod tests {
     use engine_core::scene::Sprite;
 
     #[test]
-    fn compiles_legacy_scene_yaml_into_runtime_scene() {
+    fn compiles_compat_scene_yaml_into_runtime_scene() {
         let raw = r#"
 id: intro
 title: Intro
@@ -720,17 +720,17 @@ layers: []
     #[test]
     fn expands_object_instances_into_scene_layers() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 layers: []
 objects:
-  - use: suzan
-    id: monkey-a
+  - use: sample-object
+    id: sample-layer
     with:
-      label: "MONKEY"
+      label: "SAMPLE"
 "#;
         let object_raw = r#"
-name: suzan
+name: sample-object
 exports:
   label: DEFAULT
 sprites:
@@ -739,7 +739,7 @@ sprites:
     at: cc
 "#;
         let scene = compile_scene_document_with_loader(scene_raw, |path| {
-            if path == "/objects/suzan.yml" {
+            if path == "/objects/sample-object.yml" {
                 Some(object_raw.to_string())
             } else {
                 None
@@ -747,9 +747,9 @@ sprites:
         })
         .expect("scene compile");
         assert_eq!(scene.layers.len(), 1);
-        assert_eq!(scene.layers[0].name, "monkey-a");
+        assert_eq!(scene.layers[0].name, "sample-layer");
         match &scene.layers[0].sprites[0] {
-            Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
+            Sprite::Text { content, .. } => assert_eq!(content, "SAMPLE"),
             _ => panic!("expected text sprite"),
         }
     }
@@ -757,14 +757,14 @@ sprites:
     #[test]
     fn uses_object_exports_as_default_substitution_values() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 layers: []
 objects:
-  - use: suzan
+  - use: sample-object
 "#;
         let object_raw = r#"
-name: suzan
+name: sample-object
 exports:
   label: DEFAULT
 sprites:
@@ -772,7 +772,7 @@ sprites:
     content: "$label"
 "#;
         let scene = compile_scene_document_with_loader(scene_raw, |path| {
-            if path == "/objects/suzan.yml" {
+            if path == "/objects/sample-object.yml" {
                 Some(object_raw.to_string())
             } else {
                 None
@@ -788,15 +788,15 @@ sprites:
     #[test]
     fn maps_object_native_logic_to_layer_behaviors() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 layers: []
 objects:
-  - use: suzan
-    id: monkey-a
+  - use: sample-object
+    id: sample-layer
 "#;
         let object_raw = r#"
-name: suzan
+name: sample-object
 logic:
   type: native
   behavior: bob
@@ -807,7 +807,7 @@ sprites:
     content: "M"
 "#;
         let scene = compile_scene_document_with_loader(scene_raw, |path| {
-            if path == "/objects/suzan.yml" {
+            if path == "/objects/sample-object.yml" {
                 Some(object_raw.to_string())
             } else {
                 None
@@ -823,8 +823,8 @@ sprites:
     #[test]
     fn maps_scene_native_logic_to_scene_behaviors() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 logic:
   type: native
   behavior: bob
@@ -843,8 +843,8 @@ next: null
     #[test]
     fn rejects_graph_logic_kind_as_experimental() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 logic:
   type: graph
 layers: []
@@ -861,8 +861,8 @@ next: null
     #[test]
     fn rejects_malformed_logic_block_with_direct_error() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 logic: 1
 layers: []
 next: null
@@ -1217,21 +1217,21 @@ next: null
     #[test]
     fn ref_and_as_syntax_expands_same_as_use_and_id() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 layers: []
 objects:
-  - ref: suzan
-    as: monkey-b
+  - ref: sample-object
+    as: sample-layer
     with:
-      label: "MONKEY"
+      label: "SAMPLE"
     state:
       alive: true
     tags:
       - enemy
 "#;
         let object_raw = r#"
-name: suzan
+name: sample-object
 exports:
   label: DEFAULT
 sprites:
@@ -1240,7 +1240,7 @@ sprites:
     at: cc
 "#;
         let scene = compile_scene_document_with_loader(scene_raw, |path| {
-            if path == "/objects/suzan.yml" {
+            if path == "/objects/sample-object.yml" {
                 Some(object_raw.to_string())
             } else {
                 None
@@ -1248,9 +1248,9 @@ sprites:
         })
         .expect("scene compile");
         assert_eq!(scene.layers.len(), 1);
-        assert_eq!(scene.layers[0].name, "monkey-b");
+        assert_eq!(scene.layers[0].name, "sample-layer");
         match &scene.layers[0].sprites[0] {
-            Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
+            Sprite::Text { content, .. } => assert_eq!(content, "SAMPLE"),
             _ => panic!("expected text sprite"),
         }
     }
@@ -1258,8 +1258,8 @@ sprites:
     #[test]
     fn expands_scene_object_repeat_entries() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 layers: []
 objects:
   - repeat:
@@ -1304,8 +1304,8 @@ sprites:
     #[test]
     fn expands_layer_object_repeat_entries() {
         let scene_raw = r#"
-id: playground
-title: Playground
+id: sample-scene
+title: Sample Scene
 layers:
   - name: game
     objects:
@@ -1466,13 +1466,13 @@ title: Intro
 layers:
   - name: base
     objects:
-      - ref: suzan
+      - ref: sample-object
         with:
           label: LAYER
 next: null
 "#;
         let object_raw = r#"
-name: suzan
+name: sample-object
 exports:
   label: DEFAULT
 sprites:
@@ -1481,7 +1481,7 @@ sprites:
 "#;
 
         let scene = compile_scene_document_with_loader(scene_raw, |path| {
-            if path == "/objects/suzan.yml" {
+            if path == "/objects/sample-object.yml" {
                 Some(object_raw.to_string())
             } else {
                 None
@@ -1852,9 +1852,8 @@ layers:
         frame: idle
         camera-source: scene
 "#;
-        let scene =
-            compile_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
-                .expect("scene should compile");
+        let scene = compile_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+            .expect("scene should compile");
 
         assert_eq!(scene.layers.len(), 1);
         assert_eq!(scene.layers[0].sprites.len(), 4);
@@ -1880,7 +1879,10 @@ layers:
             } => {
                 assert_eq!(id.as_deref(), Some("mesh-view"));
                 assert_eq!(source, "/assets/3d/sphere.obj");
-                assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
+                assert_eq!(
+                    *camera_source,
+                    engine_core::scene::sprite::CameraSource::Scene
+                );
                 assert_eq!(surface_mode.as_deref(), Some("solid"));
             }
             _ => panic!("expected obj sprite"),
@@ -1897,7 +1899,10 @@ layers:
                 assert_eq!(id.as_deref(), Some("planet-view"));
                 assert_eq!(body_id, "earth");
                 assert_eq!(mesh_source.as_deref(), Some("/assets/3d/sphere.obj"));
-                assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
+                assert_eq!(
+                    *camera_source,
+                    engine_core::scene::sprite::CameraSource::Scene
+                );
             }
             _ => panic!("expected planet sprite"),
         }
@@ -1913,7 +1918,10 @@ layers:
                 assert_eq!(id.as_deref(), Some("cinematic-view"));
                 assert_eq!(src, "/assets/3d/sample.scene3d.yml");
                 assert_eq!(frame, "idle");
-                assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
+                assert_eq!(
+                    *camera_source,
+                    engine_core::scene::sprite::CameraSource::Scene
+                );
             }
             _ => panic!("expected scene3d sprite"),
         }

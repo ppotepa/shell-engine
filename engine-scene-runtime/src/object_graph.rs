@@ -10,6 +10,7 @@
 //! debugging, and lifecycle systems without circular dependencies.
 
 use super::*;
+use engine_core::render_types::DirtyMask3D;
 
 fn cached_arc<T, F>(cache: &mut Option<std::sync::Arc<T>>, build: F) -> std::sync::Arc<T>
 where
@@ -79,6 +80,18 @@ impl SceneRuntime {
 
     pub(crate) fn set_scene_camera_3d_internal(&mut self, camera: SceneCamera3D) {
         self.scene_camera_3d = camera;
+    }
+
+    /// Returns the current aggregated 3D dirty mask.
+    pub fn render3d_dirty_mask(&self) -> DirtyMask3D {
+        self.render3d_dirty_mask
+    }
+
+    /// Returns and clears the current aggregated 3D dirty mask.
+    pub fn take_render3d_dirty_mask(&mut self) -> DirtyMask3D {
+        let mask = self.render3d_dirty_mask;
+        self.render3d_dirty_mask = DirtyMask3D::empty();
+        mask
     }
 
     /// Returns the runtime object id assigned to the scene root node.

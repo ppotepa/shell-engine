@@ -22,6 +22,17 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [x] Keep renderer and engine-core fully mod-agnostic (no mod-specific names,
       examples, or behavior assumptions in core/render code paths).
 
+Policy notes (verified against current code):
+- No-legacy naming policy: active refactor paths (`engine-render-3d`,
+  `engine-compositor`, `engine-scene-runtime`, `engine-core`, `engine-api`) do
+  not contain newly introduced identifiers/modules/files/types with `legacy` in
+  the name. Existing repository-wide `legacy` references still exist outside
+  this refactor scope and remain cleanup debt.
+- Mod-agnostic renderer/core policy: verified no mod-specific literals (for
+  example `shell-quest`, `planet-generator`, `cognitOS`, `solar-orbit`) in
+  `engine-render-3d`, `engine-compositor`, `engine-core`, and
+  `engine-scene-runtime`.
+
 ## End State
 
 - [ ] `engine-render-2d` owns 2D rendering.
@@ -100,7 +111,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] Add `mesh/cache.rs`.
 - [x] Add `pipeline/mod.rs`.
 - [ ] Add `pipeline/renderer.rs`.
-- [ ] Map `Obj`, `Planet`, and `Scene3D` directly into the 3D scene graph.
+- [x] Map `Obj`, `Planet`, and `Scene3D` directly into the 3D scene graph.
 - [x] Add `prerender/mod.rs`.
 - [ ] Add `prerender/scene3d_atlas.rs`.
 - [x] Add `prerender/scene3d_runtime_store.rs`.
@@ -163,15 +174,15 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ## Dirty Flags and Invalidation
 
-- [ ] Add transform-only invalidation.
-- [ ] Add camera-only invalidation.
-- [ ] Add lighting-only invalidation.
-- [ ] Add material-only invalidation.
-- [ ] Add atmosphere-only invalidation.
-- [ ] Add mesh-only invalidation.
-- [ ] Add worldgen rebuild invalidation.
-- [ ] Add visibility-only invalidation.
-- [ ] Document which mutation sets which mask.
+- [x] Add transform-only invalidation.
+- [x] Add camera-only invalidation.
+- [x] Add lighting-only invalidation.
+- [x] Add material-only invalidation.
+- [x] Add atmosphere-only invalidation.
+- [x] Add mesh-only invalidation.
+- [x] Add worldgen rebuild invalidation.
+- [x] Add visibility-only invalidation.
+- [x] Document which mutation sets which mask.
 - [ ] Add runtime diagnostics for rebuild causes and counts.
 
 ## Asset and Build Keys
@@ -239,9 +250,12 @@ PR0 baseline references:
 
 - [x] Add typed scene mutations.
 - [x] Add typed 3D mutations.
+- [x] Bridge selected 3D `SetProperty` paths into typed `SceneMutation` flow
+      (`scene3d.frame`, `planet.*` subset, `obj.world.*`) while preserving
+      fallback behavior for unsupported paths.
 - [ ] Collapse `SetProperty` handling onto typed mutations without a second
       runtime path.
-- [ ] Wire dirty flag updates from typed mutations.
+- [x] Wire dirty flag updates from typed mutations.
 
 ### PR6 - New 3D Authoring Surface
 
@@ -324,6 +338,8 @@ These are the tasks to start with immediately.
 - [x] Add request bridge in `engine-scene-runtime` (`SceneMutationRequest` -> typed runtime `SceneMutation`) with value conversion helpers for render params.
 - [x] Route core behavior commands (`SetVisibility`/`SetOffset`/`SetText`/`SetProps`/camera commands) through typed `SceneMutation` application path in `SceneRuntime`.
 - [x] Add first end-to-end typed scene mutation channel: `scene.mutate(...)` -> `BehaviorCommand::ApplySceneMutation` -> `SceneRuntime` typed mutation application.
+- [x] Bridge selected 3D `SetProperty` paths to typed runtime mutations (`scene3d.frame`, `planet.spin_deg`, `planet.cloud_spin_deg`, `planet.cloud2_spin_deg`, `planet.sun_dir.{x,y,z}`, `obj.world.{x,y,z}`) with unchanged fallback for unsupported paths.
+- [x] Aggregate typed-mutation dirty invalidation in runtime (`DirtyMask3D`) and expose consume/reset APIs with tests.
 
 ## Definition of Done
 

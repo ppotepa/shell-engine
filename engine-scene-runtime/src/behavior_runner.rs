@@ -400,7 +400,8 @@ impl SceneRuntime {
                 BehaviorCommand::SetText { .. } => {}
                 BehaviorCommand::SetProps { .. } => {}
                 BehaviorCommand::ApplySceneMutation { request } => {
-                    if let Some(mutation) = scene_mutation_from_request(request, self.scene_camera_3d)
+                    if let Some(mutation) =
+                        scene_mutation_from_request(request, self.scene_camera_3d)
                     {
                         self.apply_scene_mutation(resolver, &mutation);
                     }
@@ -413,6 +414,14 @@ impl SceneRuntime {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         continue;
                     };
+                    if let Some(mutation) = scene_mutation_from_set_property_3d(target, path, value)
+                    {
+                        self.apply_scene_mutation(resolver, &mutation);
+                        continue;
+                    }
+                    if self.apply_render3d_property_for_target(object_id, target, path, value) {
+                        continue;
+                    }
                     match path.as_str() {
                         "visible" => {
                             let Some(next_visible) = value.as_bool() else {
@@ -717,20 +726,20 @@ impl SceneRuntime {
                 dy: *dy,
                 text: text.clone(),
             })),
-            BehaviorCommand::SetCamera { x, y } => Some(SceneMutation::SetCamera2D(
-                SetCamera2DMutation {
+            BehaviorCommand::SetCamera { x, y } => {
+                Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
                     x: x.round() as i32,
                     y: y.round() as i32,
                     zoom: None,
-                },
-            )),
-            BehaviorCommand::SetCameraZoom { zoom } => Some(SceneMutation::SetCamera2D(
-                SetCamera2DMutation {
+                }))
+            }
+            BehaviorCommand::SetCameraZoom { zoom } => {
+                Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
                     x: self.camera_x,
                     y: self.camera_y,
                     zoom: Some(*zoom),
-                },
-            )),
+                }))
+            }
             BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
                 let mut camera = engine_core::render_types::Camera3DState {
                     eye: self.scene_camera_3d.eye,
@@ -757,6 +766,7 @@ impl SceneRuntime {
     }
 
     fn apply_scene_mutation(&mut self, resolver: &TargetResolver, mutation: &SceneMutation) {
+        let mut mutation_applied = false;
         match mutation {
             SceneMutation::Set2DProps(props) => {
                 let Some(object_id) = resolver.resolve_alias(&props.target) else {
@@ -765,12 +775,15 @@ impl SceneRuntime {
                 if let Some(state) = self.object_states.get_mut(object_id) {
                     if let Some(next_visible) = props.visible {
                         state.visible = next_visible;
+                        mutation_applied = true;
                     }
                     if let Some(delta_x) = props.dx {
                         state.offset_x = state.offset_x.saturating_add(delta_x);
+                        mutation_applied = true;
                     }
                     if let Some(delta_y) = props.dy {
                         state.offset_y = state.offset_y.saturating_add(delta_y);
+                        mutation_applied = true;
                     }
                 }
                 if let Some(next_text) = &props.text {
@@ -779,22 +792,27 @@ impl SceneRuntime {
                         &props.target,
                         |runtime, alias| runtime.set_text_sprite_content(alias, next_text.clone()),
                     );
+                    mutation_applied = true;
                 }
             }
             SceneMutation::SetCamera2D(camera) => {
                 self.set_camera_internal(camera.x, camera.y);
+                mutation_applied = true;
                 if let Some(zoom) = camera.zoom {
                     self.set_camera_zoom_internal(zoom);
                 }
             }
             SceneMutation::SetCamera3D(camera) => {
-                self.set_scene_camera_3d_internal(engine_core::scene_runtime_types::SceneCamera3D {
-                    eye: camera.eye,
-                    look_at: camera.look_at,
-                    up: camera.up,
-                    fov_degrees: camera.fov_deg,
-                    near_clip: self.scene_camera_3d.near_clip,
-                });
+                self.set_scene_camera_3d_internal(
+                    engine_core::scene_runtime_types::SceneCamera3D {
+                        eye: camera.eye,
+                        look_at: camera.look_at,
+                        up: camera.up,
+                        fov_degrees: camera.fov_deg,
+                        near_clip: self.scene_camera_3d.near_clip,
+                    },
+                );
+                mutation_applied = true;
             }
             SceneMutation::SetRender3D(render3d) => match render3d {
                 Render3DMutation::SetNodeVisibility { target, visible } => {
@@ -803,6 +821,7 @@ impl SceneRuntime {
                     };
                     if let Some(state) = self.object_states.get_mut(object_id) {
                         state.visible = *visible;
+                        mutation_applied = true;
                     }
                 }
                 Render3DMutation::SetNodeTransform { target, transform } => {
@@ -812,21 +831,57 @@ impl SceneRuntime {
                     if let Some(state) = self.object_states.get_mut(object_id) {
                         state.offset_x = transform.translation[0].round() as i32;
                         state.offset_y = transform.translation[1].round() as i32;
+                        mutation_applied = true;
                     }
                 }
                 Render3DMutation::SetSceneCamera { camera } => {
-                    self.set_scene_camera_3d_internal(engine_core::scene_runtime_types::SceneCamera3D {
-                        eye: camera.eye,
-                        look_at: camera.look_at,
-                        up: camera.up,
-                        fov_degrees: camera.fov_deg,
-                        near_clip: self.scene_camera_3d.near_clip,
-                    });
+                    self.set_scene_camera_3d_internal(
+                        engine_core::scene_runtime_types::SceneCamera3D {
+                            eye: camera.eye,
+                            look_at: camera.look_at,
+                            up: camera.up,
+                            fov_degrees: camera.fov_deg,
+                            near_clip: self.scene_camera_3d.near_clip,
+                        },
+                    );
+                    mutation_applied = true;
                 }
-                _ => {}
+                Render3DMutation::SetWorldgenParam {
+                    target,
+                    param,
+                    value,
+                } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    let Some(json_value) = render3d_material_value_to_json(value) else {
+                        return;
+                    };
+                    if !self.apply_render3d_property_for_target(
+                        object_id,
+                        target,
+                        param,
+                        &json_value,
+                    ) {
+                        return;
+                    }
+                    mutation_applied = true;
+                }
+                Render3DMutation::SetMaterialParam { .. }
+                | Render3DMutation::SetAtmosphereParam { .. }
+                | Render3DMutation::SetLight { .. }
+                | Render3DMutation::RebuildMesh { .. }
+                | Render3DMutation::RebuildWorldgen { .. } => {
+                    // Runtime does not directly mutate sprite fields for these, but
+                    // downstream 3D render pipelines must still see invalidation.
+                    mutation_applied = true;
+                }
             },
             SceneMutation::SpawnObject { .. } => {}
             SceneMutation::DespawnObject { .. } => {}
+        }
+        if mutation_applied {
+            self.render3d_dirty_mask.insert(dirty_for_scene_mutation(mutation));
         }
     }
 
@@ -912,6 +967,23 @@ impl SceneRuntime {
         self.attach_declared_behaviors(bindings, Some(registry));
         // Clear any leftover unknowns — they are unresolvable.
         self.pending_bindings.clear();
+    }
+}
+
+fn render3d_material_value_to_json(
+    value: &engine_core::render_types::MaterialValue,
+) -> Option<JsonValue> {
+    match value {
+        engine_core::render_types::MaterialValue::Scalar(v) => {
+            serde_json::Number::from_f64(*v as f64).map(JsonValue::Number)
+        }
+        engine_core::render_types::MaterialValue::ColorRgb(rgb) => Some(JsonValue::Array(vec![
+            JsonValue::from(rgb[0]),
+            JsonValue::from(rgb[1]),
+            JsonValue::from(rgb[2]),
+        ])),
+        engine_core::render_types::MaterialValue::Bool(v) => Some(JsonValue::Bool(*v)),
+        engine_core::render_types::MaterialValue::Text(v) => Some(JsonValue::String(v.clone())),
     }
 }
 

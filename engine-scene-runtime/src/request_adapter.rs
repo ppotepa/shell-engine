@@ -50,17 +50,21 @@ pub fn scene_mutation_from_request(
         SceneMutationRequest::SetRender3d(render_request) => {
             render3d_mutation_from_request(render_request).map(SceneMutation::SetRender3D)
         }
-        SceneMutationRequest::SpawnObject { template, target } => Some(SceneMutation::SpawnObject {
-            template: template.clone(),
-            target: target.clone(),
-        }),
+        SceneMutationRequest::SpawnObject { template, target } => {
+            Some(SceneMutation::SpawnObject {
+                template: template.clone(),
+                target: target.clone(),
+            })
+        }
         SceneMutationRequest::DespawnObject { target } => Some(SceneMutation::DespawnObject {
             target: target.clone(),
         }),
     }
 }
 
-pub fn render3d_mutation_from_request(request: &Render3dMutationRequest) -> Option<Render3DMutation> {
+pub fn render3d_mutation_from_request(
+    request: &Render3dMutationRequest,
+) -> Option<Render3DMutation> {
     match request {
         Render3dMutationRequest::SetNodeTransform {
             target,
@@ -109,6 +113,42 @@ pub fn render3d_mutation_from_request(request: &Render3dMutationRequest) -> Opti
                 value: MaterialValue::Text(mode.clone()),
             })
         }
+    }
+}
+
+pub fn scene_mutation_from_set_property_3d(
+    target: &str,
+    path: &str,
+    value: &serde_json::Value,
+) -> Option<SceneMutation> {
+    let worldgen_scalar = |key: &str, n: f64| {
+        Some(SceneMutation::SetRender3D(
+            Render3DMutation::SetWorldgenParam {
+                target: target.to_string(),
+                param: key.to_string(),
+                value: MaterialValue::Scalar(n as f32),
+            },
+        ))
+    };
+
+    match path {
+        "scene3d.frame" => value.as_str().map(|frame| {
+            SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+                target: target.to_string(),
+                param: path.to_string(),
+                value: MaterialValue::Text(frame.to_string()),
+            })
+        }),
+        "planet.spin_deg"
+        | "planet.cloud_spin_deg"
+        | "planet.cloud2_spin_deg"
+        | "planet.sun_dir.x"
+        | "planet.sun_dir.y"
+        | "planet.sun_dir.z"
+        | "obj.world.x"
+        | "obj.world.y"
+        | "obj.world.z" => value.as_f64().and_then(|n| worldgen_scalar(path, n)),
+        _ => None,
     }
 }
 
@@ -171,12 +211,71 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetWorldgenParam { target, param, value } => {
+            Render3DMutation::SetWorldgenParam {
+                target,
+                param,
+                value,
+            } => {
                 assert_eq!(target, "planet-main");
                 assert_eq!(param, "seed");
                 assert_eq!(value, MaterialValue::Scalar(42.0));
             }
             _ => panic!("expected SetWorldgenParam"),
         }
+    }
+
+    #[test]
+    fn maps_scene3d_frame_set_property_to_typed_mutation() {
+        let mutation = scene_mutation_from_set_property_3d(
+            "scene-view",
+            "scene3d.frame",
+            &serde_json::json!("main-7"),
+        )
+        .expect("typed mutation");
+        match mutation {
+            SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+                target,
+                param,
+                value,
+            }) => {
+                assert_eq!(target, "scene-view");
+                assert_eq!(param, "scene3d.frame");
+                assert_eq!(value, MaterialValue::Text("main-7".to_string()));
+            }
+            _ => panic!("expected SetWorldgenParam"),
+        }
+    }
+
+    #[test]
+    fn maps_planet_spin_set_property_to_typed_mutation() {
+        let mutation = scene_mutation_from_set_property_3d(
+            "planet-view",
+            "planet.spin_deg",
+            &serde_json::json!(15.0),
+        )
+        .expect("typed mutation");
+        match mutation {
+            SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+                target,
+                param,
+                value,
+            }) => {
+                assert_eq!(target, "planet-view");
+                assert_eq!(param, "planet.spin_deg");
+                assert_eq!(value, MaterialValue::Scalar(15.0));
+            }
+            _ => panic!("expected SetWorldgenParam"),
+        }
+    }
+
+    #[test]
+    fn leaves_unmapped_set_property_for_compatibility_fallback() {
+        let mutation = scene_mutation_from_set_property_3d(
+            "planet-view",
+            "planet.albedo",
+            &serde_json::json!(0.42),
+        );
+
+        assert!(mutation.is_none());
     }
 }

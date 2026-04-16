@@ -12,7 +12,7 @@ use crate::rhai::conversion::{
     json_to_rhai_dynamic, map_get_path_dynamic, map_set_path_dynamic, merge_rhai_maps,
     normalize_set_path, rhai_dynamic_to_json,
 };
-use crate::{BehaviorCommand, SceneMutationRequest};
+use crate::{BehaviorCommand, Camera3dMutationRequest, SceneMutationRequest};
 
 /// Helpers for object state conversion (should ideally be shared or generic).
 fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
@@ -107,6 +107,14 @@ impl ScriptSceneApi {
             target_resolver,
             queue,
         }
+    }
+
+    fn enqueue_scene_mutation(&mut self, request: SceneMutationRequest) -> bool {
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::ApplySceneMutation { request });
+        true
     }
 
     /// Get a single scene object API by target (alias or ID).
@@ -291,11 +299,21 @@ impl ScriptSceneApi {
         let Ok(request) = serde_json::from_value::<SceneMutationRequest>(json) else {
             return false;
         };
-        let Ok(mut queue) = self.queue.lock() else {
-            return false;
-        };
-        queue.push(BehaviorCommand::ApplySceneMutation { request });
-        true
+        self.enqueue_scene_mutation(request)
+    }
+
+    /// Convenience helper for typed 3D camera look-at mutation.
+    pub fn set_camera3d_look_at(&mut self, eye: [f32; 3], look_at: [f32; 3]) -> bool {
+        self.enqueue_scene_mutation(SceneMutationRequest::SetCamera3d(
+            Camera3dMutationRequest::LookAt { eye, look_at },
+        ))
+    }
+
+    /// Convenience helper for typed 3D camera up-vector mutation.
+    pub fn set_camera3d_up(&mut self, up: [f32; 3]) -> bool {
+        self.enqueue_scene_mutation(SceneMutationRequest::SetCamera3d(
+            Camera3dMutationRequest::Up { up },
+        ))
     }
 }
 
@@ -379,6 +397,27 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
     engine.register_fn("mutate", |scene: &mut ScriptSceneApi, request: RhaiMap| {
         scene.mutate(request)
     });
+    engine.register_fn(
+        "set_camera3d_look_at",
+        |scene: &mut ScriptSceneApi,
+         ex: rhai::FLOAT,
+         ey: rhai::FLOAT,
+         ez: rhai::FLOAT,
+         lx: rhai::FLOAT,
+         ly: rhai::FLOAT,
+         lz: rhai::FLOAT| {
+            scene.set_camera3d_look_at(
+                [ex as f32, ey as f32, ez as f32],
+                [lx as f32, ly as f32, lz as f32],
+            )
+        },
+    );
+    engine.register_fn(
+        "set_camera3d_up",
+        |scene: &mut ScriptSceneApi, ux: rhai::FLOAT, uy: rhai::FLOAT, uz: rhai::FLOAT| {
+            scene.set_camera3d_up([ux as f32, uy as f32, uz as f32])
+        },
+    );
 
     engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
         object.get(path)
@@ -394,7 +433,7 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
 #[cfg(test)]
 mod tests {
     use super::ScriptSceneApi;
-    use crate::BehaviorCommand;
+    use crate::{BehaviorCommand, Camera3dMutationRequest, SceneMutationRequest};
     use engine_core::effects::Region;
     use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
     use rhai::{Dynamic as RhaiDynamic, Map as RhaiMap};
@@ -425,5 +464,42 @@ mod tests {
             queue.first(),
             Some(BehaviorCommand::ApplySceneMutation { .. })
         ));
+    }
+
+    #[test]
+    fn set_camera3d_helpers_enqueue_typed_mutations() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        assert!(api.set_camera3d_look_at([1.0, 2.0, 3.0], [0.0, 0.0, 0.0]));
+        assert!(api.set_camera3d_up([0.0, 1.0, 0.0]));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 2);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::LookAt {
+                    eye: [1.0, 2.0, 3.0],
+                    look_at: [0.0, 0.0, 0.0],
+                }),
+            }
+        );
+        assert_eq!(
+            queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::Up {
+                    up: [0.0, 1.0, 0.0],
+                }),
+            }
+        );
     }
 }

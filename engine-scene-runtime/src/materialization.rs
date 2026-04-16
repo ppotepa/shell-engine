@@ -360,6 +360,39 @@ impl SceneRuntime {
         false
     }
 
+    pub(crate) fn apply_render3d_property_for_target(
+        &mut self,
+        object_id: &str,
+        target: &str,
+        path: &str,
+        value: &JsonValue,
+    ) -> bool {
+        match path {
+            "scene3d.frame" => {
+                let Some(next_frame) = value.as_str() else {
+                    return false;
+                };
+                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                    runtime.set_scene3d_sprite_frame(alias, next_frame)
+                })
+            }
+            path if path.starts_with("planet.") => {
+                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                    runtime.set_planet_sprite_property(alias, path, value)
+                })
+            }
+            path if path.starts_with("obj.")
+                || path.starts_with("terrain.")
+                || path.starts_with("world.") =>
+            {
+                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                    runtime.set_obj_sprite_property(alias, path, value)
+                })
+            }
+            _ => false,
+        }
+    }
+
     // =========================================================================
     // Direct particle mutation — bypasses BehaviorCommand pipeline entirely
     // =========================================================================
@@ -844,7 +877,9 @@ fn set_obj_property_recursive(
                 ..
             } if id == sprite_id => match path {
                 "obj.source" => {
-                    let Some(next) = value.as_str() else { continue; };
+                    let Some(next) = value.as_str() else {
+                        continue;
+                    };
                     if source.as_str() != next {
                         *source = next.to_string();
                         *updated = true;
@@ -853,7 +888,8 @@ fn set_obj_property_recursive(
                 "terrain.amplitude" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.01, 10.0);
-                        if terrain_plane_amplitude.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if terrain_plane_amplitude.map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *terrain_plane_amplitude = Some(next);
                             *updated = true;
                         }
@@ -862,7 +898,8 @@ fn set_obj_property_recursive(
                 "terrain.frequency" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.01, 16.0);
-                        if terrain_plane_frequency.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if terrain_plane_frequency.map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *terrain_plane_frequency = Some(next);
                             *updated = true;
                         }
@@ -871,7 +908,8 @@ fn set_obj_property_recursive(
                 "terrain.roughness" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.0, 1.0);
-                        if terrain_plane_roughness.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if terrain_plane_roughness.map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *terrain_plane_roughness = Some(next);
                             *updated = true;
                         }
@@ -905,16 +943,18 @@ fn set_obj_property_recursive(
                 "terrain.lacunarity" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(1.0, 4.0);
-                        if terrain_plane_lacunarity.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if terrain_plane_lacunarity
+                            .map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *terrain_plane_lacunarity = Some(next);
                             *updated = true;
                         }
                     }
                 }
                 "terrain.ridge" => {
-                    let next = value.as_bool().unwrap_or_else(|| {
-                        value.as_f64().map(|f| f != 0.0).unwrap_or(false)
-                    });
+                    let next = value
+                        .as_bool()
+                        .unwrap_or_else(|| value.as_f64().map(|f| f != 0.0).unwrap_or(false));
                     if terrain_plane_ridge.map_or(true, |v| v != next) {
                         *terrain_plane_ridge = Some(next);
                         *updated = true;
@@ -932,7 +972,8 @@ fn set_obj_property_recursive(
                 "terrain.sea_level" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.0, 1.0);
-                        if terrain_plane_sea_level.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if terrain_plane_sea_level.map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *terrain_plane_sea_level = Some(next);
                             *updated = true;
                         }
@@ -957,7 +998,8 @@ fn set_obj_property_recursive(
                     }
                 }
                 "world.seed" => {
-                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
+                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64))
+                    {
                         if world_gen_seed.map_or(true, |v| v != next) {
                             *world_gen_seed = Some(next);
                             *updated = true;
@@ -1028,7 +1070,8 @@ fn set_obj_property_recursive(
                     }
                 }
                 "world.mountain_ridge_octaves" => {
-                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
+                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64))
+                    {
                         let next = (next as u8).clamp(2, 8);
                         if world_gen_mountain_ridge_octaves.map_or(true, |v| v != next) {
                             *world_gen_mountain_ridge_octaves = Some(next);
@@ -1064,7 +1107,8 @@ fn set_obj_property_recursive(
                     }
                 }
                 "world.subdivisions" => {
-                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64)) {
+                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64))
+                    {
                         let next = (next as u32).clamp(1, 512);
                         if world_gen_subdivisions.map_or(true, |v| v != next) {
                             *world_gen_subdivisions = Some(next);
@@ -1075,7 +1119,9 @@ fn set_obj_property_recursive(
                 "world.displacement_scale" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.0, 1.0);
-                        if world_gen_displacement_scale.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if world_gen_displacement_scale
+                            .map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *world_gen_displacement_scale = Some(next);
                             *updated = true;
                         }
@@ -1298,7 +1344,8 @@ fn set_obj_property_recursive(
                 "obj.atmo.absorption_amount" | "obj.atmo.absorption-amount" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.0, 1.0);
-                        if atmo_absorption_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if atmo_absorption_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *atmo_absorption_amount = Some(next);
                             *updated = true;
                         }
@@ -1323,7 +1370,8 @@ fn set_obj_property_recursive(
                 "obj.atmo.absorption_height" | "obj.atmo.absorption-height" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.0, 1.0);
-                        if atmo_absorption_height.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if atmo_absorption_height.map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *atmo_absorption_height = Some(next);
                             *updated = true;
                         }
@@ -1359,7 +1407,9 @@ fn set_obj_property_recursive(
                 "obj.atmo.terminator_softness" | "obj.atmo.terminator-softness" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.05, 4.0);
-                        if atmo_terminator_softness.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                        if atmo_terminator_softness
+                            .map_or(true, |v| (v - next).abs() > f32::EPSILON)
+                        {
                             *atmo_terminator_softness = Some(next);
                             *updated = true;
                         }

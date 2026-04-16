@@ -9,8 +9,8 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use engine_api::{
     filter_hits_by_kind, filter_hits_of_kind, follow_anchor_from_args, is_ephemeral_lifecycle,
-    map_int, map_number, map_string, parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
-    ScriptEntityContext, ScriptWorldContext,
+    map_int, map_number, map_string, parse_lifecycle_policy, Camera3dMutationRequest, EmitResolved,
+    EphemeralPrefabResolved, SceneMutationRequest, ScriptEntityContext, ScriptWorldContext,
 };
 use engine_game::components::{
     AngularBody, ArcadeController, AtmosphereAffected2D, DespawnVisual, GravityAffected2D,
@@ -888,7 +888,15 @@ impl ScriptGameplayApi {
             })
             .unwrap_or(0.0) as f32;
 
-        if !world.set_transform(entity_id, Transform2D { x, y, z: 0.0, heading }) {
+        if !world.set_transform(
+            entity_id,
+            Transform2D {
+                x,
+                y,
+                z: 0.0,
+                heading,
+            },
+        ) {
             world.despawn(entity_id);
             return 0;
         }
@@ -1935,9 +1943,12 @@ impl ScriptGameplayApi {
         let Ok(mut queue) = self.ctx.queue.lock() else {
             return;
         };
-        queue.push(BehaviorCommand::SetCamera {
-            x: x as f32,
-            y: y as f32,
+        queue.push(BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SetCamera2d {
+                x: x as f32,
+                y: y as f32,
+                zoom: None,
+            },
         });
     }
 
@@ -1950,9 +1961,7 @@ impl ScriptGameplayApi {
         let Ok(mut queue) = self.ctx.queue.lock() else {
             return;
         };
-        queue.push(BehaviorCommand::SetCameraZoom {
-            zoom: zoom as f32,
-        });
+        queue.push(BehaviorCommand::SetCameraZoom { zoom: zoom as f32 });
     }
 
     pub(crate) fn set_camera_3d_look_at(
@@ -1967,9 +1976,11 @@ impl ScriptGameplayApi {
         let Ok(mut queue) = self.ctx.queue.lock() else {
             return;
         };
-        queue.push(BehaviorCommand::SetCamera3DLookAt {
-            eye: [eye_x as f32, eye_y as f32, eye_z as f32],
-            look_at: [target_x as f32, target_y as f32, target_z as f32],
+        queue.push(BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::LookAt {
+                eye: [eye_x as f32, eye_y as f32, eye_z as f32],
+                look_at: [target_x as f32, target_y as f32, target_z as f32],
+            }),
         });
     }
 
@@ -1982,8 +1993,10 @@ impl ScriptGameplayApi {
         let Ok(mut queue) = self.ctx.queue.lock() else {
             return;
         };
-        queue.push(BehaviorCommand::SetCamera3DUp {
-            up: [up_x as f32, up_y as f32, up_z as f32],
+        queue.push(BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::Up {
+                up: [up_x as f32, up_y as f32, up_z as f32],
+            }),
         });
     }
 
@@ -2686,11 +2699,11 @@ impl ScriptGameplayApi {
         }
     }
 
-    /// Resolve emitter anchor as legacy (spawn_offset/side_offset) from either:
+    /// Resolve emitter anchor as compatibility (spawn_offset/side_offset) from either:
     /// 1) args.local_x/local_y
     /// 2) config.local_x/local_y
     /// 3) config.edge_{from,to}_* + edge_t interpolation
-    /// 4) legacy config.spawn_offset/config.side_offset fallback
+    /// 4) compatibility config.spawn_offset/config.side_offset fallback
     fn resolve_emit_anchor_offsets(config: &catalog::EmitterConfig, args: &RhaiMap) -> (f64, f64) {
         let arg_local_x = args
             .get("local_x")

@@ -81,9 +81,9 @@ impl Error for PackageError {
 /// Merge order is fixed and matches the current package contract:
 /// root `scene.yml` -> `layers/` -> `templates/` -> `objects/`.
 ///
-/// Sequence partials for `layers` and `objects` are legacy fallbacks: if the
-/// root scene already defines the key explicitly, the authored root wins and
-/// package partials are not appended automatically.
+/// Sequence partials for `layers` and `objects` are compatibility fallbacks:
+/// if the root scene already defines the key explicitly, the authored root
+/// wins and package partials are not appended automatically.
 pub fn assemble_scene_package(
     root_content: &str,
     root_path: &str,
@@ -250,7 +250,7 @@ title:
     }
 
     #[test]
-    fn explicit_root_layers_win_over_legacy_layer_partials() {
+    fn explicit_root_layers_win_over_compat_layer_partials() {
         let root = r#"
 id: intro
 title: Intro
@@ -277,7 +277,7 @@ next: null
     }
 
     #[test]
-    fn explicit_root_objects_win_over_legacy_object_partials() {
+    fn explicit_root_objects_win_over_compat_object_partials() {
         let root = r#"
 id: intro
 title: Intro
@@ -289,7 +289,7 @@ next: null
             objects: vec![PackageYamlFile::new(
                 "/scenes/intro/objects/banner.yml",
                 r#"
-- use: legacy-banner
+- use: sample-banner
 "#,
             )],
             ..ScenePackagePartials::default()
@@ -299,6 +299,6 @@ next: null
             assemble_scene_package(root, "/scenes/intro/scene.yml", &partials).expect("assemble");
 
         assert!(assembled.contains("ref: banner"));
-        assert!(!assembled.contains("legacy-banner"));
+        assert!(!assembled.contains("sample-banner"));
     }
 }

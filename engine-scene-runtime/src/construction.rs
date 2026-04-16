@@ -138,11 +138,16 @@ impl SceneRuntime {
             camera_y: 0,
             camera_zoom: 1.0,
             scene_camera_3d: SceneCamera3D::default(),
+            render3d_dirty_mask: engine_core::render_types::DirtyMask3D::empty(),
             gui_widgets: Vec::new(),
             gui_state: engine_gui::GuiRuntimeState::new(),
             cached_gui_state: None,
         };
-        runtime.gui_widgets = runtime.scene.gui.widgets.clone()
+        runtime.gui_widgets = runtime
+            .scene
+            .gui
+            .widgets
+            .clone()
             .into_iter()
             .map(scene_gui_widget_to_control)
             .collect();
@@ -183,14 +188,72 @@ fn scene_gui_widget_to_control(
 ) -> Box<dyn engine_gui::GuiControl> {
     use engine_core::scene::model::SceneGuiWidgetDef as Src;
     match def {
-        Src::Slider { id, sprite, x, y, w, h, min, max, value, hit_padding, handle } =>
-            Box::new(engine_gui::SliderControl { id, sprite, x, y, w, h, min, max, value, hit_padding, handle }),
-        Src::Button { id, sprite, x, y, w, h } =>
-            Box::new(engine_gui::ButtonControl { id, sprite, x, y, w, h }),
-        Src::Toggle { id, sprite, x, y, w, h, on } =>
-            Box::new(engine_gui::ToggleControl { id, sprite, x, y, w, h, initial_on: on }),
-        Src::Panel { id, sprite, visible } =>
-            Box::new(engine_gui::PanelControl { id, sprite, visible }),
+        Src::Slider {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            min,
+            max,
+            value,
+            hit_padding,
+            handle,
+        } => Box::new(engine_gui::SliderControl {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            min,
+            max,
+            value,
+            hit_padding,
+            handle,
+        }),
+        Src::Button {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+        } => Box::new(engine_gui::ButtonControl {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+        }),
+        Src::Toggle {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            on,
+        } => Box::new(engine_gui::ToggleControl {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            initial_on: on,
+        }),
+        Src::Panel {
+            id,
+            sprite,
+            visible,
+        } => Box::new(engine_gui::PanelControl {
+            id,
+            sprite,
+            visible,
+        }),
     }
 }
 

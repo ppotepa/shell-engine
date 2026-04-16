@@ -27,7 +27,6 @@ pub mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
 pub use dirty_tracking::{dirty_for_render3d_mutation, dirty_for_scene_mutation};
-pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
 use engine_animation::SceneStage;
 use engine_behavior::{
     built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, RhaiScriptBehavior,
@@ -36,6 +35,7 @@ use engine_behavior::{
 use engine_behavior_registry::ModBehaviorRegistry;
 use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
+use engine_core::render_types::DirtyMask3D;
 use engine_core::scene::{
     resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, ObjOrbitCameraControls,
     Scene, Sprite, TermColour, UiThemeStyle,
@@ -45,8 +45,12 @@ pub use engine_core::scene_runtime_types::{
     TargetResolver,
 };
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
-pub use mutations::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
+pub use mutations::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
+pub use request_adapter::{
+    render3d_mutation_from_request, scene_mutation_from_request,
+    scene_mutation_from_set_property_3d,
+};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -97,6 +101,7 @@ pub struct SceneRuntime {
     /// 2D camera zoom factor (default 1.0). Values > 1.0 zoom in, < 1.0 zoom out.
     camera_zoom: f32,
     scene_camera_3d: SceneCamera3D,
+    render3d_dirty_mask: DirtyMask3D,
     /// Palette version when bindings were last applied; 0 means not yet applied.
     palette_applied_version: u64,
     /// GameState version when text bindings were last applied; 0 means not yet applied.
@@ -243,8 +248,10 @@ struct BehaviorBinding {
 #[cfg(test)]
 mod tests {
     use super::SceneRuntime;
+    use engine_api::scene::{Render3dMutationRequest, SceneMutationRequest};
     use engine_behavior::BehaviorCommand;
     use engine_core::game_object::GameObjectKind;
+    use engine_core::render_types::DirtyMask3D;
     use engine_core::scene::{Scene, Sprite, TermColour};
 
     fn intro_scene() -> Scene {
@@ -856,6 +863,83 @@ layers:
     }
 
     #[test]
+    fn apply_behavior_commands_tracks_transform_visibility_and_camera_dirty_masks() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::ApplySceneMutation {
+                    request: SceneMutationRequest::SetRender3d(
+                        Render3dMutationRequest::SetNodeTransform {
+                            target: "helsinki-uni-wireframe".to_string(),
+                            translation: Some([3.0, -2.0, 0.0]),
+                            rotation_deg: None,
+                            scale: None,
+                        },
+                    ),
+                },
+                BehaviorCommand::ApplySceneMutation {
+                    request: SceneMutationRequest::SetCamera3d(
+                        engine_api::scene::Camera3dMutationRequest::LookAt {
+                            eye: [0.0, 0.0, 4.0],
+                            look_at: [0.0, 0.0, 0.0],
+                        },
+                    ),
+                },
+            ],
+        );
+
+        let dirty = runtime.take_render3d_dirty_mask();
+        assert!(dirty.contains(DirtyMask3D::TRANSFORM));
+        assert!(dirty.contains(DirtyMask3D::CAMERA));
+        assert_eq!(runtime.render3d_dirty_mask(), DirtyMask3D::empty());
+    }
+
+    #[test]
+    fn apply_behavior_commands_tracks_material_atmosphere_and_worldgen_dirty_masks() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::ApplySceneMutation {
+                    request: SceneMutationRequest::SetRender3d(
+                        Render3dMutationRequest::SetMaterialParam {
+                            target: "helsinki-uni-wireframe".to_string(),
+                            name: "surface_mode".to_string(),
+                            value: serde_json::json!("wireframe"),
+                        },
+                    ),
+                },
+                BehaviorCommand::ApplySceneMutation {
+                    request: SceneMutationRequest::SetRender3d(
+                        Render3dMutationRequest::SetAtmosphereParam {
+                            target: "helsinki-uni-wireframe".to_string(),
+                            name: "obj.atmo.halo_strength".to_string(),
+                            value: serde_json::json!(1.4),
+                        },
+                    ),
+                },
+                BehaviorCommand::ApplySceneMutation {
+                    request: SceneMutationRequest::SetRender3d(
+                        Render3dMutationRequest::SetWorldParam {
+                            target: "helsinki-uni-wireframe".to_string(),
+                            name: "obj.world.x".to_string(),
+                            value: serde_json::json!(2.5),
+                        },
+                    ),
+                },
+            ],
+        );
+
+        let dirty = runtime.take_render3d_dirty_mask();
+        assert!(dirty.contains(DirtyMask3D::MATERIAL));
+        assert!(dirty.contains(DirtyMask3D::ATMOSPHERE));
+        assert!(dirty.contains(DirtyMask3D::WORLDGEN));
+    }
+
+    #[test]
     fn apply_behavior_commands_set_property_updates_obj_paths() {
         let mut runtime = SceneRuntime::new(obj_scene(""));
         let resolver = runtime.target_resolver();
@@ -926,6 +1010,55 @@ layers:
         assert_eq!(obj_props.3, Some(2.0));
         assert_eq!(obj_props.4, Some(22.0));
         assert_eq!(obj_props.5.as_deref(), Some("wireframe"));
+    }
+
+    #[test]
+    fn apply_behavior_commands_set_property_updates_obj_world_axes() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.world.x".to_string(),
+                    value: serde_json::json!(12.5),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.world.y".to_string(),
+                    value: serde_json::json!(-7.25),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.world.z".to_string(),
+                    value: serde_json::json!(3.0),
+                },
+            ],
+        );
+
+        let obj_world = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    world_x,
+                    world_y,
+                    world_z,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => {
+                    Some((*world_x, *world_y, *world_z))
+                }
+                _ => None,
+            })
+            .expect("obj world axes");
+
+        assert_eq!(obj_world.0, Some(12.5));
+        assert_eq!(obj_world.1, Some(-7.25));
+        assert_eq!(obj_world.2, Some(3.0));
     }
 
     #[test]

@@ -32,20 +32,75 @@ mod tests {
 
     #[test]
     fn maps_render3d_mutations_to_expected_dirty_masks() {
-        let material = Render3DMutation::SetMaterialParam {
-            target: "planet".to_string(),
-            param: "albedo".to_string(),
-            value: engine_core::render_types::MaterialValue::Scalar(0.8),
-        };
-        let rebuild_world = Render3DMutation::RebuildWorldgen {
-            target: "planet".to_string(),
-        };
+        let cases = vec![
+            (
+                Render3DMutation::SetNodeTransform {
+                    target: "planet".to_string(),
+                    transform: engine_core::render_types::Transform3D::default(),
+                },
+                DirtyMask3D::TRANSFORM,
+            ),
+            (
+                Render3DMutation::SetNodeVisibility {
+                    target: "planet".to_string(),
+                    visible: true,
+                },
+                DirtyMask3D::VISIBILITY,
+            ),
+            (
+                Render3DMutation::SetMaterialParam {
+                    target: "planet".to_string(),
+                    param: "albedo".to_string(),
+                    value: engine_core::render_types::MaterialValue::Scalar(0.8),
+                },
+                DirtyMask3D::MATERIAL,
+            ),
+            (
+                Render3DMutation::SetAtmosphereParam {
+                    target: "planet".to_string(),
+                    param: "density".to_string(),
+                    value: engine_core::render_types::MaterialValue::Scalar(1.2),
+                },
+                DirtyMask3D::ATMOSPHERE,
+            ),
+            (
+                Render3DMutation::SetLight {
+                    index: 0,
+                    light: engine_core::render_types::Light3D::default(),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
+                Render3DMutation::SetSceneCamera {
+                    camera: Camera3DState::default(),
+                },
+                DirtyMask3D::CAMERA,
+            ),
+            (
+                Render3DMutation::SetWorldgenParam {
+                    target: "planet".to_string(),
+                    param: "seed".to_string(),
+                    value: engine_core::render_types::MaterialValue::Scalar(42.0),
+                },
+                DirtyMask3D::WORLDGEN,
+            ),
+            (
+                Render3DMutation::RebuildMesh {
+                    target: "planet".to_string(),
+                },
+                DirtyMask3D::MESH,
+            ),
+            (
+                Render3DMutation::RebuildWorldgen {
+                    target: "planet".to_string(),
+                },
+                DirtyMask3D::WORLDGEN | DirtyMask3D::MESH,
+            ),
+        ];
 
-        assert_eq!(dirty_for_render3d_mutation(&material), DirtyMask3D::MATERIAL);
-        assert_eq!(
-            dirty_for_render3d_mutation(&rebuild_world),
-            DirtyMask3D::WORLDGEN | DirtyMask3D::MESH
-        );
+        for (mutation, expected) in cases {
+            assert_eq!(dirty_for_render3d_mutation(&mutation), expected);
+        }
     }
 
     #[test]

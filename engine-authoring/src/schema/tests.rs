@@ -1,4 +1,4 @@
-﻿use super::builders::{
+use super::builders::{
     build_animation_schema, build_behavior_schema, build_input_profile_schema, build_sugar_schema,
 };
 use super::collectors::{
@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 #[test]
 fn generate_fragment_contains_dynamic_defs() {
     let temp_root = unique_temp_dir("authoring-schema-test");
-    let mod_root = temp_root.join("playground");
+    let mod_root = temp_root.join("sample-mod");
     fs::create_dir_all(mod_root.join("scenes/intro/layers")).expect("create layers");
     fs::create_dir_all(mod_root.join("scenes/intro/sprites")).expect("create sprites");
     fs::create_dir_all(mod_root.join("scenes/intro/templates")).expect("create templates");
@@ -23,7 +23,7 @@ fn generate_fragment_contains_dynamic_defs() {
     fs::create_dir_all(mod_root.join("assets/fonts/mono")).expect("create fonts");
     fs::create_dir_all(mod_root.join("assets/images")).expect("create images");
     fs::create_dir_all(mod_root.join("cutscenes")).expect("create cutscenes");
-    fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
+    fs::write(mod_root.join("mod.yaml"), "name: sample-mod\n").expect("write mod");
     fs::write(
             mod_root.join("scenes/intro/scene.yml"),
             "id: intro\ntemplates:\n  title-card:\n    type: text\n    content: TEST\neffects:\n  - name: fade-in\n    duration: 1.0\n",
@@ -129,9 +129,7 @@ fn generate_fragment_contains_dynamic_defs() {
         .and_then(|m| m.get(Value::String("enum".to_string())))
         .and_then(Value::as_sequence)
         .expect("font_specs enum");
-    assert!(font_specs
-        .iter()
-        .any(|v| v.as_str() == Some("generic:3")));
+    assert!(font_specs.iter().any(|v| v.as_str() == Some("generic:3")));
     assert!(font_specs
         .iter()
         .any(|v| v.as_str() == Some("Mono Display:raster")));

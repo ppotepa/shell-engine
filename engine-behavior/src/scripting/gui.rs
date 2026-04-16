@@ -6,6 +6,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use engine_api::SceneMutationRequest;
 use engine_gui::GuiRuntimeState;
 use rhai::Engine as RhaiEngine;
 
@@ -22,10 +23,14 @@ pub(crate) struct ScriptGuiApi {
 
 impl ScriptGuiApi {
     pub(crate) fn new(ctx: &BehaviorContext, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
-        let mouse_left_down = ctx.gui_state.as_ref().map(|s| {
-            use engine_events::MouseButton;
-            s.drag_button == Some(MouseButton::Left) && s.drag_widget.is_none()
-        }).unwrap_or(false);
+        let mouse_left_down = ctx
+            .gui_state
+            .as_ref()
+            .map(|s| {
+                use engine_events::MouseButton;
+                s.drag_button == Some(MouseButton::Left) && s.drag_widget.is_none()
+            })
+            .unwrap_or(false);
         Self {
             state: ctx.gui_state.clone(),
             mouse_x: ctx.mouse_x,
@@ -44,7 +49,10 @@ impl ScriptGuiApi {
     }
 
     fn toggle_on(&mut self, id: &str) -> bool {
-        self.state.as_ref().map(|s| s.toggle_on(id)).unwrap_or(false)
+        self.state
+            .as_ref()
+            .map(|s| s.toggle_on(id))
+            .unwrap_or(false)
     }
 
     fn has_change(&mut self) -> bool {
@@ -100,10 +108,14 @@ impl ScriptGuiApi {
 
     fn set_panel_visible(&mut self, id: &str, visible: bool) -> bool {
         if let Ok(mut q) = self.queue.lock() {
-            q.push(BehaviorCommand::SetProperty {
-                target: id.to_string(),
-                path: "visible".to_string(),
-                value: serde_json::Value::Bool(visible),
+            q.push(BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::Set2dProps {
+                    target: id.to_string(),
+                    visible: Some(visible),
+                    dx: None,
+                    dy: None,
+                    text: None,
+                },
             });
             return true;
         }
@@ -151,7 +163,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_get("mouse_y", |gui: &mut ScriptGuiApi| gui.mouse_y());
     engine.register_get("mouse_x_f", |gui: &mut ScriptGuiApi| gui.mouse_x_f());
     engine.register_get("mouse_y_f", |gui: &mut ScriptGuiApi| gui.mouse_y_f());
-    engine.register_get("mouse_left_down", |gui: &mut ScriptGuiApi| gui.mouse_left_down());
+    engine.register_get("mouse_left_down", |gui: &mut ScriptGuiApi| {
+        gui.mouse_left_down()
+    });
     engine.register_fn(
         "set_panel_visible",
         |gui: &mut ScriptGuiApi, id: &str, visible: bool| gui.set_panel_visible(id, visible),

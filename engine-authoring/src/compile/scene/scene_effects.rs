@@ -32,8 +32,8 @@ where
     };
 
     let has_canonical = scene_map.contains_key(Value::String("effect-presets-ref".to_string()));
-    let has_legacy = scene_map.contains_key(Value::String("effect_presets_ref".to_string()));
-    if has_canonical && has_legacy {
+    let has_compat_alias = scene_map.contains_key(Value::String("effect_presets_ref".to_string()));
+    if has_canonical && has_compat_alias {
         return Err(serde_yaml::Error::custom(
             "scene defines both 'effect-presets-ref' and 'effect_presets_ref'; use only one",
         ));
@@ -92,8 +92,8 @@ pub(super) fn resolve_scene_effect_presets(
     scene_map: &Mapping,
 ) -> Result<Option<Mapping>, serde_yaml::Error> {
     let has_canonical = scene_map.contains_key(Value::String("effect-presets".to_string()));
-    let has_legacy = scene_map.contains_key(Value::String("effect_presets".to_string()));
-    if has_canonical && has_legacy {
+    let has_compat_alias = scene_map.contains_key(Value::String("effect_presets".to_string()));
+    if has_canonical && has_compat_alias {
         return Err(serde_yaml::Error::custom(
             "scene defines both 'effect-presets' and 'effect_presets'; use only one",
         ));
