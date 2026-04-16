@@ -13,12 +13,12 @@ use engine_render_2d::{resolve_x, resolve_y, RenderArea};
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
-const DEFAULT_PLANET_MESH_SOURCE: &str = "cube-sphere://64";
-const DEFAULT_PLANET_CLOUD_COLOR: &str = "#eaf2f8";
-const DEFAULT_PLANET_CLOUD_2_COLOR: &str = "#d7e2ec";
+const DEFAULT_WORLD_MESH_SOURCE: &str = "cube-sphere://64";
+const DEFAULT_WORLD_CLOUD_COLOR: &str = "#eaf2f8";
+const DEFAULT_WORLD_CLOUD_2_COLOR: &str = "#d7e2ec";
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn render_planet_sprite(
+pub(crate) fn render_generated_world_sprite(
     sprite: &Sprite,
     area: RenderArea,
     target_resolver: Option<&TargetResolver>,
@@ -107,20 +107,21 @@ pub(crate) fn render_planet_sprite(
         sun_dir_z.unwrap_or(planet.sun_dir_z as f32),
     ];
     let surface_scale = node.transform.scale[0];
-    let (cloud_scale, cloud2_scale) = planet_cloud_scales(body, surface_scale);
+    let (cloud_scale, cloud2_scale) = generated_world_cloud_scales(body, surface_scale);
     let mesh_path = generated_world
         .mesh_source
         .as_deref()
-        .unwrap_or(DEFAULT_PLANET_MESH_SOURCE);
+        .unwrap_or(DEFAULT_WORLD_MESH_SOURCE);
     let base_yaw = node.transform.rotation_deg[1];
     let pitch = node.transform.rotation_deg[0];
     let roll = node.transform.rotation_deg[2];
     let camera_distance = camera_distance.unwrap_or(3.0);
     let fov_degrees = fov_degrees.unwrap_or(60.0);
     let near_clip = near_clip.unwrap_or(0.001);
-    let atmo_visibility = planet_atmosphere_visibility(body, observer_altitude_km.unwrap_or(0.0));
+    let atmo_visibility =
+        generated_world_atmosphere_visibility(body, observer_altitude_km.unwrap_or(0.0));
 
-    let mut surface_params = build_planet_base_params(
+    let mut surface_params = build_generated_world_base_params(
         surface_scale,
         base_yaw + spin_deg.unwrap_or(0.0),
         pitch,
@@ -249,10 +250,10 @@ pub(crate) fn render_planet_sprite(
     let cloud_colour = planet
         .cloud_color
         .as_deref()
-        .unwrap_or(DEFAULT_PLANET_CLOUD_COLOR);
+        .unwrap_or(DEFAULT_WORLD_CLOUD_COLOR);
     let cloud_rgb = colour_rgb(Some(cloud_colour));
     let cloud_threshold = (planet.cloud_threshold as f32).clamp(0.0, 0.999);
-    let mut cloud_params = build_planet_base_params(
+    let mut cloud_params = build_generated_world_base_params(
         cloud_scale,
         base_yaw + cloud_spin_deg.unwrap_or(0.0),
         pitch,
@@ -289,8 +290,8 @@ pub(crate) fn render_planet_sprite(
     }
 
     // 3. Cloud layer 2 — sparse high-altitude breakup.
-    let cloud2_colour = DEFAULT_PLANET_CLOUD_2_COLOR;
-    let mut cloud2_params = build_planet_base_params(
+    let cloud2_colour = DEFAULT_WORLD_CLOUD_2_COLOR;
+    let mut cloud2_params = build_generated_world_base_params(
         cloud2_scale,
         base_yaw + 180.0 + cloud2_spin_deg.unwrap_or(0.0),
         pitch,
@@ -357,7 +358,7 @@ pub(crate) fn render_planet_sprite(
     );
 }
 
-fn build_planet_base_params(
+fn build_generated_world_base_params(
     scale: f32,
     yaw_deg: f32,
     pitch_deg: f32,
@@ -572,7 +573,7 @@ fn body_radius_km(body: &BodyDef) -> Option<f32> {
     })
 }
 
-fn planet_cloud_scales(body: &BodyDef, surface_scale: f32) -> (f32, f32) {
+fn generated_world_cloud_scales(body: &BodyDef, surface_scale: f32) -> (f32, f32) {
     let Some(radius_km) = body_radius_km(body).filter(|value| *value > f32::EPSILON) else {
         return (surface_scale, surface_scale);
     };
@@ -586,7 +587,7 @@ fn planet_cloud_scales(body: &BodyDef, surface_scale: f32) -> (f32, f32) {
     )
 }
 
-fn planet_atmosphere_visibility(body: &BodyDef, observer_altitude_km: f32) -> f32 {
+fn generated_world_atmosphere_visibility(body: &BodyDef, observer_altitude_km: f32) -> f32 {
     let top_km = body
         .atmosphere_top_km
         .map(|value| value as f32)

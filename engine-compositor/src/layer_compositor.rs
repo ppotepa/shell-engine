@@ -1,6 +1,7 @@
 use super::effect_applicator::apply_layer_effects;
+use super::generated_world_render_adapter::
+    render_generated_world_sprite as render_generated_world_sprite_adapter;
 use super::obj_render_adapter::render_obj_sprite as render_obj_sprite_adapter;
-use super::planet_render_adapter::render_planet_sprite as render_planet_sprite_adapter;
 use super::scene_clip_render_adapter::render_scene_clip_sprite as render_scene_clip_sprite_adapter;
 use super::sprite_renderer_2d::{render_sprites, Render3dDelegate};
 use engine_animation::SceneStage;
@@ -99,7 +100,7 @@ impl Render3dDelegate for CompositorRender3dDelegate {
         sprite_elapsed: u64,
         ctx: &mut super::render::RenderCtx<'_>,
     ) {
-        render_planet_sprite_adapter(
+        render_generated_world_sprite_adapter(
             sprite,
             area,
             target_resolver,

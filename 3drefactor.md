@@ -290,6 +290,7 @@ These are the tasks to start with immediately.
 - [x] Move `scene_clip` sprite render mapping/execution out of `sprite_renderer_3d` into dedicated `scene_clip_render_adapter` module.
 - [x] Remove `sprite_renderer_3d` intermediary module and wire compositor delegate directly to 3D adapters.
 - [x] Extract Obj source override resolution (`terrain-*` / `world://`) into `obj_source_resolver` to keep adapter render flow focused.
+- [x] Rename compositor planet adapter/module symbols to generated-world naming (`generated_world_render_adapter`, `render_generated_world_sprite`) to keep render path source-agnostic.
 
 ## Definition of Done
 
