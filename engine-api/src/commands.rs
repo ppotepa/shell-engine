@@ -42,6 +42,10 @@ pub enum BehaviorCommand {
         path: String,
         value: JsonValue,
     },
+    /// Apply a typed scene mutation request.
+    ApplySceneMutation {
+        request: crate::scene::SceneMutationRequest,
+    },
     SceneSpawn {
         template: String,
         target: String,

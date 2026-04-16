@@ -12,7 +12,7 @@ use crate::rhai::conversion::{
     json_to_rhai_dynamic, map_get_path_dynamic, map_set_path_dynamic, merge_rhai_maps,
     normalize_set_path, rhai_dynamic_to_json,
 };
-use crate::BehaviorCommand;
+use crate::{BehaviorCommand, SceneMutationRequest};
 
 /// Helpers for object state conversion (should ideally be shared or generic).
 fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
@@ -282,6 +282,21 @@ impl ScriptSceneApi {
             self.set(id, key.as_str(), value);
         }
     }
+
+    /// Apply a typed scene mutation request encoded as a Rhai map.
+    pub fn mutate(&mut self, request: RhaiMap) -> bool {
+        let Some(json) = rhai_dynamic_to_json(&RhaiDynamic::from_map(request)) else {
+            return false;
+        };
+        let Ok(request) = serde_json::from_value::<SceneMutationRequest>(json) else {
+            return false;
+        };
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::ApplySceneMutation { request });
+        true
+    }
 }
 
 impl ScriptObjectApi {
@@ -361,6 +376,9 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
             scene.batch(id, props);
         },
     );
+    engine.register_fn("mutate", |scene: &mut ScriptSceneApi, request: RhaiMap| {
+        scene.mutate(request)
+    });
 
     engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
         object.get(path)
@@ -371,4 +389,41 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
             object.set(path, value);
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScriptSceneApi;
+    use crate::BehaviorCommand;
+    use engine_core::effects::Region;
+    use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
+    use rhai::{Dynamic as RhaiDynamic, Map as RhaiMap};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn mutate_enqueues_typed_scene_mutation_command() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        let mut request = RhaiMap::new();
+        request.insert("type".into(), "set_camera2d".into());
+        request.insert("x".into(), RhaiDynamic::from_float(10.0));
+        request.insert("y".into(), RhaiDynamic::from_float(20.0));
+
+        assert!(api.mutate(request));
+        let queue = queue.lock().expect("queue lock");
+        assert!(matches!(
+            queue.first(),
+            Some(BehaviorCommand::ApplySceneMutation { .. })
+        ));
+    }
 }

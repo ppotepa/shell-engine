@@ -399,6 +399,12 @@ impl SceneRuntime {
                 BehaviorCommand::SetOffset { .. } => {}
                 BehaviorCommand::SetText { .. } => {}
                 BehaviorCommand::SetProps { .. } => {}
+                BehaviorCommand::ApplySceneMutation { request } => {
+                    if let Some(mutation) = scene_mutation_from_request(request, self.scene_camera_3d)
+                    {
+                        self.apply_scene_mutation(resolver, &mutation);
+                    }
+                }
                 BehaviorCommand::SetProperty {
                     target,
                     path,

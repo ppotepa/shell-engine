@@ -323,6 +323,7 @@ These are the tasks to start with immediately.
 - [x] Route `map_sprite_to_node3d` planet-node creation through `extract_generated_world_sprite_spec(...).node` to remove duplicate mapping logic in pipeline core.
 - [x] Add request bridge in `engine-scene-runtime` (`SceneMutationRequest` -> typed runtime `SceneMutation`) with value conversion helpers for render params.
 - [x] Route core behavior commands (`SetVisibility`/`SetOffset`/`SetText`/`SetProps`/camera commands) through typed `SceneMutation` application path in `SceneRuntime`.
+- [x] Add first end-to-end typed scene mutation channel: `scene.mutate(...)` -> `BehaviorCommand::ApplySceneMutation` -> `SceneRuntime` typed mutation application.
 
 ## Definition of Done
 
