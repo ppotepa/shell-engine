@@ -305,6 +305,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D tween evaluation and clip camera-frame state resolution into `engine-render-3d::prerender::tween_eval`.
 - [x] Move Scene3D object clip motion resolution (`translation/orbit/yaw_offset/clip_y`) into `engine-render-3d::prerender::object_motion`.
 - [x] Move `ObjRenderParams` type ownership from `engine-compositor` to `engine-render-3d` (`engine-render-3d::obj_render_params`).
+- [x] Move Scene3D object spec assembly (`build_object_specs` + `ObjectRenderSpec`) into `engine-render-3d::prerender::object_specs`.
 
 ## Definition of Done
 
