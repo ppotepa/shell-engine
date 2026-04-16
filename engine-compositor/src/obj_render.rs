@@ -15,12 +15,11 @@ pub use super::obj_render_helpers::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
 };
 mod mesh_source;
-mod params;
 mod setup;
 mod terrain_eval;
 use mesh_source::get_or_load_obj_mesh;
 pub(crate) use mesh_source::parse_terrain_params_from_uri;
-pub use params::ObjRenderParams;
+pub use engine_render_3d::ObjRenderParams;
 use setup::{build_biome_params, build_terrain_extra_params, normalized_light_and_view_dirs};
 use terrain_eval::{compute_terrain_noise_at, displace_sphere_vertex};
 
