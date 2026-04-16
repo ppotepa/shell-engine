@@ -14,10 +14,12 @@ use super::obj_render_helpers::*;
 pub use super::obj_render_helpers::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
 };
+mod atmo_shell;
 mod mesh_source;
 mod params;
 mod setup;
 mod terrain_eval;
+use atmo_shell::render_atmo_shell_pass;
 use mesh_source::get_or_load_obj_mesh;
 pub(crate) use mesh_source::parse_terrain_params_from_uri;
 pub use params::ObjRenderParams;
@@ -637,6 +639,44 @@ pub fn render_obj_to_canvas(
                         cx1,
                         cy1,
                         line_color,
+                    );
+                }
+            }
+        }
+        // Render atmosphere shell AFTER planet — transparent overlay via alpha compositing.
+        // The shell reuses the planet's already-displaced projected vertices (pushed outward by
+        // atmo_margin), so the shell follows irregular terrain shape rather than a perfect sphere.
+        if params.atmo_shell_scale > 1.001 {
+            if let Some(biome) = &biome_params {
+                if let Some(atmo_color) = biome.atmo_color {
+                    // atmo_margin is the outward world-space offset above the planet surface.
+                    let atmo_margin = params.scale * (params.atmo_shell_scale - 1.0);
+                    render_atmo_shell_pass(
+                        &mut canvas,
+                        virtual_w,
+                        virtual_h,
+                        &projected,
+                        &mesh.faces,
+                        [
+                            params.object_translate_x,
+                            params.object_translate_y,
+                            params.object_translate_z,
+                        ],
+                        atmo_margin,
+                        inv_tan,
+                        aspect,
+                        near_clip,
+                        [params.camera_world_x, params.camera_world_y, params.camera_world_z],
+                        [params.view_right_x, params.view_right_y, params.view_right_z],
+                        [params.view_up_x, params.view_up_y, params.view_up_z],
+                        [params.view_forward_x, params.view_forward_y, params.view_forward_z],
+                        atmo_color,
+                        biome.atmo_strength,
+                        biome.atmo_rim_power,
+                        params.scale,
+                        params.atmo_scale_height,
+                        biome.sun_dir,
+                        view_dir,
                     );
                 }
             }
