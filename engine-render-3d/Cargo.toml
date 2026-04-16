@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 engine-core = { workspace = true }
 engine-3d = { path = "../engine-3d" }
+rayon = { workspace = true }
 
 [dev-dependencies]
 serde_yaml = { workspace = true }
