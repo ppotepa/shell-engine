@@ -385,71 +385,20 @@ impl SceneRuntime {
         let mut had_spawns = false;
 
         for command in commands {
+            if let Some(mutation) = self.scene_mutation_from_behavior_command(command) {
+                self.apply_scene_mutation(resolver, &mutation);
+                continue;
+            }
+
             match command {
                 BehaviorCommand::PlayAudioCue { .. } => {}
                 BehaviorCommand::PlayAudioEvent { .. } => {}
                 BehaviorCommand::PlaySong { .. } => {}
                 BehaviorCommand::StopSong => {}
-                BehaviorCommand::SetVisibility { target, visible } => {
-                    let Some(object_id) = resolver.resolve_alias(target) else {
-                        continue;
-                    };
-                    if let Some(state) = self.object_states.get_mut(object_id) {
-                        state.visible = *visible;
-                    }
-                }
-                BehaviorCommand::SetOffset { target, dx, dy } => {
-                    let Some(object_id) = resolver.resolve_alias(target) else {
-                        continue;
-                    };
-                    if let Some(state) = self.object_states.get_mut(object_id) {
-                        state.offset_x = state.offset_x.saturating_add(*dx);
-                        state.offset_y = state.offset_y.saturating_add(*dy);
-                    }
-                }
-                BehaviorCommand::SetText { target, text } => {
-                    let Some(object_id) = resolver.resolve_alias(target) else {
-                        continue;
-                    };
-                    let _ =
-                        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                            runtime.set_text_sprite_content(alias, text.clone())
-                        });
-                }
-                BehaviorCommand::SetProps {
-                    target,
-                    visible,
-                    dx,
-                    dy,
-                    text,
-                } => {
-                    let resolved_object_id = resolver.resolve_alias(target).map(str::to_string);
-                    if let Some(object_id) = resolved_object_id.as_deref() {
-                        if let Some(state) = self.object_states.get_mut(object_id) {
-                            if let Some(next_visible) = visible {
-                                state.visible = *next_visible;
-                            }
-                            if let Some(delta_x) = dx {
-                                state.offset_x = state.offset_x.saturating_add(*delta_x);
-                            }
-                            if let Some(delta_y) = dy {
-                                state.offset_y = state.offset_y.saturating_add(*delta_y);
-                            }
-                        }
-                    }
-                    if let Some(next_text) = text {
-                        let Some(object_id) = resolved_object_id.as_deref() else {
-                            continue;
-                        };
-                        let _ = self.apply_text_property_for_target(
-                            object_id,
-                            target,
-                            |runtime, alias| {
-                                runtime.set_text_sprite_content(alias, next_text.clone())
-                            },
-                        );
-                    }
-                }
+                BehaviorCommand::SetVisibility { .. } => {}
+                BehaviorCommand::SetOffset { .. } => {}
+                BehaviorCommand::SetText { .. } => {}
+                BehaviorCommand::SetProps { .. } => {}
                 BehaviorCommand::SetProperty {
                     target,
                     path,
@@ -598,7 +547,10 @@ impl SceneRuntime {
                                 continue;
                             }
                         }
-                        path if path.starts_with("obj.") || path.starts_with("terrain.") || path.starts_with("world.") => {
+                        path if path.starts_with("obj.")
+                            || path.starts_with("terrain.")
+                            || path.starts_with("world.") =>
+                        {
                             let mut applied = self.set_obj_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
@@ -686,25 +638,10 @@ impl SceneRuntime {
                 BehaviorCommand::SetSceneBg { color } => {
                     self.scene.bg_colour = engine_core::scene::color::parse_colour_str(color);
                 }
-                BehaviorCommand::SetCamera { x, y } => {
-                    // Match gameplay visual sync rounding so camera-driven parallax and
-                    // entity positions land on the same pixel grid.
-                    self.set_camera_internal(x.round() as i32, y.round() as i32);
-                }
-                BehaviorCommand::SetCameraZoom { zoom } => {
-                    self.set_camera_zoom_internal(*zoom);
-                }
-                BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
-                    let mut camera = self.scene_camera_3d;
-                    camera.eye = *eye;
-                    camera.look_at = *look_at;
-                    self.set_scene_camera_3d_internal(camera);
-                }
-                BehaviorCommand::SetCamera3DUp { up } => {
-                    let mut camera = self.scene_camera_3d;
-                    camera.up = *up;
-                    self.set_scene_camera_3d_internal(camera);
-                }
+                BehaviorCommand::SetCamera { .. } => {}
+                BehaviorCommand::SetCameraZoom { .. } => {}
+                BehaviorCommand::SetCamera3DLookAt { .. } => {}
+                BehaviorCommand::SetCamera3DUp { .. } => {}
                 BehaviorCommand::SetGuiValue { widget_id, value } => {
                     if let Some(ws) = self.gui_state.widgets.get_mut(widget_id) {
                         ws.value = *value;
@@ -726,6 +663,164 @@ impl SceneRuntime {
         // Batch-apply all collected despawns with a single graph rebuild.
         if !pending_despawns.is_empty() {
             self.batch_despawn_targets(resolver, &pending_despawns);
+        }
+    }
+
+    fn scene_mutation_from_behavior_command(
+        &self,
+        command: &BehaviorCommand,
+    ) -> Option<SceneMutation> {
+        match command {
+            BehaviorCommand::SetVisibility { target, visible } => {
+                Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                    target: target.clone(),
+                    visible: Some(*visible),
+                    dx: None,
+                    dy: None,
+                    text: None,
+                }))
+            }
+            BehaviorCommand::SetOffset { target, dx, dy } => {
+                Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                    target: target.clone(),
+                    visible: None,
+                    dx: Some(*dx),
+                    dy: Some(*dy),
+                    text: None,
+                }))
+            }
+            BehaviorCommand::SetText { target, text } => {
+                Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                    target: target.clone(),
+                    visible: None,
+                    dx: None,
+                    dy: None,
+                    text: Some(text.clone()),
+                }))
+            }
+            BehaviorCommand::SetProps {
+                target,
+                visible,
+                dx,
+                dy,
+                text,
+            } => Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                target: target.clone(),
+                visible: *visible,
+                dx: *dx,
+                dy: *dy,
+                text: text.clone(),
+            })),
+            BehaviorCommand::SetCamera { x, y } => Some(SceneMutation::SetCamera2D(
+                SetCamera2DMutation {
+                    x: x.round() as i32,
+                    y: y.round() as i32,
+                    zoom: None,
+                },
+            )),
+            BehaviorCommand::SetCameraZoom { zoom } => Some(SceneMutation::SetCamera2D(
+                SetCamera2DMutation {
+                    x: self.camera_x,
+                    y: self.camera_y,
+                    zoom: Some(*zoom),
+                },
+            )),
+            BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
+                let mut camera = engine_core::render_types::Camera3DState {
+                    eye: self.scene_camera_3d.eye,
+                    look_at: self.scene_camera_3d.look_at,
+                    up: self.scene_camera_3d.up,
+                    fov_deg: self.scene_camera_3d.fov_degrees,
+                };
+                camera.eye = *eye;
+                camera.look_at = *look_at;
+                Some(SceneMutation::SetCamera3D(camera))
+            }
+            BehaviorCommand::SetCamera3DUp { up } => {
+                let mut camera = engine_core::render_types::Camera3DState {
+                    eye: self.scene_camera_3d.eye,
+                    look_at: self.scene_camera_3d.look_at,
+                    up: self.scene_camera_3d.up,
+                    fov_deg: self.scene_camera_3d.fov_degrees,
+                };
+                camera.up = *up;
+                Some(SceneMutation::SetCamera3D(camera))
+            }
+            _ => None,
+        }
+    }
+
+    fn apply_scene_mutation(&mut self, resolver: &TargetResolver, mutation: &SceneMutation) {
+        match mutation {
+            SceneMutation::Set2DProps(props) => {
+                let Some(object_id) = resolver.resolve_alias(&props.target) else {
+                    return;
+                };
+                if let Some(state) = self.object_states.get_mut(object_id) {
+                    if let Some(next_visible) = props.visible {
+                        state.visible = next_visible;
+                    }
+                    if let Some(delta_x) = props.dx {
+                        state.offset_x = state.offset_x.saturating_add(delta_x);
+                    }
+                    if let Some(delta_y) = props.dy {
+                        state.offset_y = state.offset_y.saturating_add(delta_y);
+                    }
+                }
+                if let Some(next_text) = &props.text {
+                    let _ = self.apply_text_property_for_target(
+                        object_id,
+                        &props.target,
+                        |runtime, alias| runtime.set_text_sprite_content(alias, next_text.clone()),
+                    );
+                }
+            }
+            SceneMutation::SetCamera2D(camera) => {
+                self.set_camera_internal(camera.x, camera.y);
+                if let Some(zoom) = camera.zoom {
+                    self.set_camera_zoom_internal(zoom);
+                }
+            }
+            SceneMutation::SetCamera3D(camera) => {
+                self.set_scene_camera_3d_internal(engine_core::scene_runtime_types::SceneCamera3D {
+                    eye: camera.eye,
+                    look_at: camera.look_at,
+                    up: camera.up,
+                    fov_degrees: camera.fov_deg,
+                    near_clip: self.scene_camera_3d.near_clip,
+                });
+            }
+            SceneMutation::SetRender3D(render3d) => match render3d {
+                Render3DMutation::SetNodeVisibility { target, visible } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if let Some(state) = self.object_states.get_mut(object_id) {
+                        state.visible = *visible;
+                    }
+                }
+                Render3DMutation::SetNodeTransform { target, transform } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if let Some(state) = self.object_states.get_mut(object_id) {
+                        state.offset_x = transform.translation[0].round() as i32;
+                        state.offset_y = transform.translation[1].round() as i32;
+                    }
+                }
+                Render3DMutation::SetSceneCamera { camera } => {
+                    self.set_scene_camera_3d_internal(engine_core::scene_runtime_types::SceneCamera3D {
+                        eye: camera.eye,
+                        look_at: camera.look_at,
+                        up: camera.up,
+                        fov_degrees: camera.fov_deg,
+                        near_clip: self.scene_camera_3d.near_clip,
+                    });
+                }
+                _ => {}
+            },
+            SceneMutation::SpawnObject { .. } => {}
+            SceneMutation::DespawnObject { .. } => {}
         }
     }
 

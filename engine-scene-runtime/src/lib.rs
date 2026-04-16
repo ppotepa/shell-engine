@@ -22,10 +22,12 @@ pub mod lifecycle_controls;
 pub mod materialization;
 pub mod mutations;
 pub mod object_graph;
+pub mod request_adapter;
 pub mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
 pub use dirty_tracking::{dirty_for_render3d_mutation, dirty_for_scene_mutation};
+pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
 use engine_animation::SceneStage;
 use engine_behavior::{
     built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, RhaiScriptBehavior,

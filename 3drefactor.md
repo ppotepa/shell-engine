@@ -321,6 +321,8 @@ These are the tasks to start with immediately.
 - [x] Update `scene_clip_render_adapter` to consume `extract_scene_clip_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
 - [x] Update `generated_world_render_adapter` to consume `extract_generated_world_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
 - [x] Route `map_sprite_to_node3d` planet-node creation through `extract_generated_world_sprite_spec(...).node` to remove duplicate mapping logic in pipeline core.
+- [x] Add request bridge in `engine-scene-runtime` (`SceneMutationRequest` -> typed runtime `SceneMutation`) with value conversion helpers for render params.
+- [x] Route core behavior commands (`SetVisibility`/`SetOffset`/`SetText`/`SetProps`/camera commands) through typed `SceneMutation` application path in `SceneRuntime`.
 
 ## Definition of Done
 
