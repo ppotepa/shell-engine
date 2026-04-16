@@ -1823,4 +1823,99 @@ audio:
         assert_eq!(scene.audio.on_enter[0].at_ms, 500);
         assert_eq!(scene.audio.on_enter[0].volume, Some(0.9));
     }
+
+    #[test]
+    fn compiles_image_obj_planet_and_scene3d_sprites_for_refactor_baseline() {
+        let raw = r#"
+id: render-baseline
+title: Render Baseline
+layers:
+  - name: main
+    sprites:
+      - type: image
+        id: logo
+        source: /assets/images/logo.png
+        size: 2
+      - type: obj
+        id: mesh-view
+        source: /assets/3d/sphere.obj
+        camera-source: scene
+        surface-mode: solid
+      - type: planet
+        id: planet-view
+        body-id: earth
+        mesh-source: /assets/3d/sphere.obj
+        camera-source: scene
+      - type: scene3_d
+        id: cinematic-view
+        src: /assets/3d/demo.scene3d.yml
+        frame: idle
+        camera-source: scene
+"#;
+        let scene =
+            compile_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+                .expect("scene should compile");
+
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].sprites.len(), 4);
+
+        match &scene.layers[0].sprites[0] {
+            Sprite::Image {
+                id, source, size, ..
+            } => {
+                assert_eq!(id.as_deref(), Some("logo"));
+                assert_eq!(source, "/assets/images/logo.png");
+                assert_eq!(*size, Some(engine_core::scene::SpriteSizePreset::Medium));
+            }
+            _ => panic!("expected image sprite"),
+        }
+
+        match &scene.layers[0].sprites[1] {
+            Sprite::Obj {
+                id,
+                source,
+                camera_source,
+                surface_mode,
+                ..
+            } => {
+                assert_eq!(id.as_deref(), Some("mesh-view"));
+                assert_eq!(source, "/assets/3d/sphere.obj");
+                assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
+                assert_eq!(surface_mode.as_deref(), Some("solid"));
+            }
+            _ => panic!("expected obj sprite"),
+        }
+
+        match &scene.layers[0].sprites[2] {
+            Sprite::Planet {
+                id,
+                body_id,
+                mesh_source,
+                camera_source,
+                ..
+            } => {
+                assert_eq!(id.as_deref(), Some("planet-view"));
+                assert_eq!(body_id, "earth");
+                assert_eq!(mesh_source.as_deref(), Some("/assets/3d/sphere.obj"));
+                assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
+            }
+            _ => panic!("expected planet sprite"),
+        }
+
+        match &scene.layers[0].sprites[3] {
+            Sprite::Scene3D {
+                id,
+                src,
+                frame,
+                camera_source,
+                ..
+            } => {
+                assert_eq!(id.as_deref(), Some("cinematic-view"));
+                assert_eq!(src, "/assets/3d/demo.scene3d.yml");
+                assert_eq!(frame, "idle");
+                assert_eq!(*camera_source, engine_core::scene::sprite::CameraSource::Scene);
+            }
+            _ => panic!("expected scene3d sprite"),
+        }
+    }
 }

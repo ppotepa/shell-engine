@@ -298,6 +298,23 @@ layers:
         .expect("scene should parse")
     }
 
+    fn scene3d_scene(extra_fields: &str) -> Scene {
+        serde_yaml::from_str(&format!(
+            r#"
+id: scene3d-scene
+title: Scene3D
+layers:
+  - name: cutscene
+    sprites:
+      - type: scene3_d
+        id: intro-view
+        src: /assets/3d/demo.scene3d.yml
+        frame: idle
+{extra_fields}"#
+        ))
+        .expect("scene should parse")
+    }
+
     #[test]
     fn builds_object_hierarchy_for_layers_and_nested_sprites() {
         let runtime = SceneRuntime::new(intro_scene());
@@ -984,6 +1001,35 @@ layers:
         assert_eq!(planet_props.4, Some(0.5));
         assert_eq!(planet_props.5, Some(-0.4));
         assert_eq!(planet_props.6, Some(0.2));
+    }
+
+    #[test]
+    fn apply_behavior_commands_set_property_updates_scene3d_frame() {
+        let mut runtime = SceneRuntime::new(scene3d_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetProperty {
+                target: "intro-view".to_string(),
+                path: "scene3d.frame".to_string(),
+                value: serde_json::json!("closeup"),
+            }],
+        );
+
+        let scene3d_frame = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Scene3D {
+                    id, frame, ..
+                } if id.as_deref() == Some("intro-view") => Some(frame.as_str()),
+                _ => None,
+            })
+            .expect("scene3d frame");
+
+        assert_eq!(scene3d_frame, "closeup");
     }
 
     #[test]

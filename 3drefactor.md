@@ -189,13 +189,24 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ### PR0 - Baseline Protection
 
-- [ ] Add regression tests for 2D image rendering.
-- [ ] Add regression tests for 2D text rendering.
-- [ ] Add regression tests for grid/flex layout.
-- [ ] Add regression tests for `type: obj`.
-- [ ] Add regression tests for `type: planet`.
-- [ ] Add regression tests for `type: scene3d`.
-- [ ] Capture benchmark baseline before structural changes.
+- [x] Add regression tests for 2D image rendering.
+- [x] Add regression tests for 2D text rendering.
+- [x] Add regression tests for grid/flex layout.
+- [x] Add regression tests for `type: obj`.
+- [x] Add regression tests for `type: planet`.
+- [x] Add regression tests for `type: scene3d`.
+- [x] Capture benchmark baseline before structural changes.
+
+PR0 baseline references:
+
+- `engine-compositor/src/image_render.rs` existing image regression coverage
+- `engine-compositor/src/text_render.rs` existing text regression coverage
+- `engine-compositor/src/layout/grid.rs` existing grid regression coverage
+- `engine-compositor/src/layout/flex.rs` existing flex regression coverage
+- `engine-authoring/src/compile/scene.rs` compile coverage for `image / obj / planet / scene3_d`
+- `engine-scene-runtime/src/lib.rs` runtime mutation coverage for `obj.* / planet.* / scene3d.frame`
+- `reports/benchmark/20260416-143211.txt` 2D baseline (`playground-fps-showcase-2d-30`)
+- `reports/benchmark/20260416-143224.txt` 3D baseline (`planet-generator-main`)
 
 ### PR1 - Core Render Types + engine-render-2d
 
@@ -258,7 +269,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 These are the tasks to start with immediately.
 
-- [ ] Finish PR0 baseline and regression protection.
+- [x] Finish PR0 baseline and regression protection.
 - [ ] Add `engine-core` render types.
 - [ ] Add `CompiledRenderScene`.
 - [ ] Create `engine-render-2d`.
@@ -277,4 +288,3 @@ These are the tasks to start with immediately.
 - [ ] New engine work uses typed mutation APIs.
 - [ ] `engine-compositor` no longer owns domain render logic.
 - [ ] No new code introduces `legacy` naming.
-
