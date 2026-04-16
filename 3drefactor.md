@@ -128,7 +128,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 ### engine-scene-runtime
 
 - [x] Add `mutations.rs`.
-- [ ] Add `render3d_state.rs`.
+- [x] Add `render3d_state.rs`.
 - [x] Add `dirty_tracking.rs`.
 - [ ] Keep `SceneRuntime` as the object graph and mutation center.
 - [x] Add typed 3D mutations.
@@ -178,11 +178,11 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 
 ### engine-asset
 
-- [ ] Move image decode/cache concerns here.
+- [x] Move image decode/cache concerns here.
 - [x] Add `mesh_repository.rs`.
 - [x] Add `material_repository.rs`.
 - [x] Add `build_keys.rs`.
-- [ ] Expose shared image and mesh access for both renderers.
+- [x] Expose shared image and mesh access for both renderers.
 
 ### engine-worldgen
 
@@ -234,7 +234,7 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - [x] Add worldgen rebuild invalidation.
 - [x] Add visibility-only invalidation.
 - [x] Document which mutation sets which mask.
-- [ ] Add runtime diagnostics for rebuild causes and counts.
+- [x] Add runtime diagnostics for rebuild causes and counts.
 
 ## Asset and Build Keys
 
@@ -291,7 +291,7 @@ PR0 baseline references:
 
 ### PR4 - Asset and Mesh Build Layer
 
-- [ ] Move image decode/cache into `engine-asset`.
+- [x] Move image decode/cache into `engine-asset`.
 - [x] Add mesh repository APIs.
 - [x] Add material repository APIs.
 - [x] Introduce `MeshBuildKey`.
