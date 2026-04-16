@@ -303,6 +303,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D light extraction + hex colour parsing helpers (`extract_light_params`, `parse_hex_color`) from compositor prerender path into `engine-render-3d::prerender::lighting`.
 - [x] Move Scene3D clip progress normalization (`elapsed_ms` -> `t`) into `engine-render-3d::prerender::frame_schedule::clip_progress_at`.
 - [x] Move Scene3D tween evaluation and clip camera-frame state resolution into `engine-render-3d::prerender::tween_eval`.
+- [x] Move Scene3D object clip motion resolution (`translation/orbit/yaw_offset/clip_y`) into `engine-render-3d::prerender::object_motion`.
 
 ## Definition of Done
 
