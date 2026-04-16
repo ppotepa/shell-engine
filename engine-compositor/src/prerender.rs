@@ -7,10 +7,10 @@ use engine_core::assets::AssetRoot;
 use engine_core::logging;
 use engine_core::scene::{Layer, SpriteSizePreset};
 use engine_render_3d::pipeline::{extract_obj_sprite_spec, ObjSpriteSpec};
-
-use crate::obj_prerender::{
+use engine_render_3d::prerender::{
     AnimSpriteFrames, ObjPrerenderedFrames, PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
 };
+
 use crate::{obj_sprite_dimensions, render_obj_to_canvas, ObjRenderParams};
 
 pub fn prerender_scene_sprites(

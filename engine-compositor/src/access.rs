@@ -8,6 +8,7 @@ use engine_animation::Animator;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_runtime::RuntimeSettings;
+use engine_render_2d::Render2dPipeline;
 
 /// Trait providing access to the resources needed by the compositor system.
 pub trait CompositorAccess {
@@ -36,4 +37,8 @@ pub trait CompositorAccess {
     /// Get layer compositor strategy (delegates to strategy/LayerCompositor impl).
     fn layer_compositor(&self) -> Option<&dyn std::any::Any>;
 
+    /// Optional prepared 2D render pipeline seam.
+    fn render_2d_pipeline(&self) -> Option<&dyn Render2dPipeline> {
+        None
+    }
 }

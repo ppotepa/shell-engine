@@ -1409,6 +1409,36 @@ layers:
     }
 
     #[test]
+    fn render3d_set_property_with_invalid_value_does_not_use_non_render_fallback() {
+        let mut runtime = SceneRuntime::new(scene3d_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetProperty {
+                target: "intro-view".to_string(),
+                path: "scene3d.frame".to_string(),
+                value: serde_json::json!(7),
+            }],
+        );
+
+        let scene3d_frame = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Scene3D { id, frame, .. } if id.as_deref() == Some("intro-view") => {
+                    Some(frame.clone())
+                }
+                _ => None,
+            })
+            .expect("scene3d frame");
+
+        assert_eq!(scene3d_frame, "idle");
+        assert_eq!(runtime.take_render3d_dirty_mask(), DirtyMask3D::empty());
+    }
+
+    #[test]
     fn adjusts_obj_scale_for_target_sprite_id() {
         let mut runtime = SceneRuntime::new(obj_scene("        scale: 1.0"));
         assert!(runtime.adjust_obj_scale("helsinki-uni-wireframe", 0.2));

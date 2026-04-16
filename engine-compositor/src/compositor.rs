@@ -62,6 +62,7 @@ fn composite_scene(
         camera_y: params.prepared.camera.camera_y,
         camera_zoom: params.prepared.camera.camera_zoom,
         render: PreparedLayerRenderInputs {
+            render_2d_pipeline: None,
             asset_root: params.prepared.asset_root,
             obj_camera_states: params.prepared.obj_camera_states,
             scene_camera_3d: params.prepared.camera.scene_camera_3d,

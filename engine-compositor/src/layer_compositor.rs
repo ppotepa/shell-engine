@@ -1,8 +1,5 @@
 use super::effect_applicator::apply_layer_effects;
-use super::generated_world_render_adapter::render_generated_world_sprite as render_generated_world_sprite_adapter;
-use super::obj_render_adapter::render_obj_sprite as render_obj_sprite_adapter;
-use super::scene_clip_render_adapter::render_scene_clip_sprite as render_scene_clip_sprite_adapter;
-use super::sprite_renderer_2d::{render_sprites, Render3dDelegate};
+use super::provider::DefaultCompositorRenderPipelines;
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
@@ -27,6 +24,7 @@ thread_local! {
 
 /// Prepared render-domain dependencies used while assembling one frame.
 pub struct PreparedLayerRenderInputs<'a> {
+    pub render_2d_pipeline: Option<&'a dyn Render2dPipeline>,
     pub asset_root: Option<&'a AssetRoot>,
     pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
     pub scene_camera_3d: &'a SceneCamera3D,
@@ -56,105 +54,6 @@ pub struct LayerCompositeInputs<'a> {
     pub camera_y: i32,
     pub camera_zoom: f32,
     pub render: PreparedLayerRenderInputs<'a>,
-}
-
-struct CompositorRender2dPipeline<'a> {
-    obj_camera_states: &'a HashMap<String, ObjCameraState>,
-    scene_camera_3d: &'a SceneCamera3D,
-    celestial_catalogs: Option<&'a CelestialCatalogs>,
-    render_3d_delegate: &'a dyn Render3dDelegate,
-}
-
-impl Render2dPipeline for CompositorRender2dPipeline<'_> {
-    fn render(&self, input: Render2dInput<'_>, target: &mut Buffer) {
-        render_sprites(
-            input.layer_idx,
-            input.layer,
-            input.scene_w,
-            input.scene_h,
-            input.asset_root,
-            input.target_resolver,
-            input.object_regions,
-            input.root_origin_x,
-            input.root_origin_y,
-            input.object_states,
-            input.scene_elapsed_ms,
-            input.current_stage,
-            input.step_idx,
-            input.elapsed_ms,
-            self.obj_camera_states,
-            self.scene_camera_3d,
-            self.celestial_catalogs,
-            input.is_pixel_backend,
-            input.default_font,
-            self.render_3d_delegate,
-            target,
-        );
-    }
-}
-
-struct CompositorRender3dDelegate;
-
-impl Render3dDelegate for CompositorRender3dDelegate {
-    fn render_obj_sprite(
-        &self,
-        spec: engine_render_3d::pipeline::ObjSpriteSpec<'_>,
-        area: engine_render_2d::RenderArea,
-        target_resolver: Option<&TargetResolver>,
-        object_regions: &mut HashMap<String, Region>,
-        object_id: Option<&str>,
-        object_state: &ObjectRuntimeState,
-        appear_at: u64,
-        sprite_elapsed: u64,
-        ctx: &mut super::render::RenderCtx<'_>,
-    ) {
-        render_obj_sprite_adapter(
-            spec,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            object_state,
-            appear_at,
-            sprite_elapsed,
-            ctx,
-        );
-    }
-
-    fn render_generated_world_sprite(
-        &self,
-        spec: engine_render_3d::pipeline::GeneratedWorldSpriteSpec<'_>,
-        area: engine_render_2d::RenderArea,
-        target_resolver: Option<&TargetResolver>,
-        object_regions: &mut HashMap<String, Region>,
-        object_id: Option<&str>,
-        object_state: &ObjectRuntimeState,
-        sprite_elapsed: u64,
-        ctx: &mut super::render::RenderCtx<'_>,
-    ) {
-        render_generated_world_sprite_adapter(
-            spec,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            object_state,
-            sprite_elapsed,
-            ctx,
-        );
-    }
-
-    fn render_scene_clip_sprite(
-        &self,
-        spec: engine_render_3d::pipeline::SceneClipSpriteSpec<'_>,
-        area: engine_render_2d::RenderArea,
-        object_id: Option<&str>,
-        object_state: &ObjectRuntimeState,
-        object_regions: &mut HashMap<String, Region>,
-        ctx: &mut super::render::RenderCtx<'_>,
-    ) {
-        render_scene_clip_sprite_adapter(spec, area, object_id, object_state, object_regions, ctx);
-    }
 }
 
 /// Composite all visible layers onto the scene framebuffer.
@@ -188,14 +87,18 @@ pub fn composite_layers(
     let celestial_catalogs = inputs.render.celestial_catalogs;
     let is_pixel_backend = inputs.render.is_pixel_backend;
     let default_font = inputs.render.default_font;
-
-    let render_3d_delegate = CompositorRender3dDelegate;
-    let render_2d_pipeline = CompositorRender2dPipeline {
-        obj_camera_states,
-        scene_camera_3d,
-        celestial_catalogs,
-        render_3d_delegate: &render_3d_delegate,
-    };
+    let default_render_pipelines;
+    let render_2d_pipeline: &dyn Render2dPipeline =
+        if let Some(pipeline) = inputs.render.render_2d_pipeline {
+            pipeline
+        } else {
+            default_render_pipelines = DefaultCompositorRenderPipelines::new(
+                obj_camera_states,
+                scene_camera_3d,
+                celestial_catalogs,
+            );
+            &default_render_pipelines.render_2d
+        };
 
     let resolve_layer_space = |layer: &Layer| match layer.space {
         LayerSpace::Inherit => {

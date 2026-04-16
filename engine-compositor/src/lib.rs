@@ -13,7 +13,6 @@ pub mod compositor;
 pub mod effect_applicator;
 mod generated_world_render_adapter;
 mod layer_compositor;
-mod obj_prerender;
 mod obj_render;
 mod obj_render_adapter;
 mod obj_render_helpers;
@@ -33,16 +32,14 @@ pub use buffer_pool::{
 pub use compositor::dispatch_composite;
 pub use engine_render_3d::prerender::Scene3DAtlas;
 pub use engine_render_3d::prerender::{
-    build_scene3d_runtime_store, with_runtime_store, Scene3DRuntimeStore,
+    build_scene3d_runtime_store, with_runtime_store, AnimSpriteFrames, ObjPrerenderStatus,
+    ObjPrerenderedFrames, PrerenderedCanvas, PrerenderedFrame, Scene3DRuntimeStore,
+    YAW_FRAME_COUNT, YAW_STEP_DEG,
 };
 pub(crate) use obj_render::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
     obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,
     render_obj_to_shared_buffers, try_blit_prerendered, ObjRenderParams,
-};
-pub use obj_prerender::{
-    AnimSpriteFrames, ObjPrerenderStatus, ObjPrerenderedFrames, PrerenderedCanvas,
-    PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
 };
 pub use obj_render::{virtual_dimensions, with_prerender_frames};
 pub use prerender::prerender_scene_sprites;

@@ -8,11 +8,11 @@ use super::obj_render_helpers::*;
 pub use super::obj_render_helpers::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
 };
-use crate::obj_prerender::ObjPrerenderedFrames;
 use engine_asset::{load_render_mesh, ObjFace, ObjMesh};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::scene::SpriteSizePreset;
+use engine_render_3d::prerender::ObjPrerenderedFrames;
 mod setup;
 mod terrain_eval;
 pub use engine_render_3d::ObjRenderParams;

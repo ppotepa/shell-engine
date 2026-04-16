@@ -102,6 +102,14 @@ pub(crate) fn render3d_compat_property_from_param(
     None
 }
 
+pub(crate) fn is_render3d_compat_param_path(path: &str) -> bool {
+    path == "scene3d.frame"
+        || path.starts_with("planet.")
+        || path.starts_with("obj.")
+        || path.starts_with("terrain.")
+        || path.starts_with("world.")
+}
+
 pub(crate) fn render3d_material_value_to_json(
     value: &engine_core::render_types::MaterialValue,
 ) -> Option<JsonValue> {

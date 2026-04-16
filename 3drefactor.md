@@ -36,39 +36,37 @@ Policy notes (verified against current code, audit date: 2026-04-16):
 - String-path mutation flow still active (typed path not converged to one
   implementation):
   `engine-api/src/commands.rs:40`,
-  `engine-api/src/scene/api.rs:193`,
-  `engine-api/src/scene/api.rs:225`,
-  `engine-api/src/scene/api.rs:343`,
+  `engine-api/src/scene/api.rs:226`,
+  `engine-api/src/scene/api.rs:264`,
+  `engine-api/src/scene/api.rs:388`,
   `engine-scene-runtime/src/behavior_runner.rs:313`,
   `engine-scene-runtime/src/behavior_runner.rs:413`,
-  `engine-scene-runtime/src/behavior_runner.rs:421`,
-  `engine-scene-runtime/src/materialization.rs:1539`,
-  `engine-scene-runtime/src/materialization.rs:1547`,
-  `engine-scene-runtime/src/materialization.rs:1555`,
-  `engine-scene-runtime/src/materialization.rs:1693`,
-  `engine-scene-runtime/src/materialization.rs:1702`,
-  `engine-scene-runtime/src/materialization.rs:1711`,
-  `engine-scene-runtime/src/materialization.rs:1720`,
-  `engine-scene-runtime/src/materialization.rs:1730`,
-  `engine-scene-runtime/src/materialization.rs:1739`,
-  `engine-scene-runtime/src/materialization.rs:1748`.
+  `engine-scene-runtime/src/behavior_runner.rs:716`,
+  `engine-scene-runtime/src/materialization.rs:187`,
+  `engine-scene-runtime/src/materialization.rs:217`,
+  `engine-scene-runtime/src/materialization.rs:247`,
+  `engine-scene-runtime/src/materialization.rs:751`,
+  `engine-scene-runtime/src/materialization.rs:1676`,
+  `engine-scene-runtime/src/materialization.rs:1772`.
 - `engine-compositor` still owns render-domain logic instead of only frame
   assembly:
-  `engine-compositor/src/lib.rs:16`,
   `engine-compositor/src/lib.rs:17`,
-  `engine-compositor/src/lib.rs:18`,
+  `engine-compositor/src/lib.rs:20`,
   `engine-compositor/src/lib.rs:23`,
-  `engine-compositor/src/lib.rs:47`,
-  `engine-compositor/src/obj_render.rs:1812`,
-  `engine-compositor/src/prerender.rs:16`,
-  `engine-compositor/src/scene3d_prerender.rs:15`.
+  `engine-compositor/src/lib.rs:50`,
+  `engine-compositor/src/layer_compositor.rs:2`,
+  `engine-compositor/src/layer_compositor.rs:3`,
+  `engine-compositor/src/layer_compositor.rs:4`,
+  `engine-compositor/src/layer_compositor.rs:147`,
+  `engine-compositor/src/scene_clip_render_adapter.rs:10`,
+  `engine-compositor/src/scene_clip_render_adapter.rs:43`.
 - New 3D authoring document surface exists but is not yet the compile source of
   truth:
-  `engine-authoring/src/document/render_scene3d.rs:9`,
+  `engine-authoring/src/document/render_scene3d.rs:29`,
   `engine-authoring/src/validate/render3d.rs:13`,
   `engine-authoring/src/compile/render_scene.rs:31`,
-  `engine-authoring/src/compile/render_scene.rs:40`,
-  `engine-authoring/src/compile/render_scene.rs:56`,
+  `engine-authoring/src/compile/render_scene.rs:47`,
+  `engine-authoring/src/compile/render_scene.rs:68`,
   `engine-authoring/src/compile/scene.rs:41`,
   `engine-authoring/src/compile/scene.rs:60`.
 
@@ -391,7 +389,12 @@ These are the tasks to start with immediately.
 - [x] Route core behavior commands (`SetVisibility`/`SetOffset`/`SetText`/`SetProps`/camera commands) through typed `SceneMutation` application path in `SceneRuntime`.
 - [x] Add first end-to-end typed scene mutation channel: `scene.mutate(...)` -> `BehaviorCommand::ApplySceneMutation` -> `SceneRuntime` typed mutation application.
 - [x] Bridge selected 3D `SetProperty` paths to typed runtime mutations (`scene3d.frame`, `planet.spin_deg`, `planet.cloud_spin_deg`, `planet.cloud2_spin_deg`, `planet.sun_dir.{x,y,z}`, `obj.world.{x,y,z}`) with unchanged fallback for unsupported paths.
+- [x] Route `Render3dMutationRequest::SetWorldParam` through typed compatibility mapping (`SetCompatProperty`) for render3d path namespaces (`scene3d.*`, `planet.*`, `obj.*`, `terrain.*`, `world.*`) before fallback worldgen mapping.
+- [x] Guard runtime non-render `SetProperty` fallback from render3d compatibility namespaces so invalid render3d compatibility values do not mutate via non-render path.
 - [x] Aggregate typed-mutation dirty invalidation in runtime (`DirtyMask3D`) and expose consume/reset APIs with tests.
+- [x] Move `ObjPrerender*` type/state ownership to `engine-render-3d::prerender` and rewire compositor/engine to consume that seam.
+- [x] Inject prepared `Render2dPipeline` seam into `LayerCompositeInputs` and move default 2D/3D adapter wiring into compositor provider layer.
+- [x] Add asset-seam regression tests for unpacked-vs-zip image parity, source-isolated cache keys, and normalized-vs-absolute image path cache reuse.
 
 ## Definition of Done
 
@@ -416,3 +419,11 @@ DoD evidence (audit date: 2026-04-16):
 - No new legacy naming in active refactor scope:
   `rg -n "legacy" engine-authoring/src/compile/render_scene.rs engine-compositor engine-render-3d engine-scene-runtime engine-render-2d engine-core` returned no matches;
   `git diff -U0 -- . ':(exclude)3drefactor.md' | rg -n "^\\+.*legacy"` returned no matches.
+
+Checklist progress (audit date: 2026-04-16):
+- Full checklist: `205 / 239` done, `34 / 239` todo (`85.77%` done, `14.23%` todo).
+- Definition of Done: `2 / 6` done, `4 / 6` todo (`33.33%` done, `66.67%` todo).
+- Computed with:
+  `rg -n "^- \\[( |x)\\]" 3drefactor.md`
+  `rg -n "^- \\[x\\]" 3drefactor.md`
+  `rg -n "^- \\[ \\]" 3drefactor.md`

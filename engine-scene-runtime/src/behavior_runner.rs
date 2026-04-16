@@ -415,6 +415,9 @@ impl SceneRuntime {
                     path,
                     value,
                 } => {
+                    if crate::render3d_state::is_render3d_compat_param_path(path) {
+                        continue;
+                    }
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         continue;
                     };

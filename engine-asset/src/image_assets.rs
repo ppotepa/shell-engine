@@ -218,16 +218,128 @@ pub fn has_image_asset(mod_source: &Path, asset_path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{load_image_asset, load_rgba_image, ImageAsset};
+    use super::{has_image_asset, load_image_asset, load_rgba_image, ImageAsset};
     use image::codecs::gif::GifEncoder;
     use image::{Delay, DynamicImage, Frame, ImageFormat, Rgba, RgbaImage};
     use std::fs;
     use std::io::Cursor;
+    use std::sync::Arc;
     use tempfile::tempdir;
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
 
     fn tiny_png_bytes() -> Vec<u8> {
+        tiny_png_bytes_with_rgba([255, 0, 0, 255])
+    }
+
+    fn tiny_png_bytes_with_rgba(rgba: [u8; 4]) -> Vec<u8> {
+        let img: RgbaImage = RgbaImage::from_pixel(1, 1, Rgba(rgba));
+        let mut out = Vec::new();
+        DynamicImage::ImageRgba8(img)
+            .write_to(&mut Cursor::new(&mut out), ImageFormat::Png)
+            .expect("encode png");
+        out
+    }
+
+    fn tiny_blue_png_bytes() -> Vec<u8> {
+        tiny_png_bytes_with_rgba([0, 0, 255, 255])
+    }
+
+    fn write_png_to_dir(mod_dir: &std::path::Path, rel_path: &str, bytes: &[u8]) {
+        let full_path = mod_dir.join(rel_path);
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent).expect("create image parent dirs");
+        }
+        fs::write(full_path, bytes).expect("write image bytes");
+    }
+
+    fn write_png_to_zip(zip_path: &std::path::Path, rel_path: &str, bytes: &[u8]) {
+        let file = fs::File::create(zip_path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        writer.start_file(rel_path, opts).expect("start zip entry");
+        std::io::Write::write_all(&mut writer, bytes).expect("write zip image");
+        writer.finish().expect("finish zip");
+    }
+
+    #[test]
+    fn shares_cached_image_asset_for_same_source() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        write_png_to_dir(&mod_dir, "assets/images/tiny.png", &tiny_png_bytes());
+
+        let with_leading =
+            load_image_asset(&mod_dir, "/assets/images/tiny.png").expect("load with leading slash");
+        let without_leading =
+            load_image_asset(&mod_dir, "assets/images/tiny.png").expect("load without leading");
+        assert!(
+            Arc::ptr_eq(&with_leading, &without_leading),
+            "same normalized source should reuse decoded cache entry"
+        );
+    }
+
+    #[test]
+    fn shares_cached_image_asset_for_same_zip_source() {
+        let temp = tempdir().expect("temp dir");
+        let zip_path = temp.path().join("mod.zip");
+        write_png_to_zip(&zip_path, "assets/images/tiny.png", &tiny_png_bytes());
+
+        let with_leading =
+            load_image_asset(&zip_path, "/assets/images/tiny.png").expect("load with leading slash");
+        let without_leading =
+            load_image_asset(&zip_path, "assets/images/tiny.png").expect("load without leading");
+        assert!(
+            Arc::ptr_eq(&with_leading, &without_leading),
+            "zip sources should also share decoded cache entries"
+        );
+    }
+
+    #[test]
+    fn does_not_share_cached_images_across_mod_sources() {
+        let temp = tempdir().expect("temp dir");
+        let mod_a = temp.path().join("mod-a");
+        let mod_b = temp.path().join("mod-b");
+        write_png_to_dir(&mod_a, "assets/images/tiny.png", &tiny_png_bytes());
+        write_png_to_dir(&mod_b, "assets/images/tiny.png", &tiny_blue_png_bytes());
+
+        let from_a = load_image_asset(&mod_a, "/assets/images/tiny.png").expect("load a");
+        let from_b = load_image_asset(&mod_b, "/assets/images/tiny.png").expect("load b");
+        assert!(
+            !Arc::ptr_eq(&from_a, &from_b),
+            "cache entries must be isolated by mod source"
+        );
+        assert_eq!(from_a.first_frame().pixel(0, 0), Some([255, 0, 0, 255]));
+        assert_eq!(from_b.first_frame().pixel(0, 0), Some([0, 0, 255, 255]));
+    }
+
+    #[test]
+    fn has_image_asset_accepts_normalized_and_absolute_asset_refs() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        write_png_to_dir(&mod_dir, "assets/images/tiny.png", &tiny_png_bytes());
+
+        assert!(has_image_asset(&mod_dir, "/assets/images/tiny.png"));
+        assert!(has_image_asset(&mod_dir, "assets/images/tiny.png"));
+        assert!(!has_image_asset(&mod_dir, "/assets/images/missing.png"));
+    }
+
+    #[test]
+    fn directory_and_zip_sources_decode_to_same_pixels() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        let zip_path = temp.path().join("mod.zip");
+        let png = tiny_png_bytes();
+        write_png_to_dir(&mod_dir, "assets/images/tiny.png", &png);
+        write_png_to_zip(&zip_path, "assets/images/tiny.png", &png);
+
+        let dir_image = load_rgba_image(&mod_dir, "/assets/images/tiny.png").expect("load dir");
+        let zip_image = load_rgba_image(&zip_path, "/assets/images/tiny.png").expect("load zip");
+        assert_eq!(dir_image.width, zip_image.width);
+        assert_eq!(dir_image.height, zip_image.height);
+        assert_eq!(dir_image.pixel(0, 0), zip_image.pixel(0, 0));
+    }
+
+    fn tiny_red_png_bytes() -> Vec<u8> {
         let img: RgbaImage = RgbaImage::from_pixel(1, 1, Rgba([255, 0, 0, 255]));
         let mut out = Vec::new();
         DynamicImage::ImageRgba8(img)
@@ -263,7 +375,7 @@ mod tests {
         let temp = tempdir().expect("temp dir");
         let mod_dir = temp.path().join("mod");
         fs::create_dir_all(mod_dir.join("assets/images")).expect("create images dir");
-        fs::write(mod_dir.join("assets/images/tiny.png"), tiny_png_bytes()).expect("write png");
+        fs::write(mod_dir.join("assets/images/tiny.png"), tiny_red_png_bytes()).expect("write png");
 
         let loaded = load_rgba_image(&mod_dir, "/assets/images/tiny.png").expect("load image");
         assert_eq!(loaded.width, 1);
@@ -281,7 +393,7 @@ mod tests {
         writer
             .start_file("assets/images/tiny.png", opts)
             .expect("start png entry");
-        std::io::Write::write_all(&mut writer, &tiny_png_bytes()).expect("write png entry");
+        std::io::Write::write_all(&mut writer, &tiny_red_png_bytes()).expect("write png entry");
         writer.finish().expect("finish zip");
 
         let loaded = load_rgba_image(&zip_path, "/assets/images/tiny.png").expect("load image");

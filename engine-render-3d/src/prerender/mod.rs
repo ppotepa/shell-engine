@@ -2,6 +2,7 @@ pub mod camera_basis;
 pub mod frame_item;
 pub mod frame_schedule;
 pub mod lighting;
+pub mod obj_prerender;
 pub mod object_motion;
 pub mod object_specs;
 pub mod pipeline;
@@ -19,6 +20,10 @@ pub use camera_basis::look_at_basis;
 pub use frame_item::build_scene3d_frame_item_at;
 pub use frame_schedule::{clip_progress_at, expand_frame_samples, FrameSample};
 pub use lighting::{extract_light_params, parse_hex_color, LightParams};
+pub use obj_prerender::{
+    AnimSpriteFrames, ObjPrerenderStatus, ObjPrerenderedFrames, PrerenderedCanvas,
+    PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
+};
 pub use object_motion::{resolve_object_frame_motion, ObjectFrameMotion};
 pub use object_specs::{build_object_specs, ObjectRenderSpec};
 pub use render_item::{

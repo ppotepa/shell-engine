@@ -21,5 +21,5 @@ pub use object::{LogicKind, LogicSpec, ObjectDocument};
 pub use render_scene3d::RenderScene3dDocument;
 pub use scene::SceneDocument;
 pub use value::{ColorValue, ScalarValue};
-pub use viewport3d::Viewport3dDocument;
+pub use viewport3d::{Viewport3dDocument, Viewport3dSpriteDocument};
 pub use world_profile::WorldProfileDocument;
