@@ -24,6 +24,7 @@ pub mod scene3d_prerender;
 pub mod scene3d_runtime_store;
 pub mod scene_compositor;
 pub mod sprite_renderer;
+mod sprite_renderer_3d;
 pub mod systems;
 pub mod warmup;
 
