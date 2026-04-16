@@ -741,6 +741,7 @@ dependencies = [
  "engine-mesh",
  "engine-pipeline",
  "engine-render",
+ "engine-render-2d",
  "engine-render-3d",
  "engine-render-policy",
  "engine-runtime",
@@ -897,6 +898,15 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "zip",
+]
+
+[[package]]
+name = "engine-render-2d"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "engine-effects",
+ "engine-render",
 ]
 
 [[package]]

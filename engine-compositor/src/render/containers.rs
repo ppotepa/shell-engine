@@ -1,7 +1,7 @@
-use crate::ClipRect;
 use engine_core::effects::Region;
 use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
+use engine_render_2d::ClipRect;
 use std::collections::HashMap;
 
 use super::super::layout::{GridCellRect, RenderArea};

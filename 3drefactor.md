@@ -9,7 +9,8 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 - [ ] Do not introduce new identifiers, modules, files, or types with `legacy`
       in the name.
-- [ ] Use `compat`, `adapter`, `bridge`, or the final domain name instead.
+- [ ] Do not keep permanent compatibility layers, duplicate pipelines, or
+      shadow implementations in the engine.
 - [ ] Keep `type: image`, `type: text`, and existing 2D layout behavior fully
       supported.
 - [ ] Keep existing YAML scenes and mods loading during the migration.
@@ -25,7 +26,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] `engine-render-3d` owns 3D rendering.
 - [ ] `engine-compositor` only assembles frame output.
 - [ ] `engine-scene-runtime` owns runtime state and mutations.
-- [ ] `engine-authoring` owns authored AST and compatibility translation.
+- [ ] `engine-authoring` owns authored AST and scene compilation.
 - [ ] `engine-asset` owns image/mesh/material decode and cache.
 - [ ] `engine-worldgen` owns world generation and mesh build keys.
 
@@ -56,11 +57,9 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] Add `compile/compile_render_scene.rs`.
 - [ ] Add `compile/compile_2d.rs`.
 - [ ] Add `compile/compile_3d.rs`.
-- [ ] Add `compile/compile_obj_compat.rs`.
-- [ ] Add `compile/compile_planet_compat.rs`.
-- [ ] Add `compile/compile_scene3d_compat.rs`.
 - [ ] Add `validate/render3d.rs`.
-- [ ] Compile old authored forms into the new intermediate model.
+- [ ] Compile `obj`, `planet`, and `scene3d` directly into the new intermediate
+      model without parallel compiler paths.
 
 ### engine-scene-runtime
 
@@ -69,7 +68,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] Add `dirty_tracking.rs`.
 - [ ] Keep `SceneRuntime` as the object graph and mutation center.
 - [ ] Add typed 3D mutations.
-- [ ] Keep path-based mutation support through a compatibility layer.
+- [ ] Collapse mutation handling toward one typed implementation path.
 
 ### engine-render-2d
 
@@ -99,9 +98,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] Add `mesh/cache.rs`.
 - [ ] Add `pipeline/mod.rs`.
 - [ ] Add `pipeline/renderer.rs`.
-- [ ] Add `pipeline/obj_compat_adapter.rs`.
-- [ ] Add `pipeline/planet_compat_adapter.rs`.
-- [ ] Add `pipeline/scene3d_compat_adapter.rs`.
+- [ ] Map `Obj`, `Planet`, and `Scene3D` directly into the 3D scene graph.
 - [ ] Add `prerender/mod.rs`.
 - [ ] Add `prerender/scene3d_atlas.rs`.
 - [ ] Add `prerender/scene3d_runtime_store.rs`.
@@ -152,15 +149,13 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [ ] Define `Render3DMutation`.
 - [ ] Define `MeshBuildKey`.
 
-## Compatibility Strategy
+## Migration Rules
 
 - [ ] Keep `type: image` untouched.
 - [ ] Keep `type: text` untouched.
-- [ ] Keep `type: obj` supported through an authored compatibility compiler.
-- [ ] Keep `type: planet` supported through an authored compatibility compiler.
-- [ ] Keep `type: scene3d` supported through an authored compatibility compiler.
-- [ ] Keep `scene.set(id, path, value)` working through a runtime compatibility
-      adapter.
+- [ ] Keep `type: obj`, `type: planet`, and `type: scene3d` working while they
+      are still first-class authored forms.
+- [ ] Do not build permanent dual execution paths to support migration.
 - [ ] Route new behavior features through typed mutation APIs, not new string
       paths.
 
@@ -181,7 +176,7 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 - [ ] Stop constructing geometry keys inside the render hot path.
 - [ ] Replace URI rewrite semantics with typed build keys before render.
-- [ ] Keep URI parsing only as a compatibility boundary, not as the core API.
+- [ ] Keep URI parsing out of the core render API.
 - [ ] Allow one image asset to be used as 2D sprite input and as 3D texture
       input through the same asset layer.
 
@@ -199,8 +194,8 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 PR0 baseline references:
 
-- `engine-compositor/src/image_render.rs` existing image regression coverage
-- `engine-compositor/src/text_render.rs` existing text regression coverage
+- `engine-render-2d/src/image.rs` image regression coverage
+- `engine-render-2d/src/text.rs` text regression coverage
 - `engine-compositor/src/layout/grid.rs` existing grid regression coverage
 - `engine-compositor/src/layout/flex.rs` existing flex regression coverage
 - `engine-authoring/src/compile/scene.rs` compile coverage for `image / obj / planet / scene3_d`
@@ -212,7 +207,7 @@ PR0 baseline references:
 
 - [x] Add shared render types in `engine-core`.
 - [x] Add `CompiledRenderScene` in `engine-authoring`.
-- [ ] Create `engine-render-2d`.
+- [x] Create `engine-render-2d`.
 - [ ] Move 2D modules out of `engine-compositor`.
 - [ ] Switch compositor to use `Render2dPipeline`.
 - [ ] Keep 3D behavior unchanged in this PR.
@@ -220,9 +215,7 @@ PR0 baseline references:
 ### PR2 - Real 3D Input Model
 
 - [ ] Add concrete scene graph types to `engine-render-3d`.
-- [ ] Add `obj_compat_adapter`.
-- [ ] Add `planet_compat_adapter`.
-- [ ] Add `scene3d_compat_adapter`.
+- [ ] Map authored 3D sprite forms directly into scene graph nodes.
 - [ ] Stop unpacking full 3D semantics directly inside sprite rendering.
 
 ### PR3 - Move Scene3D Prerender into 3D Domain
@@ -244,14 +237,16 @@ PR0 baseline references:
 
 - [ ] Add typed scene mutations.
 - [ ] Add typed 3D mutations.
-- [ ] Map `SetProperty` to typed mutations through a compatibility layer.
+- [ ] Collapse `SetProperty` handling onto typed mutations without a second
+      runtime path.
 - [ ] Wire dirty flag updates from typed mutations.
 
 ### PR6 - New 3D Authoring Surface
 
 - [ ] Add new 3D authored document types.
 - [ ] Add new validation rules.
-- [ ] Keep old YAML supported through `compat` compilers.
+- [ ] Replace old authored forms by moving compilation into the new model, not
+      by keeping duplicate compilers.
 
 ### PR7 - Simplify engine-compositor
 
@@ -262,7 +257,7 @@ PR0 baseline references:
 ### PR8 - Public Typed API
 
 - [ ] Add typed public scene mutation APIs in `engine-api`.
-- [ ] Keep path-based setters as compatibility surface only.
+- [ ] Retire string-path setters after typed APIs take over.
 - [ ] Update scripting documentation when the typed API lands.
 
 ## First Work Queue
@@ -272,9 +267,9 @@ These are the tasks to start with immediately.
 - [x] Finish PR0 baseline and regression protection.
 - [x] Add `engine-core` render types.
 - [x] Add `CompiledRenderScene`.
-- [ ] Create `engine-render-2d`.
-- [ ] Move `image_render.rs`.
-- [ ] Move `text_render.rs`.
+- [x] Create `engine-render-2d`.
+- [x] Move `image_render.rs`.
+- [x] Move `text_render.rs`.
 - [ ] Move 2D layout helpers.
 - [ ] Move 2D container helpers.
 - [ ] Switch compositor to the 2D pipeline seam.
@@ -284,7 +279,7 @@ These are the tasks to start with immediately.
 - [ ] 2D-only projects run without any 3D dependency leakage.
 - [ ] 3D no longer grows through new fields on `Sprite::Obj`.
 - [ ] Existing mods still load.
-- [ ] Old path-based mutation entry points still work.
-- [ ] New engine work uses typed mutation APIs.
+- [ ] Runtime mutation path converges on typed APIs instead of growing more
+      string-path branches.
 - [ ] `engine-compositor` no longer owns domain render logic.
 - [ ] No new code introduces `legacy` naming.

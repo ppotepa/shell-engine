@@ -1,12 +1,12 @@
 //! Text sprite rendering — writes terminal-cell or rasterized glyph text into the compositor buffer.
 
+use engine_core::buffer::Buffer;
 use engine_core::color::Color;
+use engine_core::markup::{parse_spans, strip_markup};
 use engine_core::scene::sprite::TextTransform;
 use std::cell::RefCell;
 use std::path::Path;
 
-use engine_core::buffer::Buffer;
-use engine_core::markup::{parse_spans, strip_markup};
 use engine_render::generic;
 use engine_render::rasterizer;
 
@@ -24,7 +24,7 @@ pub struct ClipRect {
 
 impl ClipRect {
     #[inline]
-    fn contains(self, cell_x: u16, cell_y: u16) -> bool {
+    pub fn contains(self, cell_x: u16, cell_y: u16) -> bool {
         let x = i32::from(cell_x);
         let y = i32::from(cell_y);
         let x_end = self.x.saturating_add(i32::from(self.width));

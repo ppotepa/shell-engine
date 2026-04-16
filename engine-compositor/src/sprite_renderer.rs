@@ -13,6 +13,10 @@ use engine_core::scene::{CameraSource, Layer, Sprite};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use engine_render_2d::{
+    dim_colour, image_sprite_dimensions, render_image_content, render_text_content,
+    text_sprite_dimensions, ClipRect,
+};
 use engine_render::VectorPrimitive;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -92,10 +96,9 @@ use super::render::{
     render_children_in_cells, sprite_transform_offset, RenderCtx,
 };
 use crate::{
-    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, dim_colour,
-    image_sprite_dimensions, obj_sprite_dimensions, render_image_content, render_obj_content,
-    render_obj_to_canvas, render_obj_to_rgba_canvas, render_text_content, text_sprite_dimensions,
-    try_blit_prerendered, ClipRect, ObjRenderParams,
+    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
+    render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas, try_blit_prerendered,
+    ObjRenderParams,
 };
 
 /// Render all sprites in a layer onto `layer_buf`.

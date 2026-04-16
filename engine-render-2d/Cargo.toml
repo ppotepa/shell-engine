@@ -1,0 +1,11 @@
+[package]
+name = "engine-render-2d"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-core = { workspace = true }
+engine-effects = { workspace = true }
+engine-render = { path = "../engine-render" }

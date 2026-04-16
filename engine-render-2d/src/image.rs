@@ -1,9 +1,8 @@
 //! Image sprite rendering for the composed frame buffer.
 
-use engine_core::color::Color;
-
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::{Buffer, TRUE_BLACK};
+use engine_core::color::Color;
 use engine_core::scene::SpriteSizePreset;
 use engine_render::image_loader::{self, LoadedRgbaImage};
 
@@ -76,13 +75,8 @@ pub fn render_image_content(
         return;
     }
 
-    // Mark the full sprite bounding box dirty for all image sprites so that
-    // DirtyRegionDiff always covers the area even when frame changes or pixels shrink.
-    // This is essential for animated (GIF) images, but also helps non-animated images
-    // that may have transparency changes due to scene effects.
     buf.mark_dirty_region(x, y, target_w, target_h);
 
-    // ── SDL2 pixel bypass: write virtual pixels directly ─────────────────
     if let Some(pc) = &mut buf.pixel_canvas {
         let (virt_w, virt_h) = (target_w as u32, target_h as u32);
         let pc_w = pc.width as usize;
@@ -174,7 +168,7 @@ fn select_spritesheet_frame<'a>(
 }
 
 fn resolve_image_dimensions(
-    image: &ImageView,
+    image: &ImageView<'_>,
     req_width: Option<u16>,
     req_height: Option<u16>,
     size: Option<SpriteSizePreset>,
@@ -207,7 +201,7 @@ fn scale_dimensions(width: u16, height: u16, ratio: (u16, u16)) -> (u16, u16) {
     )
 }
 
-fn natural_image_dimensions(image: &ImageView) -> (u16, u16) {
+fn natural_image_dimensions(image: &ImageView<'_>) -> (u16, u16) {
     let w = image.width.max(1);
     let h = image.height.max(1);
     (
@@ -217,7 +211,7 @@ fn natural_image_dimensions(image: &ImageView) -> (u16, u16) {
 }
 
 fn rasterize_image_cell(
-    image: &ImageView,
+    image: &ImageView<'_>,
     target_w: u16,
     target_h: u16,
     x: u16,
@@ -242,7 +236,7 @@ fn rasterize_image_cell(
 }
 
 #[inline]
-fn sample_scaled(image: &ImageView, x: u32, y: u32, virtual_w: u32, virtual_h: u32) -> [u8; 4] {
+fn sample_scaled(image: &ImageView<'_>, x: u32, y: u32, virtual_w: u32, virtual_h: u32) -> [u8; 4] {
     let vw = virtual_w.max(1);
     let vh = virtual_h.max(1);
     let sx = ((x as u64).saturating_mul(image.width as u64) / vw as u64)

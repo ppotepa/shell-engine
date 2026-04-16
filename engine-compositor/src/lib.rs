@@ -11,7 +11,6 @@ pub mod access;
 pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
-pub mod image_render;
 pub mod layer_compositor;
 pub mod layout;
 pub mod obj_loader;
@@ -27,7 +26,6 @@ pub mod scene3d_runtime_store;
 pub mod scene_compositor;
 pub mod sprite_renderer;
 pub mod systems;
-pub mod text_render;
 pub mod warmup;
 
 pub use access::CompositorAccess;
@@ -35,7 +33,6 @@ pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
 pub use compositor::dispatch_composite;
-pub use image_render::{image_sprite_dimensions, render_image_content};
 pub use layout::{
     compute_flex_cells, compute_grid_cells, parse_track_spec, resolve_x, resolve_y, GridCellRect,
     RenderArea, TrackSpec,
@@ -55,7 +52,6 @@ pub use scene3d_prerender::{
 pub use scene3d_runtime_store::{with_runtime_store, Scene3DRuntimeStore};
 pub use scene_compositor::CompositeParams;
 pub use systems::postfx;
-pub use text_render::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};
 pub use warmup::warmup_scene_meshes;
 
 /// Clear the per-frame vector primitive collector (call before compositing).

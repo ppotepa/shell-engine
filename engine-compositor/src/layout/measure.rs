@@ -3,11 +3,9 @@
 use std::cell::{Cell, RefCell};
 
 use engine_core::color::Color;
+use engine_render_2d::{image_sprite_dimensions, text_sprite_dimensions};
 
-use crate::{
-    image_sprite_dimensions, obj_sprite_dimensions, parse_track_spec, text_sprite_dimensions,
-    TrackSpec,
-};
+use crate::{obj_sprite_dimensions, parse_track_spec, TrackSpec};
 use engine_core::assets::AssetRoot;
 use engine_core::scene::{FlexDirection, Sprite};
 
