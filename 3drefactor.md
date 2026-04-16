@@ -54,6 +54,9 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `engine/Cargo.toml` so compositor vector primitive lifecycle calls (`clear`
   and `take`) can be wired through dedicated 2D seam without temporary
   `engine_render_3d` fallback suggestions; `cargo check -p engine` now passes.
+- Completed: confirmed current `engine-render-3d`, `engine-compositor`, `engine-core`,
+  `engine-render-2d`, `engine-authoring`, and `engine-scene-runtime` paths remain
+  free from mod-specific literals and `legacy` identifiers in compile-time code.
 
 ## Remaining Blockers (Audit 2026-04-16)
 
