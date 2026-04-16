@@ -208,8 +208,8 @@ PR0 baseline references:
 - [x] Add shared render types in `engine-core`.
 - [x] Add `CompiledRenderScene` in `engine-authoring`.
 - [x] Create `engine-render-2d`.
-- [ ] Move 2D modules out of `engine-compositor`.
-- [ ] Switch compositor to use `Render2dPipeline`.
+- [x] Move 2D modules out of `engine-compositor`.
+- [x] Switch compositor to use `Render2dPipeline`.
 - [ ] Keep 3D behavior unchanged in this PR.
 
 ### PR2 - Real 3D Input Model
@@ -276,6 +276,8 @@ These are the tasks to start with immediately.
 - [x] Switch compositor to the 2D pipeline seam.
 - [x] Route 3D sprite calls through an injected delegate (remove direct 2D->3D coupling).
 - [x] Move planet-specific render mapping out of renderer path into a dedicated adapter module.
+- [x] Wire planet rendering delegate directly to adapter and remove intermediary 3D wrapper hop.
+- [x] Rename renderer delegate surface from `planet` to `generated_world` to keep render API feature-agnostic.
 
 ## Definition of Done
 

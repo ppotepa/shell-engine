@@ -587,28 +587,6 @@ pub(crate) fn render_obj_sprite(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn render_planet_sprite(
-    sprite: &Sprite,
-    area: RenderArea,
-    target_resolver: Option<&TargetResolver>,
-    object_regions: &mut HashMap<String, Region>,
-    object_id: Option<&str>,
-    object_state: &ObjectRuntimeState,
-    sprite_elapsed: u64,
-    ctx: &mut RenderCtx<'_>,
-) {
-    super::planet_render_adapter::render_planet_sprite(
-        sprite,
-        area,
-        target_resolver,
-        object_regions,
-        object_id,
-        object_state,
-        sprite_elapsed,
-        ctx,
-    );
-}
 pub(crate) fn render_scene3d_sprite(
     sprite: &Sprite,
     area: RenderArea,

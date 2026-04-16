@@ -102,7 +102,7 @@ pub(crate) trait Render3dDelegate {
         ctx: &mut RenderCtx<'_>,
     );
 
-    fn render_planet_sprite(
+    fn render_generated_world_sprite(
         &self,
         sprite: &Sprite,
         area: RenderArea,
@@ -338,7 +338,7 @@ fn render_sprite(
             sprite_elapsed,
             ctx,
         ),
-        Sprite::Planet { .. } => render_3d.render_planet_sprite(
+        Sprite::Planet { .. } => render_3d.render_generated_world_sprite(
             sprite,
             area,
             target_resolver,
