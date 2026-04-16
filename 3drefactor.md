@@ -295,6 +295,8 @@ These are the tasks to start with immediately.
 - [x] Remove `Scene3DAtlas` module ownership from `engine-compositor` and switch atlas type/re-exports to shared 3D domain (`engine-3d::scene3d_atlas`).
 - [x] Move `Scene3DRuntimeStore` ownership out of `engine-compositor` into `engine-render-3d::prerender::runtime_store` and keep compositor as API consumer.
 - [x] Route compositor `Scene3DAtlas` surface through `engine-render-3d::prerender` API (thin re-export seam) instead of direct `engine-3d` import in compositor.
+- [x] Move `build_scene3d_runtime_store` implementation from `engine-compositor` to `engine-render-3d::prerender::runtime_builder` and keep compositor as orchestration/re-export layer.
+- [x] Remove mod-flavoured Scene3D clip examples from renderer-facing comments (`solar-orbit*` -> neutral `orbit*`) to keep render docs domain-agnostic.
 
 ## Definition of Done
 

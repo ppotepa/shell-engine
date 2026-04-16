@@ -44,9 +44,11 @@ pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
 pub use engine_render_3d::prerender::Scene3DAtlas;
 pub use scene3d_prerender::{
-    build_scene3d_runtime_store, prerender_scene3d_atlas, render_scene3d_frame_at,
+    prerender_scene3d_atlas, render_scene3d_frame_at,
 };
-pub use engine_render_3d::prerender::{with_runtime_store, Scene3DRuntimeStore};
+pub use engine_render_3d::prerender::{
+    build_scene3d_runtime_store, with_runtime_store, Scene3DRuntimeStore,
+};
 pub use scene_compositor::CompositeParams;
 pub use systems::postfx;
 pub use warmup::warmup_scene_meshes;

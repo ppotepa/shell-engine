@@ -18,7 +18,7 @@ use crate::{
     blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, ObjRenderParams,
     Scene3DAtlas,
 };
-use engine_render_3d::prerender::{Scene3DRuntimeEntry, Scene3DRuntimeStore};
+use engine_render_3d::prerender::Scene3DRuntimeEntry;
 
 pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<Scene3DAtlas> {
     let sources = collect_scene3d_sources(&scene.layers);
@@ -695,49 +695,10 @@ fn parse_hex_color(s: &str) -> Option<Color> {
     Some(Color::Rgb { r, g, b })
 }
 
-/// Build a [`Scene3DRuntimeStore`] holding the parsed `Scene3DDefinition` for every
-/// `.scene3d.yml` referenced in `scene`.  Called alongside [`prerender_scene3d_atlas`] so that
-/// the real-time rendering path has access to the scene data at compositor time.
-pub fn build_scene3d_runtime_store(
-    scene: &Scene,
-    asset_root: &AssetRoot,
-) -> Option<Scene3DRuntimeStore> {
-    let sources = collect_scene3d_sources(&scene.layers);
-    if sources.is_empty() {
-        return None;
-    }
-
-    let resolver = AssetRootResolver { asset_root };
-    let mut store = Scene3DRuntimeStore::new();
-
-    for src in &sources {
-        let path = asset_root.resolve(src);
-        let path_str = path.to_string_lossy();
-        let mut def = match load_scene3d(&path_str) {
-            Ok(d) => d,
-            Err(e) => {
-                logging::warn(
-                    "engine.scene3d",
-                    format!("runtime-store: failed to load {src}: {e}"),
-                );
-                continue;
-            }
-        };
-        resolve_scene3d_refs(&mut def, src, &resolver);
-        store.insert(src.clone(), Scene3DRuntimeEntry { def });
-    }
-
-    if store.is_empty() {
-        None
-    } else {
-        Some(store)
-    }
-}
-
 /// Render a single frame of a Scene3D clip at a given `elapsed_ms` within the clip's timeline.
 ///
-/// `clip_name` must be the bare clip frame key (e.g. `"solar-orbit"`), **not** a keyframe id
-/// like `"solar-orbit-7"`.  Returns `None` if the clip is not found or the scene has no objects.
+/// `clip_name` must be the bare clip frame key (e.g. `"orbit"`), **not** a keyframe id
+/// like `"orbit-7"`. Returns `None` if the clip is not found or the scene has no objects.
 pub fn render_scene3d_frame_at(
     entry: &Scene3DRuntimeEntry,
     frame_name: &str,
