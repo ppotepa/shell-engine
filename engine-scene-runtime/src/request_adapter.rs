@@ -3,7 +3,10 @@ use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
 use crate::render3d_state::{material_value_from_json, render3d_compat_property_from_param};
-use crate::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
+use crate::{
+    Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
+    SetSpritePropertyMutation,
+};
 
 pub fn scene_mutation_from_request(
     request: &SceneMutationRequest,
@@ -23,6 +26,40 @@ pub fn scene_mutation_from_request(
             dy: *dy,
             text: text.clone(),
         })),
+        SceneMutationRequest::SetSpriteProperty { target, path, value } => {
+            let mutation = match path.as_str() {
+                "transform.heading" => Some(SetSpritePropertyMutation::Heading {
+                    heading: value.as_f64()? as f32,
+                }),
+                "text.font" => Some(SetSpritePropertyMutation::TextFont {
+                    font: value.as_str()?.to_string(),
+                }),
+                "style.fg" | "text.fg" => Some(SetSpritePropertyMutation::TextColour {
+                    fg: true,
+                    value: value.clone(),
+                }),
+                "style.bg" | "text.bg" => Some(SetSpritePropertyMutation::TextColour {
+                    fg: false,
+                    value: value.clone(),
+                }),
+                "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg"
+                | "vector.bg" | "style.border" | "style.shadow" => {
+                    Some(SetSpritePropertyMutation::VectorProperty {
+                        path: path.to_string(),
+                        value: value.clone(),
+                    })
+                }
+                "image.frame_index" => Some(SetSpritePropertyMutation::ImageFrame {
+                    frame_index: value.as_u64().and_then(|v| u16::try_from(v).ok())?,
+                }),
+                _ => None,
+            };
+            let mutation = mutation?;
+            Some(SceneMutation::SetSpriteProperty {
+                target: target.clone(),
+                mutation,
+            })
+        }
         SceneMutationRequest::SetCamera2d { x, y, zoom } => {
             Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
                 x: x.round() as i32,
@@ -100,11 +137,14 @@ pub fn render3d_mutation_from_request(
             target,
             name,
             value,
-        } => Some(Render3DMutation::SetAtmosphereParam {
-            target: target.clone(),
-            param: name.clone(),
-            value: material_value_from_json(value)?,
-        }),
+        } => {
+            let param = name.strip_prefix("obj.atmo.").unwrap_or(name.as_str());
+            Some(Render3DMutation::SetAtmosphereParam {
+                target: target.clone(),
+                param: param.to_string(),
+                value: material_value_from_json(value)?,
+            })
+        }
         Render3dMutationRequest::SetWorldParam {
             target,
             name,
@@ -115,6 +155,34 @@ pub fn render3d_mutation_from_request(
                 Some(Render3DMutation::SetCompatProperty {
                     target: target.clone(),
                     property,
+                })
+            } else if name.starts_with("obj.atmo.") {
+                let param = name.strip_prefix("obj.atmo.").unwrap_or(name.as_str());
+                Some(Render3DMutation::SetAtmosphereParam {
+                    target: target.clone(),
+                    param: param.to_string(),
+                    value,
+                })
+            } else if name.starts_with("obj.") {
+                let obj_param = name.strip_prefix("obj.").unwrap_or(name.as_str());
+                if obj_param.starts_with("world.") || obj_param.starts_with("terrain.") {
+                    Some(Render3DMutation::SetWorldgenParam {
+                        target: target.clone(),
+                        param: name.clone(),
+                        value,
+                    })
+                } else {
+                    Some(Render3DMutation::SetMaterialParam {
+                        target: target.clone(),
+                        param: obj_param.to_string(),
+                        value,
+                    })
+                }
+            } else if name.starts_with("planet.") {
+                Some(Render3DMutation::SetMaterialParam {
+                    target: target.clone(),
+                    param: name.clone(),
+                    value,
                 })
             } else {
                 Some(Render3DMutation::SetWorldgenParam {
@@ -187,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn maps_compat_world_param_request_to_compat_property_mutation() {
+    fn maps_compat_world_param_request_to_typed_material_mutation() {
         let request = Render3dMutationRequest::SetWorldParam {
             target: "planet-main".to_string(),
             name: "obj.scale".to_string(),
@@ -195,17 +263,12 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetCompatProperty { target, property } => {
+            Render3DMutation::SetMaterialParam { target, param, value } => {
                 assert_eq!(target, "planet-main");
-                assert_eq!(
-                    property,
-                    crate::Render3DCompatProperty::ObjParam {
-                        path: "obj.scale".to_string(),
-                        value: MaterialValue::Scalar(1.25),
-                    }
-                );
+                assert_eq!(param, "scale");
+                assert_eq!(value, MaterialValue::Scalar(1.25));
             }
-            _ => panic!("expected SetCompatProperty"),
+            _ => panic!("expected SetMaterialParam"),
         }
     }
 
@@ -243,20 +306,16 @@ mod tests {
         )
         .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
+            SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
                 target,
-                property,
+                param,
+                value,
             }) => {
                 assert_eq!(target, "planet-view");
-                assert_eq!(
-                    property,
-                    crate::Render3DCompatProperty::PlanetParam {
-                        path: "planet.spin_deg".to_string(),
-                        value: MaterialValue::Scalar(15.0),
-                    }
-                );
+                assert_eq!(param, "planet.spin_deg");
+                assert_eq!(value, MaterialValue::Scalar(15.0));
             }
-            _ => panic!("expected SetCompatProperty"),
+            _ => panic!("expected SetMaterialParam"),
         }
     }
 

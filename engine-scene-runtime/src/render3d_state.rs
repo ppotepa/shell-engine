@@ -27,22 +27,6 @@ impl SceneRuntime {
                     runtime.set_scene3d_sprite_frame(alias, frame)
                 })
             }
-            Render3DCompatProperty::PlanetParam { path, value } => {
-                let Some(json_value) = render3d_material_value_to_json(value) else {
-                    return false;
-                };
-                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                    runtime.set_planet_sprite_property(alias, path, &json_value)
-                })
-            }
-            Render3DCompatProperty::ObjParam { path, value } => {
-                let Some(json_value) = render3d_material_value_to_json(value) else {
-                    return false;
-                };
-                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                    runtime.set_obj_sprite_property(alias, path, &json_value)
-                })
-            }
         }
     }
 
@@ -67,14 +51,58 @@ pub fn scene_mutation_from_set_property_3d(
     path: &str,
     value: &serde_json::Value,
 ) -> Option<SceneMutation> {
-    let value = material_value_from_json(value)?;
-    let property = render3d_compat_property_from_param(path, value)?;
-    Some(SceneMutation::SetRender3D(
-        Render3DMutation::SetCompatProperty {
+    let mat_value = material_value_from_json(value)?;
+
+    if path == "scene3d.frame" {
+        if let MaterialValue::Text(frame) = mat_value {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
+                target: target.to_string(),
+                property: Render3DCompatProperty::Scene3dFrame { frame },
+            }));
+        }
+        return None;
+    }
+
+    if let Some(planet_param) = path.strip_prefix("planet.") {
+        return Some(SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
             target: target.to_string(),
-            property,
-        },
-    ))
+            param: format!("planet.{planet_param}"),
+            value: mat_value,
+        }));
+    }
+
+    if let Some(atmo_param) = path.strip_prefix("obj.atmo.") {
+        return Some(SceneMutation::SetRender3D(Render3DMutation::SetAtmosphereParam {
+            target: target.to_string(),
+            param: atmo_param.to_string(),
+            value: mat_value,
+        }));
+    }
+
+    if let Some(obj_param) = path.strip_prefix("obj.") {
+        if obj_param.starts_with("world.") || obj_param.starts_with("terrain.") {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+                target: target.to_string(),
+                param: path.to_string(),
+                value: mat_value,
+            }));
+        }
+        return Some(SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
+            target: target.to_string(),
+            param: obj_param.to_string(),
+            value: mat_value,
+        }));
+    }
+
+    if path.starts_with("terrain.") || path.starts_with("world.") {
+        return Some(SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+            target: target.to_string(),
+            param: path.to_string(),
+            value: mat_value,
+        }));
+    }
+
+    None
 }
 
 pub(crate) fn render3d_compat_property_from_param(
@@ -85,29 +113,8 @@ pub(crate) fn render3d_compat_property_from_param(
         if let MaterialValue::Text(frame) = value {
             return Some(Render3DCompatProperty::Scene3dFrame { frame });
         }
-        return None;
-    }
-    if path.starts_with("planet.") {
-        return Some(Render3DCompatProperty::PlanetParam {
-            path: path.to_string(),
-            value,
-        });
-    }
-    if path.starts_with("obj.") || path.starts_with("terrain.") || path.starts_with("world.") {
-        return Some(Render3DCompatProperty::ObjParam {
-            path: path.to_string(),
-            value,
-        });
     }
     None
-}
-
-pub(crate) fn is_render3d_compat_param_path(path: &str) -> bool {
-    path == "scene3d.frame"
-        || path.starts_with("planet.")
-        || path.starts_with("obj.")
-        || path.starts_with("terrain.")
-        || path.starts_with("world.")
 }
 
 pub(crate) fn render3d_material_value_to_json(
@@ -153,25 +160,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn maps_obj_namespace_set_property_to_typed_worldgen_mutation() {
+    fn maps_obj_namespace_set_property_to_typed_material_mutation() {
         let mutation =
             scene_mutation_from_set_property_3d("ship", "obj.scale", &serde_json::json!(1.25))
                 .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
+            SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
                 target,
-                property,
+                param,
+                value,
             }) => {
                 assert_eq!(target, "ship");
-                assert_eq!(
-                    property,
-                    Render3DCompatProperty::ObjParam {
-                        path: "obj.scale".to_string(),
-                        value: MaterialValue::Scalar(1.25),
-                    }
-                );
+                assert_eq!(param, "scale");
+                assert_eq!(value, MaterialValue::Scalar(1.25));
             }
-            _ => panic!("expected compatibility property mutation"),
+            _ => panic!("expected SetMaterialParam"),
         }
     }
 

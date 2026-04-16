@@ -9,6 +9,7 @@
 //! It is tightly coupled to behavior types and command processing.
 
 use super::*;
+use crate::mutations::SetSpritePropertyMutation;
 
 impl SceneRuntime {
     /// Updates attached runtime behaviors for the active scene stage and
@@ -310,11 +311,13 @@ impl SceneRuntime {
             .iter()
             .filter_map(|binding| {
                 let color = palette.colors.get(&binding.key)?;
-                Some(engine_behavior::BehaviorCommand::SetProperty {
-                    target: binding.target.clone(),
-                    path: binding.prop.clone(),
-                    value: serde_json::Value::String(color.clone()),
-                })
+                let value = serde_json::Value::String(color.clone());
+                let request = engine_api::commands::scene_mutation_request_from_set_property_compat(
+                    &binding.target,
+                    &binding.prop,
+                    &value,
+                )?;
+                Some(engine_behavior::BehaviorCommand::ApplySceneMutation { request })
             })
             .collect();
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
@@ -395,10 +398,6 @@ impl SceneRuntime {
                 BehaviorCommand::PlayAudioEvent { .. } => {}
                 BehaviorCommand::PlaySong { .. } => {}
                 BehaviorCommand::StopSong => {}
-                BehaviorCommand::SetVisibility { .. } => {}
-                BehaviorCommand::SetOffset { .. } => {}
-                BehaviorCommand::SetText { .. } => {}
-                BehaviorCommand::SetProps { .. } => {}
                 BehaviorCommand::ApplySceneMutation { request } => match request {
                     engine_api::scene::SceneMutationRequest::SpawnObject { template, target } => {
                         if self.spawn_runtime_clone(resolver, template, target) {
@@ -410,161 +409,6 @@ impl SceneRuntime {
                     }
                     _ => {}
                 },
-                BehaviorCommand::SetProperty {
-                    target,
-                    path,
-                    value,
-                } => {
-                    if crate::render3d_state::is_render3d_compat_param_path(path)
-                        || matches!(
-                            path.as_str(),
-                            "visible"
-                                | "text.content"
-                                | "offset.x"
-                                | "position.x"
-                                | "offset.y"
-                                | "position.y"
-                        )
-                    {
-                        continue;
-                    }
-                    let Some(object_id) = resolver.resolve_alias(target) else {
-                        continue;
-                    };
-                    match path.as_str() {
-                        "transform.heading" => {
-                            let Some(next_heading) = value.as_f64() else {
-                                continue;
-                            };
-                            let heading = next_heading as f32;
-                            if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.heading = heading;
-                            }
-                            // Cascade heading to child sprites when target is a layer.
-                            // Uses index-based iteration to avoid cloning the children Vec.
-                            if let Some(obj) = self.objects.get(object_id) {
-                                if matches!(obj.kind, GameObjectKind::Layer) {
-                                    let n = obj.children.len();
-                                    for i in 0..n {
-                                        let cid = self.objects[object_id].children[i].clone();
-                                        if let Some(state) = self.object_states.get_mut(&cid) {
-                                            state.heading = heading;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        "text.font" => {
-                            let Some(next_font) = value.as_str() else {
-                                continue;
-                            };
-                            let _ = self.apply_text_property_for_target(
-                                object_id,
-                                target,
-                                |runtime, alias| {
-                                    runtime.set_text_sprite_font(alias, next_font.to_string())
-                                },
-                            );
-                        }
-                        "style.fg" | "text.fg" => {
-                            let Some(next_colour) = parse_term_colour(value) else {
-                                continue;
-                            };
-                            let mut applied = self.apply_text_property_for_target(
-                                object_id,
-                                target,
-                                |runtime, alias| {
-                                    runtime.set_text_sprite_fg_colour(alias, next_colour.clone())
-                                },
-                            );
-                            if !applied {
-                                applied =
-                                    self.set_vector_sprite_property(target, "style.fg", value);
-                            }
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_vector_sprite_property(&alias, "style.fg", value) {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
-                        "style.bg" | "text.bg" => {
-                            let Some(next_colour) = parse_term_colour(value) else {
-                                continue;
-                            };
-                            let mut applied = self.apply_text_property_for_target(
-                                object_id,
-                                target,
-                                |runtime, alias| {
-                                    runtime.set_text_sprite_bg_colour(alias, next_colour.clone())
-                                },
-                            );
-                            if !applied {
-                                applied =
-                                    self.set_vector_sprite_property(target, "style.bg", value);
-                            }
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_vector_sprite_property(&alias, "style.bg", value) {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
-                        "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg"
-                        | "vector.bg" | "style.border" | "style.shadow" => {
-                            let mut applied = self.set_vector_sprite_property(target, path, value);
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_vector_sprite_property(&alias, path, value) {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
-                        "image.frame_index" => {
-                            let Some(next_frame) = value.as_u64() else {
-                                continue;
-                            };
-                            let mut applied =
-                                self.set_image_sprite_frame_index(target, next_frame as u16);
-                            if !applied {
-                                for alias in self.object_alias_candidates(object_id, target) {
-                                    if self.set_image_sprite_frame_index(&alias, next_frame as u16)
-                                    {
-                                        applied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if !applied {
-                                continue;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                BehaviorCommand::SceneSpawn { template, target } => {
-                    if self.spawn_runtime_clone(resolver, template, target) {
-                        had_spawns = true;
-                    }
-                }
-                BehaviorCommand::SceneDespawn { target } => {
-                    pending_despawns.push(target.clone());
-                }
                 BehaviorCommand::SceneTransition { .. } => {}
                 BehaviorCommand::DebugLog { .. } => {}
                 BehaviorCommand::BindInputAction { action, keys } => {
@@ -591,6 +435,7 @@ impl SceneRuntime {
                     }
                     self.sync_widget_visuals();
                 }
+                _ => {}
             }
         }
 
@@ -691,6 +536,11 @@ impl SceneRuntime {
                 }
                 scene_mutation_from_request(request, self.scene_camera_3d)
             }
+            // Narrow compat converter: translates a raw SetProperty into a typed
+            // SceneMutationRequest, then routes it through scene_mutation_from_request —
+            // the exact same function used by ApplySceneMutation above. There is no
+            // second runtime path here; SetProperty is purely a conversion layer. Any
+            // path not covered by the compat table returns None and is silently dropped.
             BehaviorCommand::SetProperty {
                 target,
                 path,
@@ -735,6 +585,101 @@ impl SceneRuntime {
                         |runtime, alias| runtime.set_text_sprite_content(alias, next_text.clone()),
                     );
                     mutation_applied = true;
+                }
+            }
+            SceneMutation::SetSpriteProperty { target, mutation } => {
+                let Some(object_id) = resolver.resolve_alias(&target) else {
+                    return;
+                };
+                match mutation {
+                    SetSpritePropertyMutation::Heading { heading } => {
+                        if let Some(state) = self.object_states.get_mut(object_id) {
+                            state.heading = *heading;
+                        }
+                        if let Some(obj) = self.objects.get(object_id) {
+                            if matches!(obj.kind, GameObjectKind::Layer) {
+                                let n = obj.children.len();
+                                for i in 0..n {
+                                    let cid = self.objects[object_id].children[i].clone();
+                                    if let Some(state) = self.object_states.get_mut(&cid) {
+                                        state.heading = *heading;
+                                    }
+                                }
+                            }
+                        }
+                        mutation_applied = true;
+                    }
+                    SetSpritePropertyMutation::TextFont { font } => {
+                        if self.apply_text_property_for_target(
+                            object_id,
+                            &target,
+                            |runtime, alias| runtime.set_text_sprite_font(alias, font.clone()),
+                        ) {
+                            mutation_applied = true;
+                        }
+                    }
+                    SetSpritePropertyMutation::TextColour { fg, value } => {
+                        let Some(next_colour) = parse_term_colour(value) else {
+                            return;
+                        };
+                        let mut applied = if *fg {
+                            self.apply_text_property_for_target(
+                                object_id,
+                                &target,
+                                |runtime, alias| {
+                                    runtime.set_text_sprite_fg_colour(alias, next_colour.clone())
+                                },
+                            )
+                        } else {
+                            self.apply_text_property_for_target(
+                                object_id,
+                                &target,
+                                |runtime, alias| {
+                                    runtime.set_text_sprite_bg_colour(alias, next_colour.clone())
+                                },
+                            )
+                        };
+                        if !applied {
+                            let path = if *fg { "style.fg" } else { "style.bg" };
+                            for alias in self.object_alias_candidates(object_id, &target) {
+                                if self.set_vector_sprite_property(&alias, path, value) {
+                                    applied = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if applied {
+                            mutation_applied = true;
+                        }
+                    }
+                    SetSpritePropertyMutation::VectorProperty { path, value } => {
+                        let mut applied = self.set_vector_sprite_property(&target, path, value);
+                        if !applied {
+                            for alias in self.object_alias_candidates(object_id, &target) {
+                                if self.set_vector_sprite_property(&alias, path, value) {
+                                    applied = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if applied {
+                            mutation_applied = true;
+                        }
+                    }
+                    SetSpritePropertyMutation::ImageFrame { frame_index } => {
+                        let mut applied = self.set_image_sprite_frame_index(&target, *frame_index);
+                        if !applied {
+                            for alias in self.object_alias_candidates(object_id, &target) {
+                                if self.set_image_sprite_frame_index(&alias, *frame_index) {
+                                    applied = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if applied {
+                            mutation_applied = true;
+                        }
+                    }
                 }
             }
             SceneMutation::SetCamera2D(camera) => {
@@ -796,17 +741,16 @@ impl SceneRuntime {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
-                    let Some(property) = crate::render3d_state::render3d_compat_property_from_param(
-                        param,
-                        value.clone(),
-                    ) else {
+                    let Some(json_value) =
+                        crate::render3d_state::render3d_material_value_to_json(value)
+                    else {
                         return;
                     };
-                    if !self.apply_render3d_compat_property_for_target(object_id, target, &property)
-                    {
-                        return;
+                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                        runtime.set_obj_worldgen_param(alias, param, &json_value)
+                    }) {
+                        mutation_applied = true;
                     }
-                    mutation_applied = true;
                 }
                 Render3DMutation::SetCompatProperty { target, property } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
@@ -818,13 +762,47 @@ impl SceneRuntime {
                     }
                     mutation_applied = true;
                 }
-                Render3DMutation::SetMaterialParam { .. }
-                | Render3DMutation::SetAtmosphereParam { .. }
-                | Render3DMutation::SetLight { .. }
+                Render3DMutation::SetMaterialParam { target, param, value } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    let Some(json_value) =
+                        crate::render3d_state::render3d_material_value_to_json(value)
+                    else {
+                        return;
+                    };
+                    let applied = if param.starts_with("planet.") {
+                        let stripped = param.strip_prefix("planet.").unwrap_or(param.as_str());
+                        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                            runtime.set_planet_material_param(alias, stripped, &json_value)
+                        })
+                    } else {
+                        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                            runtime.set_obj_material_param(alias, param, &json_value)
+                        })
+                    };
+                    if applied {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetAtmosphereParam { target, param, value } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    let Some(json_value) =
+                        crate::render3d_state::render3d_material_value_to_json(value)
+                    else {
+                        return;
+                    };
+                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                        runtime.set_obj_atmosphere_param(alias, param, &json_value)
+                    }) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetLight { .. }
                 | Render3DMutation::RebuildMesh { .. }
                 | Render3DMutation::RebuildWorldgen { .. } => {
-                    // Runtime does not directly mutate sprite fields for these, but
-                    // downstream 3D render pipelines must still see invalidation.
                     mutation_applied = true;
                 }
             },
@@ -1742,6 +1720,15 @@ fn json_value_to_rounded_i32(value: &JsonValue) -> Option<i32> {
         .and_then(|number| i32::try_from(number.round() as i64).ok())
 }
 
+/// Converts a raw `SetProperty` path+value into a typed `SceneMutationRequest`,
+/// or returns `None` for paths without compat coverage.
+///
+/// This is the only runtime site that translates string-path `SetProperty` commands.
+/// After conversion the result is passed to `scene_mutation_from_request`, the same
+/// function that `ApplySceneMutation` uses, so the two branches share one execution path.
+///
+/// `position.x` / `position.y` require the current object state to compute the delta,
+/// which is why they live here rather than in the stateless `scene_mutation_request_from_set_property_compat`.
 fn scene_mutation_request_from_set_property_runtime_compat(
     resolver: &TargetResolver,
     object_states: &HashMap<String, ObjectRuntimeState>,

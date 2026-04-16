@@ -184,7 +184,7 @@ impl SceneRuntime {
         false
     }
 
-    pub(crate) fn set_obj_sprite_property(
+    pub(crate) fn set_obj_sprite_property_by_path(
         &mut self,
         sprite_id: &str,
         path: &str,
@@ -214,7 +214,7 @@ impl SceneRuntime {
         false
     }
 
-    pub(crate) fn set_planet_sprite_property(
+    fn set_planet_sprite_property_by_path(
         &mut self,
         sprite_id: &str,
         path: &str,
@@ -242,6 +242,54 @@ impl SceneRuntime {
             }
         }
         false
+    }
+
+    pub(crate) fn set_obj_material_param(
+        &mut self,
+        sprite_id: &str,
+        param: &str,
+        value: &JsonValue,
+    ) -> bool {
+        let full_path = if param.starts_with("planet.") {
+            param.to_string()
+        } else {
+            format!("obj.{param}")
+        };
+        self.set_obj_sprite_property_by_path(sprite_id, &full_path, value)
+    }
+
+    pub(crate) fn set_obj_atmosphere_param(
+        &mut self,
+        sprite_id: &str,
+        param: &str,
+        value: &JsonValue,
+    ) -> bool {
+        let full_path = format!("obj.atmo.{param}");
+        self.set_obj_sprite_property_by_path(sprite_id, &full_path, value)
+    }
+
+    pub(crate) fn set_obj_worldgen_param(
+        &mut self,
+        sprite_id: &str,
+        param: &str,
+        value: &JsonValue,
+    ) -> bool {
+        if param.starts_with("obj.") || param.starts_with("terrain.") || param.starts_with("world.") {
+            self.set_obj_sprite_property_by_path(sprite_id, param, value)
+        } else {
+            self.set_obj_sprite_property_by_path(sprite_id, &format!("terrain.{param}"), value)
+                || self.set_obj_sprite_property_by_path(sprite_id, &format!("world.{param}"), value)
+        }
+    }
+
+    pub(crate) fn set_planet_material_param(
+        &mut self,
+        sprite_id: &str,
+        param: &str,
+        value: &JsonValue,
+    ) -> bool {
+        let full_path = format!("planet.{param}");
+        self.set_planet_sprite_property_by_path(sprite_id, &full_path, value)
     }
 
     pub(crate) fn set_vector_sprite_property(

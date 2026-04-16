@@ -86,16 +86,6 @@ mod tests {
                 DirtyMask3D::WORLDGEN,
             ),
             (
-                Render3DMutation::SetCompatProperty {
-                    target: "planet".to_string(),
-                    property: crate::mutations::Render3DCompatProperty::ObjParam {
-                        path: "obj.world.x".to_string(),
-                        value: engine_core::render_types::MaterialValue::Scalar(1.0),
-                    },
-                },
-                DirtyMask3D::WORLDGEN,
-            ),
-            (
                 Render3DMutation::RebuildMesh {
                     target: "planet".to_string(),
                 },
