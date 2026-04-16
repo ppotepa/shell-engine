@@ -14,8 +14,9 @@ use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
 use engine_render_2d::{
-    dim_colour, image_sprite_dimensions, render_image_content, render_text_content,
-    text_sprite_dimensions, ClipRect,
+    compute_flex_cells, compute_grid_cells, dim_colour, image_sprite_dimensions,
+    measure_sprite_for_layout, render_image_content, render_text_content, resolve_x, resolve_y,
+    text_sprite_dimensions, with_render_context, ClipRect, RenderArea,
 };
 use engine_render::VectorPrimitive;
 use std::cell::RefCell;
@@ -87,10 +88,6 @@ fn glow_cache_key(
     h.finish()
 }
 
-use super::layout::{
-    compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
-    with_render_context, RenderArea,
-};
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, is_sprite_offscreen,
     render_children_in_cells, sprite_transform_offset, RenderCtx,

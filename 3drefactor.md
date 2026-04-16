@@ -270,7 +270,7 @@ These are the tasks to start with immediately.
 - [x] Create `engine-render-2d`.
 - [x] Move `image_render.rs`.
 - [x] Move `text_render.rs`.
-- [ ] Move 2D layout helpers.
+- [x] Move 2D layout helpers.
 - [ ] Move 2D container helpers.
 - [ ] Switch compositor to the 2D pipeline seam.
 

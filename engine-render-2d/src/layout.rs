@@ -1,48 +1,38 @@
-//! Measurement helpers that estimate sprite bounds before rasterization.
+//! Layout helpers and sprite measurement adapters for 2D rendering.
 
 use std::cell::{Cell, RefCell};
 
-use engine_core::color::Color;
-use engine_render_2d::{image_sprite_dimensions, text_sprite_dimensions};
-
-use crate::{obj_sprite_dimensions, parse_track_spec, TrackSpec};
 use engine_core::assets::AssetRoot;
-use engine_core::scene::{FlexDirection, Sprite};
+use engine_core::color::Color;
+use engine_core::scene::{FlexDirection, Sprite, SpriteSizePreset};
+
+pub use engine_layout::{
+    compute_flex_cells, compute_grid_cells, parse_track_spec, resolve_x, resolve_y, GridCellRect,
+    RenderArea, TrackSpec,
+};
+
+use crate::{image_sprite_dimensions, text_sprite_dimensions};
 
 thread_local! {
-    /// Propagates the active backend flag to measurement helpers without
-    /// changing the `fn(&Sprite, ...) -> (u16, u16)` function-pointer signature
-    /// used by `compute_grid_cells` / `compute_flex_cells`.
     static PIXEL_BACKEND: Cell<bool> = const { Cell::new(false) };
-    /// Optional mod-level default font used by `font: default` resolution.
     static DEFAULT_FONT_SPEC: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-/// Set backend/font context for all `measure_sprite_for_layout` calls on this
-/// thread during the given closure. Called once per `render_sprites` invocation.
 #[inline]
-pub(crate) fn with_render_context<R>(
-    is_pixel: bool,
-    default_font: Option<&str>,
-    f: impl FnOnce() -> R,
-) -> R {
+pub fn with_render_context<R>(is_pixel: bool, default_font: Option<&str>, f: impl FnOnce() -> R) -> R {
     PIXEL_BACKEND.with(|c| c.set(is_pixel));
     DEFAULT_FONT_SPEC.with(|slot| {
         *slot.borrow_mut() = default_font.map(str::to_string);
     });
-    let r = f();
+    let result = f();
     PIXEL_BACKEND.with(|c| c.set(false));
     DEFAULT_FONT_SPEC.with(|slot| {
         *slot.borrow_mut() = None;
     });
-    r
+    result
 }
 
-/// Measures the approximate render size of a sprite for layout purposes.
-pub(crate) fn measure_sprite_for_layout(
-    sprite: &Sprite,
-    asset_root: Option<&AssetRoot>,
-) -> (u16, u16) {
+pub fn measure_sprite_for_layout(sprite: &Sprite, asset_root: Option<&AssetRoot>) -> (u16, u16) {
     match sprite {
         Sprite::Text {
             content,
@@ -84,24 +74,28 @@ pub(crate) fn measure_sprite_for_layout(
             spritesheet_rows,
             frame_index,
             ..
-        } => {
-            image_sprite_dimensions(
-                source,
-                *width,
-                *height,
-                *size,
-                *spritesheet_columns,
-                *spritesheet_rows,
-                *frame_index,
-                asset_root,
-            )
-        }
+        } => image_sprite_dimensions(
+            source,
+            *width,
+            *height,
+            *size,
+            *spritesheet_columns,
+            *spritesheet_rows,
+            *frame_index,
+            asset_root,
+        ),
         Sprite::Planet {
             width,
             height,
             size,
             ..
-        } => obj_sprite_dimensions(*width, *height, *size),
+        }
+        | Sprite::Obj {
+            width,
+            height,
+            size,
+            ..
+        } => mesh_sprite_dimensions(*width, *height, *size),
         Sprite::Vector { points, .. } => engine_vector::bounds(points)
             .map(|b| (b.width.max(1), b.height.max(1)))
             .unwrap_or((1, 1)),
@@ -195,12 +189,6 @@ pub(crate) fn measure_sprite_for_layout(
 
             (measured_w.max(1), measured_h.max(1))
         }
-        Sprite::Obj {
-            width,
-            height,
-            size,
-            ..
-        } => obj_sprite_dimensions(*width, *height, *size),
         Sprite::Panel {
             width,
             width_percent: _,
@@ -280,7 +268,19 @@ pub(crate) fn measure_sprite_for_layout(
             };
             (total_w.max(1), total_h.max(1))
         }
-        // Scene3D: size comes from the atlas buffer at render time; return a placeholder.
         Sprite::Scene3D { .. } => (1, 1),
+    }
+}
+
+fn mesh_sprite_dimensions(
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+) -> (u16, u16) {
+    match (width, height) {
+        (Some(w), Some(h)) => (w.max(1), h.max(1)),
+        (Some(w), None) => (w.max(1), 24),
+        (None, Some(h)) => (64, h.max(1)),
+        (None, None) => size.unwrap_or(SpriteSizePreset::Medium).obj_dimensions(),
     }
 }

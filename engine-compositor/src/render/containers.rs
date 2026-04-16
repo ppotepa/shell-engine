@@ -1,10 +1,9 @@
 use engine_core::effects::Region;
 use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
-use engine_render_2d::ClipRect;
+use engine_render_2d::{ClipRect, GridCellRect, RenderArea};
 use std::collections::HashMap;
 
-use super::super::layout::{GridCellRect, RenderArea};
 use super::common::RenderCtx;
 
 /// Renders all container children using precomputed cell rectangles.

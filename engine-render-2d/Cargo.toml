@@ -8,4 +8,7 @@ license.workspace = true
 [dependencies]
 engine-core = { workspace = true }
 engine-effects = { workspace = true }
+engine-layout = { workspace = true }
 engine-render = { path = "../engine-render" }
+engine-render-policy = { workspace = true }
+engine-vector = { workspace = true }

@@ -12,7 +12,6 @@ pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
 pub mod layer_compositor;
-pub mod layout;
 pub mod obj_loader;
 pub mod obj_prerender;
 pub mod obj_render;
@@ -33,10 +32,6 @@ pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
 pub use compositor::dispatch_composite;
-pub use layout::{
-    compute_flex_cells, compute_grid_cells, parse_track_spec, resolve_x, resolve_y, GridCellRect,
-    RenderArea, TrackSpec,
-};
 pub use obj_render::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
     obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,

@@ -4,7 +4,12 @@
 //! assembly stays in `engine-compositor`.
 
 pub mod image;
+pub mod layout;
 pub mod text;
 
 pub use image::{image_sprite_dimensions, render_image_content};
+pub use layout::{
+    compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, parse_track_spec,
+    resolve_x, resolve_y, with_render_context, GridCellRect, RenderArea, TrackSpec,
+};
 pub use text::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};

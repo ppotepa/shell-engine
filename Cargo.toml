@@ -21,6 +21,7 @@ engine-vector = { path = "./engine-vector" }
 engine-physics = { path = "./engine-physics" }
 engine = { path = "./engine" }
 engine-api = { path = "./engine-api" }
+engine-render-policy = { path = "./engine-render-policy" }
 
 engine-terrain = { path = "./engine-terrain" }
 engine-mesh = { path = "./engine-mesh" }

@@ -906,7 +906,10 @@ version = "0.1.0"
 dependencies = [
  "engine-core",
  "engine-effects",
+ "engine-layout",
  "engine-render",
+ "engine-render-policy",
+ "engine-vector",
 ]
 
 [[package]]
