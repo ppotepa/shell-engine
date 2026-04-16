@@ -20,7 +20,7 @@ pub use lighting::{extract_light_params, parse_hex_color, LightParams};
 pub use object_motion::{resolve_object_frame_motion, ObjectFrameMotion};
 pub use object_specs::{build_object_specs, ObjectRenderSpec};
 pub use pipeline::{prerender_scene3d_atlas_with, render_scene3d_frame_at_with};
-pub use render_item::{render_work_item_canvas_with, Scene3DColorCanvas};
+pub use render_item::{render_work_item_buffer_with, render_work_item_canvas_with, Scene3DColorCanvas};
 pub use runtime_builder::build_scene3d_runtime_store;
 pub use scene_sources::{collect_scene3d_sources, load_and_resolve_scene3d};
 pub use runtime_store::{with_runtime_store, Scene3DRuntimeEntry, Scene3DRuntimeStore};

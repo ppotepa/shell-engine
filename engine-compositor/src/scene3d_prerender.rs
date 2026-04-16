@@ -5,7 +5,7 @@ use engine_core::buffer::Buffer;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    prerender_scene3d_atlas_with, render_scene3d_frame_at_with, render_work_item_canvas_with,
+    prerender_scene3d_atlas_with, render_scene3d_frame_at_with, render_work_item_buffer_with,
     Scene3DWorkItem,
 };
 
@@ -19,36 +19,30 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
 }
 
 fn render_frame(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
-    let mut buf = Buffer::new(item.viewport_w, item.viewport_h);
-    let (virtual_w, virtual_h) = virtual_dimensions(item.viewport_w, item.viewport_h);
-    let Some(canvas) = render_work_item_canvas_with(
+    render_work_item_buffer_with(
         item,
         asset_root,
-        virtual_w,
-        virtual_h,
+        virtual_dimensions,
         render_obj_to_shared_buffers,
-    ) else {
-        return Some(buf);
-    };
-
-    blit_color_canvas(
-        &mut buf,
-        &canvas.colors,
-        canvas.virtual_w,
-        canvas.virtual_h,
-        item.viewport_w,
-        item.viewport_h,
-        0,
-        0,
-        false,
-        '#',
-        Color::White,
-        Color::Reset,
-        0,
-        canvas.virtual_h as usize,
-    );
-
-    Some(buf)
+        |buf, canvas, viewport_w, viewport_h| {
+            blit_color_canvas(
+                buf,
+                &canvas.colors,
+                canvas.virtual_w,
+                canvas.virtual_h,
+                viewport_w,
+                viewport_h,
+                0,
+                0,
+                false,
+                '#',
+                Color::White,
+                Color::Reset,
+                0,
+                canvas.virtual_h as usize,
+            );
+        },
+    )
 }
 
 /// Render a single frame of a Scene3D clip at a given `elapsed_ms` within the clip's timeline.

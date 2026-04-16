@@ -74,3 +74,43 @@ where
         colors: canvas,
     })
 }
+
+pub fn render_work_item_buffer_with<FV, FR, FB>(
+    item: &Scene3DWorkItem,
+    asset_root: &AssetRoot,
+    virtual_dimensions: FV,
+    render_object: FR,
+    blit_canvas: FB,
+) -> Option<engine_core::buffer::Buffer>
+where
+    FV: FnOnce(u16, u16) -> (u16, u16),
+    FR: FnMut(
+        &str,
+        u16,
+        u16,
+        crate::ObjRenderParams,
+        bool,
+        bool,
+        engine_core::color::Color,
+        Option<&AssetRoot>,
+        &mut [Option<[u8; 3]>],
+        &mut [f32],
+    ),
+    FB: FnOnce(
+        &mut engine_core::buffer::Buffer,
+        &Scene3DColorCanvas,
+        u16,
+        u16,
+    ),
+{
+    let mut buf = engine_core::buffer::Buffer::new(item.viewport_w, item.viewport_h);
+    let (virtual_w, virtual_h) = virtual_dimensions(item.viewport_w, item.viewport_h);
+    let Some(canvas) =
+        render_work_item_canvas_with(item, asset_root, virtual_w, virtual_h, render_object)
+    else {
+        return Some(buf);
+    };
+
+    blit_canvas(&mut buf, &canvas, item.viewport_w, item.viewport_h);
+    Some(buf)
+}

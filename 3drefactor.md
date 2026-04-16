@@ -311,6 +311,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D per-frame item construction (`frame_name + elapsed_ms + camera override` -> `Scene3DWorkItem`) into `engine-render-3d::prerender::frame_item`.
 - [x] Add Scene3D single-frame render orchestration seam in `engine-render-3d::prerender::pipeline::render_scene3d_frame_at_with`; compositor now delegates orchestration and keeps only raster callback.
 - [x] Move Scene3D work-item object pass execution (solid pass + wireframe pass + depth-buffer ownership) into `engine-render-3d::prerender::render_item::render_work_item_canvas_with`.
+- [x] Move Scene3D `work item -> Buffer` orchestration into `engine-render-3d::prerender::render_item::render_work_item_buffer_with` (compositor now provides only technical callbacks: dimensions, object raster call, blit).
 
 ## Definition of Done
 
