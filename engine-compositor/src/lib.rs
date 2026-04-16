@@ -12,6 +12,7 @@ pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
 pub mod layer_compositor;
+mod obj_render_adapter;
 pub mod obj_loader;
 pub mod obj_prerender;
 pub mod obj_render;

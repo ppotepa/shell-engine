@@ -286,6 +286,7 @@ These are the tasks to start with immediately.
 - [x] Route `Obj` sprite base source/transform (`source/position/rotation/scale`) through typed node mapping.
 - [x] Rename renderer delegate surface from `scene3d` to agnostic `scene_clip`.
 - [x] Rename internal compositor 3D scene clip renderer entrypoint to `render_scene_clip_sprite`.
+- [x] Move `Obj` sprite render mapping/execution out of `sprite_renderer_3d` into dedicated `obj_render_adapter` module.
 
 ## Definition of Done
 
