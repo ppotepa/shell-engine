@@ -4,7 +4,7 @@ use crate::scene::Scene;
 use crate::scene_pipeline::ScenePreparationStep;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
-use engine_compositor::warmup_scene_meshes;
+use engine_render_3d::prerender::warmup_scene_meshes;
 
 /// Scene preparation step: pre-loads all OBJ meshes in parallel before rendering.
 ///

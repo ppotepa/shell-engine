@@ -17,6 +17,7 @@ engine-3d = { path = "../engine-3d" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
 engine-render = { path = "../engine-render" }
+engine-render-3d = { path = "../engine-render-3d" }
 engine-render-sdl2 = { path = "../engine-render-sdl2", optional = true }
 engine-render-policy = { path = "../engine-render-policy" }
 engine-runtime = { path = "../engine-runtime" }

@@ -46,28 +46,15 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `engine-scene-runtime/src/behavior_runner.rs:561`,
   `engine-scene-runtime/src/behavior_runner.rs:576`,
   `engine-scene-runtime/src/materialization.rs:363`.
-- `render3d_state.rs` target module is still missing:
-  `engine-scene-runtime/src/lib.rs:16` through
-  `engine-scene-runtime/src/lib.rs:26` (module list has no `render3d_state`);
-  file absent: `engine-scene-runtime/src/render3d_state.rs`.
 - `engine-compositor` still owns render-domain logic instead of only frame
   assembly:
+  `engine-compositor/src/lib.rs:16`,
+  `engine-compositor/src/lib.rs:17`,
   `engine-compositor/src/lib.rs:18`,
-  `engine-compositor/src/lib.rs:25`,
-  `engine-compositor/src/lib.rs:27`,
-  `engine-compositor/src/scene_compositor.rs:23`,
-  `engine-compositor/src/layer_compositor.rs:168`,
-  `engine-compositor/src/sprite_renderer_2d.rs:133`,
-  `engine-compositor/src/obj_render.rs:1798`.
-- Image decode/cache ownership is not moved to `engine-asset`:
-  `engine-render/src/image_loader.rs:103`,
-  `engine-render/src/image_loader.rs:127`,
-  `engine-render/src/image_loader.rs:137`,
-  `engine-render/src/image_loader.rs:199`,
-  `engine-render/src/image_loader.rs:205`,
-  `engine-render-2d/src/image.rs:7`,
-  `engine-render-2d/src/image.rs:68`,
-  `engine-render-2d/src/image.rs:123`.
+  `engine-compositor/src/lib.rs:23`,
+  `engine-compositor/src/obj_render.rs:1795`,
+  `engine-compositor/src/prerender.rs:10`,
+  `engine-compositor/src/scene3d_prerender.rs:15`.
 - New 3D authoring document surface exists but is not yet the compile source of
   truth:
   `engine-authoring/src/document/render_scene3d.rs:9`,
@@ -77,9 +64,6 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `engine-authoring/src/compile/render_scene.rs:56`,
   `engine-authoring/src/compile/scene.rs:87`,
   `engine-authoring/src/compile/scene.rs:88`.
-- Dirty-mask diagnostics are still mask-only (no rebuild-cause/count telemetry):
-  `engine-scene-runtime/src/dirty_tracking.rs:5`,
-  `engine-scene-runtime/src/dirty_tracking.rs:20`.
 
 ## End State
 
@@ -322,6 +306,7 @@ PR0 baseline references:
 - [ ] Remove direct render-domain logic from `engine-compositor`.
 - [ ] Keep only frame composition concerns.
 - [ ] Narrow public compositor APIs to frame assembly inputs.
+- [x] Move mesh warmup ownership to `engine-render-3d::prerender`.
 
 ### PR8 - Public Typed API
 
@@ -381,6 +366,7 @@ These are the tasks to start with immediately.
 - [x] Add Scene3D single-frame render orchestration seam in `engine-render-3d::prerender::pipeline::render_scene3d_frame_at_with`; compositor now delegates orchestration and keeps only raster callback.
 - [x] Move Scene3D work-item object pass execution (solid pass + wireframe pass + depth-buffer ownership) into `engine-render-3d::prerender::render_item::render_work_item_canvas_with`.
 - [x] Move Scene3D `work item -> Buffer` orchestration into `engine-render-3d::prerender::render_item::render_work_item_buffer_with` (compositor now provides only technical callbacks: dimensions, object raster call, blit).
+- [x] Move mesh warmup entrypoint from `engine-compositor` to `engine-render-3d::prerender::warmup_scene_meshes`; `engine` warmup system now depends on the 3D domain seam directly.
 - [x] Remove remaining mod-flavoured sample Scene3D source literals in engine tests (`demo.scene3d.yml` -> `sample.scene3d.yml`) to keep renderer/runtime test fixtures domain-agnostic.
 - [x] Extract `Sprite::Obj` field unpacking into `engine-render-3d::pipeline::obj_sprite_spec` and consume it from compositor adapter (reduce render-semantic coupling to authored sprite internals).
 - [x] Extract `Sprite::Planet` field unpacking into `engine-render-3d::pipeline::generated_world_sprite_spec` and consume it from compositor adapter (keep generated-world path renderer-agnostic).

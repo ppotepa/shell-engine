@@ -12,6 +12,7 @@ pub mod scene3d_atlas;
 pub mod scene3d_prerender;
 pub mod scene_sources;
 pub mod tween_eval;
+pub mod warmup;
 pub mod work_items;
 
 pub use camera_basis::look_at_basis;
@@ -31,4 +32,5 @@ pub use scene_sources::{collect_scene3d_sources, load_and_resolve_scene3d};
 pub use tween_eval::{
     evaluate_tween_values, resolve_camera_frame_state, CameraFrameState, TweenValues,
 };
+pub use warmup::warmup_scene_meshes;
 pub use work_items::{build_work_items, Scene3DWorkItem};

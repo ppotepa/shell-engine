@@ -235,14 +235,10 @@ impl ScriptSceneApi {
         if template.trim().is_empty() || target.trim().is_empty() {
             return false;
         }
-        let Ok(mut queue) = self.queue.lock() else {
-            return false;
-        };
-        queue.push(BehaviorCommand::SceneSpawn {
+        self.enqueue_scene_mutation(SceneMutationRequest::SpawnObject {
             template: template.to_string(),
             target: target.to_string(),
-        });
-        true
+        })
     }
 
     /// Despawn a scene object.
@@ -250,13 +246,9 @@ impl ScriptSceneApi {
         if target.trim().is_empty() {
             return false;
         }
-        let Ok(mut queue) = self.queue.lock() else {
-            return false;
-        };
-        queue.push(BehaviorCommand::SceneDespawn {
+        self.enqueue_scene_mutation(SceneMutationRequest::DespawnObject {
             target: target.to_string(),
-        });
-        true
+        })
     }
 
     /// Set vector sprite points and colors.
@@ -542,6 +534,43 @@ mod tests {
                     dx: None,
                     dy: None,
                     text: None,
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn spawn_and_despawn_enqueue_typed_mutations() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        assert!(api.spawn("enemy-basic", "enemy-01"));
+        assert!(api.despawn("enemy-01"));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 2);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SpawnObject {
+                    template: "enemy-basic".to_string(),
+                    target: "enemy-01".to_string(),
+                },
+            }
+        );
+        assert_eq!(
+            queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::DespawnObject {
+                    target: "enemy-01".to_string(),
                 },
             }
         );

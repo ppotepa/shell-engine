@@ -250,7 +250,7 @@ struct BehaviorBinding {
 
 #[cfg(test)]
 mod tests {
-    use super::SceneRuntime;
+    use super::{ObjOrbitCameraState, SceneRuntime};
     use engine_api::scene::{Render3dMutationRequest, SceneMutationRequest};
     use engine_behavior::BehaviorCommand;
     use engine_core::game_object::GameObjectKind;
@@ -546,6 +546,58 @@ layers:
             .to_string();
         let live_object = runtime.object(&live_id).expect("spawned object");
         assert!(matches!(live_object.kind, GameObjectKind::VectorSprite));
+    }
+
+    #[test]
+    fn typed_spawn_and_despawn_requests_follow_runtime_spawn_pipeline() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: spawn-clone-typed
+title: Spawn Clone Typed
+layers:
+  - name: main
+    sprites:
+      - type: vector
+        id: rock-template
+        points: [[0, 0], [2, 0], [1, 1]]
+      - type: text
+        id: hud
+        content: HUD
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SpawnObject {
+                    template: "rock-template".to_string(),
+                    target: "rock-live".to_string(),
+                },
+            }],
+        );
+
+        assert!(runtime
+            .target_resolver()
+            .resolve_alias("rock-live")
+            .is_some());
+
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::DespawnObject {
+                    target: "rock-live".to_string(),
+                },
+            }],
+        );
+
+        assert!(runtime
+            .target_resolver()
+            .resolve_alias("rock-live")
+            .is_none());
     }
 
     #[test]
@@ -1433,5 +1485,49 @@ layers:
             })
             .expect("orbit speed");
         assert!((speed_on - 14.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn step_orbit_camera_applies_typed_obj_camera_fields() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        runtime.orbit_camera = Some(ObjOrbitCameraState {
+            target: "helsinki-uni-wireframe".to_string(),
+            active: true,
+            yaw: 24.0,
+            pitch: -15.0,
+            distance: 42.0,
+            pitch_min: -85.0,
+            pitch_max: 85.0,
+            distance_min: 0.3,
+            distance_max: 10.0,
+            distance_step: 0.5,
+            drag_sensitivity: 0.5,
+            last_mouse_pos: None,
+        });
+
+        assert!(runtime.step_orbit_camera());
+
+        let obj_fields = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    yaw_deg,
+                    pitch_deg,
+                    camera_distance,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => {
+                    Some((*yaw_deg, *pitch_deg, *camera_distance))
+                }
+                _ => None,
+            })
+            .expect("orbit camera fields");
+
+        assert_eq!(obj_fields.0, Some(24.0));
+        assert_eq!(obj_fields.1, Some(-15.0));
+        assert_eq!(obj_fields.2, Some(10.0));
     }
 }

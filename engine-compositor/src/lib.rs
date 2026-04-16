@@ -25,7 +25,6 @@ mod scene_clip_render_adapter;
 pub mod scene_compositor;
 pub mod sprite_renderer_2d;
 pub mod systems;
-pub mod warmup;
 
 pub use access::CompositorAccess;
 pub use buffer_pool::{
@@ -47,7 +46,6 @@ pub use provider::CompositorProvider;
 pub use scene3d_prerender::{prerender_scene3d_atlas, render_scene3d_frame_at};
 pub use scene_compositor::{prepare_layer_timed_visibility, CompositeParams};
 pub use systems::postfx;
-pub use warmup::warmup_scene_meshes;
 
 /// Clear the per-frame vector primitive collector (call before compositing).
 pub fn clear_vector_primitives() {

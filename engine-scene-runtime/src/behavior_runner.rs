@@ -399,7 +399,17 @@ impl SceneRuntime {
                 BehaviorCommand::SetOffset { .. } => {}
                 BehaviorCommand::SetText { .. } => {}
                 BehaviorCommand::SetProps { .. } => {}
-                BehaviorCommand::ApplySceneMutation { .. } => {}
+                BehaviorCommand::ApplySceneMutation { request } => match request {
+                    engine_api::scene::SceneMutationRequest::SpawnObject { template, target } => {
+                        if self.spawn_runtime_clone(resolver, template, target) {
+                            had_spawns = true;
+                        }
+                    }
+                    engine_api::scene::SceneMutationRequest::DespawnObject { target } => {
+                        pending_despawns.push(target.clone());
+                    }
+                    _ => {}
+                },
                 BehaviorCommand::SetProperty {
                     target,
                     path,
@@ -699,6 +709,13 @@ impl SceneRuntime {
                 self.scene_camera_3d,
             ),
             BehaviorCommand::ApplySceneMutation { request } => {
+                if matches!(
+                    request,
+                    engine_api::scene::SceneMutationRequest::SpawnObject { .. }
+                        | engine_api::scene::SceneMutationRequest::DespawnObject { .. }
+                ) {
+                    return None;
+                }
                 scene_mutation_from_request(request, self.scene_camera_3d)
             }
             _ => None,

@@ -33,7 +33,13 @@ impl SceneRuntime {
         if active {
             let (mut dist, dist_min, dist_max, step, target) = {
                 let s = self.orbit_camera.as_ref().unwrap();
-                (s.distance, s.distance_min, s.distance_max, s.distance_step, s.target.clone())
+                (
+                    s.distance,
+                    s.distance_min,
+                    s.distance_max,
+                    s.distance_step,
+                    s.target.clone(),
+                )
             };
             let mut changed = false;
             for key in key_presses {
@@ -51,8 +57,7 @@ impl SceneRuntime {
             }
             if changed {
                 self.orbit_camera.as_mut().unwrap().distance = dist;
-                let v = serde_json::Value::from(dist as f64);
-                let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v);
+                let _ = self.set_obj_orbit_camera_fields(&target, None, None, Some(dist));
             }
         }
 
@@ -71,7 +76,13 @@ impl SceneRuntime {
         }
         let (mut dist, dist_min, dist_max, step, target) = {
             let s = self.orbit_camera.as_ref().unwrap();
-            (s.distance, s.distance_min, s.distance_max, s.distance_step, s.target.clone())
+            (
+                s.distance,
+                s.distance_min,
+                s.distance_max,
+                s.distance_step,
+                s.target.clone(),
+            )
         };
         let mut changed = false;
         for &dy in scroll_deltas {
@@ -85,8 +96,7 @@ impl SceneRuntime {
         }
         if changed {
             self.orbit_camera.as_mut().unwrap().distance = dist;
-            let v = serde_json::Value::from(dist as f64);
-            let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v);
+            let _ = self.set_obj_orbit_camera_fields(&target, None, None, Some(dist));
         }
     }
 
@@ -141,8 +151,8 @@ impl SceneRuntime {
 
     /// Apply orbit camera state to its target sprite each frame.
     ///
-    /// Writes `obj.yaw`, `obj.pitch`, and `obj.camera-distance` to position the camera
-    /// around the target sprite. Does not override auto-rotation — Rhai controls that.
+    /// Updates target OBJ orbit-camera fields (yaw, pitch, distance) to position the
+    /// camera around the target sprite. Does not override auto-rotation — Rhai controls that.
     pub fn step_orbit_camera(&mut self) -> bool {
         let Some(state) = self.orbit_camera.as_ref() else {
             return false;
@@ -153,14 +163,42 @@ impl SceneRuntime {
         let (target, yaw, pitch, dist) =
             (state.target.clone(), state.yaw, state.pitch, state.distance);
 
-        let v_yaw = serde_json::Value::from(yaw as f64);
-        let v_pitch = serde_json::Value::from(pitch as f64);
-        let v_dist = serde_json::Value::from(dist as f64);
-
-        let _ = self.set_obj_sprite_property(&target, "obj.yaw", &v_yaw);
-        let _ = self.set_obj_sprite_property(&target, "obj.pitch", &v_pitch);
-        let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v_dist);
+        let _ = self.set_obj_orbit_camera_fields(&target, Some(yaw), Some(pitch), Some(dist));
         true
+    }
+
+    fn set_obj_orbit_camera_fields(
+        &mut self,
+        sprite_id: &str,
+        yaw_deg: Option<f32>,
+        pitch_deg: Option<f32>,
+        camera_distance: Option<f32>,
+    ) -> bool {
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                if set_obj_orbit_camera_fields_recursive(
+                    &mut layer.sprites,
+                    sprite_id,
+                    yaw_deg,
+                    pitch_deg,
+                    camera_distance,
+                ) {
+                    return true;
+                }
+            }
+        }
+        for layer in &mut self.scene.layers {
+            if set_obj_orbit_camera_fields_recursive(
+                &mut layer.sprites,
+                sprite_id,
+                yaw_deg,
+                pitch_deg,
+                camera_distance,
+            ) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
@@ -502,6 +540,68 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
         }
     }
     None
+}
+
+fn set_obj_orbit_camera_fields_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    yaw_deg: Option<f32>,
+    pitch_deg: Option<f32>,
+    camera_distance: Option<f32>,
+) -> bool {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                yaw_deg: current_yaw,
+                pitch_deg: current_pitch,
+                camera_distance: current_distance,
+                ..
+            } if id == sprite_id => {
+                let mut updated = false;
+                if let Some(next_yaw) = yaw_deg {
+                    if current_yaw.map_or(true, |current| (current - next_yaw).abs() > f32::EPSILON)
+                    {
+                        *current_yaw = Some(next_yaw);
+                        updated = true;
+                    }
+                }
+                if let Some(next_pitch) = pitch_deg {
+                    if current_pitch
+                        .map_or(true, |current| (current - next_pitch).abs() > f32::EPSILON)
+                    {
+                        *current_pitch = Some(next_pitch);
+                        updated = true;
+                    }
+                }
+                if let Some(next_distance) = camera_distance {
+                    let clamped = next_distance.clamp(0.3, 10.0);
+                    if current_distance
+                        .map_or(true, |current| (current - clamped).abs() > f32::EPSILON)
+                    {
+                        *current_distance = Some(clamped);
+                        updated = true;
+                    }
+                }
+                return updated;
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if set_obj_orbit_camera_fields_recursive(
+                    children,
+                    sprite_id,
+                    yaw_deg,
+                    pitch_deg,
+                    camera_distance,
+                ) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn is_free_look_toggle(key: &KeyEvent) -> bool {
