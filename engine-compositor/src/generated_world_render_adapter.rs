@@ -8,7 +8,7 @@ use engine_core::effects::Region;
 use engine_core::scene::{CameraSource, Sprite};
 use engine_core::scene_runtime_types::{ObjectRuntimeState, SceneCamera3D, TargetResolver};
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
-use engine_render_3d::pipeline::{extract_generated_world_sprite_spec, map_sprite_to_node3d};
+use engine_render_3d::pipeline::extract_generated_world_sprite_spec;
 use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
@@ -28,14 +28,11 @@ pub(crate) fn render_generated_world_sprite(
     sprite_elapsed: u64,
     ctx: &mut RenderCtx<'_>,
 ) {
-    let Some(node) = map_sprite_to_node3d(sprite) else {
-        return;
-    };
-    let Renderable3D::GeneratedWorld(generated_world) = &node.renderable else {
-        return;
-    };
-
     let Some(spec) = extract_generated_world_sprite_spec(sprite) else {
+        return;
+    };
+    let node = spec.node;
+    let Renderable3D::GeneratedWorld(generated_world) = node.renderable else {
         return;
     };
 

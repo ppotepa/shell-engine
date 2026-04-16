@@ -1,7 +1,10 @@
+use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D};
+use engine_core::render_types::Transform3D;
 use engine_core::scene::{CameraSource, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
 
 #[derive(Debug, Clone)]
 pub struct GeneratedWorldSpriteSpec {
+    pub node: Node3DInstance,
     pub size: Option<SpriteSizePreset>,
     pub width: Option<u16>,
     pub height: Option<u16>,
@@ -22,6 +25,17 @@ pub struct GeneratedWorldSpriteSpec {
 
 pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedWorldSpriteSpec> {
     let Sprite::Planet {
+        id,
+        body_id,
+        preset,
+        mesh_source,
+        x,
+        y,
+        scale,
+        pitch_deg,
+        yaw_deg,
+        roll_deg,
+        visible,
         size,
         width,
         height,
@@ -45,6 +59,32 @@ pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedW
     };
 
     Some(GeneratedWorldSpriteSpec {
+        node: Node3DInstance {
+            id: id
+                .clone()
+                .unwrap_or_else(|| format!("planet-{body_id}")),
+            transform: Transform3D {
+                translation: [*x as f32, *y as f32, 0.0],
+                rotation_deg: [
+                    pitch_deg.unwrap_or(0.0),
+                    yaw_deg.unwrap_or(0.0),
+                    roll_deg.unwrap_or(0.0),
+                ],
+                scale: [
+                    scale.unwrap_or(1.0),
+                    scale.unwrap_or(1.0),
+                    scale.unwrap_or(1.0),
+                ],
+            },
+            visible: *visible,
+            renderable: Renderable3D::GeneratedWorld(GeneratedWorldInstance {
+                body_id: body_id.clone(),
+                preset_id: preset.clone(),
+                mesh_source: mesh_source.clone(),
+                params_uri: None,
+                material: None,
+            }),
+        },
         size: *size,
         width: *width,
         height: *height,
@@ -67,6 +107,7 @@ pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedW
 #[cfg(test)]
 mod tests {
     use super::extract_generated_world_sprite_spec;
+    use crate::scene::Renderable3D;
     use engine_core::scene::{
         CameraSource, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign,
     };
@@ -114,6 +155,17 @@ align-y: bottom
         assert_eq!(spec.sun_dir_z, Some(0.25));
         assert!(matches!(spec.align_x, Some(HorizontalAlign::Center)));
         assert!(matches!(spec.align_y, Some(VerticalAlign::Bottom)));
+        assert_eq!(spec.node.id, "planet-earth");
+        assert_eq!(spec.node.transform.translation, [0.0, 0.0, 0.0]);
+        assert_eq!(spec.node.transform.rotation_deg, [0.0, 0.0, 0.0]);
+        assert_eq!(spec.node.transform.scale, [1.0, 1.0, 1.0]);
+        assert!(spec.node.visible);
+        match &spec.node.renderable {
+            Renderable3D::GeneratedWorld(world) => {
+                assert_eq!(world.body_id, "earth");
+            }
+            _ => panic!("expected generated world renderable"),
+        }
     }
 
     #[test]

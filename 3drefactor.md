@@ -218,7 +218,7 @@ PR0 baseline references:
 
 - [x] Add concrete scene graph types to `engine-render-3d`.
 - [x] Map authored 3D sprite forms directly into scene graph nodes.
-- [ ] Stop unpacking full 3D semantics directly inside sprite rendering.
+- [x] Stop unpacking full 3D semantics directly inside sprite rendering.
 
 ### PR3 - Move Scene3D Prerender into 3D Domain
 
@@ -318,6 +318,8 @@ These are the tasks to start with immediately.
 - [x] Extract `Sprite::Obj` field unpacking into `engine-render-3d::pipeline::obj_sprite_spec` and consume it from compositor adapter (reduce render-semantic coupling to authored sprite internals).
 - [x] Extract `Sprite::Planet` field unpacking into `engine-render-3d::pipeline::generated_world_sprite_spec` and consume it from compositor adapter (keep generated-world path renderer-agnostic).
 - [x] Extract `Sprite::Scene3D` field unpacking into `engine-render-3d::pipeline::scene_clip_sprite_spec` and route scene-clip node mapping through typed spec extraction.
+- [x] Update `scene_clip_render_adapter` to consume `extract_scene_clip_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
+- [x] Update `generated_world_render_adapter` to consume `extract_generated_world_sprite_spec(...).node` directly instead of `map_sprite_to_node3d(...)`.
 
 ## Definition of Done
 

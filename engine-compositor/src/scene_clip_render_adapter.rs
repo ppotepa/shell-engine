@@ -1,9 +1,9 @@
 use engine_core::effects::Region;
 use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::ObjectRuntimeState;
-use engine_render_3d::pipeline::map_sprite_to_node3d;
-use engine_render_3d::scene::Renderable3D;
 use engine_render_2d::RenderArea;
+use engine_render_3d::pipeline::extract_scene_clip_sprite_spec;
+use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
 
 use super::render::RenderCtx;
@@ -16,12 +16,14 @@ pub(crate) fn render_scene_clip_sprite(
     object_regions: &mut HashMap<String, Region>,
     ctx: &mut RenderCtx<'_>,
 ) {
-    let Some(node) = map_sprite_to_node3d(sprite) else {
+    let Some(spec) = extract_scene_clip_sprite_spec(sprite) else {
         return;
     };
+    let node = spec.node;
     let Renderable3D::SceneClip(scene_clip) = node.renderable else {
         return;
     };
+
     use crate::Scene3DAtlas;
     use crate::Scene3DRuntimeStore;
     use engine_render::rasterizer::blit;
@@ -37,9 +39,10 @@ pub(crate) fn render_scene_clip_sprite(
         .saturating_add(object_state.offset_y)
         .max(0) as u16;
 
-    let rendered_realtime = if let (Some(entry), Some(asset_root)) =
-        (Scene3DRuntimeStore::current_get(&scene_clip.source), ctx.asset_root)
-    {
+    let rendered_realtime = if let (Some(entry), Some(asset_root)) = (
+        Scene3DRuntimeStore::current_get(&scene_clip.source),
+        ctx.asset_root,
+    ) {
         if entry.def.frames.contains_key(scene_clip.frame.as_str()) {
             let buf = crate::scene3d_prerender::render_scene3d_frame_at(
                 entry,
