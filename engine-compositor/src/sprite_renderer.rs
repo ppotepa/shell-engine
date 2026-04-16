@@ -1620,7 +1620,8 @@ fn render_obj_sprite(
             heightmap_w: 0,
             heightmap_h: 0,
             heightmap_blend: 0.0,
-            depth_sort_faces: effective_source.starts_with("world://"),
+            // Opaque OBJ/world meshes rely on the depth buffer; transparent layers use dedicated RGBA paths.
+            depth_sort_faces: false,
         },
         is_wireframe,
         backface_cull.unwrap_or(false),

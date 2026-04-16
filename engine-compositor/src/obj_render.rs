@@ -1132,14 +1132,35 @@ pub fn render_obj_to_rgba_canvas(
 
     let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
 
-    // Sort faces back-to-front.
+    // Backface cull first, then sort only when transparent geometry explicitly requests it.
     let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
         .faces
         .iter()
-        .map(|f| (face_avg_depth(&projected, f), f))
+        .filter(|f| {
+            if !backface_cull {
+                return true;
+            }
+            let v0 = projected.get(f.indices[0]).and_then(|p| *p);
+            let v1 = projected.get(f.indices[1]).and_then(|p| *p);
+            let v2 = projected.get(f.indices[2]).and_then(|p| *p);
+            match (v0, v1, v2) {
+                (Some(v0), Some(v1), Some(v2)) => edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0,
+                _ => false,
+            }
+        })
+        .map(|f| {
+            let key = if params.depth_sort_faces {
+                face_avg_depth(&projected, f)
+            } else {
+                0.0
+            };
+            (key, f)
+        })
         .collect();
-    sorted_faces
-        .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    if params.depth_sort_faces {
+        sorted_faces
+            .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    }
     let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
     let unlit = params.unlit;
 
@@ -1463,10 +1484,31 @@ fn render_mesh_projected(
         let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
             .faces
             .iter()
-            .map(|f| (face_avg_depth(&projected, f), f))
+            .filter(|f| {
+                if !backface_cull {
+                    return true;
+                }
+                let v0 = projected.get(f.indices[0]).and_then(|p| *p);
+                let v1 = projected.get(f.indices[1]).and_then(|p| *p);
+                let v2 = projected.get(f.indices[2]).and_then(|p| *p);
+                match (v0, v1, v2) {
+                    (Some(v0), Some(v1), Some(v2)) => edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0,
+                    _ => false,
+                }
+            })
+            .map(|f| {
+                let key = if params.depth_sort_faces {
+                    face_avg_depth(&projected, f)
+                } else {
+                    0.0
+                };
+                (key, f)
+            })
             .collect();
-        sorted_faces
-            .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        if params.depth_sort_faces {
+            sorted_faces
+                .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        }
 
         let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
         let light_point_y = params.light_point_y;
