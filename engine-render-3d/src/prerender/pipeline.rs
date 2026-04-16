@@ -4,9 +4,11 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::logging;
 use engine_core::scene::Scene;
+use engine_core::scene_runtime_types::SceneCamera3D;
 
 use super::{
-    build_work_items, collect_scene3d_sources, load_and_resolve_scene3d, Scene3DAtlas, Scene3DWorkItem,
+    build_scene3d_frame_item_at, build_work_items, collect_scene3d_sources, load_and_resolve_scene3d,
+    Scene3DAtlas, Scene3DRuntimeEntry, Scene3DWorkItem,
 };
 
 pub fn prerender_scene3d_atlas_with<F>(
@@ -75,4 +77,19 @@ where
     );
 
     Some(atlas)
+}
+
+pub fn render_scene3d_frame_at_with<F>(
+    entry: &Scene3DRuntimeEntry,
+    frame_name: &str,
+    elapsed_ms: u64,
+    asset_root: &AssetRoot,
+    camera_override: Option<&SceneCamera3D>,
+    render_frame: F,
+) -> Option<Buffer>
+where
+    F: Fn(&Scene3DWorkItem, &AssetRoot) -> Option<Buffer>,
+{
+    let item = build_scene3d_frame_item_at(entry, frame_name, elapsed_ms, camera_override)?;
+    render_frame(&item, asset_root)
 }

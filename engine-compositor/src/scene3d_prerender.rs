@@ -5,7 +5,7 @@ use engine_core::buffer::Buffer;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    build_scene3d_frame_item_at, prerender_scene3d_atlas_with, Scene3DWorkItem,
+    prerender_scene3d_atlas_with, render_scene3d_frame_at_with, Scene3DWorkItem,
 };
 
 use crate::{
@@ -88,7 +88,12 @@ pub fn render_scene3d_frame_at(
     asset_root: &AssetRoot,
     camera_override: Option<&SceneCamera3D>,
 ) -> Option<Buffer> {
-    let item = build_scene3d_frame_item_at(entry, frame_name, elapsed_ms, camera_override)?;
-
-    render_frame(&item, asset_root)
+    render_scene3d_frame_at_with(
+        entry,
+        frame_name,
+        elapsed_ms,
+        asset_root,
+        camera_override,
+        render_frame,
+    )
 }

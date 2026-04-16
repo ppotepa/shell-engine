@@ -309,6 +309,7 @@ These are the tasks to start with immediately.
 - [x] Move Scene3D prerender work-item planning (`Scene3DWorkItem` + `build_work_items`) into `engine-render-3d::prerender::work_items`.
 - [x] Move Scene3D atlas prerender pipeline loop (source scan/load/parallel render/cache fill) into `engine-render-3d::prerender::pipeline::prerender_scene3d_atlas_with`, leaving compositor as render callback provider.
 - [x] Move Scene3D per-frame item construction (`frame_name + elapsed_ms + camera override` -> `Scene3DWorkItem`) into `engine-render-3d::prerender::frame_item`.
+- [x] Add Scene3D single-frame render orchestration seam in `engine-render-3d::prerender::pipeline::render_scene3d_frame_at_with`; compositor now delegates orchestration and keeps only raster callback.
 
 ## Definition of Done
 
