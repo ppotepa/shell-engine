@@ -65,11 +65,11 @@ stop pushing rendering semantics through `Sprite::Obj`.
 
 ### engine-scene-runtime
 
-- [ ] Add `mutations.rs`.
+- [x] Add `mutations.rs`.
 - [ ] Add `render3d_state.rs`.
-- [ ] Add `dirty_tracking.rs`.
+- [x] Add `dirty_tracking.rs`.
 - [ ] Keep `SceneRuntime` as the object graph and mutation center.
-- [ ] Add typed 3D mutations.
+- [x] Add typed 3D mutations.
 - [ ] Collapse mutation handling toward one typed implementation path.
 
 ### engine-render-2d
@@ -147,8 +147,8 @@ stop pushing rendering semantics through `Sprite::Obj`.
 - [x] Define `Render2dInput`.
 - [x] Define `Render3dInput`.
 - [x] Define `Render3dOutput`.
-- [ ] Define `SceneMutation`.
-- [ ] Define `Render3DMutation`.
+- [x] Define `SceneMutation`.
+- [x] Define `Render3DMutation`.
 - [ ] Define `MeshBuildKey`.
 
 ## Migration Rules
@@ -237,8 +237,8 @@ PR0 baseline references:
 
 ### PR5 - Typed Runtime Mutations
 
-- [ ] Add typed scene mutations.
-- [ ] Add typed 3D mutations.
+- [x] Add typed scene mutations.
+- [x] Add typed 3D mutations.
 - [ ] Collapse `SetProperty` handling onto typed mutations without a second
       runtime path.
 - [ ] Wire dirty flag updates from typed mutations.
@@ -258,7 +258,7 @@ PR0 baseline references:
 
 ### PR8 - Public Typed API
 
-- [ ] Add typed public scene mutation APIs in `engine-api`.
+- [x] Add typed public scene mutation APIs in `engine-api`.
 - [ ] Retire string-path setters after typed APIs take over.
 - [ ] Update scripting documentation when the typed API lands.
 

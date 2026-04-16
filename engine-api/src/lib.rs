@@ -37,4 +37,7 @@ pub use rhai::conversion::{
     map_int, map_number, map_set_path_dynamic, map_string, merge_rhai_maps, normalize_set_path,
     region_to_rhai_map, rhai_dynamic_to_json,
 };
-pub use scene::{register_scene_api, ScriptObjectApi, ScriptSceneApi};
+pub use scene::{
+    register_scene_api, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
+    ScriptObjectApi, ScriptSceneApi,
+};

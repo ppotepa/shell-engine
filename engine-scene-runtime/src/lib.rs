@@ -17,12 +17,15 @@ pub mod access;
 pub mod behavior_runner;
 pub mod camera_3d;
 pub mod construction;
+pub mod dirty_tracking;
 pub mod lifecycle_controls;
 pub mod materialization;
+pub mod mutations;
 pub mod object_graph;
 pub mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
+pub use dirty_tracking::{dirty_for_render3d_mutation, dirty_for_scene_mutation};
 use engine_animation::SceneStage;
 use engine_behavior::{
     built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, RhaiScriptBehavior,
@@ -40,6 +43,7 @@ pub use engine_core::scene_runtime_types::{
     TargetResolver,
 };
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+pub use mutations::{Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -1022,9 +1026,9 @@ layers:
             .iter()
             .flat_map(|layer| layer.sprites.iter())
             .find_map(|sprite| match sprite {
-                Sprite::Scene3D {
-                    id, frame, ..
-                } if id.as_deref() == Some("intro-view") => Some(frame.as_str()),
+                Sprite::Scene3D { id, frame, .. } if id.as_deref() == Some("intro-view") => {
+                    Some(frame.as_str())
+                }
                 _ => None,
             })
             .expect("scene3d frame");
@@ -1110,5 +1114,4 @@ layers:
             .expect("orbit speed");
         assert!((speed_on - 14.0).abs() < f32::EPSILON);
     }
-
 }
