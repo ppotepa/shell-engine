@@ -4,7 +4,7 @@
 //! Real-time rendering path:
 //! 1. At scene preparation time [`Scene3DPrerenderStep`] builds this store alongside the atlas.
 //! 2. The compositor injects it via [`with_runtime_store`] for the duration of each frame.
-//! 3. [`render_scene3d_sprite`] checks if the requested `frame` is a live clip name in this store;
+//! 3. [`render_scene_clip_sprite`] checks if the requested `frame` is a live clip name in this store;
 //!    if so it calls [`render_scene3d_frame_at`] to render on demand at the current `elapsed_ms`.
 //!
 //! Thread-local pointer pattern mirrors `Scene3DAtlas` — zero allocation / zero borrow on lookup.
@@ -19,7 +19,7 @@ pub struct Scene3DRuntimeEntry {
 }
 
 /// World resource: parsed Scene3D definitions for all `.scene3d.yml` sources referenced by the
-/// active scene. Used by the real-time rendering path in [`render_scene3d_sprite`].
+/// active scene. Used by the real-time rendering path in [`render_scene_clip_sprite`].
 #[derive(Default)]
 pub struct Scene3DRuntimeStore {
     entries: HashMap<String, Scene3DRuntimeEntry>,

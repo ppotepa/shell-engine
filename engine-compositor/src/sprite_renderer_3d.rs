@@ -596,7 +596,7 @@ pub(crate) fn render_obj_sprite(
     );
 }
 
-pub(crate) fn render_scene3d_sprite(
+pub(crate) fn render_scene_clip_sprite(
     sprite: &Sprite,
     area: RenderArea,
     object_id: Option<&str>,

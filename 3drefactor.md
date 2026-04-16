@@ -285,6 +285,7 @@ These are the tasks to start with immediately.
 - [x] Route `Planet` adapter base identity/transform (`body/preset/mesh/rotation/scale/position`) through typed node mapping.
 - [x] Route `Obj` sprite base source/transform (`source/position/rotation/scale`) through typed node mapping.
 - [x] Rename renderer delegate surface from `scene3d` to agnostic `scene_clip`.
+- [x] Rename internal compositor 3D scene clip renderer entrypoint to `render_scene_clip_sprite`.
 
 ## Definition of Done
 
