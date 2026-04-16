@@ -1152,16 +1152,33 @@ fn render_obj_sprite(
         polar_ice_end,
         desert_color,
         desert_strength,
-        atmo_color,
-        atmo_strength,
-        atmo_rim_power,
-        atmo_haze_strength,
-        atmo_haze_power,
-        atmo_veil_strength,
-        atmo_veil_power,
-        atmo_halo_strength,
-        atmo_halo_width,
-        atmo_halo_power,
+        atmo_color: _atmo_color,
+        atmo_height,
+        atmo_density,
+        atmo_strength: _atmo_strength,
+        atmo_rayleigh_amount,
+        atmo_rayleigh_color,
+        atmo_rayleigh_falloff,
+        atmo_haze_amount,
+        atmo_haze_color,
+        atmo_haze_falloff,
+        atmo_absorption_amount,
+        atmo_absorption_color,
+        atmo_absorption_height,
+        atmo_absorption_width,
+        atmo_forward_scatter,
+        atmo_limb_boost,
+        atmo_terminator_softness,
+        atmo_night_glow,
+        atmo_night_glow_color,
+        atmo_rim_power: _atmo_rim_power,
+        atmo_haze_strength: _atmo_haze_strength,
+        atmo_haze_power: _atmo_haze_power,
+        atmo_veil_strength: _atmo_veil_strength,
+        atmo_veil_power: _atmo_veil_power,
+        atmo_halo_strength: _atmo_halo_strength,
+        atmo_halo_width: _atmo_halo_width,
+        atmo_halo_power: _atmo_halo_power,
         night_light_color,
         night_light_threshold,
         night_light_intensity,
@@ -1546,19 +1563,51 @@ fn render_obj_sprite(
                 [r, g, b]
             }),
             desert_strength: desert_strength.unwrap_or(0.0),
-            atmo_color: atmo_color.as_ref().map(|c| {
+            atmo_color: None,
+            atmo_height: atmo_height.unwrap_or(0.12),
+            atmo_density: atmo_density.unwrap_or(0.0),
+            atmo_strength: 0.0,
+            atmo_rayleigh_amount: atmo_rayleigh_amount.unwrap_or(0.0),
+            atmo_rayleigh_color: atmo_rayleigh_color
+                .as_ref()
+                .map(|c| {
+                    let (r, g, b) = Color::from(c).to_rgb();
+                    [r, g, b]
+                })
+                .or(Some([124, 200, 255])),
+            atmo_rayleigh_falloff: atmo_rayleigh_falloff.unwrap_or(0.32),
+            atmo_haze_amount: atmo_haze_amount.unwrap_or(0.0),
+            atmo_haze_color: atmo_haze_color
+                .as_ref()
+                .map(|c| {
+                    let (r, g, b) = Color::from(c).to_rgb();
+                    [r, g, b]
+                })
+                .or(Some([212, 225, 240])),
+            atmo_haze_falloff: atmo_haze_falloff.unwrap_or(0.18),
+            atmo_absorption_amount: atmo_absorption_amount.unwrap_or(0.0),
+            atmo_absorption_color: atmo_absorption_color.as_ref().map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
-            atmo_strength: atmo_strength.unwrap_or(0.0),
-            atmo_rim_power: atmo_rim_power.unwrap_or(4.5),
-            atmo_haze_strength: atmo_haze_strength.unwrap_or(0.0),
-            atmo_haze_power: atmo_haze_power.unwrap_or(1.8),
-            atmo_veil_strength: atmo_veil_strength.unwrap_or(atmo_strength.unwrap_or(0.0) * 0.28),
-            atmo_veil_power: atmo_veil_power.unwrap_or(1.6),
-            atmo_halo_strength: atmo_halo_strength.unwrap_or(atmo_strength.unwrap_or(0.0) * 0.95),
-            atmo_halo_width: atmo_halo_width.unwrap_or((0.05 + atmo_haze_strength.unwrap_or(0.0) * 0.20).clamp(0.0, 1.0)),
-            atmo_halo_power: atmo_halo_power.unwrap_or(2.2),
+            atmo_absorption_height: atmo_absorption_height.unwrap_or(0.55),
+            atmo_absorption_width: atmo_absorption_width.unwrap_or(0.18),
+            atmo_forward_scatter: atmo_forward_scatter.unwrap_or(0.72),
+            atmo_limb_boost: atmo_limb_boost.unwrap_or(1.0),
+            atmo_terminator_softness: atmo_terminator_softness.unwrap_or(1.0),
+            atmo_night_glow: atmo_night_glow.unwrap_or(0.0),
+            atmo_night_glow_color: atmo_night_glow_color.as_ref().map(|c| {
+                let (r, g, b) = Color::from(c).to_rgb();
+                [r, g, b]
+            }),
+            atmo_rim_power: 4.5,
+            atmo_haze_strength: 0.0,
+            atmo_haze_power: 1.8,
+            atmo_veil_strength: 0.0,
+            atmo_veil_power: 1.6,
+            atmo_halo_strength: 0.0,
+            atmo_halo_width: 0.12,
+            atmo_halo_power: 2.2,
             ocean_noise_scale: 4.0,
             ocean_color_rgb: None,
             night_light_color: night_light_color.as_ref().map(|c| {
@@ -1726,18 +1775,35 @@ fn render_planet_sprite(
         .as_deref()
         .and_then(|value| colour_rgb(Some(value)));
     surface_params.desert_strength = planet.desert_strength as f32;
-    surface_params.atmo_color = planet
+    surface_params.atmo_color = None;
+    surface_params.atmo_height = 0.12;
+    surface_params.atmo_density = (planet.atmo_strength as f32 * atmo_visibility).clamp(0.0, 1.0);
+    surface_params.atmo_strength = 0.0;
+    surface_params.atmo_rayleigh_amount = (planet.atmo_strength as f32 * atmo_visibility).clamp(0.0, 1.0);
+    surface_params.atmo_rayleigh_color = planet
         .atmo_color
         .as_deref()
         .and_then(|value| colour_rgb(Some(value)));
-    surface_params.atmo_strength = planet.atmo_strength as f32 * atmo_visibility;
-    surface_params.atmo_rim_power = planet.atmo_rim_power as f32;
-    surface_params.atmo_haze_strength = (planet.atmo_strength as f32 * 0.45) * atmo_visibility;
-    surface_params.atmo_haze_power = planet.atmo_haze_power as f32;
-    surface_params.atmo_veil_strength = (planet.atmo_strength as f32 * 0.22) * atmo_visibility;
+    surface_params.atmo_rayleigh_falloff = 0.32;
+    surface_params.atmo_haze_amount = (planet.atmo_strength as f32 * 0.45 * atmo_visibility).clamp(0.0, 1.0);
+    surface_params.atmo_haze_color = surface_params.atmo_rayleigh_color;
+    surface_params.atmo_haze_falloff = 0.18;
+    surface_params.atmo_absorption_amount = 0.0;
+    surface_params.atmo_absorption_color = None;
+    surface_params.atmo_absorption_height = 0.55;
+    surface_params.atmo_absorption_width = 0.18;
+    surface_params.atmo_forward_scatter = 0.72;
+    surface_params.atmo_limb_boost = 1.35;
+    surface_params.atmo_terminator_softness = 1.05;
+    surface_params.atmo_night_glow = 0.0;
+    surface_params.atmo_night_glow_color = None;
+    surface_params.atmo_rim_power = 4.5;
+    surface_params.atmo_haze_strength = 0.0;
+    surface_params.atmo_haze_power = 1.8;
+    surface_params.atmo_veil_strength = 0.0;
     surface_params.atmo_veil_power = 1.6;
-    surface_params.atmo_halo_strength = (planet.atmo_strength as f32 * 0.90) * atmo_visibility;
-    surface_params.atmo_halo_width = 0.14;
+    surface_params.atmo_halo_strength = 0.0;
+    surface_params.atmo_halo_width = 0.12;
     surface_params.atmo_halo_power = 2.2;
     surface_params.night_light_color = planet
         .night_light_color
@@ -2068,7 +2134,24 @@ fn build_planet_base_params(
         desert_color: None,
         desert_strength: 0.0,
         atmo_color: None,
+        atmo_height: 0.12,
+        atmo_density: 0.0,
         atmo_strength: 0.0,
+        atmo_rayleigh_amount: 0.0,
+        atmo_rayleigh_color: None,
+        atmo_rayleigh_falloff: 0.32,
+        atmo_haze_amount: 0.0,
+        atmo_haze_color: None,
+        atmo_haze_falloff: 0.18,
+        atmo_absorption_amount: 0.0,
+        atmo_absorption_color: None,
+        atmo_absorption_height: 0.55,
+        atmo_absorption_width: 0.18,
+        atmo_forward_scatter: 0.72,
+        atmo_limb_boost: 1.0,
+        atmo_terminator_softness: 1.0,
+        atmo_night_glow: 0.0,
+        atmo_night_glow_color: None,
         atmo_rim_power: 4.5,
         atmo_haze_strength: 0.0,
         atmo_haze_power: 1.8,

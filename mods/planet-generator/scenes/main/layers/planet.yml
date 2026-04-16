@@ -31,7 +31,22 @@
       world-moisture-scale: 3.0
       world-displacement-scale: 0.22
       atmo-color: "#7cc8ff"
+      atmo-height: 0.11
+      atmo-density: 0.48
       atmo-strength: 0.48
+      atmo-rayleigh-amount: 0.48
+      atmo-rayleigh-color: "#7cc8ff"
+      atmo-rayleigh-falloff: 0.22
+      atmo-haze-amount: 0.22
+      atmo-haze-color: "#7cc8ff"
+      atmo-haze-falloff: 0.46
+      atmo-absorption-amount: 0.0
+      atmo-absorption-height: 0.55
+      atmo-absorption-width: 0.18
+      atmo-forward-scatter: 0.78
+      atmo-limb-boost: 1.9
+      atmo-terminator-softness: 1.05
+      atmo-night-glow: 0.0
       atmo-halo-width: 0.11
       atmo-halo-strength: 0.78
       atmo-veil-strength: 0.12

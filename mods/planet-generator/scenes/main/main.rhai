@@ -18,7 +18,7 @@ fn preset_earth() {
         moisture: 3.0, ice: 1.0, lapse: 0.6, rain: 0.4,
         disp: 0.22, coloring: 0.0, rotspeed: 3.0,
         sunaz: 210.0, sunel: 40.0, ambient: 0.12,
-        atmo_color: 2.0, atmo_strength: 0.48, atmo_halo_width: 0.11, atmo_halo_strength: 0.78, atmo_veil_strength: 0.12, atmo_rim_power: 3.6, atmo_haze_strength: 0.22, atmo_haze_power: 1.75
+        atmo_color: 2.0, atmo_density: 0.48, atmo_height: 0.11, atmo_forward_scatter: 0.78, atmo_absorption: 0.12, atmo_rayleigh_falloff: 0.22, atmo_haze_amount: 0.22, atmo_haze_falloff: 0.46
     }
 }
 fn preset_mars() {
@@ -28,7 +28,7 @@ fn preset_mars() {
         moisture: 1.0, ice: 0.1, lapse: 0.3, rain: 0.05,
         disp: 0.38, coloring: 1.0, rotspeed: 3.0,
         sunaz: 190.0, sunel: 30.0, ambient: 0.08,
-        atmo_color: 0.0, atmo_strength: 0.20, atmo_halo_width: 0.08, atmo_halo_strength: 0.18, atmo_veil_strength: 0.06, atmo_rim_power: 5.0, atmo_haze_strength: 0.14, atmo_haze_power: 2.2
+        atmo_color: 0.0, atmo_density: 0.20, atmo_height: 0.08, atmo_forward_scatter: 0.18, atmo_absorption: 0.06, atmo_rayleigh_falloff: 0.17, atmo_haze_amount: 0.14, atmo_haze_falloff: 0.38
     }
 }
 fn preset_ocean() {
@@ -38,7 +38,7 @@ fn preset_ocean() {
         moisture: 5.0, ice: 0.8, lapse: 0.7, rain: 0.6,
         disp: 0.08, coloring: 0.0, rotspeed: 2.0,
         sunaz: 220.0, sunel: 50.0, ambient: 0.15,
-        atmo_color: 2.0, atmo_strength: 0.65, atmo_halo_width: 0.20, atmo_halo_strength: 0.72, atmo_veil_strength: 0.28, atmo_rim_power: 3.0, atmo_haze_strength: 0.45, atmo_haze_power: 1.4
+        atmo_color: 2.0, atmo_density: 0.65, atmo_height: 0.20, atmo_forward_scatter: 0.72, atmo_absorption: 0.28, atmo_rayleigh_falloff: 0.25, atmo_haze_amount: 0.45, atmo_haze_falloff: 0.56
     }
 }
 fn preset_desert() {
@@ -48,7 +48,7 @@ fn preset_desert() {
         moisture: 1.2, ice: 0.0, lapse: 0.4, rain: 0.05,
         disp: 0.3, coloring: 0.0, rotspeed: 4.0,
         sunaz: 200.0, sunel: 25.0, ambient: 0.18,
-        atmo_color: 0.0, atmo_strength: 0.42, atmo_halo_width: 0.11, atmo_halo_strength: 0.36, atmo_veil_strength: 0.14, atmo_rim_power: 3.8, atmo_haze_strength: 0.28, atmo_haze_power: 1.9
+        atmo_color: 0.0, atmo_density: 0.42, atmo_height: 0.11, atmo_forward_scatter: 0.36, atmo_absorption: 0.14, atmo_rayleigh_falloff: 0.21, atmo_haze_amount: 0.28, atmo_haze_falloff: 0.43
     }
 }
 fn preset_ice() {
@@ -58,7 +58,7 @@ fn preset_ice() {
         moisture: 2.5, ice: 3.0, lapse: 1.0, rain: 0.3,
         disp: 0.18, coloring: 0.0, rotspeed: 1.5,
         sunaz: 230.0, sunel: 15.0, ambient: 0.25,
-        atmo_color: 4.0, atmo_strength: 0.50, atmo_halo_width: 0.18, atmo_halo_strength: 0.46, atmo_veil_strength: 0.24, atmo_rim_power: 2.8, atmo_haze_strength: 0.42, atmo_haze_power: 1.3
+        atmo_color: 4.0, atmo_density: 0.50, atmo_height: 0.18, atmo_forward_scatter: 0.46, atmo_absorption: 0.24, atmo_rayleigh_falloff: 0.26, atmo_haze_amount: 0.42, atmo_haze_falloff: 0.59
     }
 }
 fn preset_volcanic() {
@@ -68,7 +68,7 @@ fn preset_volcanic() {
         moisture: 1.5, ice: 0.0, lapse: 0.5, rain: 0.15,
         disp: 0.55, coloring: 0.0, rotspeed: 5.0,
         sunaz: 180.0, sunel: 35.0, ambient: 0.1,
-        atmo_color: 1.0, atmo_strength: 0.35, atmo_halo_width: 0.10, atmo_halo_strength: 0.32, atmo_veil_strength: 0.12, atmo_rim_power: 4.5, atmo_haze_strength: 0.22, atmo_haze_power: 2.3
+        atmo_color: 1.0, atmo_density: 0.35, atmo_height: 0.10, atmo_forward_scatter: 0.32, atmo_absorption: 0.12, atmo_rayleigh_falloff: 0.18, atmo_haze_amount: 0.22, atmo_haze_falloff: 0.37
     }
 }
 fn preset_archipelago() {
@@ -78,7 +78,7 @@ fn preset_archipelago() {
         moisture: 4.0, ice: 0.5, lapse: 0.65, rain: 0.5,
         disp: 0.12, coloring: 0.0, rotspeed: 2.5,
         sunaz: 215.0, sunel: 45.0, ambient: 0.14,
-        atmo_color: 2.0, atmo_strength: 0.58, atmo_halo_width: 0.17, atmo_halo_strength: 0.60, atmo_veil_strength: 0.20, atmo_rim_power: 3.0, atmo_haze_strength: 0.40, atmo_haze_power: 1.4
+        atmo_color: 2.0, atmo_density: 0.58, atmo_height: 0.17, atmo_forward_scatter: 0.60, atmo_absorption: 0.20, atmo_rayleigh_falloff: 0.25, atmo_haze_amount: 0.40, atmo_haze_falloff: 0.56
     }
 }
 
@@ -125,20 +125,20 @@ fn atmo_color_to_01(v)      { (v / 5.0).max(0.0).min(1.0) }
 fn atmo_color_from_01(v)    { (v * 5.0).round().max(0.0).min(5.0) }
 fn atmo_color_name(v)       { if v < 0.5 { "AMBER" } else if v < 1.5 { "ROSE" } else if v < 2.5 { "CYAN" } else if v < 3.5 { "LIME" } else if v < 4.5 { "AZURE" } else { "VIOLET" } }
 fn atmo_color_hex(v)        { if v < 0.5 { "#d9b36a" } else if v < 1.5 { "#cf7a8c" } else if v < 2.5 { "#7cc8ff" } else if v < 3.5 { "#9bcf86" } else if v < 4.5 { "#9ab8ff" } else { "#b79dff" } }
-fn atmo_strength_to_01(v)   { v.max(0.0).min(1.0) }
-fn atmo_strength_from_01(v) { v.max(0.0).min(1.0) }
-fn atmo_halo_width_to_01(v) { v.max(0.0).min(1.0) }
-fn atmo_halo_width_from_01(v) { v.max(0.0).min(1.0) }
-fn atmo_halo_strength_to_01(v) { v.max(0.0).min(1.0) }
-fn atmo_halo_strength_from_01(v) { v.max(0.0).min(1.0) }
-fn atmo_veil_to_01(v)       { v.max(0.0).min(1.0) }
-fn atmo_veil_from_01(v)     { v.max(0.0).min(1.0) }
-fn atmo_rim_to_01(v)        { ((v - 1.0) / 7.0).max(0.0).min(1.0) }
-fn atmo_rim_from_01(v)      { 1.0 + v * 7.0 }
-fn atmo_haze_to_01(v)       { v.max(0.0).min(1.0) }
-fn atmo_haze_from_01(v)     { v.max(0.0).min(1.0) }
-fn atmo_haze_power_to_01(v) { ((v - 0.5) / 3.5).max(0.0).min(1.0) }
-fn atmo_haze_power_from_01(v) { 0.5 + v * 3.5 }
+fn atmo_density_to_01(v)   { v.max(0.0).min(1.0) }
+fn atmo_density_from_01(v) { v.max(0.0).min(1.0) }
+fn atmo_height_to_01(v) { v.max(0.0).min(1.0) }
+fn atmo_height_from_01(v) { v.max(0.0).min(1.0) }
+fn atmo_forward_to_01(v) { v.max(0.0).min(1.0) }
+fn atmo_forward_from_01(v) { v.max(0.0).min(1.0) }
+fn atmo_absorption_to_01(v)       { v.max(0.0).min(1.0) }
+fn atmo_absorption_from_01(v)     { v.max(0.0).min(1.0) }
+fn atmo_ray_falloff_to_01(v)        { ((v - 0.05) / 0.85).max(0.0).min(1.0) }
+fn atmo_ray_falloff_from_01(v)      { 0.05 + v * 0.85 }
+fn atmo_haze_amount_to_01(v)       { v.max(0.0).min(1.0) }
+fn atmo_haze_amount_from_01(v)     { v.max(0.0).min(1.0) }
+fn atmo_haze_falloff_to_01(v) { ((v - 0.05) / 0.90).max(0.0).min(1.0) }
+fn atmo_haze_falloff_from_01(v) { 0.05 + v * 0.90 }
 
 // ── Persistent state──────────────────────────────────────────────────────────
 if !(local.initialized ?? false) {
@@ -150,8 +150,8 @@ if !(local.initialized ?? false) {
     local.moisture = p.moisture; local.ice = p.ice; local.lapse = p.lapse; local.rain = p.rain;
     local.disp = p.disp; local.coloring = p.coloring; local.rotspeed = p.rotspeed;
     local.sunaz = p.sunaz; local.sunel = p.sunel; local.ambient = p.ambient;
-    local.atmo_color = p.atmo_color; local.atmo_strength = p.atmo_strength; local.atmo_halo_width = p.atmo_halo_width; local.atmo_halo_strength = p.atmo_halo_strength; local.atmo_veil_strength = p.atmo_veil_strength; local.atmo_rim_power = p.atmo_rim_power;
-    local.atmo_haze_strength = p.atmo_haze_strength; local.atmo_haze_power = p.atmo_haze_power;
+    local.atmo_color = p.atmo_color; local.atmo_density = p.atmo_density; local.atmo_height = p.atmo_height; local.atmo_forward_scatter = p.atmo_forward_scatter; local.atmo_absorption = p.atmo_absorption; local.atmo_rayleigh_falloff = p.atmo_rayleigh_falloff;
+    local.atmo_haze_amount = p.atmo_haze_amount; local.atmo_haze_falloff = p.atmo_haze_falloff;
     local.subdiv = 32.0;
     local.rotation_paused = false;
     local.tab_sync_needed = true;
@@ -178,13 +178,13 @@ let sunaz    = local.sunaz    ?? 210.0;
 let sunel    = local.sunel    ?? 40.0;
 let ambient  = local.ambient  ?? 0.12;
 let atmo_color = local.atmo_color ?? 2.0;
-let atmo_strength = local.atmo_strength ?? 0.48;
-let atmo_halo_width = local.atmo_halo_width ?? 0.11;
-let atmo_halo_strength = local.atmo_halo_strength ?? 0.78;
-let atmo_veil_strength = local.atmo_veil_strength ?? 0.12;
-let atmo_rim_power = local.atmo_rim_power ?? 3.6;
-let atmo_haze_strength = local.atmo_haze_strength ?? 0.22;
-let atmo_haze_power = local.atmo_haze_power ?? 1.75;
+let atmo_density = local.atmo_density ?? 0.48;
+let atmo_height = local.atmo_height ?? 0.11;
+let atmo_forward_scatter = local.atmo_forward_scatter ?? 0.78;
+let atmo_absorption = local.atmo_absorption ?? 0.12;
+let atmo_rayleigh_falloff = local.atmo_rayleigh_falloff ?? 0.22;
+let atmo_haze_amount = local.atmo_haze_amount ?? 0.22;
+let atmo_haze_falloff = local.atmo_haze_falloff ?? 0.46;
 let rotation_paused   = local.rotation_paused   ?? false;
 
 // ── Tab switching (keyboard: 1/2/3/4/5 — mouse: click tab button) ────────────
@@ -231,7 +231,7 @@ if input.just_pressed("F1") || gui.button_clicked("preset-btn-earth") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 if input.just_pressed("F2") || gui.button_clicked("preset-btn-mars") {
@@ -240,7 +240,7 @@ if input.just_pressed("F2") || gui.button_clicked("preset-btn-mars") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 if input.just_pressed("F3") || gui.button_clicked("preset-btn-ocean") {
@@ -249,7 +249,7 @@ if input.just_pressed("F3") || gui.button_clicked("preset-btn-ocean") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 if input.just_pressed("F4") || gui.button_clicked("preset-btn-desert") {
@@ -258,7 +258,7 @@ if input.just_pressed("F4") || gui.button_clicked("preset-btn-desert") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 if input.just_pressed("F5") || gui.button_clicked("preset-btn-ice") {
@@ -267,7 +267,7 @@ if input.just_pressed("F5") || gui.button_clicked("preset-btn-ice") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 if input.just_pressed("F6") || gui.button_clicked("preset-btn-volcanic") {
@@ -276,7 +276,7 @@ if input.just_pressed("F6") || gui.button_clicked("preset-btn-volcanic") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 if input.just_pressed("F7") || gui.button_clicked("preset-btn-archipelago") {
@@ -285,7 +285,7 @@ if input.just_pressed("F7") || gui.button_clicked("preset-btn-archipelago") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     preset_applied = true;
 }
 
@@ -309,13 +309,13 @@ if gui.button_clicked("btn-randomize") {
     local.sunel    = 10.0 + ((local.seed * 0.317) % 70.0);
     local.ambient  = 0.05 + ((local.seed * 0.211) % 0.25);
     local.atmo_color = ((local.seed * 0.173) % 6.0).floor();
-    local.atmo_strength = (local.seed * 0.137) % 0.65;
-    local.atmo_halo_width = 0.06 + ((local.seed * 0.071) % 0.26);
-    local.atmo_halo_strength = (local.seed * 0.167) % 0.72;
-    local.atmo_veil_strength = (local.seed * 0.119) % 0.34;
-    local.atmo_rim_power = 1.5 + ((local.seed * 0.191) % 5.5);
-    local.atmo_haze_strength = (local.seed * 0.227) % 0.55;
-    local.atmo_haze_power = 0.9 + ((local.seed * 0.149) % 2.4);
+    local.atmo_density = (local.seed * 0.137) % 0.75;
+    local.atmo_height = 0.06 + ((local.seed * 0.071) % 0.26);
+    local.atmo_forward_scatter = (local.seed * 0.167) % 0.9;
+    local.atmo_absorption = (local.seed * 0.119) % 0.55;
+    local.atmo_rayleigh_falloff = 0.08 + ((local.seed * 0.191) % 0.52);
+    local.atmo_haze_amount = (local.seed * 0.227) % 0.75;
+    local.atmo_haze_falloff = 0.08 + ((local.seed * 0.149) % 0.68);
     preset_applied = true;
 }
 
@@ -326,7 +326,7 @@ if input.just_pressed("Delete") || gui.button_clicked("btn-reset") {
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
     local.moisture=p.moisture; local.ice=p.ice; local.lapse=p.lapse; local.rain=p.rain;
     local.disp=p.disp; local.coloring=p.coloring; local.rotspeed=p.rotspeed;
-    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_strength=p.atmo_strength; local.atmo_halo_width=p.atmo_halo_width; local.atmo_halo_strength=p.atmo_halo_strength; local.atmo_veil_strength=p.atmo_veil_strength; local.atmo_rim_power=p.atmo_rim_power; local.atmo_haze_strength=p.atmo_haze_strength; local.atmo_haze_power=p.atmo_haze_power;
+    local.sunaz=p.sunaz; local.sunel=p.sunel; local.ambient=p.ambient; local.atmo_color=p.atmo_color; local.atmo_density=p.atmo_density; local.atmo_height=p.atmo_height; local.atmo_forward_scatter=p.atmo_forward_scatter; local.atmo_absorption=p.atmo_absorption; local.atmo_rayleigh_falloff=p.atmo_rayleigh_falloff; local.atmo_haze_amount=p.atmo_haze_amount; local.atmo_haze_falloff=p.atmo_haze_falloff;
     local.tab = 0; tab = 0;
     preset_applied = true;
 }
@@ -352,13 +352,13 @@ sunaz    = local.sunaz    ?? sunaz;
 sunel    = local.sunel    ?? sunel;
 ambient  = local.ambient  ?? ambient;
 atmo_color = local.atmo_color ?? atmo_color;
-atmo_strength = local.atmo_strength ?? atmo_strength;
-atmo_halo_width = local.atmo_halo_width ?? atmo_halo_width;
-atmo_halo_strength = local.atmo_halo_strength ?? atmo_halo_strength;
-atmo_veil_strength = local.atmo_veil_strength ?? atmo_veil_strength;
-atmo_rim_power = local.atmo_rim_power ?? atmo_rim_power;
-atmo_haze_strength = local.atmo_haze_strength ?? atmo_haze_strength;
-atmo_haze_power = local.atmo_haze_power ?? atmo_haze_power;
+atmo_density = local.atmo_density ?? atmo_density;
+atmo_height = local.atmo_height ?? atmo_height;
+atmo_forward_scatter = local.atmo_forward_scatter ?? atmo_forward_scatter;
+atmo_absorption = local.atmo_absorption ?? atmo_absorption;
+atmo_rayleigh_falloff = local.atmo_rayleigh_falloff ?? atmo_rayleigh_falloff;
+atmo_haze_amount = local.atmo_haze_amount ?? atmo_haze_amount;
+atmo_haze_falloff = local.atmo_haze_falloff ?? atmo_haze_falloff;
 
 // ── Sync slider widgets→ local state (tab switch or preset) ──────────────────
 // When tab switches or preset fires, push current local values to gui sliders.
@@ -390,13 +390,13 @@ if need_sync {
         gui.set_widget_value("param-6", ambient_to_01(ambient));
     } else {
         gui.set_widget_value("param-0", atmo_color_to_01(atmo_color));
-        gui.set_widget_value("param-1", atmo_strength_to_01(atmo_strength));
-        gui.set_widget_value("param-2", atmo_halo_width_to_01(atmo_halo_width));
-        gui.set_widget_value("param-3", atmo_halo_strength_to_01(atmo_halo_strength));
-        gui.set_widget_value("param-4", atmo_veil_to_01(atmo_veil_strength));
-        gui.set_widget_value("param-5", atmo_rim_to_01(atmo_rim_power));
-        gui.set_widget_value("param-6", atmo_haze_to_01(atmo_haze_strength));
-        gui.set_widget_value("param-7", atmo_haze_power_to_01(atmo_haze_power));
+        gui.set_widget_value("param-1", atmo_density_to_01(atmo_density));
+        gui.set_widget_value("param-2", atmo_height_to_01(atmo_height));
+        gui.set_widget_value("param-3", atmo_forward_to_01(atmo_forward_scatter));
+        gui.set_widget_value("param-4", atmo_absorption_to_01(atmo_absorption));
+        gui.set_widget_value("param-5", atmo_ray_falloff_to_01(atmo_rayleigh_falloff));
+        gui.set_widget_value("param-6", atmo_haze_amount_to_01(atmo_haze_amount));
+        gui.set_widget_value("param-7", atmo_haze_falloff_to_01(atmo_haze_falloff));
     }
     local.tab_sync_needed = false;
 }
@@ -451,15 +451,15 @@ if !need_sync {
         atmo_color = atmo_color_from_01(raw_atmo_color);
         let snap_atmo_color = atmo_color_to_01(atmo_color);
         if (raw_atmo_color - snap_atmo_color).abs() > 0.005 { gui.set_widget_value("param-0", snap_atmo_color); }
-        atmo_strength = atmo_strength_from_01(gui.slider_value("param-1"));
-        atmo_halo_width = atmo_halo_width_from_01(gui.slider_value("param-2"));
-        atmo_halo_strength = atmo_halo_strength_from_01(gui.slider_value("param-3"));
-        atmo_veil_strength = atmo_veil_from_01(gui.slider_value("param-4"));
-        atmo_rim_power = atmo_rim_from_01(gui.slider_value("param-5"));
-        atmo_haze_strength = atmo_haze_from_01(gui.slider_value("param-6"));
-        atmo_haze_power   = atmo_haze_power_from_01(gui.slider_value("param-7"));
-        local.atmo_color = atmo_color; local.atmo_strength = atmo_strength; local.atmo_halo_width = atmo_halo_width; local.atmo_halo_strength = atmo_halo_strength; local.atmo_veil_strength = atmo_veil_strength; local.atmo_rim_power = atmo_rim_power;
-        local.atmo_haze_strength = atmo_haze_strength; local.atmo_haze_power = atmo_haze_power;
+        atmo_density = atmo_density_from_01(gui.slider_value("param-1"));
+        atmo_height = atmo_height_from_01(gui.slider_value("param-2"));
+        atmo_forward_scatter = atmo_forward_from_01(gui.slider_value("param-3"));
+        atmo_absorption = atmo_absorption_from_01(gui.slider_value("param-4"));
+        atmo_rayleigh_falloff = atmo_ray_falloff_from_01(gui.slider_value("param-5"));
+        atmo_haze_amount = atmo_haze_amount_from_01(gui.slider_value("param-6"));
+        atmo_haze_falloff = atmo_haze_falloff_from_01(gui.slider_value("param-7"));
+        local.atmo_color = atmo_color; local.atmo_density = atmo_density; local.atmo_height = atmo_height; local.atmo_forward_scatter = atmo_forward_scatter; local.atmo_absorption = atmo_absorption; local.atmo_rayleigh_falloff = atmo_rayleigh_falloff;
+        local.atmo_haze_amount = atmo_haze_amount; local.atmo_haze_falloff = atmo_haze_falloff;
     }
 }
 
@@ -505,13 +505,13 @@ if tab == 0 {
     let atmo_color_label = atmo_color_name(atmo_color);
     scene.set("param-title", "text.content", "ATMOSPHERE");
     scene.set("param-label-0", "text.content", `  COLOR      [${atmo_color_label}]`);
-    scene.set("param-label-1", "text.content", `  DENSITY        ${(atmo_strength * 100.0).round()}%`);
-    scene.set("param-label-2", "text.content", `  HALO WIDTH     ${(atmo_halo_width * 100.0).round()}%`);
-    scene.set("param-label-3", "text.content", `  HALO BRIGHT    ${(atmo_halo_strength * 100.0).round()}%`);
-    scene.set("param-label-4", "text.content", `  VEIL DENSITY   ${(atmo_veil_strength * 100.0).round()}%`);
-    scene.set("param-label-5", "text.content", `  RIM POWER      ${(atmo_rim_power * 10.0).round() / 10.0}`);
-    scene.set("param-label-6", "text.content", `  HAZE DENSITY   ${(atmo_haze_strength * 100.0).round()}%`);
-    scene.set("param-label-7", "text.content", `  HAZE POWER     ${(atmo_haze_power * 10.0).round() / 10.0}`);
+    scene.set("param-label-1", "text.content", `  ATMO DENSITY   ${(atmo_density * 100.0).round()}%`);
+    scene.set("param-label-2", "text.content", `  ATMO HEIGHT    ${(atmo_height * 100.0).round()}%`);
+    scene.set("param-label-3", "text.content", `  FWD SCATTER    ${(atmo_forward_scatter * 100.0).round()}%`);
+    scene.set("param-label-4", "text.content", `  ABSORPTION     ${(atmo_absorption * 100.0).round()}%`);
+    scene.set("param-label-5", "text.content", `  RAY FALLOFF    ${(atmo_rayleigh_falloff * 100.0).round()}%`);
+    scene.set("param-label-6", "text.content", `  HAZE AMOUNT    ${(atmo_haze_amount * 100.0).round()}%`);
+    scene.set("param-label-7", "text.content", `  HAZE FALLOFF   ${(atmo_haze_falloff * 100.0).round()}%`);
 }
 
 // ── Stats strip ───────────────────────────────────────────────────────────────
@@ -599,16 +599,32 @@ if should_push {
 let effective_rotspeed = if local.rotation_paused ?? false { 0.0 } else { rotspeed };
 scene.set("planet-mesh", "obj.rotation-speed", effective_rotspeed);
 scene.set("planet-mesh", "obj.ambient",         ambient);
-scene.set("planet-mesh", "obj.atmo.color",         atmo_color_hex(atmo_color));
-scene.set("planet-mesh", "obj.atmo.strength",      atmo_strength);
-scene.set("planet-mesh", "obj.atmo.halo_width",    atmo_halo_width);
-scene.set("planet-mesh", "obj.atmo.halo_strength", atmo_halo_strength);
-scene.set("planet-mesh", "obj.atmo.veil_strength", atmo_veil_strength);
-scene.set("planet-mesh", "obj.atmo.rim_power",     atmo_rim_power);
-scene.set("planet-mesh", "obj.atmo.haze_strength", atmo_haze_strength);
-scene.set("planet-mesh", "obj.atmo.haze_power",    atmo_haze_power);
-scene.set("planet-mesh", "obj.atmo.veil_power",    1.6);
-scene.set("planet-mesh", "obj.atmo.halo_power",    2.2);
+
+// Atmosphere profile (direct sliders -> profile fields)
+let atmo_height_rel = (0.02 + atmo_height * 0.88).max(0.02).min(0.90);
+let atmo_density_profile = atmo_density.max(0.0).min(1.0);
+let atmo_forward = atmo_forward_scatter.max(0.0).min(1.0);
+let atmo_limb = (0.9 + atmo_density * 1.9 + atmo_haze_amount * 0.9).max(0.2).min(4.0);
+let atmo_term_soft = (0.7 + atmo_haze_amount * 1.4).max(0.05).min(4.0);
+let atmo_absorb = atmo_absorption.max(0.0).min(1.0);
+let atmo_ray_amount = (0.15 + atmo_density * 0.85).max(0.0).min(1.0);
+
+scene.set("planet-mesh", "obj.atmo.height",              atmo_height_rel);
+scene.set("planet-mesh", "obj.atmo.density",             atmo_density_profile);
+scene.set("planet-mesh", "obj.atmo.rayleigh_amount",     atmo_ray_amount);
+scene.set("planet-mesh", "obj.atmo.rayleigh_color",      atmo_color_hex(atmo_color));
+scene.set("planet-mesh", "obj.atmo.rayleigh_falloff",    atmo_rayleigh_falloff);
+scene.set("planet-mesh", "obj.atmo.haze_amount",         atmo_haze_amount);
+scene.set("planet-mesh", "obj.atmo.haze_color",          atmo_color_hex(atmo_color));
+scene.set("planet-mesh", "obj.atmo.haze_falloff",        atmo_haze_falloff);
+scene.set("planet-mesh", "obj.atmo.absorption_amount",   atmo_absorb);
+scene.set("planet-mesh", "obj.atmo.absorption_color",    atmo_color_hex(atmo_color));
+scene.set("planet-mesh", "obj.atmo.absorption_height",   0.55);
+scene.set("planet-mesh", "obj.atmo.absorption_width",    0.18);
+scene.set("planet-mesh", "obj.atmo.forward_scatter",     atmo_forward);
+scene.set("planet-mesh", "obj.atmo.limb_boost",          atmo_limb);
+scene.set("planet-mesh", "obj.atmo.terminator_softness", atmo_term_soft);
+scene.set("planet-mesh", "obj.atmo.night_glow",          0.0);
 
 let az_rad= sunaz * 0.01745329;
 let el_rad = sunel * 0.01745329;

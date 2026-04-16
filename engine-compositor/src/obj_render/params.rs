@@ -145,8 +145,42 @@ pub struct ObjRenderParams {
     pub desert_strength: f32,
     /// Atmosphere rim/glow color. When None, atmosphere rim is disabled.
     pub atmo_color: Option<[u8; 3]>,
+    /// Relative atmosphere shell height (0.0–1.0 of apparent radius).
+    pub atmo_height: f32,
+    /// Global atmosphere optical density (0.0–1.0).
+    pub atmo_density: f32,
     /// Overall atmosphere blend strength (0.0–1.0). Default 0.0.
     pub atmo_strength: f32,
+    /// Rayleigh-like molecular scattering amount (0.0–1.0).
+    pub atmo_rayleigh_amount: f32,
+    /// Rayleigh scattering tint.
+    pub atmo_rayleigh_color: Option<[u8; 3]>,
+    /// Rayleigh vertical falloff control (0.0–1.0).
+    pub atmo_rayleigh_falloff: f32,
+    /// Mie/haze scattering amount (0.0–1.0).
+    pub atmo_haze_amount: f32,
+    /// Mie/haze scattering tint.
+    pub atmo_haze_color: Option<[u8; 3]>,
+    /// Mie/haze vertical falloff control (0.0–1.0).
+    pub atmo_haze_falloff: f32,
+    /// Absorption amount (0.0–1.0).
+    pub atmo_absorption_amount: f32,
+    /// Absorption tint.
+    pub atmo_absorption_color: Option<[u8; 3]>,
+    /// Absorption profile center height (0.0–1.0).
+    pub atmo_absorption_height: f32,
+    /// Absorption profile width (0.0–1.0).
+    pub atmo_absorption_width: f32,
+    /// Forward-scatter anisotropy control (0.0–1.0).
+    pub atmo_forward_scatter: f32,
+    /// Limb brightness multiplier.
+    pub atmo_limb_boost: f32,
+    /// Day/night transition softness around the terminator.
+    pub atmo_terminator_softness: f32,
+    /// Night-side atmospheric emission amount.
+    pub atmo_night_glow: f32,
+    /// Night-side atmospheric emission tint.
+    pub atmo_night_glow_color: Option<[u8; 3]>,
     /// Rim falloff power for atmosphere effect (higher = thinner). Default 4.5.
     pub atmo_rim_power: f32,
     /// Broad haze contribution for atmosphere volume (0.0–1.0). Default 0.0.

@@ -644,15 +644,37 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
-    if let Some(atmo_color) = params.atmo_color {
+    if params.atmo_density > 0.0
+        && (params.atmo_rayleigh_amount > 0.0
+            || params.atmo_haze_amount > 0.0
+            || params.atmo_absorption_amount > 0.0)
+    {
+        let ray_color = params
+            .atmo_rayleigh_color
+            .or(params.atmo_color)
+            .unwrap_or([124, 200, 255]);
+        let haze_color = params.atmo_haze_color.unwrap_or(ray_color);
+        let absorption_color = params.atmo_absorption_color.unwrap_or([255, 170, 110]);
+        let base_color = mix_rgb(
+            mix_rgb(ray_color, haze_color, params.atmo_haze_amount.clamp(0.0, 1.0)),
+            absorption_color,
+            (params.atmo_absorption_amount * 0.35).clamp(0.0, 1.0),
+        );
+        let halo_strength = (params.atmo_density
+            * (0.22 + 0.78 * params.atmo_rayleigh_amount.clamp(0.0, 1.0))
+            * params.atmo_limb_boost.max(0.0))
+            .clamp(0.0, 0.98);
+        let halo_width = (params.atmo_height * (0.50 + 0.85 * params.atmo_haze_amount.clamp(0.0, 1.0)))
+            .clamp(0.01, 0.6);
+        let halo_power = (2.8 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.6).clamp(0.6, 4.0);
         apply_atmosphere_halo_canvas(
             &mut canvas,
             virtual_w,
             virtual_h,
-            atmo_color,
-            params.atmo_halo_strength,
-            params.atmo_halo_width,
-            params.atmo_halo_power,
+            base_color,
+            halo_strength,
+            halo_width,
+            halo_power,
             normalize3([
                 params.light_direction_x,
                 params.light_direction_y,

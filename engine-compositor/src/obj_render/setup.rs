@@ -32,6 +32,9 @@ pub(super) fn build_biome_params(
     let has_biome = params.polar_ice_color.is_some()
         || params.desert_color.is_some()
         || params.atmo_color.is_some()
+        || params.atmo_rayleigh_color.is_some()
+        || params.atmo_haze_color.is_some()
+        || params.atmo_absorption_color.is_some()
         || params.night_light_color.is_some();
     if !has_biome {
         return None;
@@ -43,7 +46,24 @@ pub(super) fn build_biome_params(
         desert_color: params.desert_color,
         desert_strength: params.desert_strength,
         atmo_color: params.atmo_color,
+        atmo_height: params.atmo_height,
+        atmo_density: params.atmo_density,
         atmo_strength: params.atmo_strength,
+        atmo_rayleigh_amount: params.atmo_rayleigh_amount,
+        atmo_rayleigh_color: params.atmo_rayleigh_color,
+        atmo_rayleigh_falloff: params.atmo_rayleigh_falloff,
+        atmo_haze_amount: params.atmo_haze_amount,
+        atmo_haze_color: params.atmo_haze_color,
+        atmo_haze_falloff: params.atmo_haze_falloff,
+        atmo_absorption_amount: params.atmo_absorption_amount,
+        atmo_absorption_color: params.atmo_absorption_color,
+        atmo_absorption_height: params.atmo_absorption_height,
+        atmo_absorption_width: params.atmo_absorption_width,
+        atmo_forward_scatter: params.atmo_forward_scatter,
+        atmo_limb_boost: params.atmo_limb_boost,
+        atmo_terminator_softness: params.atmo_terminator_softness,
+        atmo_night_glow: params.atmo_night_glow,
+        atmo_night_glow_color: params.atmo_night_glow_color,
         atmo_rim_power: params.atmo_rim_power,
         atmo_haze_strength: params.atmo_haze_strength,
         atmo_haze_power: params.atmo_haze_power,

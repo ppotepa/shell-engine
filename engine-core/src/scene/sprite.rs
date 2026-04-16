@@ -518,9 +518,60 @@ pub enum Sprite {
         /// Atmosphere rim/glow color. When set, renders a thin halo at the planet limb.
         #[serde(default, rename = "atmo-color")]
         atmo_color: Option<TermColour>,
+        /// Relative atmosphere shell height (0.0–1.0 of apparent radius).
+        #[serde(default, rename = "atmo-height")]
+        atmo_height: Option<f32>,
+        /// Global atmosphere optical density (0.0–1.0).
+        #[serde(default, rename = "atmo-density")]
+        atmo_density: Option<f32>,
         /// Overall atmosphere blend strength (0.0–1.0). Default 0.0.
         #[serde(default, rename = "atmo-strength")]
         atmo_strength: Option<f32>,
+        /// Rayleigh-like molecular scattering amount (0.0–1.0).
+        #[serde(default, rename = "atmo-rayleigh-amount")]
+        atmo_rayleigh_amount: Option<f32>,
+        /// Rayleigh scattering tint.
+        #[serde(default, rename = "atmo-rayleigh-color")]
+        atmo_rayleigh_color: Option<TermColour>,
+        /// Rayleigh vertical falloff control (0.0–1.0, lower = thinner layer).
+        #[serde(default, rename = "atmo-rayleigh-falloff")]
+        atmo_rayleigh_falloff: Option<f32>,
+        /// Mie/haze scattering amount (0.0–1.0).
+        #[serde(default, rename = "atmo-haze-amount")]
+        atmo_haze_amount: Option<f32>,
+        /// Mie/haze scattering tint.
+        #[serde(default, rename = "atmo-haze-color")]
+        atmo_haze_color: Option<TermColour>,
+        /// Mie/haze vertical falloff control (0.0–1.0).
+        #[serde(default, rename = "atmo-haze-falloff")]
+        atmo_haze_falloff: Option<f32>,
+        /// Absorption amount (0.0–1.0).
+        #[serde(default, rename = "atmo-absorption-amount")]
+        atmo_absorption_amount: Option<f32>,
+        /// Absorption tint.
+        #[serde(default, rename = "atmo-absorption-color")]
+        atmo_absorption_color: Option<TermColour>,
+        /// Absorption profile center height (0.0–1.0).
+        #[serde(default, rename = "atmo-absorption-height")]
+        atmo_absorption_height: Option<f32>,
+        /// Absorption profile width (0.0–1.0).
+        #[serde(default, rename = "atmo-absorption-width")]
+        atmo_absorption_width: Option<f32>,
+        /// Forward-scatter anisotropy control (0.0–1.0).
+        #[serde(default, rename = "atmo-forward-scatter")]
+        atmo_forward_scatter: Option<f32>,
+        /// Limb brightness multiplier for artistic control.
+        #[serde(default, rename = "atmo-limb-boost")]
+        atmo_limb_boost: Option<f32>,
+        /// Day/night transition softness around the terminator.
+        #[serde(default, rename = "atmo-terminator-softness")]
+        atmo_terminator_softness: Option<f32>,
+        /// Night-side atmospheric emission amount.
+        #[serde(default, rename = "atmo-night-glow")]
+        atmo_night_glow: Option<f32>,
+        /// Night-side atmospheric emission tint.
+        #[serde(default, rename = "atmo-night-glow-color")]
+        atmo_night_glow_color: Option<TermColour>,
         /// Rim falloff power for atmosphere effect (higher = thinner rim). Default 4.5.
         #[serde(default, rename = "atmo-rim-power")]
         atmo_rim_power: Option<f32>,

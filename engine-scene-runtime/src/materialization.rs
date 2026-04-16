@@ -764,7 +764,24 @@ fn set_obj_property_recursive(
                 rotate_y_deg_per_sec,
                 ambient,
                 atmo_color,
+                atmo_height,
+                atmo_density,
                 atmo_strength,
+                atmo_rayleigh_amount,
+                atmo_rayleigh_color,
+                atmo_rayleigh_falloff,
+                atmo_haze_amount,
+                atmo_haze_color,
+                atmo_haze_falloff,
+                atmo_absorption_amount,
+                atmo_absorption_color,
+                atmo_absorption_height,
+                atmo_absorption_width,
+                atmo_forward_scatter,
+                atmo_limb_boost,
+                atmo_terminator_softness,
+                atmo_night_glow,
+                atmo_night_glow_color,
                 atmo_rim_power,
                 atmo_haze_strength,
                 atmo_haze_power,
@@ -1183,12 +1200,193 @@ fn set_obj_property_recursive(
                         }
                     }
                 }
+                "obj.atmo.height" | "obj.atmo.height_rel" | "obj.atmo.height-rel" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_height.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_height = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.density" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_density.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_density = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
                 "obj.atmo.strength" => {
                     if let Some(next) = json_value_to_f32(value) {
                         let next = next.clamp(0.0, 1.0);
                         if atmo_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
                             *atmo_strength = Some(next);
                             *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.rayleigh_amount" | "obj.atmo.rayleigh-amount" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_rayleigh_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_rayleigh_amount = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.rayleigh_color" | "obj.atmo.rayleigh-color" => {
+                    if let Some(next_str) = value.as_str() {
+                        let normalized = next_str.trim().to_ascii_lowercase();
+                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                            if atmo_rayleigh_color.is_some() {
+                                *atmo_rayleigh_color = None;
+                                *updated = true;
+                            }
+                        } else if let Some(next) = parse_term_colour(value) {
+                            if atmo_rayleigh_color.as_ref() != Some(&next) {
+                                *atmo_rayleigh_color = Some(next);
+                                *updated = true;
+                            }
+                        }
+                    }
+                }
+                "obj.atmo.rayleigh_falloff" | "obj.atmo.rayleigh-falloff" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.01, 1.0);
+                        if atmo_rayleigh_falloff.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_rayleigh_falloff = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.haze_amount" | "obj.atmo.haze-amount" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_haze_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_haze_amount = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.haze_color" | "obj.atmo.haze-color" => {
+                    if let Some(next_str) = value.as_str() {
+                        let normalized = next_str.trim().to_ascii_lowercase();
+                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                            if atmo_haze_color.is_some() {
+                                *atmo_haze_color = None;
+                                *updated = true;
+                            }
+                        } else if let Some(next) = parse_term_colour(value) {
+                            if atmo_haze_color.as_ref() != Some(&next) {
+                                *atmo_haze_color = Some(next);
+                                *updated = true;
+                            }
+                        }
+                    }
+                }
+                "obj.atmo.haze_falloff" | "obj.atmo.haze-falloff" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.01, 1.0);
+                        if atmo_haze_falloff.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_haze_falloff = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.absorption_amount" | "obj.atmo.absorption-amount" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_absorption_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_absorption_amount = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.absorption_color" | "obj.atmo.absorption-color" => {
+                    if let Some(next_str) = value.as_str() {
+                        let normalized = next_str.trim().to_ascii_lowercase();
+                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                            if atmo_absorption_color.is_some() {
+                                *atmo_absorption_color = None;
+                                *updated = true;
+                            }
+                        } else if let Some(next) = parse_term_colour(value) {
+                            if atmo_absorption_color.as_ref() != Some(&next) {
+                                *atmo_absorption_color = Some(next);
+                                *updated = true;
+                            }
+                        }
+                    }
+                }
+                "obj.atmo.absorption_height" | "obj.atmo.absorption-height" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_absorption_height.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_absorption_height = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.absorption_width" | "obj.atmo.absorption-width" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.01, 1.0);
+                        if atmo_absorption_width.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_absorption_width = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.forward_scatter" | "obj.atmo.forward-scatter" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_forward_scatter.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_forward_scatter = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.limb_boost" | "obj.atmo.limb-boost" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 4.0);
+                        if atmo_limb_boost.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_limb_boost = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.terminator_softness" | "obj.atmo.terminator-softness" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.05, 4.0);
+                        if atmo_terminator_softness.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_terminator_softness = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.night_glow" | "obj.atmo.night-glow" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if atmo_night_glow.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *atmo_night_glow = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.atmo.night_glow_color" | "obj.atmo.night-glow-color" => {
+                    if let Some(next_str) = value.as_str() {
+                        let normalized = next_str.trim().to_ascii_lowercase();
+                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                            if atmo_night_glow_color.is_some() {
+                                *atmo_night_glow_color = None;
+                                *updated = true;
+                            }
+                        } else if let Some(next) = parse_term_colour(value) {
+                            if atmo_night_glow_color.as_ref() != Some(&next) {
+                                *atmo_night_glow_color = Some(next);
+                                *updated = true;
+                            }
                         }
                     }
                 }
