@@ -272,6 +272,7 @@ These are the tasks to start with immediately.
 - [x] Move `text_render.rs`.
 - [x] Move 2D layout helpers.
 - [x] Move 2D container helpers.
+- [x] Split compositor sprite renderer into `2D` and `3D` modules.
 - [ ] Switch compositor to the 2D pipeline seam.
 
 ## Definition of Done
