@@ -210,8 +210,8 @@ PR0 baseline references:
 
 ### PR1 - Core Render Types + engine-render-2d
 
-- [ ] Add shared render types in `engine-core`.
-- [ ] Add `CompiledRenderScene` in `engine-authoring`.
+- [x] Add shared render types in `engine-core`.
+- [x] Add `CompiledRenderScene` in `engine-authoring`.
 - [ ] Create `engine-render-2d`.
 - [ ] Move 2D modules out of `engine-compositor`.
 - [ ] Switch compositor to use `Render2dPipeline`.
@@ -270,8 +270,8 @@ PR0 baseline references:
 These are the tasks to start with immediately.
 
 - [x] Finish PR0 baseline and regression protection.
-- [ ] Add `engine-core` render types.
-- [ ] Add `CompiledRenderScene`.
+- [x] Add `engine-core` render types.
+- [x] Add `CompiledRenderScene`.
 - [ ] Create `engine-render-2d`.
 - [ ] Move `image_render.rs`.
 - [ ] Move `text_render.rs`.

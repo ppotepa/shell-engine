@@ -27,6 +27,8 @@ pub mod level_state;
 pub mod logging;
 /// Markup parsing and rendering utilities.
 pub mod markup;
+/// Shared backend-neutral render model types for 2D/3D pipeline seams.
+pub mod render_types;
 /// Scene data model, authoring types, and runtime model.
 pub mod scene;
 /// Pure data types shared between scene runtime and behavior system.
