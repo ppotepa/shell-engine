@@ -14,11 +14,11 @@ use engine_core::logging;
 use engine_core::scene::{Layer, Scene, Sprite};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
-use crate::scene3d_runtime_store::{Scene3DRuntimeEntry, Scene3DRuntimeStore};
 use crate::{
     blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, ObjRenderParams,
     Scene3DAtlas,
 };
+use engine_render_3d::prerender::{Scene3DRuntimeEntry, Scene3DRuntimeStore};
 
 pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<Scene3DAtlas> {
     let sources = collect_scene3d_sources(&scene.layers);

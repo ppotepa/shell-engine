@@ -23,7 +23,7 @@ pub(crate) fn render_scene_clip_sprite(
         return;
     };
     use crate::Scene3DAtlas;
-    use crate::scene3d_runtime_store::Scene3DRuntimeStore;
+    use crate::Scene3DRuntimeStore;
     use engine_render::rasterizer::blit;
 
     let draw_x = area

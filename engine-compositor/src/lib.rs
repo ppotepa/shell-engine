@@ -24,7 +24,6 @@ pub mod render;
 mod generated_world_render_adapter;
 mod scene_clip_render_adapter;
 pub mod scene3d_prerender;
-pub mod scene3d_runtime_store;
 pub mod scene_compositor;
 pub mod sprite_renderer_2d;
 pub mod systems;
@@ -47,7 +46,7 @@ pub use engine_3d::scene3d_atlas::Scene3DAtlas;
 pub use scene3d_prerender::{
     build_scene3d_runtime_store, prerender_scene3d_atlas, render_scene3d_frame_at,
 };
-pub use scene3d_runtime_store::{with_runtime_store, Scene3DRuntimeStore};
+pub use engine_render_3d::prerender::{with_runtime_store, Scene3DRuntimeStore};
 pub use scene_compositor::CompositeParams;
 pub use systems::postfx;
 pub use warmup::warmup_scene_meshes;

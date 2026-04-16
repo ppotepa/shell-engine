@@ -1,13 +1,10 @@
 //! Scene3D runtime definition store — holds parsed `Scene3DDefinition` objects for real-time
-//! rendering, as opposed to the [`Scene3DAtlas`] which holds pre-baked `Buffer` snapshots.
+//! rendering, as opposed to prerender atlas snapshots.
 //!
 //! Real-time rendering path:
-//! 1. At scene preparation time [`Scene3DPrerenderStep`] builds this store alongside the atlas.
+//! 1. Scene preparation builds this store from referenced `.scene3d.yml` assets.
 //! 2. The compositor injects it via [`with_runtime_store`] for the duration of each frame.
-//! 3. [`render_scene_clip_sprite`] checks if the requested `frame` is a live clip name in this store;
-//!    if so it calls [`render_scene3d_frame_at`] to render on demand at the current `elapsed_ms`.
-//!
-//! Thread-local pointer pattern mirrors `Scene3DAtlas` — zero allocation / zero borrow on lookup.
+//! 3. Scene clip renderers query live clip definitions from the thread-local store.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -18,8 +15,7 @@ pub struct Scene3DRuntimeEntry {
     pub def: Scene3DDefinition,
 }
 
-/// World resource: parsed Scene3D definitions for all `.scene3d.yml` sources referenced by the
-/// active scene. Used by the real-time rendering path in [`render_scene_clip_sprite`].
+/// Parsed Scene3D definitions for all sources referenced by the active scene.
 #[derive(Default)]
 pub struct Scene3DRuntimeStore {
     entries: HashMap<String, Scene3DRuntimeEntry>,
@@ -43,8 +39,6 @@ impl Scene3DRuntimeStore {
     }
 }
 
-// ── Thread-local pointer for zero-overhead access inside compositor ────────────
-
 thread_local! {
     static STORE_PTR: Cell<*const Scene3DRuntimeStore> = const { Cell::new(std::ptr::null()) };
 }
@@ -62,8 +56,7 @@ pub fn with_runtime_store<R>(store: Option<&Scene3DRuntimeStore>, f: impl FnOnce
 }
 
 impl Scene3DRuntimeStore {
-    /// Look up a runtime entry from the thread-local store pointer (zero allocation on hot path).
-    /// Returns `None` if no store is set or the source is not registered.
+    /// Look up a runtime entry from the thread-local store pointer.
     pub fn current_get(src: &str) -> Option<&'static Scene3DRuntimeEntry> {
         STORE_PTR.with(|cell| {
             let ptr = cell.get();

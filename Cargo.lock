@@ -917,6 +917,7 @@ dependencies = [
 name = "engine-render-3d"
 version = "0.1.0"
 dependencies = [
+ "engine-3d",
  "engine-core",
  "serde_yaml",
 ]

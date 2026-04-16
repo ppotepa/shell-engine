@@ -221,7 +221,7 @@ PR0 baseline references:
 ### PR3 - Move Scene3D Prerender into 3D Domain
 
 - [ ] Move Scene3D atlas ownership to `engine-render-3d`.
-- [ ] Move Scene3D runtime store ownership to `engine-render-3d`.
+- [x] Move Scene3D runtime store ownership to `engine-render-3d`.
 - [ ] Move Scene3D prerender pipeline to `engine-render-3d`.
 - [ ] Keep scene pipeline orchestration in `engine`.
 
@@ -293,6 +293,7 @@ These are the tasks to start with immediately.
 - [x] Rename compositor planet adapter/module symbols to generated-world naming (`generated_world_render_adapter`, `render_generated_world_sprite`) to keep render path source-agnostic.
 - [x] Remove newly added `legacy` wording/identifiers from compositor-side 3D path (`obj_render_adapter`, `obj_render::params`, `pass_underlay`, grid comment) to enforce naming rule in active refactor scope.
 - [x] Remove `Scene3DAtlas` module ownership from `engine-compositor` and switch atlas type/re-exports to shared 3D domain (`engine-3d::scene3d_atlas`).
+- [x] Move `Scene3DRuntimeStore` ownership out of `engine-compositor` into `engine-render-3d::prerender::runtime_store` and keep compositor as API consumer.
 
 ## Definition of Done
 
