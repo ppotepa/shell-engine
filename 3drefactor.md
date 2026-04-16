@@ -50,6 +50,10 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   re-exporting `render_scene3d_work_item` from `engine-compositor` and keeping it
   as the `engine_render_3d` callback boundary used by
   `engine/src/systems/scene3d_prerender.rs`.
+- Completed: completed `engine` -> `engine-render-2d` dependency wiring in
+  `engine/Cargo.toml` so compositor vector primitive lifecycle calls (`clear`
+  and `take`) can be wired through dedicated 2D seam without temporary
+  `engine_render_3d` fallback suggestions; `cargo check -p engine` now passes.
 
 ## Remaining Blockers (Audit 2026-04-16)
 
