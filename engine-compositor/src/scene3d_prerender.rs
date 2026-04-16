@@ -5,7 +5,8 @@ use engine_core::buffer::Buffer;
 use engine_core::scene::Scene;
 use engine_core::scene_runtime_types::SceneCamera3D;
 use engine_render_3d::prerender::{
-    prerender_scene3d_atlas_with, render_scene3d_frame_at_with, Scene3DWorkItem,
+    prerender_scene3d_atlas_with, render_scene3d_frame_at_with, render_work_item_canvas_with,
+    Scene3DWorkItem,
 };
 
 use crate::{
@@ -20,48 +21,21 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
 fn render_frame(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
     let mut buf = Buffer::new(item.viewport_w, item.viewport_h);
     let (virtual_w, virtual_h) = virtual_dimensions(item.viewport_w, item.viewport_h);
-    let canvas_size = virtual_w as usize * virtual_h as usize;
-    if canvas_size == 0 {
+    let Some(canvas) = render_work_item_canvas_with(
+        item,
+        asset_root,
+        virtual_w,
+        virtual_h,
+        render_obj_to_shared_buffers,
+    ) else {
         return Some(buf);
-    }
-
-    let mut canvas = vec![None; canvas_size];
-    let mut depth_buf = vec![f32::INFINITY; canvas_size];
-
-    for obj in item.objects.iter().filter(|o| !o.wireframe) {
-        render_obj_to_shared_buffers(
-            &obj.mesh,
-            item.viewport_w,
-            item.viewport_h,
-            obj.params.clone(),
-            obj.wireframe,
-            obj.backface_cull,
-            obj.fg,
-            Some(asset_root),
-            &mut canvas,
-            &mut depth_buf,
-        );
-    }
-    for obj in item.objects.iter().filter(|o| o.wireframe) {
-        render_obj_to_shared_buffers(
-            &obj.mesh,
-            item.viewport_w,
-            item.viewport_h,
-            obj.params.clone(),
-            obj.wireframe,
-            obj.backface_cull,
-            obj.fg,
-            Some(asset_root),
-            &mut canvas,
-            &mut depth_buf,
-        );
-    }
+    };
 
     blit_color_canvas(
         &mut buf,
-        &canvas,
-        virtual_w,
-        virtual_h,
+        &canvas.colors,
+        canvas.virtual_w,
+        canvas.virtual_h,
         item.viewport_w,
         item.viewport_h,
         0,
@@ -71,7 +45,7 @@ fn render_frame(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer
         Color::White,
         Color::Reset,
         0,
-        virtual_h as usize,
+        canvas.virtual_h as usize,
     );
 
     Some(buf)
