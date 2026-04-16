@@ -22,7 +22,7 @@ pub(crate) fn render_scene_clip_sprite(
     let Renderable3D::SceneClip(scene_clip) = node.renderable else {
         return;
     };
-    use crate::scene3d_atlas::Scene3DAtlas;
+    use crate::Scene3DAtlas;
     use crate::scene3d_runtime_store::Scene3DRuntimeStore;
     use engine_render::rasterizer::blit;
 

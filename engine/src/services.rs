@@ -315,7 +315,7 @@ impl engine_compositor::CompositorAccess for World {
     }
 
     fn scene3d_atlas(&self) -> Option<&dyn std::any::Any> {
-        self.resource_any::<engine_compositor::scene3d_atlas::Scene3DAtlas>()
+        self.resource_any::<engine_compositor::Scene3DAtlas>()
     }
 
     fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {

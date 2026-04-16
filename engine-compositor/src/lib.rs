@@ -23,7 +23,6 @@ pub mod provider;
 pub mod render;
 mod generated_world_render_adapter;
 mod scene_clip_render_adapter;
-pub mod scene3d_atlas;
 pub mod scene3d_prerender;
 pub mod scene3d_runtime_store;
 pub mod scene_compositor;
@@ -44,7 +43,7 @@ pub use obj_render::{
 };
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
-pub use scene3d_atlas::Scene3DAtlas;
+pub use engine_3d::scene3d_atlas::Scene3DAtlas;
 pub use scene3d_prerender::{
     build_scene3d_runtime_store, prerender_scene3d_atlas, render_scene3d_frame_at,
 };
