@@ -15,9 +15,11 @@ support day-to-day development.
 - `simplify_glb.py` — reduce polygon count for heavy GLB assets
 - `ttf-rasterizer/` — font tooling
 
-Repository-root scripts like `benchmark.py`, `collect-benchmarks.py`,
-`capture-frames.sh`, and `capture-frames-tests.sh` are also part of the overall
-tooling workflow even though they sit outside this directory.
+Repository-root scripts like `benchmark.py` and `collect-benchmarks.py` are
+also part of the overall tooling workflow even though they sit outside this
+directory. Frame capture currently uses direct
+`cargo run -p app ... --capture-frames` commands rather than checked-in wrapper
+scripts.
 
 ## Usage
 

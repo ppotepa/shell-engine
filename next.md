@@ -1,5 +1,9 @@
 ﻿# Next — Planet Generator Handover
 
+> Historical handoff note: this file captures an earlier planet-generator
+> iteration and is not the canonical description of the current engine
+> architecture. Prefer root docs and mod-local READMEs for current behavior.
+
 ## Stan Projektu (Project State)
 
 Planet Generator (`mods/planet-generator`) to interaktywny mod do generowania planet proceduralnych w silniku Shell Engine — terminalowym renderze 3D opartym o SDL2 pixel canvas. Mod pozwala w czasie rzeczywistym kręcić parametrami (slidery GUI) i oglądać jak planeta się zmienia.

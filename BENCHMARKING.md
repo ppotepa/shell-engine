@@ -1,20 +1,24 @@
-﻿# Shell Engine Benchmark Guide
+# Shell Engine Benchmark Guide
 
-Covers performance benchmarking, the test mod, and frame capture regression testing.
+Covers performance benchmarking, repeatable benchmark targets, and frame
+capture regression testing.
 
 ---
 
 ## 1. Quick Start
 
+Use an explicit bundled mod and scene path so benchmark results are reproducible.
+The default recommended target is the playground 3D scene:
+
 ```bash
 # Baseline (disable default comp+rowdiff), 10 seconds
-cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --no-opt-comp --no-opt-rowdiff
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10 --no-opt-comp --no-opt-rowdiff
 
 # With all optimizations
-cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --opt
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10 --opt
 
 # Release build example
-cargo run -p app --release -- --mod-source=mods/shell-engine-tests --bench 10 --opt
+cargo run -p app --release -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10 --opt
 ```
 
 `--bench` automatically skips the splash screen. Reports are saved to
@@ -33,34 +37,36 @@ cargo run -p app --release -- --mod-source=mods/shell-engine-tests --bench 10 --
 | `--opt-rowdiff` | Row-level dirty skip (enabled by default; use `--no-opt-rowdiff` to disable) |
 | `--opt` | All optimizations combined |
 
-Recommendations: keep default `opt-comp` + `opt-rowdiff`, add `--opt-skip` for release builds, and use `--opt` when you want every optimization path.
+Recommendations: keep default `opt-comp` + `opt-rowdiff`, add `--opt-skip` for
+release builds, and use `--opt` when you want every optimization path.
 
 ---
 
-## 3. Test Mod (shell-engine-tests)
+## 3. Recommended Benchmark Targets
 
-Lightweight variant of the main mod: timeout triggers instead of user input,
-compressed timings (~9.4s per loop), continuous looping (scene 04 wraps to 00).
+There is no dedicated in-repo `shell-engine-tests` benchmark mod anymore.
+Instead, benchmark against explicit bundled mod/scene pairs.
 
-### Scene Timeline
+Recommended default target:
 
-| Scene | Duration | Trigger | Effects |
-|-------|----------|---------|---------|
-| 00 Intro Logo | ~1680ms | timeout 600ms | CRT-on, shine, flash |
-| 01 Intro Date | ~1900ms | timeout 400ms | Scanlines |
-| 02 Intro Boot | ~2180ms | timeout 200ms | Fade-in, scanlines |
-| 03 Lab Enter | ~1120ms | timeout 200ms | Fade-in/out |
-| 04 Difficulty | ~2550ms | timeout 2000ms | 4x PostFX (heaviest) |
-| **Total loop** | **~9430ms** | | |
+```bash
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10
+```
 
-### Coverage by Duration
+Why this target:
 
-| Duration | Scenes Covered |
-|----------|----------------|
-| `--bench 5` | 00-02 (partial loop) |
-| `--bench 10` | All 5 scenes + 2nd loop start |
-| `--bench 20` | ~2 full loops |
-| `--bench 30` | ~3 full loops |
+- it exists in the bundled repo,
+- it exercises authored scene composition and 3D rendering together,
+- it is stable enough for before/after optimization comparisons.
+
+Other useful targets:
+
+- `mods/planet-generator` for generated-world and atmosphere work,
+- `mods/terrain-playground` for terrain/worldgen-heavy scenes,
+- `mods/gui-playground` for widget/layout-heavy UI work.
+
+The main rule is consistency: keep the mod, start scene, duration, and flag set
+fixed between compared runs.
 
 ---
 
@@ -68,9 +74,9 @@ compressed timings (~9.4s per loop), continuous looping (scene 04 wraps to 00).
 
 | Scenario | Command | Use Case |
 |----------|---------|----------|
-| Quick validation | `--bench 5` | Partial coverage, fast iteration |
-| Full coverage | `--bench 10` | Recommended -- all scenes in one pass |
-| Extended | `--bench 20+` | Statistical stability, multiple loops |
+| Quick validation | `--bench 5` | Fast iteration on one known scene |
+| Full coverage | `--bench 10` | Recommended baseline comparison pass |
+| Extended | `--bench 20+` | Statistical stability over longer runs |
 
 ### Automated Flag Sweeps
 
@@ -80,39 +86,39 @@ python3 benchmark.py quick      # 5s, fast check
 python3 benchmark.py extended   # 20s, stable metrics
 ```
 
-Aggregation: `python3 collect-benchmarks.py` produces `reports/benchmark/results.csv`.
+Aggregation: `python3 collect-benchmarks.py` produces
+`reports/benchmark/results.csv`.
 
 ---
 
 ## 5. Frame Capture Regression Testing
 
-Binary frame capture for visual regression -- verifies that optimizations produce
-identical output to baseline rendering.
+Binary frame capture for visual regression. This verifies that optimization
+changes produce identical rendered output to baseline rendering.
 
 ### Workflow
 
 ```bash
 # 1. Capture baseline
-cargo run -p app -- --capture-frames reports/baseline/ --bench 5
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --capture-frames reports/baseline/ --bench 5
 
 # 2. Capture optimized
-cargo run -p app -- --opt --capture-frames reports/optimized/ --bench 5
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --opt --capture-frames reports/optimized/ --bench 5
 
 # 3. Compare
 FRAME_BASELINE=reports/baseline/ FRAME_OPTIMIZED=reports/optimized/ \
   cargo test -p engine compare_frame_captures -- --ignored --nocapture
 ```
 
-### Quick Script
-
-```bash
-./capture-frames.sh reports/baseline reports/optimized 5
-```
+There is currently no checked-in `capture-frames.sh` /
+`capture-frames-tests.sh` wrapper script in the repo. Use the direct commands
+above so the benchmark target stays explicit in review history and CI logs.
 
 ### Binary Format
 
 Each `.bin` file: `[width:u16 LE][height:u16 LE][cells...]`.
-Each cell = 10 bytes: `[symbol:u32 LE][fg_r:u8][fg_g:u8][fg_b:u8][bg_r:u8][bg_g:u8][bg_b:u8]`.
+Each cell = 10 bytes:
+`[symbol:u32 LE][fg_r:u8][fg_g:u8][fg_b:u8][bg_r:u8][bg_g:u8][bg_b:u8]`.
 
 Colors are serialized as 8-bit RGB triples. `Color::Reset` maps to `(0,0,0)`;
 ANSI palette colors are expanded to standard RGB.
@@ -135,8 +141,7 @@ Higher is better. Dominated by average FPS, penalized by frame-time variance.
 
 ```
 SCENE                          FRAMES  FPS avg  COMP us   PFX us  REND us   BHV us
-00.intro.logo                     102     62.1    120.3      0.0    131.5      2.1
-04.intro.difficulty-select        155     61.9    164.2    892.4    149.8      1.8
+playground-3d-scene              102     62.1    120.3      0.0    131.5      2.1
 ```
 
 System columns: Compositor (sprite compositing), PostFX (CRT/glow passes),
@@ -144,34 +149,20 @@ Renderer (SDL2 diff/present), Behavior (Rhai script execution).
 
 ---
 
-## 7. Automated Testing Script
-
-The `capture-frames-tests.sh` script captures baseline and optimized frames using
-the `shell-engine-tests` mod automatically:
-
-```bash
-./capture-frames-tests.sh baseline optimized 2
-```
-
-This runs both captures with `--mod-source=mods/shell-engine-tests`, then invokes the
-comparison test. Useful for CI and pre-merge visual regression checks.
-
----
-
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| No report generated | Check `--mod-source` path; `reports/benchmark/` is auto-created |
-| FPS below 30 | Build with `--release`; check terminal resolution (see RESOLUTIONS.md) |
-| Frame count mismatch | Ensure both captures use the same `--bench N` value |
-| Color divergence | Run both captures in the same terminal; prefer `Color::Rgb` in test scenes |
+| No report generated | Check `--mod-source` and `--start-scene`; `reports/benchmark/` is auto-created |
+| FPS below 30 | Build with `--release`; compare on the same scene and window setup |
+| Frame count mismatch | Ensure both captures use the same mod, scene, and `--bench N` value |
+| Color divergence | Run both captures under the same runtime settings; prefer deterministic scenes |
 | CSV empty | Verify `ls reports/benchmark/*.txt`; run `python3 collect-benchmarks.py` |
 
 ### SDL2 Pipeline Profiling
 
-For SDL2 backend stage timings (diff/build, runtime apply, texture upload, present),
-enable profiling logs:
+For SDL2 backend stage timings (diff/build, runtime apply, texture upload,
+present), enable profiling logs:
 
 ```bash
 SHELL_ENGINE_SDL_PROFILE=1 cargo run -p app --

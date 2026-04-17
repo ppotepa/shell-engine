@@ -23,7 +23,7 @@ gameplay.
 Typical usage flows through repository scripts and app flags such as:
 
 ```bash
-cargo run -p app -- --capture-frames reports/frames --mod-source=mods/shell-engine-tests
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --capture-frames reports/frames
 ```
 
 and comparison/reporting utilities built on top of the serialized format.

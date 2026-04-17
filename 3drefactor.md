@@ -47,6 +47,13 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   `app/README.md`, `engine-compositor/*README*`, `engine-render-3d/README.md`,
   `engine-worldgen/README.md`, `engine-mesh/README.md`, `engine-api/README.md`,
   `engine-render-2d/README.md`, `mods/README.md`.
+- Completed (Markdown consistency audit): fixed active workflow docs that still
+  pointed at removed benchmark mods, removed wrapper scripts, old sidecar
+  paths, or outdated editor wording. Updated `AGENTS.md`,
+  `BENCHMARKING.md`, `OPTIMIZATIONS.md`, `engine-capture/README.md`,
+  `tools/README*.MD`, `rust-os/README.md`, and `ARCHITECTURE.md`. Marked
+  `next.md` and `finalize.md` as historical handoff notes instead of current
+  source-of-truth docs.
 - Completed (String-path setter retirement): removed all string-path dispatcher
   functions from `engine-scene-runtime/src/materialization.rs`
   (`set_obj_property_recursive`, `set_planet_property_recursive`,

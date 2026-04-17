@@ -8,8 +8,8 @@
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repository structure, dependency graph, per-frame systems, strategy pattern, scene model, buffer architecture, SDL2 pixel rendering, timeline system, input system, logging, schema system, editor design, change playbook
 - **[AUTHORING.md](AUTHORING.md)** — Metadata-first approach, mod structure, asset system, sprite types, scene contract, PostFX pipeline, OBJ lighting, terminal HUD, Rhai scripting, compilation pipeline, author checklist, daily workflow
-- **[MODS.md](MODS.md)** — Shell Engine main mod, shell-engine-tests benchmark mod, playground dev mod, creating custom mods
-- **[BENCHMARKING.md](BENCHMARKING.md)** — Quick start, optimization flags, test mod specs, frame capture regression testing, benchmark scenarios and reports
+- **[MODS.md](MODS.md)** — Bundled playground, worldgen, GUI, and gameplay mods; mod structure and launch patterns
+- **[BENCHMARKING.md](BENCHMARKING.md)** — Quick start, optimization flags, benchmark targets, frame capture regression testing, benchmark scenarios and reports
 - **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — CLI flags, strategy pattern, 20 optimization implementations, summary stats, key invariants, usage examples
 
 ### Subsystem-Local READMEs (Each Directory)
@@ -25,9 +25,10 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - **[engine-gui/README.md](engine-gui/README.md)** — GUI widget model, input contract (`InputEvent`), `GuiSystem`, Rhai script API integration
 - **[engine-behavior/README.AGENTS.md](engine-behavior/README.AGENTS.md)** — Behavior contract, `BehaviorContext`, `BehaviorCommand`, script-facing API reminders
 - **[engine-*/README.md](engine-3d/README.md)** — crate-specific READMEs (purpose, key types, dependencies, usage)
-- **[mods/shell-engine/README.AGENTS.MD](mods/shell-engine/README.AGENTS.MD)** — Content structure, scenes, assets
-- **[mods/shell-engine-tests/README.AGENTS.MD](mods/shell-engine-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
+- **[mods/README.md](mods/README.md)** — Bundled mod overview and launch examples
+- **[mods/playground/README.md](mods/playground/README.md)** — General engine sandbox and scene experimentation
 - **[mods/planet-generator/README.md](mods/planet-generator/README.md)** — Procedural planet viewer mod, controls, authoring new planet types
+- **[mods/gui-playground/README.md](mods/gui-playground/README.md)** — Widget system playground and GUI behavior experiments
 - **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
 - **[schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — Schema generation, validation, drift checking
 
@@ -44,9 +45,9 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - `engine-mesh/` procedural 3D mesh generation (cube-sphere, UV-sphere)
 - `engine-terrain/` procedural world generation (noise, climate, biomes)
 - `engine-io/` transport-agnostic IPC bridge (sidecar communication)
-- `editor/` TUI authoring tool
+- `rust-os/` experimental Rust sidecar / OS sandbox
+- `editor/` SDL2-backed authoring tool / stub
 - `mods/` content mods
-  - `mods/shell-engine/os/cognitOS/` C# sidecar (simulated MinixOS)
 - `schemas/` shared base schemas
 
 Scenes are loaded as:
@@ -120,10 +121,10 @@ Run playground mod with debug helpers:
 SHELL_ENGINE_MOD_SOURCE=mods/playground cargo run -p app -- --debug-feature
 ```
 
-Run shell-engine with debug helpers:
+Run a specific mod with debug helpers:
 
 ```bash
-cargo run -p app -- --debug-feature
+cargo run -p app -- --mod playground --debug-feature
 ```
 
 Debug overlay keys (when `--debug-feature` is active):
@@ -139,21 +140,20 @@ cargo test -p engine-core
 cargo test -p engine-authoring
 ```
 
-Build C# sidecar:
+Build the experimental Rust sidecar:
 
 ```bash
-cd mods/shell-engine/os/cognitOS
-dotnet build -c Release
+cargo build -p rust-os
 ```
 
 Benchmarking:
 
 ```bash
 # Baseline 10-second benchmark (splash auto-skipped)
-cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10
 
 # With all optimizations
-cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --opt
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10 --opt
 
 # Aggregate reports to CSV
 python3 collect-benchmarks.py
@@ -252,32 +252,18 @@ When adding new optimization flags:
 
 ## 6) Sidecar & gameplay changes
 
-When adding new shell commands:
+When changing sidecar command handling or IPC flows:
 
-- add `Commands/<Name>Command.cs` implementing `ICommand`,
-- register in `Program.cs` commands array,
-- if command changes `SessionMode`, handle in `AppHost.HandleSubmit` switch,
-- update `mods/shell-engine/docs/scripts.md` if gameplay-relevant.
-
-When changing difficulty levels:
-
-- update `Difficulty` enum in `Core/Difficulty.cs`,
-- update `MachineSpec.FromDifficulty()` switch,
-- update difficulty table in `docs/scripts.md`,
-- verify boot sequence reads spec (`BootSequence.cs`).
-
-When changing sidecar IPC protocol:
-
+- update command/dispatch code in `rust-os/src`,
 - update `IoRequest`/`IoEvent` enums in `engine-io/src/lib.rs`,
 - update engine consumption in `engine/src/systems/engine_io.rs`,
-- update C# parsing in `Program.cs` / `Protocol.cs`,
-- update `engine-io/README.md`.
+- update `engine-io/README.md` and `rust-os/README.md`.
 
-When changing virtual filesystem:
+When changing virtual filesystem behavior in the sidecar sandbox:
 
-- update `IVirtualFileSystem` or `IMutableFileSystem` in `State/VirtualFileSystem.cs`,
-- update `SeedEpochFiles()` if adding new game files,
-- verify path resolution in `CommandContext.ResolvePath()`.
+- update the relevant `rust-os/src/vfs` implementation,
+- update any boot/seed file logic in `rust-os/src`,
+- verify path resolution and command execution still agree.
 
 ## 7) Preferred working style
 

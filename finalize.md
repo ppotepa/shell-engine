@@ -1,5 +1,9 @@
 # Jira Handoff: Final 3D Refactor Closure
 
+> Historical handoff note: this file captures an in-progress closure plan from
+> the refactor phase. Use root docs plus `3drefactor.md` / `left.md` as the
+> current source of truth.
+
 ## Ticket
 
 - Title: Finalize 2D/3D ownership split and remove remaining compatibility command debt

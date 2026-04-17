@@ -84,7 +84,7 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 
 ### OPT-28: Inline Hot-Path Functions (Always On)
 
-**Location:** `engine-compositor/src/sprite_renderer.rs`, `layer_compositor.rs`, `text_render.rs`
+**Location:** `engine-render-2d/src/sprite_dispatch.rs`, `engine-compositor/src/layer_compositor.rs`, `engine-render-2d/src/text.rs`
 
 **What it does:**
 - Adds `#[inline(always)]` to `glow_cache_key()` — called per glyph in hot sprite rendering loop
@@ -168,10 +168,10 @@ cargo run -p app -- --opt
 cargo run -p app -- --no-opt-comp --no-opt-rowdiff
 
 # Benchmark with optimizations
-cargo run -p app -- --mod-source=mods/shell-engine-tests --bench 10 --opt
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10 --opt
 
 # Release example with optimizations
-cargo run -p app --release -- --mod-source=mods/shell-engine-tests --bench 10 --opt
+cargo run -p app --release -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 10 --opt
 ```
 
 ---
@@ -180,7 +180,7 @@ cargo run -p app --release -- --mod-source=mods/shell-engine-tests --bench 10 --
 
 ### OPT-36: Sprite Culling Acceleration (Always On)
 
-**Location:** `engine-compositor/src/render/common.rs`, `sprite_renderer.rs`
+**Location:** `engine-render-2d/src/sprite_dispatch.rs`
 
 **What it does:**
 - Adds `is_sprite_offscreen()` inline function to detect sprites completely outside viewport
@@ -266,10 +266,10 @@ cargo test -p engine-compositor
 cargo test -p engine-render-sdl2
 
 # Benchmark sprite-heavy scene
-cargo run -p app -- --mod-source=mods/playground --start-scene=3d-scene --bench 5
+cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 5
 
 # Profile before/after
-time cargo run -p app --release -- --mod-source=mods/shell-engine-tests --start-scene=intro --bench 1
+time cargo run -p app --release -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 1
 ```
 
 ---

@@ -19,6 +19,6 @@ game’s sidecar integrations.
 
 ## Relation to the main game
 
-This is adjacent tooling/experimentation rather than the primary shipped
-`cognitOS` implementation under `mods/shell-engine/os/cognitOS/`, but it shares
-the same overall sidecar/terminal simulation direction.
+This is the current in-tree sidecar / terminal-sandbox experiment. It shares
+the same overall IPC and terminal-simulation direction as the engine, but there
+is no separate shipped `mods/.../cognitOS/` tree in the current repo layout.

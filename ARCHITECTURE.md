@@ -5,7 +5,7 @@
 ```
 shell-engine/
 ├── app/                       CLI launcher
-├── editor/                    TUI authoring tool
+├── editor/                    SDL2-backed authoring tool / stub
 ├── engine/                    Runtime orchestrator (re-exports all subsystems)
 ├── engine-core/               Scene model, buffer, effects, metadata
 ├── engine-terrain/            Procedural world generation (noise, climate, biomes)

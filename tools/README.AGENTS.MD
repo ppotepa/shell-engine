@@ -18,7 +18,7 @@ Primary commands:
 ```bash
 cargo run -p schema-gen -- --all-mods
 cargo run -p schema-gen -- --all-mods --check
-cargo run -p schema-gen -- --mod mods/shell-engine
+cargo run -p schema-gen -- --mod mods/playground
 ```
 
 Use it whenever scene/effect schema surfaces change.
@@ -41,9 +41,9 @@ It also keeps yaml-language-server schema fragments in sync after scaffold/edit 
 
 ### Benchmark and capture scripts
 
-Repository-root scripts such as `benchmark.py`, `benchmark.sh`,
-`capture-frames.sh`, `capture-frames-tests.sh`, and `collect-benchmarks.py`
-work together with the test mod and benchmark reports.
+Repository-root scripts such as `benchmark.py` and `collect-benchmarks.py`
+work together with direct `cargo run -p app ... --capture-frames` commands and
+benchmark reports.
 
 Use these when measuring optimization impact or checking visual regressions.
 
