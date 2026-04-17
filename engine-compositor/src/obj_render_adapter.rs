@@ -343,6 +343,7 @@ pub(crate) fn render_obj_sprite(
             },
             unlit: false,
             ambient: ambient.unwrap_or(0.15),
+            ambient_floor: ctx.ambient_floor,
             light_point_falloff: 0.7,
             light_point_2_falloff: 0.7,
             smooth_shading: smooth_shading.unwrap_or(false),

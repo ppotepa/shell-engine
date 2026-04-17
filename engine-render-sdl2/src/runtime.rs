@@ -229,11 +229,8 @@ fn runtime_thread(
     let mut content_pixel_size = logical_dimensions(current_output_width, current_output_height);
     let (requested_window_width, requested_window_height) =
         window_dimensions(output_width, output_height, pixel_scale, window_ratio);
-    let (window_width, window_height, window_pos) = fit_window_to_primary_display(
-        &video,
-        requested_window_width,
-        requested_window_height,
-    );
+    let (window_width, window_height, window_pos) =
+        fit_window_to_primary_display(&video, requested_window_width, requested_window_height);
     let mut window_builder = video.window(&window_title, window_width, window_height);
     if let Some((x, y)) = window_pos {
         window_builder.position(x, y);

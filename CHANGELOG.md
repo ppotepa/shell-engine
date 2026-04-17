@@ -19,6 +19,13 @@ Daily progress updates for Shell Engine development.
 - **docs**: refreshed root docs, mod docs, compositor/render/worldgen docs, and runtime mutation docs to match the current architecture and bundled mods
 - **validation**: `cargo check -p engine`, `cargo check -p engine-render-3d`, benchmark smoke runs on `mods/asteroids` + `mods/planet-generator`
 
+**Ambient floor + free-look surface mode** ✅
+- **engine-core**: added optional scene lighting config (`scene.lighting.ambient-floor`) and free-look camera surface controls schema + runtime defaults.
+- **engine-compositor / engine-render-3d / engine-scene-runtime**: threaded `ambient_floor` from scene data to rasterizer ambient floor clamp with no renderer-specific coupling to planet-generator.
+- **mods/planet-generator**: enabled free-look surface mode in `scenes/main/scene.yml` and documented control behavior in mod README.
+- **docs**: updated `AUTHORING.md` and `schemas/scene.schema.yaml` for new scene lighting and free-look controls, keeping compatibility with legacy camelCase/hyphenated keys.
+- **validation**: `cargo check -p engine-compositor -p engine-render-3d -p engine -p engine-render-sdl2 -p engine-scene-runtime -p engine-core` and `cargo test -p engine-scene-runtime --lib`.
+
 ## Format Guidelines
 
 Each day should follow this structure:

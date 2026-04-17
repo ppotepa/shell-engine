@@ -69,6 +69,7 @@ pub fn compositor_system(world: &mut World) {
         camera_y,
         camera_zoom,
         spatial_context,
+        ambient_floor,
     ) = {
         // Get both Arc snapshots first (requires &mut)
         let (object_states, obj_camera_states) = world
@@ -129,6 +130,16 @@ pub fn compositor_system(world: &mut World) {
             .scene_runtime()
             .map(|rt| rt.scene_camera_3d())
             .unwrap_or_default();
+        let ambient_floor = world
+            .scene_runtime()
+            .map(|rt| {
+                rt.scene()
+                    .lighting
+                    .as_ref()
+                    .and_then(|lighting| lighting.ambient_floor)
+                    .unwrap_or(0.06)
+            })
+            .unwrap_or(0.06);
 
         (
             bg,
@@ -148,6 +159,7 @@ pub fn compositor_system(world: &mut World) {
             camera_y,
             camera_zoom,
             spatial_context,
+            ambient_floor,
         )
     };
 
@@ -271,6 +283,7 @@ pub fn compositor_system(world: &mut World) {
             is_pixel_backend,
             default_font: default_font.as_deref(),
             prerender_frames,
+            ambient_floor,
         },
     };
     engine_render_2d::clear_vector_primitives();

@@ -72,6 +72,7 @@ pub struct PreparedCompositeInputs<'a> {
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
+    pub ambient_floor: f32,
 }
 
 /// Prepare per-layer timing flags used by compositor assembly decisions.

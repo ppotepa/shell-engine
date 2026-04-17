@@ -1201,4 +1201,61 @@ next: null
         let runtime = world.scene_runtime().expect("runtime");
         assert!(runtime.scene_camera_3d().eye[2] < 3.0);
     }
+
+    #[test]
+    fn free_look_surface_mode_starts_on_shell_and_respects_altitude_bounds() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-surface-test
+title: Free Look Surface
+bg_colour: black
+input:
+  free-look-camera:
+    surface-mode: true
+    surface-radius: 1.0
+    surface-altitude: 0.05
+    surface-min-altitude: 0.02
+    surface-max-altitude: 0.06
+    surface-vertical-speed: 1.0
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed_with_modifiers(
+                KeyCode::Char('f'),
+                KeyModifiers::CONTROL,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        let eye = runtime.scene_camera_3d().eye;
+        let initial_radius = (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt();
+        assert!((initial_radius - 1.05).abs() < 0.02);
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Char('q'))]);
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 1000);
+        SceneLifecycleManager::process_events(&mut world, vec![key_released(KeyCode::Char('q'))]);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        let eye = runtime.scene_camera_3d().eye;
+        let min_radius = (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt();
+        assert!((min_radius - 1.02).abs() < 0.03);
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Char('e'))]);
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 1000);
+        SceneLifecycleManager::process_events(&mut world, vec![key_released(KeyCode::Char('e'))]);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        let eye = runtime.scene_camera_3d().eye;
+        let max_radius = (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt();
+        assert!((max_radius - 1.06).abs() < 0.03);
+    }
 }

@@ -1072,7 +1072,7 @@ fn render_mesh_projected(
         let planet_terrain_extra = build_terrain_extra_params(&params);
 
         let drawn_faces = if smooth_shading {
-            let ka_lum_ambient = ambient.max(0.06_f32);
+            let ka_lum_ambient = ambient.max(params.ambient_floor);
             let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
 
             let shade_at_vertex = |normal: [f32; 3]| -> f32 {
@@ -1904,7 +1904,7 @@ pub fn render_obj_to_canvas(
         let planet_terrain_extra = build_terrain_extra_params(&params);
 
         let drawn_faces = if smooth_shading {
-            let ka_lum_ambient = ambient.max(0.06_f32);
+            let ka_lum_ambient = ambient.max(params.ambient_floor);
             let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
 
             let shade_at_vertex = |normal: [f32; 3]| -> f32 {
@@ -2616,7 +2616,7 @@ pub fn render_obj_to_rgba_canvas(
 
     let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
     let fg_rgb = color_to_rgb(fg);
-    let ka_lum_ambient = params.ambient.max(0.06_f32);
+    let ka_lum_ambient = params.ambient.max(params.ambient_floor);
     let light_2_strength = params.light_2_intensity.clamp(0.0, 2.0);
 
     let shade_at_vertex = |normal: [f32; 3]| -> f32 {

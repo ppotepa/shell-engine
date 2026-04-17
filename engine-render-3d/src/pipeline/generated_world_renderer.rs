@@ -94,6 +94,7 @@ pub fn take_generated_world_pass_metrics() -> GeneratedWorldPassMetrics {
 
 pub struct GeneratedWorldRenderProfile {
     pub ambient: f32,
+    pub ambient_floor: f32,
     pub latitude_bands: u8,
     pub latitude_band_depth: f32,
     pub terrain_displacement: f32,
@@ -466,8 +467,10 @@ pub fn render_generated_world_sprite_with(
         use_scene_camera,
         scene_camera_3d,
         sun_dir,
+        profile.ambient_floor,
     );
     surface_params.ambient = profile.ambient;
+    surface_params.ambient_floor = profile.ambient_floor;
     surface_params.smooth_shading = true;
     surface_params.latitude_bands = profile.latitude_bands;
     surface_params.latitude_band_depth = profile.latitude_band_depth;
@@ -586,8 +589,10 @@ pub fn render_generated_world_sprite_with(
         use_scene_camera,
         scene_camera_3d,
         sun_dir,
+        profile.ambient_floor,
     );
     cloud_params.ambient = profile.cloud_ambient;
+    cloud_params.ambient_floor = profile.ambient_floor;
     cloud_params.smooth_shading = true;
     cloud_params.terrain_color = Some(color_to_rgb(profile.cloud_color));
     cloud_params.terrain_threshold = profile.cloud_threshold.clamp(0.0, 0.999);
@@ -704,8 +709,10 @@ pub fn render_generated_world_sprite_with(
         use_scene_camera,
         scene_camera_3d,
         sun_dir,
+        profile.ambient_floor,
     );
     cloud2_params.ambient = 0.004;
+    cloud2_params.ambient_floor = profile.ambient_floor;
     cloud2_params.smooth_shading = true;
     cloud2_params.terrain_color = Some(color_to_rgb(DEFAULT_WORLD_CLOUD_2_COLOR));
     cloud2_params.terrain_threshold = (profile.cloud_threshold + 0.12).min(0.992);
@@ -856,6 +863,7 @@ fn build_generated_world_base_params(
     use_scene_camera: bool,
     scene_camera: &SceneCamera3D,
     sun_dir: [f32; 3],
+    ambient_floor: f32,
 ) -> ObjRenderParams {
     ObjRenderParams {
         scale,
@@ -971,6 +979,7 @@ fn build_generated_world_base_params(
         },
         unlit: false,
         ambient: 0.05,
+        ambient_floor,
         light_point_falloff: 0.7,
         light_point_2_falloff: 0.7,
         smooth_shading: true,

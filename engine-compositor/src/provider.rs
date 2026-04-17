@@ -55,6 +55,7 @@ pub(crate) fn resolve_render_2d_pipeline<'a>(
     spatial_context: SpatialContext,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
     prerender_frames: Option<&'a ObjPrerenderedFrames>,
+    ambient_floor: f32,
 ) -> ResolvedRender2dPipeline<'a> {
     match pipeline {
         Some(pipeline) => ResolvedRender2dPipeline::Provided(pipeline),
@@ -64,6 +65,7 @@ pub(crate) fn resolve_render_2d_pipeline<'a>(
             spatial_context,
             celestial_catalogs,
             prerender_frames,
+            ambient_floor,
         )),
     }
 }
@@ -79,6 +81,7 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
         spatial_context: SpatialContext,
         celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
         prerender_frames: Option<&'a ObjPrerenderedFrames>,
+        ambient_floor: f32,
     ) -> Self {
         #[cfg(feature = "render-3d")]
         let render_3d = DefaultCompositorRender3dDelegate;
@@ -88,6 +91,7 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
             spatial_context,
             celestial_catalogs,
             prerender_frames,
+            ambient_floor,
             #[cfg(feature = "render-3d")]
             render_3d,
         };
@@ -101,6 +105,7 @@ pub struct DefaultCompositorRender2dPipeline<'a> {
     spatial_context: SpatialContext,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
     prerender_frames: Option<&'a ObjPrerenderedFrames>,
+    ambient_floor: f32,
     #[cfg(feature = "render-3d")]
     render_3d: DefaultCompositorRender3dDelegate,
 }
@@ -128,6 +133,7 @@ impl Render2dPipeline for DefaultCompositorRender2dPipeline<'_> {
             self.celestial_catalogs,
             input.is_pixel_backend,
             input.default_font,
+            self.ambient_floor,
             #[cfg(feature = "render-3d")]
             &self.render_3d,
             self.prerender_frames,

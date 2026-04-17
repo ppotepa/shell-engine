@@ -35,6 +35,7 @@ pub struct PreparedLayerRenderInputs<'a> {
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
+    pub ambient_floor: f32,
 }
 
 /// Prepared layer/frame state consumed by compositor assembly.
@@ -86,6 +87,7 @@ pub fn composite_layers(
     let celestial_catalogs = inputs.render.celestial_catalogs;
     let is_pixel_backend = inputs.render.is_pixel_backend;
     let default_font = inputs.render.default_font;
+    let ambient_floor = inputs.render.ambient_floor;
     let resolved_render_pipeline = resolve_render_2d_pipeline(
         inputs.render.render_2d_pipeline,
         obj_camera_states,
@@ -93,6 +95,7 @@ pub fn composite_layers(
         spatial_context,
         celestial_catalogs,
         inputs.render.prerender_frames,
+        ambient_floor,
     );
     let render_2d_pipeline: &dyn Render2dPipeline = resolved_render_pipeline.pipeline();
 

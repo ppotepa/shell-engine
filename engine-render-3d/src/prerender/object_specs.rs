@@ -124,6 +124,7 @@ pub fn build_object_specs(
                 view_forward_z: view_forward[2],
                 unlit: mat.surface_mode == SurfaceMode::Unlit,
                 ambient: lights.ambient,
+                ambient_floor: 0.06,
                 light_point_falloff: lights.point1_falloff,
                 light_point_2_falloff: lights.point2_falloff,
                 smooth_shading: false,

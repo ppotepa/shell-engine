@@ -156,6 +156,7 @@ pub(crate) fn render_sprites<'a>(
     celestial_catalogs: Option<&CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
+    ambient_floor: f32,
     #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
     prerender_frames: Option<&'a crate::ObjPrerenderedFrames>,
     layer_buf: &mut Buffer,
@@ -174,6 +175,7 @@ pub(crate) fn render_sprites<'a>(
         is_pixel_backend,
         default_font,
         prerender_frames,
+        ambient_floor,
     };
     let root_area = RenderArea {
         origin_x: root_origin_x,

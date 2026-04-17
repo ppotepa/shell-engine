@@ -27,7 +27,18 @@ input:
     distance-max: 6.0
     distance-step: 0.2
     drag-sensitivity: 0.14
-  free-look-camera: {}
+  free-look-camera:
+    move-speed: 0.45
+    mouse-sensitivity: 0.45
+    surface-mode: true
+    surface-center-x: 0.0
+    surface-center-y: 0.0
+    surface-center-z: 0.0
+    surface-radius: 1.0
+    surface-altitude: 0.03
+    surface-min-altitude: 0.01
+    surface-max-altitude: 0.35
+    surface-vertical-speed: 0.22
 gui:
   widgets:
     # ── Tab bar buttons (5 buttons spanning the full tab panel width) ──────────

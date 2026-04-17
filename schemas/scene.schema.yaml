@@ -37,6 +37,9 @@ properties:
   spatial:
     $ref: "#/$defs/scene_spatial"
     description: Optional scene-level spatial unit and axis overrides.
+  lighting:
+    $ref: "#/$defs/scene_lighting"
+    description: Optional scene-level lighting floor configuration.
   celestial:
     $ref: "#/$defs/scene_celestial"
     description: Optional binding to the persistent celestial scope resolved by this scene.
@@ -117,6 +120,8 @@ patternProperties:
     $ref: "#/$defs/scene_spatial/properties/meters-per-world-unit"
   "^virtual_pixels_per_world_unit$":
     $ref: "#/$defs/scene_spatial/properties/virtual-pixels-per-world-unit"
+  "^lighting$":
+    $ref: "#/properties/lighting"
   "^menu_options$":
     $ref: "#/properties/menu-options"
 
@@ -207,6 +212,22 @@ $defs:
         $ref: "#/$defs/scene_spatial/properties/virtual-pixels-per-world-unit"
       "^up_axis$":
         $ref: "#/$defs/scene_spatial/properties/up-axis"
+
+  scene_lighting:
+    type: object
+    additionalProperties: false
+    properties:
+      ambient-floor:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        default: 0.06
+        description: >
+          Minimum base light level applied after shading before night-side rendering.
+          Value `0.0` keeps full occlusion; higher values create a non-zero black floor.
+    patternProperties:
+      "^ambient_floor$":
+        $ref: "#/$defs/scene_lighting/properties/ambient-floor"
 
   celestial_scope:
     type: string
@@ -328,11 +349,70 @@ $defs:
         exclusiveMinimum: 0
         default: 1.0
         description: Mouse-look sensitivity multiplier.
+      surface-mode:
+        type: boolean
+        default: false
+        description: Constrain free-look motion to a spherical surface shell.
+      surface-center-x:
+        type: number
+        default: 0.0
+        description: Surface sphere center X in world units.
+      surface-center-y:
+        type: number
+        default: 0.0
+        description: Surface sphere center Y in world units.
+      surface-center-z:
+        type: number
+        default: 0.0
+        description: Surface sphere center Z in world units.
+      surface-radius:
+        type: number
+        exclusiveMinimum: 0
+        default: 1.0
+        description: Surface sphere radius in world units.
+      surface-altitude:
+        type: number
+        minimum: 0
+        default: 0.03
+        description: Initial altitude above surface when free-look activates.
+      surface-min-altitude:
+        type: number
+        minimum: 0
+        default: 0.01
+        description: Minimum altitude clamp above surface.
+      surface-max-altitude:
+        type: number
+        minimum: 0
+        default: 0.5
+        description: Maximum altitude clamp above surface.
+      surface-vertical-speed:
+        type: number
+        exclusiveMinimum: 0
+        default: 0.8
+        description: Vertical climb/descent speed for Q/E in world units per second.
     patternProperties:
       "^move_speed$":
         $ref: "#/$defs/free_look_camera_controls/properties/move-speed"
       "^mouse_sensitivity$":
         $ref: "#/$defs/free_look_camera_controls/properties/mouse-sensitivity"
+      "^surface_mode$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-mode"
+      "^surface_center_x$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-center-x"
+      "^surface_center_y$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-center-y"
+      "^surface_center_z$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-center-z"
+      "^surface_radius$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-radius"
+      "^surface_altitude$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-altitude"
+      "^surface_min_altitude$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-min-altitude"
+      "^surface_max_altitude$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-max-altitude"
+      "^surface_vertical_speed$":
+        $ref: "#/$defs/free_look_camera_controls/properties/surface-vertical-speed"
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:

@@ -55,6 +55,14 @@ pub struct SceneSpatial {
     pub up_axis: Option<crate::spatial::UpAxis>,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SceneLighting {
+    /// Minimum base light applied to all rasterized geometry, even when lights are below
+    /// surface visibility. `0.0` yields full black on night side for fully unlit faces.
+    #[serde(default, rename = "ambient-floor", alias = "ambient_floor")]
+    pub ambient_floor: Option<f32>,
+}
+
 impl SceneSpatial {
     pub fn to_context(&self) -> SpatialContext {
         let mut context = SpatialContext::default();
@@ -590,6 +598,42 @@ fn default_free_look_mouse_sensitivity() -> f32 {
     1.0
 }
 
+fn default_free_look_surface_mode() -> bool {
+    false
+}
+
+fn default_free_look_surface_center_x() -> f32 {
+    0.0
+}
+
+fn default_free_look_surface_center_y() -> f32 {
+    0.0
+}
+
+fn default_free_look_surface_center_z() -> f32 {
+    0.0
+}
+
+fn default_free_look_surface_radius() -> f32 {
+    1.0
+}
+
+fn default_free_look_surface_altitude() -> f32 {
+    0.03
+}
+
+fn default_free_look_surface_min_altitude() -> f32 {
+    0.01
+}
+
+fn default_free_look_surface_max_altitude() -> f32 {
+    0.5
+}
+
+fn default_free_look_surface_vertical_speed() -> f32 {
+    0.8
+}
+
 /// Declarative free-look scene camera controls.
 #[derive(Debug, Clone, Deserialize)]
 pub struct FreeLookCameraControls {
@@ -607,6 +651,69 @@ pub struct FreeLookCameraControls {
         alias = "mouse_sensitivity"
     )]
     pub mouse_sensitivity: f32,
+    /// Keep the camera constrained around a sphere surface and move tangentially.
+    #[serde(
+        default = "default_free_look_surface_mode",
+        rename = "surface-mode",
+        alias = "surface_mode"
+    )]
+    pub surface_mode: bool,
+    /// Surface sphere center X in world units.
+    #[serde(
+        default = "default_free_look_surface_center_x",
+        rename = "surface-center-x",
+        alias = "surface_center_x"
+    )]
+    pub surface_center_x: f32,
+    /// Surface sphere center Y in world units.
+    #[serde(
+        default = "default_free_look_surface_center_y",
+        rename = "surface-center-y",
+        alias = "surface_center_y"
+    )]
+    pub surface_center_y: f32,
+    /// Surface sphere center Z in world units.
+    #[serde(
+        default = "default_free_look_surface_center_z",
+        rename = "surface-center-z",
+        alias = "surface_center_z"
+    )]
+    pub surface_center_z: f32,
+    /// Base planet radius for surface mode.
+    #[serde(
+        default = "default_free_look_surface_radius",
+        rename = "surface-radius",
+        alias = "surface_radius"
+    )]
+    pub surface_radius: f32,
+    /// Initial altitude above surface when free-look is activated.
+    #[serde(
+        default = "default_free_look_surface_altitude",
+        rename = "surface-altitude",
+        alias = "surface_altitude"
+    )]
+    pub surface_altitude: f32,
+    /// Minimum altitude clamp above surface.
+    #[serde(
+        default = "default_free_look_surface_min_altitude",
+        rename = "surface-min-altitude",
+        alias = "surface_min_altitude"
+    )]
+    pub surface_min_altitude: f32,
+    /// Maximum altitude clamp above surface.
+    #[serde(
+        default = "default_free_look_surface_max_altitude",
+        rename = "surface-max-altitude",
+        alias = "surface_max_altitude"
+    )]
+    pub surface_max_altitude: f32,
+    /// Vertical climb/descent speed (Q/E) in world units per second.
+    #[serde(
+        default = "default_free_look_surface_vertical_speed",
+        rename = "surface-vertical-speed",
+        alias = "surface_vertical_speed"
+    )]
+    pub surface_vertical_speed: f32,
 }
 
 impl Default for FreeLookCameraControls {
@@ -614,6 +721,15 @@ impl Default for FreeLookCameraControls {
         Self {
             move_speed: default_free_look_move_speed(),
             mouse_sensitivity: default_free_look_mouse_sensitivity(),
+            surface_mode: default_free_look_surface_mode(),
+            surface_center_x: default_free_look_surface_center_x(),
+            surface_center_y: default_free_look_surface_center_y(),
+            surface_center_z: default_free_look_surface_center_z(),
+            surface_radius: default_free_look_surface_radius(),
+            surface_altitude: default_free_look_surface_altitude(),
+            surface_min_altitude: default_free_look_surface_min_altitude(),
+            surface_max_altitude: default_free_look_surface_max_altitude(),
+            surface_vertical_speed: default_free_look_surface_vertical_speed(),
         }
     }
 }
@@ -687,6 +803,8 @@ pub struct Scene {
     pub spatial: SceneSpatial,
     #[serde(default)]
     pub celestial: SceneCelestial,
+    #[serde(default)]
+    pub lighting: Option<SceneLighting>,
     #[serde(default, rename = "virtual-size-override")]
     pub virtual_size_override: Option<String>,
     pub bg_colour: Option<TermColour>,

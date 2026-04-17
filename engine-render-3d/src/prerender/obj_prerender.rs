@@ -462,6 +462,7 @@ fn build_static_obj_prerender_params(spec: &ObjSpriteSpec<'_>) -> ObjRenderParam
         view_forward_z: 1.0,
         unlit: false,
         ambient: 0.0,
+        ambient_floor: 0.06,
         light_point_falloff: 0.7,
         light_point_2_falloff: 0.7,
         smooth_shading: spec.smooth_shading.unwrap_or(false),

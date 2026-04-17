@@ -67,6 +67,7 @@ pub struct ObjRenderParams {
     pub view_forward_z: f32,
     pub unlit: bool,
     pub ambient: f32,
+    pub ambient_floor: f32,
     pub light_point_falloff: f32,
     pub light_point_2_falloff: f32,
     pub smooth_shading: bool,

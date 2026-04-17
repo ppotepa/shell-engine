@@ -36,6 +36,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,
     pub(crate) prerender_frames: Option<&'a ObjPrerenderedFrames>,
+    pub(crate) ambient_floor: f32,
 }
 
 /// Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.

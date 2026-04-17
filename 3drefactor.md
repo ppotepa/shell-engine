@@ -75,3 +75,10 @@ Owner: `engine/render/runtime`
   - FPS ~23.8
   - compositor ~36.31ms avg, p95 ~38.09ms
   - cloud passes steady-state low (`cloud1 p50 ~2.2ms`, `cloud2 p50 ~2.1ms`, `halo p50 ~2.5ms`)
+
+## 8. Renderer-Agnostic Lighting Floor + Surface Flight (Implemented)
+
+- [x] Scene-level `lighting.ambient-floor` introduced in `engine-core`, threaded through compositor and raster params.
+- [x] `ambient-floor` now participates in scene schema (`schemas/scene.schema.yaml`) and docs.
+- [x] Free-look surface mode controls added to `engine-core::scene::FreeLookCameraControls`, scene runtime, and planet-generator scene.
+- [x] Planet-generator scene now documents and enables surface-mode controls for first-person-style walk/fly testing.

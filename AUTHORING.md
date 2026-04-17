@@ -561,6 +561,7 @@ A `scene.yml` controls the following concerns:
 | Identity    | id, title                                                 |
 | Lifecycle   | stages, stages-ref                                        |
 | Composition | layers (ordered list of visual slices)                    |
+| Lighting    | lighting.ambient-floor                                     |
 | PostFX      | postfx (ordered list of post-processing passes)           |
 | UI          | ui.enabled, ui.persist, ui.theme, ui.focus-order          |
 | Routing     | next, menu-options (each with `to`)                       |
@@ -584,6 +585,26 @@ Order matters — passes apply sequentially to the composited buffer.
 | crt-filter      | Full-screen CRT display pass      |
 
 ---
+
+## Scene Lighting
+
+Scene-level lighting supports:
+
+- `lighting.ambient-floor` (0.0..1.0): minimum base illumination floor for all
+  rasterized geometry. Use `0.0` for full black night-side, higher values to lift
+  darkness globally.
+
+## Free-Look Camera Surface Mode
+
+`input.free-look-camera` also accepts surface-constrained controls for planet
+navigation:
+
+- `surface-mode`: `true` to keep the camera on a spherical shell.
+- `surface-center-x/y/z`: sphere center in world units.
+- `surface-radius`: base planet radius.
+- `surface-altitude`: initial altitude above surface.
+- `surface-min-altitude` / `surface-max-altitude`: altitude clamp.
+- `surface-vertical-speed`: climb/descent speed for `q` / `e`.
 
 ## OBJ Lighting
 

@@ -431,7 +431,18 @@ impl SceneRuntime {
 
         if state.pending_activate {
             let forward = current_camera.forward();
-            state.position = current_camera.eye;
+            if state.surface_mode {
+                let min_alt = state.surface_min_altitude.max(0.0);
+                let max_alt = state.surface_max_altitude.max(min_alt);
+                state.surface_altitude = state.surface_altitude.clamp(min_alt, max_alt);
+                let radial = normalize3(sub3(current_camera.eye, state.surface_center));
+                state.position = add3(
+                    state.surface_center,
+                    scale3(radial, state.surface_radius + state.surface_altitude),
+                );
+            } else {
+                state.position = current_camera.eye;
+            }
             state.yaw_deg = forward[0].atan2(-forward[2]).to_degrees();
             state.pitch_deg = forward[1].clamp(-1.0, 1.0).asin().to_degrees();
             state.pending_activate = false;
@@ -440,39 +451,97 @@ impl SceneRuntime {
 
         let dt_s = dt_ms as f32 / 1000.0;
         let forward = free_look_forward(state.yaw_deg, state.pitch_deg);
-        let right = normalize3(cross3(forward, [0.0, 1.0, 0.0]));
-        let up = normalize3(cross3(right, forward));
-
-        let mut move_dir = [0.0f32, 0.0, 0.0];
-        if state.held_keys.contains("w") {
-            move_dir = add3(move_dir, forward);
-        }
-        if state.held_keys.contains("s") {
-            move_dir = add3(move_dir, scale3(forward, -1.0));
-        }
-        if state.held_keys.contains("d") {
-            move_dir = add3(move_dir, right);
-        }
-        if state.held_keys.contains("a") {
-            move_dir = add3(move_dir, scale3(right, -1.0));
-        }
-        if state.held_keys.contains("e") {
-            move_dir = add3(move_dir, up);
-        }
-        if state.held_keys.contains("q") {
-            move_dir = add3(move_dir, scale3(up, -1.0));
-        }
-
-        let move_len = length3(move_dir);
-        if move_len > 0.0 {
-            let step = scale3(normalize3(move_dir), state.move_speed * dt_s);
-            state.position = add3(state.position, step);
-        }
-
         let mut camera = current_camera;
-        camera.eye = state.position;
-        camera.look_at = add3(state.position, forward);
-        camera.up = up;
+
+        if state.surface_mode {
+            let min_alt = state.surface_min_altitude.max(0.0);
+            let max_alt = state.surface_max_altitude.max(min_alt);
+            state.surface_altitude = state.surface_altitude.clamp(min_alt, max_alt);
+
+            let mut up = normalize3(sub3(state.position, state.surface_center));
+            let mut tangent_forward = project_on_plane(forward, up);
+            if length3(tangent_forward) <= 1e-5 {
+                tangent_forward = project_on_plane([0.0, 0.0, -1.0], up);
+            }
+            tangent_forward = normalize3(tangent_forward);
+            let mut right = normalize3(cross3(tangent_forward, up));
+            if length3(right) <= 1e-5 {
+                right = normalize3(cross3([1.0, 0.0, 0.0], up));
+            }
+
+            let mut tangent_move = [0.0f32, 0.0, 0.0];
+            if state.held_keys.contains("w") {
+                tangent_move = add3(tangent_move, tangent_forward);
+            }
+            if state.held_keys.contains("s") {
+                tangent_move = add3(tangent_move, scale3(tangent_forward, -1.0));
+            }
+            if state.held_keys.contains("d") {
+                tangent_move = add3(tangent_move, right);
+            }
+            if state.held_keys.contains("a") {
+                tangent_move = add3(tangent_move, scale3(right, -1.0));
+            }
+
+            let tangent_len = length3(tangent_move);
+            if tangent_len > 0.0 {
+                let step = scale3(normalize3(tangent_move), state.move_speed * dt_s);
+                state.position = add3(state.position, step);
+            }
+
+            if state.held_keys.contains("e") {
+                state.surface_altitude =
+                    (state.surface_altitude + state.surface_vertical_speed * dt_s).min(max_alt);
+            }
+            if state.held_keys.contains("q") {
+                state.surface_altitude =
+                    (state.surface_altitude - state.surface_vertical_speed * dt_s).max(min_alt);
+            }
+
+            up = normalize3(sub3(state.position, state.surface_center));
+            state.position = add3(
+                state.surface_center,
+                scale3(up, state.surface_radius + state.surface_altitude),
+            );
+            tangent_forward = normalize3(project_on_plane(forward, up));
+            if length3(tangent_forward) <= 1e-5 {
+                tangent_forward = normalize3(project_on_plane([0.0, 0.0, -1.0], up));
+            }
+            camera.eye = state.position;
+            camera.look_at = add3(state.position, tangent_forward);
+            camera.up = up;
+        } else {
+            let right = normalize3(cross3(forward, [0.0, 1.0, 0.0]));
+            let up = normalize3(cross3(right, forward));
+            let mut move_dir = [0.0f32, 0.0, 0.0];
+            if state.held_keys.contains("w") {
+                move_dir = add3(move_dir, forward);
+            }
+            if state.held_keys.contains("s") {
+                move_dir = add3(move_dir, scale3(forward, -1.0));
+            }
+            if state.held_keys.contains("d") {
+                move_dir = add3(move_dir, right);
+            }
+            if state.held_keys.contains("a") {
+                move_dir = add3(move_dir, scale3(right, -1.0));
+            }
+            if state.held_keys.contains("e") {
+                move_dir = add3(move_dir, up);
+            }
+            if state.held_keys.contains("q") {
+                move_dir = add3(move_dir, scale3(up, -1.0));
+            }
+            let move_len = length3(move_dir);
+            if move_len > 0.0 {
+                let step = scale3(normalize3(move_dir), state.move_speed * dt_s);
+                state.position = add3(state.position, step);
+            }
+            camera.eye = state.position;
+            camera.look_at = add3(state.position, forward);
+            camera.up = up;
+        }
+
         self.set_scene_camera_3d_internal(camera);
         true
     }
@@ -649,6 +718,10 @@ fn add3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
 
+fn sub3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
 fn scale3(v: [f32; 3], s: f32) -> [f32; 3] {
     [v[0] * s, v[1] * s, v[2] * s]
 }
@@ -663,6 +736,14 @@ fn cross3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
 
 fn length3(v: [f32; 3]) -> f32 {
     (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+}
+
+fn dot3(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+fn project_on_plane(v: [f32; 3], plane_normal: [f32; 3]) -> [f32; 3] {
+    sub3(v, scale3(plane_normal, dot3(v, plane_normal)))
 }
 
 fn normalize3(v: [f32; 3]) -> [f32; 3] {

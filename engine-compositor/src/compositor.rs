@@ -80,6 +80,7 @@ fn composite_scene(
             is_pixel_backend: params.prepared.is_pixel_backend,
             default_font: params.prepared.default_font,
             prerender_frames: params.prepared.prerender_frames,
+            ambient_floor: params.prepared.ambient_floor,
         },
     };
     composite_layers(&mut layer_inputs, layer, buffer);

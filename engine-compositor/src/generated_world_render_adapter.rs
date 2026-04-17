@@ -67,6 +67,7 @@ pub(crate) fn render_generated_world_sprite(
         node.transform.scale[0],
         observer_altitude_km.unwrap_or(0.0),
         ctx.spatial_context,
+        ctx.ambient_floor,
     );
 
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
@@ -164,6 +165,7 @@ fn build_generated_world_profile(
     surface_scale: f32,
     observer_altitude_km: f32,
     spatial_context: SpatialContext,
+    ambient_floor: f32,
 ) -> GeneratedWorldRenderProfile {
     let sun_dir = [
         planet.sun_dir_x as f32,
@@ -177,6 +179,7 @@ fn build_generated_world_profile(
 
     GeneratedWorldRenderProfile {
         ambient: planet.ambient as f32,
+        ambient_floor,
         latitude_bands: planet.latitude_bands,
         latitude_band_depth: planet.latitude_band_depth as f32,
         terrain_displacement: planet.terrain_displacement as f32,

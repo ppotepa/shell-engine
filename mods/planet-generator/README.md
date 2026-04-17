@@ -17,11 +17,11 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | `F1`–`F7` | Load preset: Earth / Mars / Ocean / Desert / Ice / Volcanic / Archipelago |
 | `R` | Randomize all parameters |
 | `Delete` | Reset to Earth defaults |
-| `Ctrl+F` | Toggle orbit / free-look camera |
+| `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
 
 ## Scene structure
 
-- `scenes/main/scene.yml` — single scene, orbit-camera + free-look-camera
+- `scenes/main/scene.yml` — single scene, orbit-camera + free-look-camera (surface mode enabled)
 - `scenes/main/layers/planet.yml` — OBJ planet mesh (`world://32`)
 - `scenes/main/layers/hud-tabs.yml` — tab bar (top-right)
 - `scenes/main/layers/hud-panel.yml` — parameter panel background
