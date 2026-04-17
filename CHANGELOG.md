@@ -8,8 +8,11 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: now owns the moved raster path, Scene3D prerender work-item flow, generated-world rendering internals, and the final 3D-side seams consumed by compositor
 - **engine-compositor**: reduced to frame assembly, prepared-frame orchestration, PostFX, and adapter-level delegation into `engine-render-2d` / `engine-render-3d`
 - **engine-api / engine-scene-runtime / engine-behavior**: typed-first scene mutation flow consolidated; spawn/despawn command variants removed; raw `SetProperty` left only as a narrow documented fallback
+- **spatial/docs**: added `UNITS.md` (engine unit model: `screen_px`, `virtual_px`, `wu`, `m/km`) and synced root documentation to current architecture
+- **planet perf**: generated-world cloud/atmosphere optimization pass closed (cloud cadence/reuse, reduced cloud mesh sources, one-heavy-cloud-refresh-per-frame guard, startup surface LOD ramp)
+- **benchmarks**: added cloud-heavy scenario `mods/asteroids/scenes/bench-cloud/scene.yml`; stabilized run reached ~23.8 FPS class with compositor ~36ms avg on 10s bench
 - **docs**: refreshed root docs, mod docs, compositor/render/worldgen docs, and runtime mutation docs to match the current architecture and bundled mods
-- **validation**: `cargo check -p engine`, `cargo test -p engine-api --lib`, `cargo test -p engine-scene-runtime --lib`, `cargo test -p engine-compositor --lib`
+- **validation**: `cargo check -p engine`, `cargo check -p engine-render-3d`, benchmark smoke runs on `mods/asteroids` + `mods/planet-generator`
 
 ## Format Guidelines
 

@@ -64,9 +64,16 @@ Other useful targets:
 - `mods/planet-generator` for generated-world and atmosphere work,
 - `mods/terrain-playground` for terrain/worldgen-heavy scenes,
 - `mods/gui-playground` for widget/layout-heavy UI work.
+- `mods/asteroids` + `/scenes/bench-cloud/scene.yml` for cloud-heavy generated-world stress tests.
 
 The main rule is consistency: keep the mod, start scene, duration, and flag set
 fixed between compared runs.
+
+Cloud-heavy reference command:
+
+```bash
+cargo run -p app -- --mod asteroids --start-scene /scenes/bench-cloud/scene.yml --bench 10 --opt --skip-splash
+```
 
 ---
 
@@ -146,6 +153,18 @@ playground-3d-scene              102     62.1    120.3      0.0    131.5      2.
 
 System columns: Compositor (sprite compositing), PostFX (CRT/glow passes),
 Renderer (SDL2 diff/present), Behavior (Rhai script execution).
+
+### 3D Object Pass Breakdown
+
+When a scene uses 3D sprites, reports also include `3D OBJECT PASSES (us)` with
+pass-level timings:
+
+- `3D surface`
+- `3D cloud1`
+- `3D cloud2`
+- `3D halo`
+- `3D convert` / `3D comp` / `3D blit`
+- `3D tris` / `3D faces` / `3D viewpx` / `3D sprites`
 
 ---
 

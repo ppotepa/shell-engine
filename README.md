@@ -117,3 +117,10 @@ The large 2D/3D ownership split is now in place in code:
 - runtime mutation flow is typed-first,
 - remaining raw string-path mutation support is intentionally narrow and
   documented.
+
+Latest highlights (April 2026):
+
+- unified spatial/unit baseline documented in [UNITS.md](UNITS.md),
+- generated-world performance pass landed for cloud-heavy planet rendering,
+- benchmark workflow now includes a dedicated cloud stress scene:
+  `mods/asteroids/scenes/bench-cloud/scene.yml`.

@@ -7,6 +7,30 @@ Optimizations are either always-on (safe) or configurable via CLI flags.
 
 ---
 
+## Latest Focus (17-04-2026): Planet/Atmosphere CPU Path
+
+Recent optimization work targeted generated-world planet rendering in the
+software 3D raster path (`engine-render-3d`), especially cloud-heavy scenes.
+
+Implemented:
+
+- adaptive generated-world LOD caps + world URI LOD clamp helpers
+- cloud mesh decimation for cloud layers (separate from full-res surface mesh)
+- cloud cadence/reuse cache (lower update rate when motion is small)
+- guard against double expensive cloud refresh in a single frame
+- startup surface LOD ramp to reduce cold-start hitch cost
+- expanded benchmark report pass breakdown (`3D surface/cloud1/cloud2/halo/...`)
+
+Reference benchmark scenes:
+
+- cloud-heavy stress: `mods/asteroids/scenes/bench-cloud/scene.yml`
+- planet-generator main: `mods/planet-generator/scenes/main/scene.yml`
+
+Observed trend (same machine class, benchmark mode): cloud-heavy scenario moved
+from low-teens FPS class toward low/mid-20 FPS class in stabilized runs.
+
+---
+
 ## CLI Flags
 
 | Flag           | Scope       | What it gates                                | Default |
