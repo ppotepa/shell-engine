@@ -26,7 +26,7 @@ input:
     distance-min: 1.5
     distance-max: 6.0
     distance-step: 0.2
-    drag-sensitivity: 0.3
+    drag-sensitivity: 0.14
   free-look-camera: {}
 gui:
   widgets:
@@ -231,13 +231,6 @@ gui:
       min: 0
       max: 1
       value: 0
-postfx:
-  - name: crt-scan-glitch
-    params:
-      intensity: 0.015
-      transparency: 0.03
-      brightness: 1.08
-      speed: 0.12
 stages:
   on_enter:
     steps:

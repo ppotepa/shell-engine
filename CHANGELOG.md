@@ -4,6 +4,11 @@ Daily progress updates for Shell Engine development.
 
 ## 17-04-2026
 
+**Planet generator perf stability pass** ✅
+- **engine-asset**: bounded generated render-mesh cache (`RENDER_MESH_CACHE`) with LRU-style eviction (cap: 64) to prevent unbounded `world://...` cache growth during slider-heavy sessions
+- **mods/planet-generator**: reduced per-frame mutation pressure by gating `obj.rotation-speed`, `obj.ambient`, `obj.light.*`, and full `obj.atmo.*` push block behind change thresholds
+- **validation**: `cargo check -p app` and benchmark smoke on `mods/planet-generator`
+
 **3D ownership split closed + docs sync** ✅
 - **engine-render-3d**: now owns the moved raster path, Scene3D prerender work-item flow, generated-world rendering internals, and the final 3D-side seams consumed by compositor
 - **engine-compositor**: reduced to frame assembly, prepared-frame orchestration, PostFX, and adapter-level delegation into `engine-render-2d` / `engine-render-3d`

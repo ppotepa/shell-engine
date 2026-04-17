@@ -37,7 +37,7 @@ use engine_core::scene::SpriteSizePreset;
 
 /// Safety cap on face count after early backface culling (front-facing only).
 const MAX_OBJ_FACE_RENDER: usize = 2_000_000;
-const MIN_PROJECTED_FACE_DOUBLE_AREA: f32 = 0.12;
+const MIN_PROJECTED_FACE_DOUBLE_AREA: f32 = 0.01;
 
 /// Minimum vertex/face count to use parallel processing.
 /// Below this, serial is faster due to rayon thread spawn overhead.

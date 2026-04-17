@@ -142,6 +142,15 @@ impl SceneRuntime {
             prev_x = x;
             prev_y = y;
         }
+        if total_dyaw.abs() < 0.0005 {
+            total_dyaw = 0.0;
+        }
+        if total_dpitch.abs() < 0.0005 {
+            total_dpitch = 0.0;
+        }
+        // Guard against occasional bursty mouse-event batches on slow frames.
+        total_dyaw = total_dyaw.clamp(-18.0, 18.0);
+        total_dpitch = total_dpitch.clamp(-18.0, 18.0);
         state.last_mouse_pos = Some((prev_x, prev_y));
         state.yaw += total_dyaw;
         let pitch_min = state.pitch_min;

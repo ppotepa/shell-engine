@@ -227,14 +227,20 @@ fn runtime_thread(
     let mut current_output_height = output_height.max(1);
     let pixel_scale = pixel_scale.max(1);
     let mut content_pixel_size = logical_dimensions(current_output_width, current_output_height);
-    let (window_width, window_height) =
+    let (requested_window_width, requested_window_height) =
         window_dimensions(output_width, output_height, pixel_scale, window_ratio);
-    let Ok(window) = video
-        .window(&window_title, window_width, window_height)
-        .position_centered()
-        .resizable()
-        .build()
-    else {
+    let (window_width, window_height, window_pos) = fit_window_to_primary_display(
+        &video,
+        requested_window_width,
+        requested_window_height,
+    );
+    let mut window_builder = video.window(&window_title, window_width, window_height);
+    if let Some((x, y)) = window_pos {
+        window_builder.position(x, y);
+    } else {
+        window_builder.position_centered();
+    }
+    let Ok(window) = window_builder.resizable().build() else {
         return;
     };
     let mut canvas_builder = window.into_canvas();
@@ -893,6 +899,23 @@ fn poll_input(
 
 fn logical_dimensions(width: u16, height: u16) -> (u32, u32) {
     (width.max(1) as u32, height.max(1) as u32)
+}
+
+fn fit_window_to_primary_display(
+    video: &sdl2::VideoSubsystem,
+    requested_width: u32,
+    requested_height: u32,
+) -> (u32, u32, Option<(i32, i32)>) {
+    let Ok(bounds) = video.display_usable_bounds(0) else {
+        return (requested_width.max(1), requested_height.max(1), None);
+    };
+    let max_w = ((bounds.width() as f32) * 0.9).round() as u32;
+    let max_h = ((bounds.height() as f32) * 0.9).round() as u32;
+    let fitted_w = requested_width.max(1).min(max_w.max(1));
+    let fitted_h = requested_height.max(1).min(max_h.max(1));
+    let x = bounds.x() + ((bounds.width() as i32 - fitted_w as i32) / 2);
+    let y = bounds.y() + ((bounds.height() as i32 - fitted_h as i32) / 2);
+    (fitted_w, fitted_h, Some((x, y)))
 }
 
 fn window_dimensions(

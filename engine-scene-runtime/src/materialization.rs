@@ -1254,22 +1254,128 @@ pub(crate) fn set_obj_atmosphere_typed(
                 atmo_halo_power,
                 ..
             } if id == sprite_id => {
+                let parse_atmo_colour_text = |s: &str| -> Option<TermColour> {
+                    let normalized = s.trim().to_ascii_lowercase();
+                    if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                        return None;
+                    }
+                    parse_term_colour(&serde_json::json!(s))
+                };
                 match (param, value) {
                     (Color, MV::Text(s)) => {
-                        let normalized = s.trim().to_ascii_lowercase();
-                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                        if parse_atmo_colour_text(s).is_none() {
                             if atmo_color.is_some() {
                                 *atmo_color = None;
                                 return true;
                             }
-                        } else if let Ok(color_json) = serde_json::json!(s).as_str().ok_or(()) {
-                            if let Some(next) = parse_term_colour(&serde_json::json!(color_json)) {
-                                if atmo_color.as_ref() != Some(&next) {
-                                    *atmo_color = Some(next);
-                                    return true;
-                                }
+                        } else if let Some(next) = parse_atmo_colour_text(s) {
+                            if atmo_color.as_ref() != Some(&next) {
+                                *atmo_color = Some(next);
+                                return true;
                             }
                         }
+                    }
+                    (Color, MV::ColorRgb(rgb)) => {
+                        let next = TermColour::Rgb(rgb[0], rgb[1], rgb[2]);
+                        if atmo_color.as_ref() != Some(&next) {
+                            *atmo_color = Some(next);
+                            return true;
+                        }
+                    }
+                    (RayleighColor, MV::Text(s)) => {
+                        if parse_atmo_colour_text(s).is_none() {
+                            if atmo_rayleigh_color.is_some() {
+                                *atmo_rayleigh_color = None;
+                                return true;
+                            }
+                        } else if let Some(next) = parse_atmo_colour_text(s) {
+                            if atmo_rayleigh_color.as_ref() != Some(&next) {
+                                *atmo_rayleigh_color = Some(next);
+                                return true;
+                            }
+                        }
+                    }
+                    (RayleighColor, MV::ColorRgb(rgb)) => {
+                        let next = TermColour::Rgb(rgb[0], rgb[1], rgb[2]);
+                        if atmo_rayleigh_color.as_ref() != Some(&next) {
+                            *atmo_rayleigh_color = Some(next);
+                            return true;
+                        }
+                    }
+                    (HazeColor, MV::Text(s)) => {
+                        if parse_atmo_colour_text(s).is_none() {
+                            if atmo_haze_color.is_some() {
+                                *atmo_haze_color = None;
+                                return true;
+                            }
+                        } else if let Some(next) = parse_atmo_colour_text(s) {
+                            if atmo_haze_color.as_ref() != Some(&next) {
+                                *atmo_haze_color = Some(next);
+                                return true;
+                            }
+                        }
+                    }
+                    (HazeColor, MV::ColorRgb(rgb)) => {
+                        let next = TermColour::Rgb(rgb[0], rgb[1], rgb[2]);
+                        if atmo_haze_color.as_ref() != Some(&next) {
+                            *atmo_haze_color = Some(next);
+                            return true;
+                        }
+                    }
+                    (AbsorptionColor, MV::Text(s)) => {
+                        if parse_atmo_colour_text(s).is_none() {
+                            if atmo_absorption_color.is_some() {
+                                *atmo_absorption_color = None;
+                                return true;
+                            }
+                        } else if let Some(next) = parse_atmo_colour_text(s) {
+                            if atmo_absorption_color.as_ref() != Some(&next) {
+                                *atmo_absorption_color = Some(next);
+                                return true;
+                            }
+                        }
+                    }
+                    (AbsorptionColor, MV::ColorRgb(rgb)) => {
+                        let next = TermColour::Rgb(rgb[0], rgb[1], rgb[2]);
+                        if atmo_absorption_color.as_ref() != Some(&next) {
+                            *atmo_absorption_color = Some(next);
+                            return true;
+                        }
+                    }
+                    (NightGlowColor, MV::Text(s)) => {
+                        if parse_atmo_colour_text(s).is_none() {
+                            if atmo_night_glow_color.is_some() {
+                                *atmo_night_glow_color = None;
+                                return true;
+                            }
+                        } else if let Some(next) = parse_atmo_colour_text(s) {
+                            if atmo_night_glow_color.as_ref() != Some(&next) {
+                                *atmo_night_glow_color = Some(next);
+                                return true;
+                            }
+                        }
+                    }
+                    (NightGlowColor, MV::ColorRgb(rgb)) => {
+                        let next = TermColour::Rgb(rgb[0], rgb[1], rgb[2]);
+                        if atmo_night_glow_color.as_ref() != Some(&next) {
+                            *atmo_night_glow_color = Some(next);
+                            return true;
+                        }
+                    }
+                    (RayleighColor, MV::Bool(_))
+                    | (HazeColor, MV::Bool(_))
+                    | (AbsorptionColor, MV::Bool(_))
+                    | (NightGlowColor, MV::Bool(_)) => {
+                        // Ignore bool payloads for color parameters.
+                    }
+                    (RayleighColor, MV::Scalar(_))
+                    | (HazeColor, MV::Scalar(_))
+                    | (AbsorptionColor, MV::Scalar(_))
+                    | (NightGlowColor, MV::Scalar(_)) => {
+                        // Ignore scalar payloads for color parameters.
+                    }
+                    (Color, MV::Bool(_)) | (Color, MV::Scalar(_)) => {
+                        // Ignore non-color payloads for base atmosphere color.
                     }
                     (Height, MV::Scalar(v)) => {
                         let v = v.clamp(0.0, 1.0);

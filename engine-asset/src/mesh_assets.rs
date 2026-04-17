@@ -35,7 +35,15 @@ pub struct ObjFace {
 }
 
 static OBJ_CACHE: AssetCache<ObjMesh> = AssetCache::new();
-static RENDER_MESH_CACHE: OnceLock<Mutex<HashMap<String, Arc<ObjMesh>>>> = OnceLock::new();
+const RENDER_MESH_CACHE_MAX_ENTRIES: usize = 64;
+
+#[derive(Default)]
+struct RenderMeshCache {
+    entries: HashMap<String, (Arc<ObjMesh>, u64)>,
+    access_tick: u64,
+}
+
+static RENDER_MESH_CACHE: OnceLock<Mutex<RenderMeshCache>> = OnceLock::new();
 
 struct ObjMeshAdapter;
 
@@ -110,12 +118,15 @@ pub fn load_obj_mesh_from_root(asset_root: &AssetRoot, source: &str) -> Option<A
 /// - `earth-sphere://N?params`
 /// - `world://N?...`
 pub fn load_render_mesh(asset_root: &AssetRoot, source: &str) -> Option<Arc<ObjMesh>> {
-    let cache = RENDER_MESH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let cache = RENDER_MESH_CACHE.get_or_init(|| Mutex::new(RenderMeshCache::default()));
     let cache_key = render_mesh_cache_key(asset_root.mod_source(), source);
 
     {
-        let cache_lock = cache.lock().ok()?;
-        if let Some(mesh) = cache_lock.get(&cache_key) {
+        let mut cache_lock = cache.lock().ok()?;
+        cache_lock.access_tick = cache_lock.access_tick.saturating_add(1);
+        let hit_tick = cache_lock.access_tick;
+        if let Some((mesh, last_used)) = cache_lock.entries.get_mut(&cache_key) {
+            *last_used = hit_tick;
             return Some(Arc::clone(mesh));
         }
     }
@@ -151,7 +162,23 @@ pub fn load_render_mesh(asset_root: &AssetRoot, source: &str) -> Option<Arc<ObjM
     };
 
     if let Ok(mut cache_lock) = cache.lock() {
-        cache_lock.insert(cache_key, Arc::clone(&mesh));
+        cache_lock.access_tick = cache_lock.access_tick.saturating_add(1);
+        let insert_tick = cache_lock.access_tick;
+        cache_lock
+            .entries
+            .insert(cache_key, (Arc::clone(&mesh), insert_tick));
+
+        while cache_lock.entries.len() > RENDER_MESH_CACHE_MAX_ENTRIES {
+            let lru_key = cache_lock
+                .entries
+                .iter()
+                .min_by_key(|(_, (_, last_used))| *last_used)
+                .map(|(key, _)| key.clone());
+            let Some(lru_key) = lru_key else {
+                break;
+            };
+            cache_lock.entries.remove(&lru_key);
+        }
     }
     Some(mesh)
 }
