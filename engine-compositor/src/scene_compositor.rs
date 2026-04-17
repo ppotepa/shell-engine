@@ -9,6 +9,7 @@ use engine_core::scene_runtime_types::{
 };
 use engine_core::spatial::SpatialContext;
 use std::collections::HashMap;
+use engine_render_3d::pipeline::extract_render3d_sprite_spec;
 
 /// All scene-invariant inputs to a single compositor invocation.
 ///
@@ -42,6 +43,7 @@ pub struct PreparedLayerFrame<'a> {
     pub uses_2d_camera: bool,
     pub authored_visible: bool,
     pub has_active_effects: bool,
+    pub has_3d: bool,
 }
 
 /// Camera inputs prepared by engine runtime before frame assembly.
@@ -125,6 +127,10 @@ pub fn prepare_layer_frames<'a>(
                     .get(index)
                     .copied()
                     .unwrap_or(false);
+            let has_3d = layer
+                .sprites
+                .iter()
+                .any(|sprite| extract_render3d_sprite_spec(sprite).is_some());
 
             Some(PreparedLayerFrame {
                 index,
@@ -132,6 +138,7 @@ pub fn prepare_layer_frames<'a>(
                 uses_2d_camera,
                 authored_visible: layer.visible,
                 has_active_effects,
+                has_3d,
             })
         })
         .collect()

@@ -4,6 +4,11 @@ Daily progress updates for Shell Engine development.
 
 ## 17-04-2026
 
+**App launch & compositor stability** ✅
+- **app**: startup pixel scale no longer defaults to a fixed `8` multiplier; it now auto-resolves from `display.render_size` when CLI scale is unset, preventing oversized benchmark/dev windows on multi-monitor setups.
+- **engine-compositor**: frame assembly marks layers with any 3D sprite and forces scratch compositor path for them, preventing black stripe/ghost artifacts in mixed 2D+3D scenes.
+- **verification**: `cargo check -p app` succeeds after changes; pending full visual smoke + benchmark on `mods/planet-generator` and `mods/asteroids` after window/scratch fixes.
+
 **2D regression safeguards** ✅
 - **engine**: added 2D-only scene regression tests proving that the new scene pipeline does not schedule 3D preparers, scene3d atlas/runtime stores, or obj prerender state for pure-2D scenes.
 - **docs**: updated `3drefactor.md` and `left.md` with closed DoD entries and remaining follow-up scope.

@@ -31,6 +31,7 @@ pub struct PreparedLayerInput<'a> {
     pub uses_2d_camera: bool,
     pub authored_visible: bool,
     pub has_active_effects: bool,
+    pub has_3d: bool,
 }
 
 impl<'a> PreparedLayerInput<'a> {
@@ -43,6 +44,7 @@ impl<'a> PreparedLayerInput<'a> {
             uses_2d_camera: self.uses_2d_camera,
             authored_visible: self.authored_visible,
             has_active_effects: self.has_active_effects,
+            has_3d: self.has_3d,
         }
     }
 }
@@ -101,6 +103,8 @@ pub fn prepare_layer_input<'a>(
         }
     }
 
+    let has_3d = !sprites_3d.is_empty();
+
     Some(PreparedLayerInput {
         layer_index: index,
         layer,
@@ -109,6 +113,7 @@ pub fn prepare_layer_input<'a>(
         uses_2d_camera,
         authored_visible: layer.visible,
         has_active_effects,
+        has_3d,
     })
 }
 

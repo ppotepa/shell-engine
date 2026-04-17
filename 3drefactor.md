@@ -75,6 +75,9 @@ Owner: `engine/render/runtime`
   - FPS ~23.8
   - compositor ~36.31ms avg, p95 ~38.09ms
   - cloud passes steady-state low (`cloud1 p50 ~2.2ms`, `cloud2 p50 ~2.1ms`, `halo p50 ~2.5ms`)
+- Recent stabilization fixes:
+  - startup window and viewport scaling in app launch now auto-resolve `sdl-pixel-scale` from `display.render_size` when CLI does not override it (`app/src/main.rs`).
+  - direct layer compositor now always uses scratch path for layers containing any 3D sprite to avoid stale black stripes under mixed 2D/3D composition.
 
 ## 8. Renderer-Agnostic Lighting Floor + Surface Flight (Implemented)
 

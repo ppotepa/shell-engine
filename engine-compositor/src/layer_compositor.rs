@@ -219,7 +219,8 @@ pub fn composite_layers(
         // #4 opt-comp-layerscratch: LayerCompositor strategy — DirectLayerCompositor skips
         // scratch fill+blit for layers without active effects.
         // ScratchLayerCompositor (safe default) always uses the scratch path.
-        let needs_scratch = layer_compositor.use_scratch(prepared.has_active_effects);
+        let has_3d = prepared.has_3d;
+        let needs_scratch = has_3d || layer_compositor.use_scratch(prepared.has_active_effects);
 
         if needs_scratch {
             // Full scratch path: fill + render + effects + blit.

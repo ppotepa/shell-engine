@@ -25,7 +25,8 @@ struct Cli {
     #[arg(long = "sdl-window-ratio", default_value = "16:9")]
     sdl_window_ratio: String,
     /// SDL startup pixel scale multiplier for logical render surface.
-    #[arg(long = "sdl-pixel-scale", default_value_t = 8)]
+    /// `0` resolves automatically from the mod `display.render_size`.
+    #[arg(long = "sdl-pixel-scale", default_value_t = 0)]
     sdl_pixel_scale: u32,
     /// Disable SDL VSync (can reduce latency, may increase tearing).
     #[arg(long = "no-sdl-vsync")]
@@ -212,7 +213,7 @@ fn main() {
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
         target_fps_override: cli.target_fps,
         sdl_window_ratio,
-        sdl_pixel_scale: cli.sdl_pixel_scale.max(1),
+        sdl_pixel_scale: resolve_sdl_pixel_scale(&manifest, cli.sdl_pixel_scale),
         sdl_vsync: !cli.no_sdl_vsync,
     };
     logging::debug(
@@ -271,6 +272,40 @@ fn parse_ratio_arg(raw: &str) -> Result<Option<(u32, u32)>, String> {
         return Err(String::from("ratio width/height must be > 0"));
     }
     Ok(Some((width, height)))
+}
+
+fn parse_render_size(raw: &str) -> Option<(u32, u32)> {
+    let (width, height) = raw.split_once('x')?;
+    let w = width.trim().parse::<u32>().ok()?;
+    let h = height.trim().parse::<u32>().ok()?;
+    if w > 0 && h > 0 {
+        Some((w, h))
+    } else {
+        None
+    }
+}
+
+const SDL_AUTO_SCALE_TARGET_W: u32 = 1600;
+const SDL_AUTO_SCALE_TARGET_H: u32 = 900;
+
+fn auto_pixel_scale(render_w: u32, render_h: u32) -> u32 {
+    let scale_w = SDL_AUTO_SCALE_TARGET_W / render_w.max(1);
+    let scale_h = SDL_AUTO_SCALE_TARGET_H / render_h.max(1);
+    scale_w.min(scale_h).clamp(1, 16)
+}
+
+fn resolve_sdl_pixel_scale(manifest: &serde_yaml::Value, cli_scale: u32) -> u32 {
+    if cli_scale > 0 {
+        return cli_scale;
+    }
+
+    manifest
+        .get("display")
+        .and_then(|display| display.get("render_size"))
+        .and_then(serde_yaml::Value::as_str)
+        .and_then(parse_render_size)
+        .map(|(w, h)| auto_pixel_scale(w, h))
+        .unwrap_or(8)
 }
 
 fn resolve_dev_mode(cli: &Cli) -> bool {
