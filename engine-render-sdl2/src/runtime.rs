@@ -838,34 +838,43 @@ fn poll_input(
             Event::MouseMotion { x, y, .. } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect);
-                events.push(EngineEvent::MouseMoved { x: vx, y: vy });
+                if let Some((vx, vy)) =
+                    map_mouse_to_output(x, y, output_width, output_height, present_rect)
+                {
+                    events.push(EngineEvent::MouseMoved { x: vx, y: vy });
+                }
             }
             Event::MouseButtonDown {
                 mouse_btn, x, y, ..
             } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect);
-                let button = map_mouse_button(mouse_btn);
-                events.push(EngineEvent::MouseButtonDown {
-                    button,
-                    x: vx,
-                    y: vy,
-                });
+                if let Some((vx, vy)) =
+                    map_mouse_to_output(x, y, output_width, output_height, present_rect)
+                {
+                    let button = map_mouse_button(mouse_btn);
+                    events.push(EngineEvent::MouseButtonDown {
+                        button,
+                        x: vx,
+                        y: vy,
+                    });
+                }
             }
             Event::MouseButtonUp {
                 mouse_btn, x, y, ..
             } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect);
-                let button = map_mouse_button(mouse_btn);
-                events.push(EngineEvent::MouseButtonUp {
-                    button,
-                    x: vx,
-                    y: vy,
-                });
+                if let Some((vx, vy)) =
+                    map_mouse_to_output(x, y, output_width, output_height, present_rect)
+                {
+                    let button = map_mouse_button(mouse_btn);
+                    events.push(EngineEvent::MouseButtonUp {
+                        button,
+                        x: vx,
+                        y: vy,
+                    });
+                }
             }
             Event::MouseWheel { y, .. } => {
                 events.push(EngineEvent::MouseWheel { delta_y: y as f32 });
@@ -903,9 +912,7 @@ fn fit_window_to_primary_display(
     requested_width: u32,
     requested_height: u32,
 ) -> (u32, u32, Option<(i32, i32)>) {
-    let Ok(bounds) = video.display_usable_bounds(0) else {
-        return (requested_width.max(1), requested_height.max(1), None);
-    };
+    let bounds = preferred_display_bounds(video).unwrap_or_else(|| Rect::new(0, 0, 1920, 1080));
     let max_w = ((bounds.width() as f32) * 0.9).round() as u32;
     let max_h = ((bounds.height() as f32) * 0.9).round() as u32;
     let fitted_w = requested_width.max(1).min(max_w.max(1));
@@ -913,6 +920,28 @@ fn fit_window_to_primary_display(
     let x = bounds.x() + ((bounds.width() as i32 - fitted_w as i32) / 2);
     let y = bounds.y() + ((bounds.height() as i32 - fitted_h as i32) / 2);
     (fitted_w, fitted_h, Some((x, y)))
+}
+
+fn preferred_display_bounds(video: &sdl2::VideoSubsystem) -> Option<Rect> {
+    let display_count = match video.num_video_displays() {
+        Ok(count) => count,
+        Err(_) => return None,
+    };
+    let mut best_area = 0u64;
+    let mut best_bounds = None;
+
+    for index in 0..display_count {
+        let Ok(bounds) = video.display_usable_bounds(index) else {
+            continue;
+        };
+        let area = bounds.width() as u64 * bounds.height() as u64;
+        if area > best_area {
+            best_area = area;
+            best_bounds = Some(bounds);
+        }
+    }
+
+    best_bounds
 }
 
 fn window_dimensions(
@@ -941,16 +970,21 @@ fn map_mouse_to_output(
     output_width: u16,
     output_height: u16,
     present_rect: Rect,
-) -> (f32, f32) {
+) -> Option<(f32, f32)> {
+    let rect_left = present_rect.x() as f32;
+    let rect_top = present_rect.y() as f32;
+    let rel_x = x as f32 - rect_left;
+    let rel_y = y as f32 - rect_top;
     let width = output_width.max(1) as f32;
     let height = output_height.max(1) as f32;
     let rect_width = present_rect.width().max(1) as f32;
     let rect_height = present_rect.height().max(1) as f32;
-    let rel_x = (x - present_rect.x()) as f32;
-    let rel_y = (y - present_rect.y()) as f32;
+    if rel_x < 0.0 || rel_y < 0.0 || rel_x >= rect_width || rel_y >= rect_height {
+        return None;
+    }
     let vx = (rel_x / rect_width * width).clamp(0.0, width - 1.0);
     let vy = (rel_y / rect_height * height).clamp(0.0, height - 1.0);
-    (vx, vy)
+    Some((vx, vy))
 }
 
 fn map_mouse_button(btn: SdlMouseButton) -> engine_events::MouseButton {
@@ -1329,7 +1363,7 @@ mod tests {
     #[test]
     fn mouse_mapping_stretches_across_full_window() {
         let mapped = map_mouse_to_output(480, 320, 120, 30, Rect::new(0, 0, 960, 640));
-        assert_eq!(mapped, (60.0, 15.0));
+        assert_eq!(mapped, Some((60.0, 15.0)));
     }
 
     #[test]
@@ -1351,7 +1385,13 @@ mod tests {
     #[test]
     fn mouse_mapping_respects_letterboxed_fit_rect() {
         let mapped = map_mouse_to_output(480, 320, 120, 30, Rect::new(0, 80, 960, 480));
-        assert_eq!(mapped, (60.0, 15.0));
+        assert_eq!(mapped, Some((60.0, 15.0)));
+    }
+
+    #[test]
+    fn mouse_mapping_ignores_outside_present_rect() {
+        let mapped = map_mouse_to_output(10, 10, 120, 30, Rect::new(0, 80, 960, 480));
+        assert_eq!(mapped, None);
     }
 
     #[test]
