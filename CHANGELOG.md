@@ -10,6 +10,8 @@ Daily progress updates for Shell Engine development.
 - **tests**: executed targeted verification with:
   - `cargo test -p engine scene_pipeline_2d_only_does_not_schedule_3d_preparation_steps -- --nocapture`
   - `cargo test -p engine composite_2d_only_scene_runs_without_3d_world_resources -- --nocapture`
+- Extended this pass with a 3D-path guard test:
+  - `scene_pipeline_3d_prerender_scene_schedules_obj_prepass_state` (verifies prerenderable `type: obj` scenes register obj-prerender state during prepare).
 
 **Planet generator perf stability pass** ✅
 - **engine-asset**: bounded generated render-mesh cache (`RENDER_MESH_CACHE`) with LRU-style eviction (cap: 64) to prevent unbounded `world://...` cache growth during slider-heavy sessions

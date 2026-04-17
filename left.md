@@ -16,7 +16,8 @@ Scope: what is still open after current batch.
   - `cargo test -p engine composite_2d_only_scene_runs_without_3d_world_resources -- --nocapture`
 
 Next follow-up:
-- Keep these two tests and extend with one negative case for a future 3D-only scene to guard regression against feature-gating in prepare path.
+- Kept and extended with feature-gating regression coverage:
+  - added `scene_pipeline_3d_prerender_scene_schedules_obj_prepass_state`.
 
 ## 2) Legacy Script API Retirement (DoD [ ] not done)
 

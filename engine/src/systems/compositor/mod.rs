@@ -589,4 +589,48 @@ layers:
         let buffer = world.get::<Buffer>().expect("buffer");
         assert_eq!(buffer.get(0, 0).expect("glyph").symbol, 'H');
     }
+
+    #[test]
+    fn scene_pipeline_3d_prerender_scene_schedules_obj_prepass_state() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: flat-3d
+title: Flat3D
+prerender: true
+bg_colour: black
+layers:
+  - name: world
+    z_index: 0
+    sprites:
+      - type: obj
+        id: terrain-mesh
+        source: terrain-plane://64
+        at: cc
+        width: 640
+        height: 360
+        ambient: 0.18
+"#,
+        )
+        .expect("scene should parse");
+
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("engine crate should live under repo root")
+            .to_path_buf();
+        let mod_root = repo_root.join("mods/playground");
+
+        let mut world = World::new();
+        world.register(AssetRoot::new(mod_root));
+        world.register(RuntimeSettings::default());
+
+        let pipeline = ScenePipeline::default();
+        pipeline.prepare(&scene, &mut world);
+
+        assert!(
+            world
+                .get::<crate::obj_prerender::ObjPrerenderStatus>()
+                .is_some(),
+            "Obj prerender status should be registered for prerenderable 3D scene"
+        );
+    }
 }
