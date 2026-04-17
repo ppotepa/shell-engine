@@ -29,8 +29,8 @@ pub struct FrameAssemblyInputs<'a> {
     pub scene_effects: &'a [Effect],
     /// Pre-classified layer inputs with sprites split into 2D and 3D buckets.
     ///
-    /// When `Some`, the compositor uses this prepared path instead of dispatching
-    /// on raw `layers` sprite data. When `None`, falls back to direct sprite dispatch.
+    /// When `Some`, the compositor uses this prepared layer path instead of
+    /// dispatching directly against raw sprite arrays.
     #[cfg(feature = "render-3d")]
     pub prepared_layer_inputs: Option<Vec<crate::prepared_frame::PreparedLayerInput<'a>>>,
 }
