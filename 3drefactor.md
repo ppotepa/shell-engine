@@ -41,7 +41,7 @@ Owner: `engine/render/runtime`
 
 ## 6. Final DoD Validation
 
-- [ ] 2D-only project validation pass (no 3D leakage).
+- [x] 2D-only project validation pass (no 3D leakage).
 - [x] 3D no longer grows through new `Sprite::Obj` fields.
 - [~] Runtime mutation path mostly typed; final legacy-script retirement pending.
 - [x] `engine-compositor` no longer owns domain render logic.

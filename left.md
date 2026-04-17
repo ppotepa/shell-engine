@@ -2,17 +2,21 @@
 
 Scope: what is still open after current batch.
 
-## 1) 2D-only Leakage Validation (DoD [ ] not done)
+## 1) 2D-only Leakage Validation (DoD [x] done)
 
-- Add a small regression test suite that loads a pure-2D scene (no `obj`/`planet`/`scene3d`) and asserts:
+- ✅ Done (this batch): Added pure-2D regression tests:
+  - `engine/src/systems/compositor/mod.rs::scene_pipeline_2d_only_does_not_schedule_3d_preparation_steps`
+  - `engine/src/systems/compositor/mod.rs::composite_2d_only_scene_runs_without_3d_world_resources`
+- These tests assert:
   - no 3D preparators are scheduled,
   - no 3D atlas/mesh prerender artifacts are requested from runtime,
   - `composite_scene` can execute without `engine-3d` feature side effects.
-- Candidate files:
-  - `engine/src/systems/scene_lifecycle/mod.rs` (scene boot hooks),
-  - `engine/src/systems/compositor/mod.rs` (runtime dispatch points),
-  - `engine-compositor/src/compositor.rs` (prepared layer path should tolerate empty 3D buckets),
-  - tests in `engine-scene-runtime`/`engine-compositor` as currently used for existing compile/regression checks.
+- Status: validated with:
+  - `cargo test -p engine scene_pipeline_2d_only_does_not_schedule_3d_preparation_steps -- --nocapture`
+  - `cargo test -p engine composite_2d_only_scene_runs_without_3d_world_resources -- --nocapture`
+
+Next follow-up:
+- Keep these two tests and extend with one negative case for a future 3D-only scene to guard regression against feature-gating in prepare path.
 
 ## 2) Legacy Script API Retirement (DoD [ ] not done)
 
@@ -54,4 +58,3 @@ Scope: what is still open after current batch.
   - `engine-core/src/scene/model.rs` + `schemas/scene.schema.yaml`,
   - `engine/src/systems/compositor/mod.rs`,
   - `engine-render-3d/src/pipeline/generated_world_renderer.rs`.
-

@@ -345,6 +345,7 @@ pub fn compositor_system(world: &mut World) {
 
 #[cfg(test)]
 mod tests {
+    use crate::scene_pipeline::ScenePipeline;
     use engine_core::color::Color;
     use std::path::PathBuf;
 
@@ -495,5 +496,97 @@ layers:
             })
         });
         assert!(has_visible_glyph, "intro logo should draw visible glyphs");
+    }
+
+    #[test]
+    fn scene_pipeline_2d_only_does_not_schedule_3d_preparation_steps() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: flat-2d
+title: Flat2D
+prerender: true
+bg_colour: black
+layers:
+  - name: ui
+    z_index: 0
+    sprites:
+      - type: text
+        id: t
+        content: TEST
+        at: cl
+"#,
+        )
+        .expect("scene should parse");
+
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("engine crate should live under repo root")
+            .to_path_buf();
+        let mod_root = repo_root.join("mods/playground");
+
+        let mut world = World::new();
+        world.register(AssetRoot::new(mod_root));
+        world.register(RuntimeSettings::default());
+
+        let pipeline = ScenePipeline::default();
+        pipeline.prepare(&scene, &mut world);
+
+        assert!(
+            !world.get::<crate::obj_prerender::ObjPrerenderStatus>().is_some(),
+            "Obj prerender status must not be registered for 2D-only scene"
+        );
+
+        #[cfg(feature = "render-3d")]
+        {
+            use crate::scene3d_runtime_store::Scene3DRuntimeStore;
+
+            assert!(
+                !world.get::<crate::scene3d_atlas::Scene3DAtlas>().is_some(),
+                "Scene3D atlas must not be registered for 2D-only scene"
+            );
+            assert!(
+                !world.get::<Scene3DRuntimeStore>().is_some(),
+                "Scene3D runtime store must not be registered for 2D-only scene"
+            );
+        }
+    }
+
+    #[test]
+    fn composite_2d_only_scene_runs_without_3d_world_resources() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: flat-2d
+title: Flat2D
+bg_colour: black
+layers:
+  - name: main
+    z_index: 0
+    sprites:
+      - type: text
+        id: msg
+        content: HI
+        at: cl
+"#,
+        )
+        .expect("scene should parse");
+
+        let mut world = World::new();
+        world.register(Buffer::new(6, 1));
+        world.register(RuntimeSettings::default());
+        world.register_scoped(SceneRuntime::new(scene.clone()));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 1,
+            stage_elapsed_ms: 1,
+            scene_elapsed_ms: 1,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        compositor_system(&mut world);
+
+        let buffer = world.get::<Buffer>().expect("buffer");
+        assert_eq!(buffer.get(0, 0).expect("glyph").symbol, 'H');
     }
 }

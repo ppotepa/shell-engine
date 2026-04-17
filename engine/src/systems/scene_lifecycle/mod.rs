@@ -591,6 +591,7 @@ mod tests {
             target_fps: None,
             space: Default::default(),
             celestial: Default::default(),
+            lighting: None,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages {
@@ -626,6 +627,7 @@ mod tests {
             target_fps: None,
             space: Default::default(),
             celestial: Default::default(),
+            lighting: None,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),

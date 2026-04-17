@@ -4,6 +4,13 @@ Daily progress updates for Shell Engine development.
 
 ## 17-04-2026
 
+**2D regression safeguards** ✅
+- **engine**: added 2D-only scene regression tests proving that the new scene pipeline does not schedule 3D preparers, scene3d atlas/runtime stores, or obj prerender state for pure-2D scenes.
+- **docs**: updated `3drefactor.md` and `left.md` with closed DoD entries and remaining follow-up scope.
+- **tests**: executed targeted verification with:
+  - `cargo test -p engine scene_pipeline_2d_only_does_not_schedule_3d_preparation_steps -- --nocapture`
+  - `cargo test -p engine composite_2d_only_scene_runs_without_3d_world_resources -- --nocapture`
+
 **Planet generator perf stability pass** ✅
 - **engine-asset**: bounded generated render-mesh cache (`RENDER_MESH_CACHE`) with LRU-style eviction (cap: 64) to prevent unbounded `world://...` cache growth during slider-heavy sessions
 - **mods/planet-generator**: reduced per-frame mutation pressure by gating `obj.rotation-speed`, `obj.ambient`, `obj.light.*`, and full `obj.atmo.*` push block behind change thresholds
