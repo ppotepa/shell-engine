@@ -87,6 +87,7 @@ cargo run -p editor
 - [ARCHITECTURE.md](ARCHITECTURE.md) — crate boundaries, system order, rendering flow
 - [AUTHORING.md](AUTHORING.md) — authored scene contract, assets, sprites, Rhai
 - [MODS.md](MODS.md) — bundled mods and mod structure
+- [UNITS.md](UNITS.md) — unified unit model (`screen_px`, `virtual_px`, `wu`, `m/km`)
 - [BENCHMARKING.md](BENCHMARKING.md) — benchmark workflow and capture
 - [OPTIMIZATIONS.md](OPTIMIZATIONS.md) — optimization flags and invariants
 - [CHANGELOG.md](CHANGELOG.md) — development log

@@ -23,6 +23,9 @@ This keeps generated-world mesh construction outside compositor frame assembly.
 | `parse_world_params_from_uri(uri)` | Parse `world://N?...` into `WorldGenParams` |
 | `world_uri_from_params(p)` | Canonical URI string for cache keys and runtime updates |
 | `world_mesh_build_key_from_uri(uri)` | Stable normalized build key for generated meshes |
+| `world_mesh_build_key_with_lod_from_uri(uri, lod)` | Stable normalized build key with explicit LOD cache suffix |
+| `recommended_subdivisions_cap_for_lod(lod)` | Engine LOD policy cap for world subdivisions |
+| `apply_world_lod_to_uri(uri, lod)` | Canonical `world://` URI with LOD-based subdivision clamp |
 | `prepare_world_gen_from_uri(uri)` | Metadata-only prep (`params` + normalized build key) |
 | `build_world_mesh(p)` | Generate `GeneratedWorldMesh` from params |
 

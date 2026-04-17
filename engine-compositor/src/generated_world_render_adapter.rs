@@ -1,17 +1,20 @@
-use engine_render_3d::raster::{
-    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
-    render_obj_to_canvas, render_obj_to_rgba_canvas,
-};
+use engine_asset::MeshBuildKey;
 use engine_celestial::BodyDef;
 use engine_core::color::Color;
 use engine_core::effects::Region;
+use engine_core::render_types::ScreenSpaceMetrics;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
+use engine_core::spatial::SpatialContext;
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
 use engine_render_3d::pipeline::{
     render_generated_world_sprite_with, GeneratedWorldRenderCallbacks, GeneratedWorldRenderProfile,
     GeneratedWorldSpriteSpec,
 };
-use engine_render_3d::scene::Renderable3D;
+use engine_render_3d::raster::{
+    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
+    render_obj_to_canvas, render_obj_to_rgba_canvas,
+};
+use engine_render_3d::scene::{select_lod_level_stable, Renderable3D};
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
@@ -20,7 +23,7 @@ const DEFAULT_WORLD_CLOUD_COLOR: &str = "#eaf2f8";
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn render_generated_world_sprite(
-    spec: GeneratedWorldSpriteSpec<'_>,
+    mut spec: GeneratedWorldSpriteSpec<'_>,
     area: RenderArea,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -63,6 +66,7 @@ pub(crate) fn render_generated_world_sprite(
         planet,
         node.transform.scale[0],
         observer_altitude_km.unwrap_or(0.0),
+        ctx.spatial_context,
     );
 
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
@@ -70,6 +74,18 @@ pub(crate) fn render_generated_world_sprite(
     } else {
         (area.width.max(1), area.height.max(1))
     };
+    let selected_lod = select_lod_level_stable(
+        node.id.as_str(),
+        node.lod_hint.as_ref(),
+        ScreenSpaceMetrics {
+            projected_radius_px: (sprite_width.min(sprite_height) as f32) * 0.5,
+            viewport_area_px: sprite_width as u32 * sprite_height as u32,
+        },
+    );
+    if let Renderable3D::GeneratedWorld(world) = &mut spec.node.renderable {
+        let effective_source = apply_world_lod_to_source(world.mesh_key.as_str(), selected_lod);
+        world.mesh_key = MeshBuildKey::from_source(effective_source);
+    }
     let base_x = area.origin_x
         + resolve_x(
             node.transform.translation[0].round() as i32,
@@ -132,19 +148,32 @@ pub(crate) fn render_generated_world_sprite(
     );
 }
 
+fn apply_world_lod_to_source(
+    source: &str,
+    lod_level: engine_core::render_types::LodLevel,
+) -> String {
+    if !source.starts_with("world://") {
+        return source.to_string();
+    }
+    engine_worldgen::apply_world_lod_to_uri(source, lod_level.0)
+}
+
 fn build_generated_world_profile(
     body: &BodyDef,
     planet: &engine_celestial::PlanetDef,
     surface_scale: f32,
     observer_altitude_km: f32,
+    spatial_context: SpatialContext,
 ) -> GeneratedWorldRenderProfile {
     let sun_dir = [
         planet.sun_dir_x as f32,
         planet.sun_dir_y as f32,
         planet.sun_dir_z as f32,
     ];
-    let (cloud_scale, cloud2_scale) = generated_world_cloud_scales(body, surface_scale);
-    let atmo_visibility = generated_world_atmosphere_visibility(body, observer_altitude_km);
+    let (cloud_scale, cloud2_scale) =
+        generated_world_cloud_scales(body, surface_scale, spatial_context);
+    let atmo_visibility =
+        generated_world_atmosphere_visibility(body, observer_altitude_km, spatial_context);
 
     GeneratedWorldRenderProfile {
         ambient: planet.ambient as f32,
@@ -224,6 +253,8 @@ fn build_generated_world_profile(
         cloud_noise_octaves: planet.cloud_noise_octaves,
         cloud_scale,
         cloud2_scale,
+        cloud_render_scale_1: 0.58,
+        cloud_render_scale_2: 0.42,
         atmo_visibility,
         sun_dir,
     }
@@ -241,15 +272,19 @@ fn colour_rgb(raw: Option<&str>) -> Option<[u8; 3]> {
     Some([r, g, b])
 }
 
-fn body_radius_km(body: &BodyDef) -> Option<f32> {
-    body.radius_km.map(|value| value as f32).or_else(|| {
-        body.km_per_px
-            .map(|km_per_px| (body.radius_px * km_per_px) as f32)
-    })
+fn body_radius_km(body: &BodyDef, spatial_context: SpatialContext) -> Option<f32> {
+    body.resolved_radius_km(Some(spatial_context.scale.meters_per_world_unit))
+        .map(|value| value as f32)
 }
 
-fn generated_world_cloud_scales(body: &BodyDef, surface_scale: f32) -> (f32, f32) {
-    let Some(radius_km) = body_radius_km(body).filter(|value| *value > f32::EPSILON) else {
+fn generated_world_cloud_scales(
+    body: &BodyDef,
+    surface_scale: f32,
+    spatial_context: SpatialContext,
+) -> (f32, f32) {
+    let Some(radius_km) =
+        body_radius_km(body, spatial_context).filter(|value| *value > f32::EPSILON)
+    else {
         return (surface_scale, surface_scale);
     };
     let cloud_bottom = body.cloud_bottom_km.unwrap_or(0.0) as f32;
@@ -262,18 +297,60 @@ fn generated_world_cloud_scales(body: &BodyDef, surface_scale: f32) -> (f32, f32
     )
 }
 
-fn generated_world_atmosphere_visibility(body: &BodyDef, observer_altitude_km: f32) -> f32 {
+fn generated_world_atmosphere_visibility(
+    body: &BodyDef,
+    observer_altitude_km: f32,
+    spatial_context: SpatialContext,
+) -> f32 {
     let top_km = body
-        .atmosphere_top_km
-        .map(|value| value as f32)
-        .or_else(|| {
-            body.atmosphere_top
-                .zip(body.km_per_px)
-                .map(|(top_px, km_per_px)| (top_px * km_per_px) as f32)
-        })
-        .unwrap_or(0.0);
+        .resolved_atmosphere_top_km(Some(spatial_context.scale.meters_per_world_unit))
+        .unwrap_or(0.0) as f32;
     if top_km <= f32::EPSILON {
         return 1.0;
     }
     (1.0 - (observer_altitude_km / (top_km * 8.0)).clamp(0.0, 0.65)).clamp(0.35, 1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generated_world_atmosphere_visibility;
+    use engine_celestial::BodyDef;
+    use engine_core::spatial::SpatialContext;
+
+    #[test]
+    fn km_per_world_unit_prefers_body_mapping_over_scene_spatial_scale() {
+        let body = BodyDef {
+            km_per_px: Some(42.0),
+            ..BodyDef::default()
+        };
+        let mut spatial = SpatialContext::default();
+        spatial.scale.meters_per_world_unit = 2000.0;
+        let resolved = body
+            .km_per_world_unit(Some(spatial.scale.meters_per_world_unit))
+            .expect("km mapping");
+        assert!((resolved - 42.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn atmosphere_visibility_uses_scene_spatial_scale_without_body_km_fields() {
+        let body = BodyDef {
+            atmosphere_top: Some(10.0),
+            ..BodyDef::default()
+        };
+        let default_visibility =
+            generated_world_atmosphere_visibility(&body, 20.0, SpatialContext::default());
+        assert!(
+            (default_visibility - 1.0).abs() < f32::EPSILON,
+            "without body km mapping or authored spatial scale, visibility should remain neutral"
+        );
+
+        let mut authored_spatial = SpatialContext::default();
+        authored_spatial.scale.meters_per_world_unit = 2000.0;
+        let scaled_visibility =
+            generated_world_atmosphere_visibility(&body, 20.0, authored_spatial);
+        assert!(
+            scaled_visibility < 1.0,
+            "authored scene spatial scale should produce finite atmosphere attenuation"
+        );
+    }
 }

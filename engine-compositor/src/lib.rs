@@ -17,9 +17,9 @@ mod layer_compositor;
 #[cfg(feature = "render-3d")]
 mod obj_render_adapter;
 #[cfg(feature = "render-3d")]
-mod prerender;
-#[cfg(feature = "render-3d")]
 pub mod prepared_frame;
+#[cfg(feature = "render-3d")]
+mod prerender;
 pub mod provider;
 mod render;
 #[cfg(feature = "render-3d")]
@@ -43,16 +43,14 @@ pub use access::CompositorAccess;
 pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
-pub use compositor::{
-    dispatch_composite, dispatch_composite_with_render_2d_pipeline,
-};
-#[cfg(feature = "render-3d")]
-pub use prerender::prerender_scene_sprites;
+pub use compositor::{dispatch_composite, dispatch_composite_with_render_2d_pipeline};
 #[cfg(feature = "render-3d")]
 pub use prepared_frame::{
     layer_frames_from_prepared, prepare_frame_layer_inputs, prepare_frame_layer_inputs_from_frame,
     PreparedLayerInput, PreparedSprite2d, PreparedSprite3d,
 };
+#[cfg(feature = "render-3d")]
+pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
 pub use scene_compositor::{
     prepare_layer_frames, prepare_layer_timed_visibility, CompositeParams, FrameAssemblyInputs,

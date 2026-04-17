@@ -45,6 +45,7 @@ pub use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, RawKeyEvent, SceneCamera3D, SidecarIoFrameState,
     TargetResolver,
 };
+use engine_core::spatial::SpatialContext;
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 pub use mutations::{
@@ -102,6 +103,8 @@ pub struct SceneRuntime {
     camera_y: i32,
     /// 2D camera zoom factor (default 1.0). Values > 1.0 zoom in, < 1.0 zoom out.
     camera_zoom: f32,
+    /// Scene-wide spatial contract (units and axis convention).
+    spatial_context: SpatialContext,
     scene_camera_3d: SceneCamera3D,
     render3d_dirty_mask: DirtyMask3D,
     render3d_rebuild_diagnostics: Render3dRebuildDiagnostics,
@@ -1571,5 +1574,32 @@ layers:
         assert_eq!(obj_fields.0, Some(24.0));
         assert_eq!(obj_fields.1, Some(-15.0));
         assert_eq!(obj_fields.2, Some(10.0));
+    }
+
+    #[test]
+    fn scene_runtime_initializes_spatial_context_from_scene() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: spatial-runtime
+title: Spatial Runtime
+spatial:
+  meters-per-world-unit: 25.0
+  virtual-pixels-per-world-unit: 6.0
+  handedness: right
+  up-axis: z
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        let runtime = SceneRuntime::new(scene);
+        let spatial = runtime.spatial_context();
+        assert_eq!(spatial.scale.meters_per_world_unit, 25.0);
+        assert_eq!(spatial.scale.virtual_pixels_per_world_unit, Some(6.0));
+        assert_eq!(
+            spatial.axes.handedness,
+            engine_core::spatial::Handedness::Right
+        );
+        assert_eq!(spatial.axes.up_axis, engine_core::spatial::UpAxis::Z);
     }
 }

@@ -99,4 +99,3 @@ pub fn render_scene3d_work_item(item: &Scene3DWorkItem, asset_root: &AssetRoot) 
         },
     )
 }
-

@@ -542,6 +542,18 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         |world: &mut ScriptGameplayApi, id: &str| world.body_info(id),
     );
     engine.register_fn(
+        "body_position",
+        |world: &mut ScriptGameplayApi, id: &str, elapsed_sec: rhai::FLOAT| {
+            world.body_position(id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
+        "world.body_position",
+        |world: &mut ScriptGameplayApi, id: &str, elapsed_sec: rhai::FLOAT| {
+            world.body_position(id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
         "planet_type_info",
         |world: &mut ScriptGameplayApi, id: &str| world.planet_type_info(id),
     );

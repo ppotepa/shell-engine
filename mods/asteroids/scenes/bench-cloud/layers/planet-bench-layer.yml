@@ -1,0 +1,21 @@
+- name: planet-bench
+  z_index: 0
+  ui: true
+  space: 3d
+  sprites:
+    - type: planet
+      id: main-planet-bench
+      body-id: main-planet
+      preset: earth_like
+      mesh-source: "world://128?shape=sphere&base=cube&coloring=biome&seed=42&ocean=0.55&cscale=2.5&cwarp=0.65&coct=5&mscale=6.0&mstr=0.45&mroct=5&moistscale=3.0&ice=0.4&lapse=0.08&rainshadow=0.25&disp=0.22"
+      x: 0
+      y: 0
+      width: 420
+      height: 420
+      scale: 1.0
+      yaw-deg: 30
+      pitch-deg: -14
+      camera-distance: 2.68
+      camera-source: scene
+      fov-degrees: 65
+      near-clip: 0.01

@@ -1,12 +1,13 @@
-use engine_render_3d::raster::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered};
-use engine_render_3d::ObjRenderParams;
 use engine_core::color::Color;
 use engine_core::effects::Region;
+use engine_core::render_types::ScreenSpaceMetrics;
 use engine_core::scene::CameraSource;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
 use engine_render_3d::pipeline::ObjSpriteSpec;
-use engine_render_3d::scene::Renderable3D;
+use engine_render_3d::raster::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered};
+use engine_render_3d::scene::{select_lod_level_stable, Renderable3D};
+use engine_render_3d::ObjRenderParams;
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
@@ -144,6 +145,15 @@ pub(crate) fn render_obj_sprite(
     } else {
         (area.width.max(1), area.height.max(1))
     };
+    let selected_lod = select_lod_level_stable(
+        node.id.as_str(),
+        node.lod_hint.as_ref(),
+        ScreenSpaceMetrics {
+            projected_radius_px: (sprite_width.min(sprite_height) as f32) * 0.5,
+            viewport_area_px: sprite_width as u32 * sprite_height as u32,
+        },
+    );
+    let effective_source = apply_world_lod_to_source(source, selected_lod);
     let base_x = area.origin_x + resolve_x(node_x, &align_x, area.width, sprite_width);
     let base_y = area.origin_y + resolve_y(node_y, &align_y, area.height, sprite_height);
     let (draw_x, draw_y) = compute_draw_pos(
@@ -213,7 +223,7 @@ pub(crate) fn render_obj_sprite(
     let use_scene_camera = camera_source == CameraSource::Scene;
     let scene_camera = ctx.scene_camera_3d;
     render_obj_content(
-        source,
+        effective_source.as_str(),
         Some(sprite_width),
         Some(sprite_height),
         size,
@@ -454,4 +464,14 @@ pub(crate) fn render_obj_sprite(
         target_resolver,
         object_regions,
     );
+}
+
+fn apply_world_lod_to_source(
+    source: &str,
+    lod_level: engine_core::render_types::LodLevel,
+) -> String {
+    if !source.starts_with("world://") {
+        return source.to_string();
+    }
+    engine_worldgen::apply_world_lod_to_uri(source, lod_level.0)
 }

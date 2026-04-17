@@ -1104,63 +1104,93 @@ pub(crate) fn set_obj_material_typed(
                             return true;
                         }
                     }
-                    (WorldX, MV::Scalar(v)) if world_x.map_or(true, |w| (w - v).abs() > f32::EPSILON) => {
+                    (WorldX, MV::Scalar(v))
+                        if world_x.map_or(true, |w| (w - v).abs() > f32::EPSILON) =>
+                    {
                         *world_x = Some(*v);
                         return true;
                     }
-                    (WorldY, MV::Scalar(v)) if world_y.map_or(true, |w| (w - v).abs() > f32::EPSILON) => {
+                    (WorldY, MV::Scalar(v))
+                        if world_y.map_or(true, |w| (w - v).abs() > f32::EPSILON) =>
+                    {
                         *world_y = Some(*v);
                         return true;
                     }
-                    (WorldZ, MV::Scalar(v)) if world_z.map_or(true, |w| (w - v).abs() > f32::EPSILON) => {
+                    (WorldZ, MV::Scalar(v))
+                        if world_z.map_or(true, |w| (w - v).abs() > f32::EPSILON) =>
+                    {
                         *world_z = Some(*v);
                         return true;
                     }
-                    (CamWorldX, MV::Scalar(v)) if cam_world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) => {
+                    (CamWorldX, MV::Scalar(v))
+                        if cam_world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) =>
+                    {
                         *cam_world_x = Some(*v);
                         return true;
                     }
-                    (CamWorldY, MV::Scalar(v)) if cam_world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) => {
+                    (CamWorldY, MV::Scalar(v))
+                        if cam_world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) =>
+                    {
                         *cam_world_y = Some(*v);
                         return true;
                     }
-                    (CamWorldZ, MV::Scalar(v)) if cam_world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) => {
+                    (CamWorldZ, MV::Scalar(v))
+                        if cam_world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) =>
+                    {
                         *cam_world_z = Some(*v);
                         return true;
                     }
-                    (ViewRightX, MV::Scalar(v)) if view_right_x.map_or(true, |vx| (vx - v).abs() > f32::EPSILON) => {
+                    (ViewRightX, MV::Scalar(v))
+                        if view_right_x.map_or(true, |vx| (vx - v).abs() > f32::EPSILON) =>
+                    {
                         *view_right_x = Some(*v);
                         return true;
                     }
-                    (ViewRightY, MV::Scalar(v)) if view_right_y.map_or(true, |vy| (vy - v).abs() > f32::EPSILON) => {
+                    (ViewRightY, MV::Scalar(v))
+                        if view_right_y.map_or(true, |vy| (vy - v).abs() > f32::EPSILON) =>
+                    {
                         *view_right_y = Some(*v);
                         return true;
                     }
-                    (ViewRightZ, MV::Scalar(v)) if view_right_z.map_or(true, |vz| (vz - v).abs() > f32::EPSILON) => {
+                    (ViewRightZ, MV::Scalar(v))
+                        if view_right_z.map_or(true, |vz| (vz - v).abs() > f32::EPSILON) =>
+                    {
                         *view_right_z = Some(*v);
                         return true;
                     }
-                    (ViewUpX, MV::Scalar(v)) if view_up_x.map_or(true, |ux| (ux - v).abs() > f32::EPSILON) => {
+                    (ViewUpX, MV::Scalar(v))
+                        if view_up_x.map_or(true, |ux| (ux - v).abs() > f32::EPSILON) =>
+                    {
                         *view_up_x = Some(*v);
                         return true;
                     }
-                    (ViewUpY, MV::Scalar(v)) if view_up_y.map_or(true, |uy| (uy - v).abs() > f32::EPSILON) => {
+                    (ViewUpY, MV::Scalar(v))
+                        if view_up_y.map_or(true, |uy| (uy - v).abs() > f32::EPSILON) =>
+                    {
                         *view_up_y = Some(*v);
                         return true;
                     }
-                    (ViewUpZ, MV::Scalar(v)) if view_up_z.map_or(true, |uz| (uz - v).abs() > f32::EPSILON) => {
+                    (ViewUpZ, MV::Scalar(v))
+                        if view_up_z.map_or(true, |uz| (uz - v).abs() > f32::EPSILON) =>
+                    {
                         *view_up_z = Some(*v);
                         return true;
                     }
-                    (ViewFwdX, MV::Scalar(v)) if view_fwd_x.map_or(true, |fx| (fx - v).abs() > f32::EPSILON) => {
+                    (ViewFwdX, MV::Scalar(v))
+                        if view_fwd_x.map_or(true, |fx| (fx - v).abs() > f32::EPSILON) =>
+                    {
                         *view_fwd_x = Some(*v);
                         return true;
                     }
-                    (ViewFwdY, MV::Scalar(v)) if view_fwd_y.map_or(true, |fy| (fy - v).abs() > f32::EPSILON) => {
+                    (ViewFwdY, MV::Scalar(v))
+                        if view_fwd_y.map_or(true, |fy| (fy - v).abs() > f32::EPSILON) =>
+                    {
                         *view_fwd_y = Some(*v);
                         return true;
                     }
-                    (ViewFwdZ, MV::Scalar(v)) if view_fwd_z.map_or(true, |fz| (fz - v).abs() > f32::EPSILON) => {
+                    (ViewFwdZ, MV::Scalar(v))
+                        if view_fwd_z.map_or(true, |fz| (fz - v).abs() > f32::EPSILON) =>
+                    {
                         *view_fwd_z = Some(*v);
                         return true;
                     }
@@ -1445,88 +1475,114 @@ pub(crate) fn set_obj_terrain_typed(
                         if terrain_plane_amplitude.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_amplitude = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Frequency, MV::Scalar(v)) => {
                         let v = v.clamp(0.01, 16.0);
                         if terrain_plane_frequency.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_frequency = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Roughness, MV::Scalar(v)) => {
                         let v = v.clamp(0.0, 1.0);
                         if terrain_plane_roughness.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_roughness = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Octaves, MV::Scalar(v)) => {
                         let v = (v.round() as u8).clamp(1, 3);
                         if terrain_plane_octaves.map_or(true, |c| c != v) {
                             *terrain_plane_octaves = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (SeedX, MV::Scalar(v)) => {
                         if terrain_plane_seed_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_seed_x = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (SeedZ, MV::Scalar(v)) => {
                         if terrain_plane_seed_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_seed_z = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Lacunarity, MV::Scalar(v)) => {
                         let v = v.clamp(1.0, 4.0);
                         if terrain_plane_lacunarity.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_lacunarity = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Ridge, MV::Bool(b)) => {
                         if terrain_plane_ridge.map_or(true, |c| c != *b) {
                             *terrain_plane_ridge = Some(*b);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Ridge, MV::Scalar(v)) => {
                         let b = *v != 0.0;
                         if terrain_plane_ridge.map_or(true, |c| c != b) {
                             *terrain_plane_ridge = Some(b);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Plateau, MV::Scalar(v)) => {
                         let v = v.clamp(0.0, 1.0);
                         if terrain_plane_plateau.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_plateau = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (SeaLevel, MV::Scalar(v)) => {
                         let v = v.clamp(0.0, 1.0);
                         if terrain_plane_sea_level.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_sea_level = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (ScaleX, MV::Scalar(v)) => {
                         let v = v.clamp(0.25, 4.0);
                         if terrain_plane_scale_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_scale_x = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (ScaleZ, MV::Scalar(v)) => {
                         let v = v.clamp(0.25, 4.0);
                         if terrain_plane_scale_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *terrain_plane_scale_z = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     _ => false,
                 };
@@ -1585,104 +1641,136 @@ pub(crate) fn set_obj_worldgen_typed(
                         if world_gen_seed.map_or(true, |c| c != v) {
                             *world_gen_seed = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (OceanFraction, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.0, 1.0);
                         if world_gen_ocean_fraction.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_ocean_fraction = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (ContinentScale, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.5, 10.0);
                         if world_gen_continent_scale.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_continent_scale = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (ContinentWarp, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.0, 2.0);
                         if world_gen_continent_warp.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_continent_warp = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (ContinentOctaves, MV::Scalar(v)) => {
                         let v = (v.round() as u8).clamp(2, 8);
                         if world_gen_continent_octaves.map_or(true, |c| c != v) {
                             *world_gen_continent_octaves = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (MountainScale, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(1.0, 20.0);
                         if world_gen_mountain_scale.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_mountain_scale = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (MountainStrength, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.0, 1.0);
                         if world_gen_mountain_strength.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_mountain_strength = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (MountainRidgeOctaves, MV::Scalar(v)) => {
                         let v = (v.round() as u8).clamp(2, 8);
                         if world_gen_mountain_ridge_octaves.map_or(true, |c| c != v) {
                             *world_gen_mountain_ridge_octaves = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (MoistureScale, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.5, 10.0);
                         if world_gen_moisture_scale.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_moisture_scale = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (IceCapStrength, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.0, 3.0);
                         if world_gen_ice_cap_strength.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_ice_cap_strength = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (LapseRate, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.0, 1.0);
                         if world_gen_lapse_rate.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_lapse_rate = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (RainShadow, MV::Scalar(v)) => {
                         let v = (*v as f64).clamp(0.0, 1.0);
                         if world_gen_rain_shadow.map_or(true, |c| (c - v).abs() > 1e-6) {
                             *world_gen_rain_shadow = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Subdivisions, MV::Scalar(v)) => {
                         let v = (v.round() as u32).clamp(1, 512);
                         if world_gen_subdivisions.map_or(true, |c| c != v) {
                             *world_gen_subdivisions = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (DisplacementScale, MV::Scalar(v)) => {
                         let v = v.clamp(0.0, 1.0);
-                        if world_gen_displacement_scale.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                        if world_gen_displacement_scale
+                            .map_or(true, |c| (c - v).abs() > f32::EPSILON)
+                        {
                             *world_gen_displacement_scale = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Coloring, MV::Text(s)) => {
                         if world_gen_coloring.as_deref() != Some(s.as_str()) {
                             *world_gen_coloring = Some(s.clone());
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Base, MV::Text(s)) => {
                         let normalized = match s.as_str() {
@@ -1692,14 +1780,18 @@ pub(crate) fn set_obj_worldgen_typed(
                         if world_gen_base.as_deref() != Some(normalized) {
                             *world_gen_base = Some(normalized.to_string());
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Shape, MV::Text(s)) => {
                         let normalized = if s == "flat" { "flat" } else { "sphere" };
                         if world_gen_shape.as_deref() != Some(normalized) {
                             *world_gen_shape = Some(normalized.to_string());
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     _ => false,
                 };
@@ -1747,44 +1839,58 @@ pub(crate) fn set_planet_typed(
                         if spin_deg.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *spin_deg = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (CloudSpinDeg, MV::Scalar(v)) => {
                         if cloud_spin_deg.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *cloud_spin_deg = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (Cloud2SpinDeg, MV::Scalar(v)) => {
                         if cloud2_spin_deg.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *cloud2_spin_deg = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (ObserverAltitudeKm, MV::Scalar(v)) => {
                         let v = v.max(0.0);
                         if observer_altitude_km.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *observer_altitude_km = Some(v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (SunDirX, MV::Scalar(v)) => {
                         if sun_dir_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *sun_dir_x = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (SunDirY, MV::Scalar(v)) => {
                         if sun_dir_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *sun_dir_y = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     (SunDirZ, MV::Scalar(v)) => {
                         if sun_dir_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
                             *sun_dir_z = Some(*v);
                             true
-                        } else { false }
+                        } else {
+                            false
+                        }
                     }
                     _ => false,
                 };

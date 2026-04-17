@@ -3,11 +3,12 @@
 use std::any::Any;
 use std::collections::HashMap;
 
+use crate::ObjPrerenderedFrames;
 use engine_core::effects::Region;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
-use crate::ObjPrerenderedFrames;
+use engine_core::spatial::SpatialContext;
 use engine_render_2d::{Render2dInput, Render2dPipeline};
 
 #[cfg(feature = "render-3d")]
@@ -51,6 +52,7 @@ pub(crate) fn resolve_render_2d_pipeline<'a>(
     pipeline: Option<&'a dyn Render2dPipeline>,
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
+    spatial_context: SpatialContext,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
     prerender_frames: Option<&'a ObjPrerenderedFrames>,
 ) -> ResolvedRender2dPipeline<'a> {
@@ -59,6 +61,7 @@ pub(crate) fn resolve_render_2d_pipeline<'a>(
         None => ResolvedRender2dPipeline::Default(DefaultCompositorRenderPipelines::new(
             obj_camera_states,
             scene_camera_3d,
+            spatial_context,
             celestial_catalogs,
             prerender_frames,
         )),
@@ -73,6 +76,7 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
     pub fn new(
         obj_camera_states: &'a HashMap<String, ObjCameraState>,
         scene_camera_3d: &'a SceneCamera3D,
+        spatial_context: SpatialContext,
         celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
         prerender_frames: Option<&'a ObjPrerenderedFrames>,
     ) -> Self {
@@ -81,6 +85,7 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
         let render_2d = DefaultCompositorRender2dPipeline {
             obj_camera_states,
             scene_camera_3d,
+            spatial_context,
             celestial_catalogs,
             prerender_frames,
             #[cfg(feature = "render-3d")]
@@ -93,6 +98,7 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
 pub struct DefaultCompositorRender2dPipeline<'a> {
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
+    spatial_context: SpatialContext,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
     prerender_frames: Option<&'a ObjPrerenderedFrames>,
     #[cfg(feature = "render-3d")]
@@ -118,10 +124,12 @@ impl Render2dPipeline for DefaultCompositorRender2dPipeline<'_> {
             input.elapsed_ms,
             self.obj_camera_states,
             self.scene_camera_3d,
+            self.spatial_context,
             self.celestial_catalogs,
             input.is_pixel_backend,
             input.default_font,
-            #[cfg(feature = "render-3d")] &self.render_3d,
+            #[cfg(feature = "render-3d")]
+            &self.render_3d,
             self.prerender_frames,
             target,
         );

@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
+use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLayerRenderInputs};
+#[cfg(feature = "render-3d")]
+use crate::prepared_frame::layer_frames_from_prepared;
+use crate::{prepare_layer_frames, CompositeParams};
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_effects::apply_effect;
 use engine_pipeline::LayerCompositor;
 use engine_render_2d::Render2dPipeline;
-use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLayerRenderInputs};
-#[cfg(feature = "render-3d")]
-use crate::prepared_frame::layer_frames_from_prepared;
-use crate::{prepare_layer_frames, CompositeParams};
 
 fn composite_scene(
     params: &CompositeParams<'_>,
@@ -75,6 +75,7 @@ fn composite_scene(
             asset_root: params.prepared.asset_root,
             obj_camera_states: params.prepared.obj_camera_states,
             scene_camera_3d: params.prepared.camera.scene_camera_3d,
+            spatial_context: params.prepared.camera.spatial_context,
             celestial_catalogs: params.prepared.celestial_catalogs,
             is_pixel_backend: params.prepared.is_pixel_backend,
             default_font: params.prepared.default_font,

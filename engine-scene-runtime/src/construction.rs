@@ -94,6 +94,7 @@ impl SceneRuntime {
                 .map(|(id, object)| (id.clone(), object_kind_name(&object.kind).to_string()))
                 .collect::<HashMap<_, _>>(),
         );
+        let spatial_context = scene.spatial.to_context();
 
         let mut runtime = Self {
             scene,
@@ -137,6 +138,7 @@ impl SceneRuntime {
             camera_x: 0,
             camera_y: 0,
             camera_zoom: 1.0,
+            spatial_context,
             scene_camera_3d: SceneCamera3D::default(),
             render3d_dirty_mask: engine_core::render_types::DirtyMask3D::empty(),
             render3d_rebuild_diagnostics: Render3dRebuildDiagnostics::default(),

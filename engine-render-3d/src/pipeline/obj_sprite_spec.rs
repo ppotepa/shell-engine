@@ -1,7 +1,7 @@
 use crate::mesh::normalize_asset_mesh_source;
 use crate::scene::{MeshInstance, Node3DInstance, Renderable3D};
 use engine_asset::resolve_obj_mesh_build_key;
-use engine_core::render_types::Transform3D;
+use engine_core::render_types::{LodHint, LodLevel, LodPolicy, Transform3D};
 use engine_core::scene::{
     CameraSource, HorizontalAlign, Sprite, SpriteSizePreset, TermColour, VerticalAlign,
 };
@@ -241,6 +241,18 @@ pub fn extract_obj_sprite_spec(sprite: &Sprite) -> Option<ObjSpriteSpec<'_>> {
 
     let normalized_source = normalize_asset_mesh_source(source);
     let mesh_key = resolve_obj_mesh_build_key(normalized_source.as_str(), sprite);
+    let lod_hint = if normalized_source.starts_with("world://") {
+        Some(LodHint {
+            policy: LodPolicy::ScreenSpace {
+                min_level: LodLevel(0),
+                max_level: LodLevel(4),
+                hysteresis_px: 16.0,
+            },
+            bias: 1,
+        })
+    } else {
+        None
+    };
 
     Some(ObjSpriteSpec {
         sprite,
@@ -260,6 +272,7 @@ pub fn extract_obj_sprite_spec(sprite: &Sprite) -> Option<ObjSpriteSpec<'_>> {
                 ],
             },
             visible: *visible,
+            lod_hint,
             renderable: Renderable3D::Mesh(MeshInstance {
                 source: normalized_source,
                 mesh_key,

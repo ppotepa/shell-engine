@@ -84,10 +84,7 @@ pub fn prepare_layer_input<'a>(
         SceneStage::Done => &layer.stages.on_idle,
     };
     let has_active_effects = stage_ref.steps.iter().any(|s| !s.effects.is_empty())
-        || layer_timed_visibility
-            .get(index)
-            .copied()
-            .unwrap_or(false);
+        || layer_timed_visibility.get(index).copied().unwrap_or(false);
 
     // Classify sprites as 2D or 3D at preparation time.
     let mut sprites_2d = Vec::new();
@@ -149,7 +146,10 @@ pub fn prepare_frame_layer_inputs<'a>(
 pub fn layer_frames_from_prepared<'a>(
     prepared: &'a [PreparedLayerInput<'a>],
 ) -> Vec<PreparedLayerFrame<'a>> {
-    prepared.iter().map(PreparedLayerInput::as_layer_frame).collect()
+    prepared
+        .iter()
+        .map(PreparedLayerInput::as_layer_frame)
+        .collect()
 }
 
 /// Convenience: prepare frame inputs from a `FrameAssemblyInputs` reference.

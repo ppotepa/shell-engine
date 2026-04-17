@@ -1,4 +1,4 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
+$schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-engine.local/schemas/effect-params.schema.yaml
 title: Effect Params Schema
 description: Parameter overrides for a visual effect step. Omitted parameters fall back to per-effect defaults.

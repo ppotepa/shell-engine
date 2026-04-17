@@ -1,5 +1,6 @@
 use engine_behavior::catalog::{BodyDef, ModCatalogs};
 use engine_game::GameplayWorld;
+use engine_scene_runtime::SceneRuntime;
 use serde_json::json;
 
 fn resolve_body<'a>(catalogs: &'a ModCatalogs, body_id: Option<&str>) -> Option<&'a BodyDef> {
@@ -10,28 +11,6 @@ fn resolve_body<'a>(catalogs: &'a ModCatalogs, body_id: Option<&str>) -> Option<
         return catalogs.celestial.bodies.values().next();
     }
     None
-}
-
-fn body_km_per_px(body: &BodyDef) -> f32 {
-    if let Some(km_per_px) = body.km_per_px {
-        return km_per_px.max(0.0001) as f32;
-    }
-    if let Some(radius_km) = body.radius_km {
-        return (radius_km / body.radius_px.max(1.0)) as f32;
-    }
-    (6371.0 / body.radius_px.max(1.0)) as f32
-}
-
-fn body_atmo_top_km(body: &BodyDef, km_per_px: f32) -> f32 {
-    body.atmosphere_top_km
-        .or_else(|| body.atmosphere_top.map(|px| px * km_per_px as f64))
-        .unwrap_or(0.0) as f32
-}
-
-fn body_atmo_dense_km(body: &BodyDef, km_per_px: f32) -> f32 {
-    body.atmosphere_dense_start_km
-        .or_else(|| body.atmosphere_dense_start.map(|px| px * km_per_px as f64))
-        .unwrap_or(0.0) as f32
 }
 
 fn clamp01(value: f32) -> f32 {
@@ -49,6 +28,9 @@ pub fn atmosphere_system(world: &mut engine_core::world::World, dt_ms: u64) {
     let Some(catalogs) = world.get::<ModCatalogs>() else {
         return;
     };
+    let spatial_meters_per_world_unit = world
+        .get::<SceneRuntime>()
+        .map(|runtime| runtime.spatial_context().scale.meters_per_world_unit);
 
     for id in gameplay_world.ids_with_atmosphere() {
         let Some(mut atmo) = gameplay_world.atmosphere(id) else {
@@ -64,16 +46,21 @@ pub fn atmosphere_system(world: &mut engine_core::world::World, dt_ms: u64) {
             continue;
         };
 
-        let km_per_px = body_km_per_px(body);
-        let atmo_top_km = body_atmo_top_km(body, km_per_px);
-        let atmo_dense_km = body_atmo_dense_km(body, km_per_px);
+        let km_per_world_unit =
+            body.km_per_world_unit_or_earth(spatial_meters_per_world_unit) as f32;
+        let atmo_top_km = body
+            .resolved_atmosphere_top_km(spatial_meters_per_world_unit)
+            .unwrap_or(0.0) as f32;
+        let atmo_dense_km = body
+            .resolved_atmosphere_dense_start_km(spatial_meters_per_world_unit)
+            .unwrap_or(0.0) as f32;
         let drag_max = body.atmosphere_drag_max.unwrap_or(0.0) as f32;
 
         let dx = xf.x - body.center_x as f32;
         let dy = xf.y - body.center_y as f32;
         let dist = (dx * dx + dy * dy).sqrt();
         let altitude_px = (dist - body.surface_radius as f32).max(0.0);
-        let altitude_km = altitude_px * km_per_px;
+        let altitude_km = altitude_px * km_per_world_unit;
 
         let atmo_alpha = if atmo_top_km > 0.0 {
             clamp01((atmo_top_km - altitude_km) / atmo_top_km.max(0.001))
@@ -115,8 +102,10 @@ pub fn atmosphere_system(world: &mut engine_core::world::World, dt_ms: u64) {
 mod tests {
     use super::atmosphere_system;
     use engine_behavior::catalog::{BodyDef, ModCatalogs};
+    use engine_core::scene::Scene;
     use engine_core::world::World;
     use engine_game::{AtmosphereAffected2D, GameplayWorld, PhysicsBody2D, Transform2D};
+    use engine_scene_runtime::SceneRuntime;
     use serde_json::json;
 
     #[test]
@@ -181,5 +170,76 @@ mod tests {
             "expected atmosphere density to be tracked"
         );
         assert!(atmo.altitude_km >= 0.0, "expected altitude to be recorded");
+    }
+
+    #[test]
+    fn atmosphere_uses_scene_spatial_scale_when_body_km_scale_is_missing() {
+        let mut world = World::default();
+        let gameplay = GameplayWorld::new();
+        let mut catalogs = ModCatalogs::default();
+        catalogs.celestial.bodies.insert(
+            "planet".into(),
+            BodyDef {
+                center_x: 0.0,
+                center_y: 0.0,
+                surface_radius: 90.0,
+                radius_px: 90.0,
+                atmosphere_top_km: Some(10.0),
+                atmosphere_drag_max: Some(0.0),
+                ..BodyDef::default()
+            },
+        );
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: spatial-scene
+title: spatial-scene
+stages:
+  on_idle:
+    trigger: any-key
+    steps: []
+spatial:
+  meters-per-world-unit: 2.0
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        world.register(gameplay.clone());
+        world.register(catalogs);
+        world.register(SceneRuntime::new(scene));
+
+        let id = gameplay.spawn("probe", json!({})).expect("spawn probe");
+        assert!(gameplay.set_transform(
+            id,
+            Transform2D {
+                x: 95.0,
+                y: 0.0,
+                z: 0.0,
+                heading: 0.0
+            }
+        ));
+        assert!(gameplay.set_physics(
+            id,
+            PhysicsBody2D {
+                vx: 0.0,
+                vy: 0.0,
+                ..PhysicsBody2D::default()
+            }
+        ));
+        assert!(gameplay.attach_atmosphere(
+            id,
+            AtmosphereAffected2D {
+                body_id: Some("planet".into()),
+                ..AtmosphereAffected2D::default()
+            }
+        ));
+
+        atmosphere_system(&mut world, 16);
+
+        let atmo = gameplay.atmosphere(id).expect("atmo state");
+        assert!(
+            atmo.density > 0.99,
+            "expected near-surface density with spatial scale fallback, got {}",
+            atmo.density
+        );
     }
 }

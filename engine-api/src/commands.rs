@@ -152,13 +152,13 @@ pub fn scene_mutation_request_from_set_property_compat(
             value: value.clone(),
         }),
         "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg" | "vector.bg"
-        | "style.border" | "style.shadow" => Some(
-            crate::scene::SceneMutationRequest::SetSpriteProperty {
+        | "style.border" | "style.shadow" => {
+            Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
                 target: target.to_string(),
                 path: path.to_string(),
                 value: value.clone(),
-            },
-        ),
+            })
+        }
         "image.frame_index" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
             target: target.to_string(),
             path: "image.frame_index".to_string(),

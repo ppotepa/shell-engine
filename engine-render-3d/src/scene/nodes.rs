@@ -1,6 +1,6 @@
 use super::materials::MaterialInstance;
 use engine_asset::MeshBuildKey;
-use engine_core::render_types::Transform3D;
+use engine_core::render_types::{LodHint, Transform3D};
 
 #[derive(Debug, Clone)]
 pub struct MeshInstance {
@@ -45,5 +45,6 @@ pub struct Node3DInstance {
     pub id: String,
     pub transform: Transform3D,
     pub visible: bool,
+    pub lod_hint: Option<LodHint>,
     pub renderable: Renderable3D,
 }

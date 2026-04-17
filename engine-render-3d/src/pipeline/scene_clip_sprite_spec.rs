@@ -58,6 +58,7 @@ pub fn extract_scene_clip_sprite_spec(sprite: &Sprite) -> Option<SceneClipSprite
                 scale: [1.0, 1.0, 1.0],
             },
             visible: *visible,
+            lod_hint: None,
             renderable: Renderable3D::SceneClip(SceneClip3DInstance {
                 source: src.clone(),
                 frame: frame.clone(),

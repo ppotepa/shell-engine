@@ -34,6 +34,9 @@ properties:
     minimum: 1
     maximum: 240
     description: Optional scene-level FPS cap override (applies regardless of renderer/scene type).
+  spatial:
+    $ref: "#/$defs/scene_spatial"
+    description: Optional scene-level spatial unit and axis overrides.
   celestial:
     $ref: "#/$defs/scene_celestial"
     description: Optional binding to the persistent celestial scope resolved by this scene.
@@ -110,6 +113,10 @@ patternProperties:
     $ref: "#/properties/cutscene-ref"
   "^target_fps$":
     $ref: "#/properties/target-fps"
+  "^meters_per_world_unit$":
+    $ref: "#/$defs/scene_spatial/properties/meters-per-world-unit"
+  "^virtual_pixels_per_world_unit$":
+    $ref: "#/$defs/scene_spatial/properties/virtual-pixels-per-world-unit"
   "^menu_options$":
     $ref: "#/properties/menu-options"
 
@@ -164,6 +171,42 @@ $defs:
         type: object
         default: {}
         additionalProperties: true
+
+  spatial_handedness:
+    type: string
+    enum: [left, right]
+    default: right
+    description: Coordinate-system handedness for world-space math.
+
+  spatial_up_axis:
+    type: string
+    enum: [y, z]
+    default: y
+    description: World up-axis convention for scene/gameplay/render integration.
+
+  scene_spatial:
+    type: object
+    additionalProperties: false
+    properties:
+      meters-per-world-unit:
+        type: number
+        minimum: 0.000001
+        description: Physical meters represented by one world unit.
+      virtual-pixels-per-world-unit:
+        type: number
+        minimum: 0.0
+        description: Optional projection helper for world units to virtual pixels.
+      handedness:
+        $ref: "#/$defs/spatial_handedness"
+      up-axis:
+        $ref: "#/$defs/spatial_up_axis"
+    patternProperties:
+      "^meters_per_world_unit$":
+        $ref: "#/$defs/scene_spatial/properties/meters-per-world-unit"
+      "^virtual_pixels_per_world_unit$":
+        $ref: "#/$defs/scene_spatial/properties/virtual-pixels-per-world-unit"
+      "^up_axis$":
+        $ref: "#/$defs/scene_spatial/properties/up-axis"
 
   celestial_scope:
     type: string

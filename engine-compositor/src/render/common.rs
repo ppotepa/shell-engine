@@ -1,5 +1,6 @@
 //! Common render-time context and helpers shared across sprite variants.
 
+use crate::ObjPrerenderedFrames;
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::animations::AnimationDispatcher;
@@ -10,7 +11,7 @@ use engine_core::scene::LayerStages;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
-use crate::ObjPrerenderedFrames;
+use engine_core::spatial::SpatialContext;
 use std::collections::HashMap;
 
 use super::super::effect_applicator::apply_sprite_effects;
@@ -30,6 +31,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) layer_buf: &'a mut Buffer,
     pub(crate) obj_camera_states: &'a HashMap<String, ObjCameraState>,
     pub(crate) scene_camera_3d: &'a SceneCamera3D,
+    pub(crate) spatial_context: SpatialContext,
     pub(crate) celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,

@@ -21,7 +21,9 @@ internals.
 
 - `api` — concrete 3D pipeline input/output types and seams
 - `scene` — typed 3D scene graph/runtime data
+  - includes LOD policy seam (`scene::lod::{select_lod_level, select_lod_level_stable}`) and `Node3DInstance::lod_hint`
 - `pipeline` — prepared sprite specs and render execution helpers
+  - generated-world path includes cloud cadence/reuse hooks for CPU raster cost control
 - `prerender` — Scene3D atlas/runtime-store/work-item orchestration
 - `raster` — low-level software raster helpers shared by 3D paths
 - `effects` — atmosphere, biome, terrain, and related effect kernels
@@ -37,4 +39,5 @@ internals.
 
 - `engine-compositor` uses prepared 3D sprite specs and 3D callbacks from here
 - `engine-worldgen` supplies generated mesh/build-key inputs
+  - including optional LOD-tagged mesh build-key domains for future adaptive LOD rollout
 - `engine-scene-runtime` and `engine-api` feed typed-first runtime mutation data

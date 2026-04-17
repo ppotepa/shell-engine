@@ -1,6 +1,6 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-engine.local/mods/terrain-playground/schemas/layers.yaml
-title: schema terrain-playground layers
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/planet-generator/schemas/layers.yaml
+title: schema planet-generator layers
 $defs:
   step_overlay:
     type: object

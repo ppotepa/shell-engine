@@ -1,6 +1,6 @@
 use crate::scene::{GeneratedWorldInstance, Node3DInstance, Renderable3D};
 use engine_asset::resolve_generated_world_mesh_build_key;
-use engine_core::render_types::Transform3D;
+use engine_core::render_types::{LodHint, LodLevel, LodPolicy, Transform3D};
 use engine_core::scene::{CameraSource, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
 
 const DEFAULT_GENERATED_WORLD_MESH_SOURCE: &str = "cube-sphere://64";
@@ -68,6 +68,18 @@ pub fn extract_generated_world_sprite_spec(
         mesh_source.as_deref(),
         DEFAULT_GENERATED_WORLD_MESH_SOURCE,
     );
+    let lod_hint = if mesh_key.as_str().starts_with("world://") {
+        Some(LodHint {
+            policy: LodPolicy::ScreenSpace {
+                min_level: LodLevel(0),
+                max_level: LodLevel(4),
+                hysteresis_px: 16.0,
+            },
+            bias: 1,
+        })
+    } else {
+        None
+    };
 
     Some(GeneratedWorldSpriteSpec {
         sprite,
@@ -87,6 +99,7 @@ pub fn extract_generated_world_sprite_spec(
                 ],
             },
             visible: *visible,
+            lod_hint,
             renderable: Renderable3D::GeneratedWorld(GeneratedWorldInstance {
                 body_id: body_id.clone(),
                 preset_id: preset.clone(),

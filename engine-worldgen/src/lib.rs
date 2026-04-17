@@ -12,6 +12,10 @@ pub struct GeneratedWorldMesh {
 /// Parse a `world://N?...` URI into `WorldGenParams`.
 pub fn parse_world_params_from_uri(uri: &str) -> WorldGenParams {
     let rest = uri.strip_prefix("world://").unwrap_or(uri);
+    let rest = rest
+        .split_once(";lod=")
+        .map(|(head, _)| head)
+        .unwrap_or(rest);
     let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
     let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(32);
     let mut p = WorldGenParams::default();
@@ -192,10 +196,50 @@ pub fn world_mesh_build_key_from_params(p: &WorldGenParams) -> String {
     world_uri_from_params(p)
 }
 
+/// Stable mesh build key with an explicit LOD marker.
+///
+/// LOD marker is a cache-domain suffix and does not affect world parameter parsing.
+#[inline]
+pub fn world_mesh_build_key_with_lod_from_params(p: &WorldGenParams, lod_level: u8) -> String {
+    format!("{};lod={}", world_uri_from_params(p), lod_level)
+}
+
 /// Stable mesh build key normalized from a `world://` URI.
 #[inline]
 pub fn world_mesh_build_key_from_uri(uri: &str) -> String {
     let params = parse_world_params_from_uri(uri);
+    world_uri_from_params(&params)
+}
+
+/// Stable mesh build key normalized from a `world://` URI with explicit LOD marker.
+#[inline]
+pub fn world_mesh_build_key_with_lod_from_uri(uri: &str, lod_level: u8) -> String {
+    let params = parse_world_params_from_uri(uri);
+    world_mesh_build_key_with_lod_from_params(&params, lod_level)
+}
+
+/// Returns recommended world subdivisions cap for selected LOD level.
+#[inline]
+pub fn recommended_subdivisions_cap_for_lod(lod_level: u8) -> u32 {
+    match lod_level {
+        0 => u32::MAX,
+        1 => 128,
+        2 => 96,
+        3 => 72,
+        4 => 56,
+        _ => 40,
+    }
+}
+
+/// Applies LOD subdivision clamp to `world://` URI while preserving the canonical query.
+pub fn apply_world_lod_to_uri(uri: &str, lod_level: u8) -> String {
+    if !uri.starts_with("world://") {
+        return uri.to_string();
+    }
+    let mut params = parse_world_params_from_uri(uri);
+    params.subdivisions = params
+        .subdivisions
+        .min(recommended_subdivisions_cap_for_lod(lod_level));
     world_uri_from_params(&params)
 }
 
@@ -383,8 +427,10 @@ fn sample_planet_xyz(v: &[f32; 3], planet: &GeneratedPlanet) -> HeightmapCell {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_world_mesh, parse_world_params_from_uri, prepare_world_gen_from_uri,
-        world_mesh_build_key_from_params, world_mesh_build_key_from_uri, world_uri_from_params,
+        apply_world_lod_to_uri, build_world_mesh, parse_world_params_from_uri,
+        prepare_world_gen_from_uri, recommended_subdivisions_cap_for_lod,
+        world_mesh_build_key_from_params, world_mesh_build_key_from_uri,
+        world_mesh_build_key_with_lod_from_uri, world_uri_from_params,
     };
 
     #[test]
@@ -395,6 +441,14 @@ mod tests {
             world_mesh_build_key_from_uri(a),
             world_mesh_build_key_from_uri(b)
         );
+    }
+
+    #[test]
+    fn world_mesh_key_with_lod_appends_cache_domain_suffix() {
+        let base = "world://48?seed=7&shape=flat&base=uv&coloring=moisture&disp=0.3&ocean=0.2";
+        let key = world_mesh_build_key_with_lod_from_uri(base, 3);
+        assert!(key.starts_with("world://48?"));
+        assert!(key.ends_with(";lod=3"));
     }
 
     #[test]
@@ -424,5 +478,28 @@ mod tests {
         let generated = build_world_mesh(&prepared.params);
         assert!(!generated.mesh.vertices.is_empty());
         assert!(!generated.mesh.faces.is_empty());
+    }
+
+    #[test]
+    fn apply_world_lod_caps_subdivisions() {
+        let uri = "world://256?shape=sphere&base=cube&coloring=biome&seed=1";
+        let effective = apply_world_lod_to_uri(uri, 4);
+        let params = parse_world_params_from_uri(&effective);
+        assert_eq!(params.subdivisions, 56);
+    }
+
+    #[test]
+    fn lod_subdivision_caps_match_policy() {
+        assert_eq!(recommended_subdivisions_cap_for_lod(0), u32::MAX);
+        assert_eq!(recommended_subdivisions_cap_for_lod(2), 96);
+        assert_eq!(recommended_subdivisions_cap_for_lod(4), 56);
+        assert_eq!(recommended_subdivisions_cap_for_lod(9), 40);
+    }
+
+    #[test]
+    fn parse_world_uri_ignores_lod_suffix() {
+        let params = parse_world_params_from_uri("world://128?shape=sphere&seed=11;lod=3");
+        assert_eq!(params.subdivisions, 128);
+        assert_eq!(params.planet.seed, 11);
     }
 }

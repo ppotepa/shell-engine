@@ -1,40 +1,40 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
+$schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-engine.local/mods/terrain-playground/schemas/catalog.yaml
 title: schema terrain-playground catalog
 $defs:
   scene_ids:
     type: string
     enum:
-    - terrain-exit
+    - playground-exit
+    - terrain-earth-planet
+    - terrain-fractal-noise
     - terrain-menu
-    - terrain-placeholder-caves
-    - terrain-placeholder-erosion
-    - terrain-placeholder-heightmap
-    - terrain-plain
+    - terrain-plain-noise
+    - terrain-sphere
   scene_paths:
     type: string
     enum:
+    - /scenes/earth-planet/scene.yml
     - /scenes/exit/scene.yml
+    - /scenes/fractal-noise-terrain/scene.yml
     - /scenes/menu/scene.yml
-    - /scenes/placeholder-caves/scene.yml
-    - /scenes/placeholder-erosion/scene.yml
-    - /scenes/placeholder-heightmap/scene.yml
-    - /scenes/plain-terrain/scene.yml
+    - /scenes/plain-terrain-noise/scene.yml
+    - /scenes/sphere-terrain/scene.yml
   scene_refs:
     type: string
     enum:
+    - /scenes/earth-planet/scene.yml
     - /scenes/exit/scene.yml
+    - /scenes/fractal-noise-terrain/scene.yml
     - /scenes/menu/scene.yml
-    - /scenes/placeholder-caves/scene.yml
-    - /scenes/placeholder-erosion/scene.yml
-    - /scenes/placeholder-heightmap/scene.yml
-    - /scenes/plain-terrain/scene.yml
-    - terrain-exit
+    - /scenes/plain-terrain-noise/scene.yml
+    - /scenes/sphere-terrain/scene.yml
+    - playground-exit
+    - terrain-earth-planet
+    - terrain-fractal-noise
     - terrain-menu
-    - terrain-placeholder-caves
-    - terrain-placeholder-erosion
-    - terrain-placeholder-heightmap
-    - terrain-plain
+    - terrain-plain-noise
+    - terrain-sphere
   object_names:
     type: string
     enum: []
@@ -46,12 +46,16 @@ $defs:
   layer_refs:
     type: string
     enum:
+    - earth-planet/layers/main.yml
+    - earth-planet/layers/settings.yml
     - exit/layers/main.yml
+    - fractal-noise-terrain/layers/main.yml
+    - fractal-noise-terrain/layers/settings.yml
     - menu/layers/main.yml
-    - placeholder-caves/layers/main.yml
-    - placeholder-erosion/layers/main.yml
-    - placeholder-heightmap/layers/main.yml
-    - plain-terrain/layers/main.yml
+    - plain-terrain-noise/layers/main.yml
+    - plain-terrain-noise/layers/settings.yml
+    - sphere-terrain/layers/main.yml
+    - sphere-terrain/layers/settings.yml
   sprite_refs:
     type: string
     enum: []
@@ -97,15 +101,116 @@ $defs:
   sprite_ids:
     type: string
     enum:
+    - amp-handle
+    - amp-label
+    - amp-track
+    - earth-back-hint
+    - earth-hud-title
+    - earth-mesh
+    - earth-settings-box
+    - ep-cscale-handle
+    - ep-cscale-label
+    - ep-cscale-track
+    - ep-cwarp-handle
+    - ep-cwarp-label
+    - ep-cwarp-track
+    - ep-disp-handle
+    - ep-disp-label
+    - ep-disp-track
+    - ep-mstr-handle
+    - ep-mstr-label
+    - ep-mstr-track
+    - ep-ocean-handle
+    - ep-ocean-label
+    - ep-ocean-track
+    - ep-seed-handle
+    - ep-seed-label
+    - ep-seed-track
+    - freq-handle
+    - freq-label
+    - freq-track
     - hint
     - item-0
     - item-1
     - item-2
     - item-3
     - item-4
+    - lac-handle
+    - lac-label
+    - lac-track
     - menu-content
     - menu-frame
     - menu-items
+    - oct-handle
+    - oct-label
+    - oct-track
+    - orbit-hint
+    - plat-handle
+    - plat-label
+    - plat-track
+    - ridge-handle
+    - ridge-label
+    - ridge-track
+    - rough-handle
+    - rough-label
+    - rough-track
+    - scx-handle
+    - scx-label
+    - scx-track
+    - scz-handle
+    - scz-label
+    - scz-track
+    - sea-handle
+    - sea-label
+    - sea-track
+    - seedx-handle
+    - seedx-label
+    - seedx-track
+    - seedz-handle
+    - seedz-label
+    - seedz-track
+    - settings-panel-box
+    - sp-amp-handle
+    - sp-amp-label
+    - sp-amp-track
+    - sp-freq-handle
+    - sp-freq-label
+    - sp-freq-track
+    - sp-lac-handle
+    - sp-lac-label
+    - sp-lac-track
+    - sp-oct-handle
+    - sp-oct-label
+    - sp-oct-track
+    - sp-plat-handle
+    - sp-plat-label
+    - sp-plat-track
+    - sp-ridge-handle
+    - sp-ridge-label
+    - sp-ridge-track
+    - sp-rough-handle
+    - sp-rough-label
+    - sp-rough-track
+    - sp-scx-handle
+    - sp-scx-label
+    - sp-scx-track
+    - sp-scz-handle
+    - sp-scz-label
+    - sp-scz-track
+    - sp-sea-handle
+    - sp-sea-label
+    - sp-sea-track
+    - sp-seedx-handle
+    - sp-seedx-label
+    - sp-seedx-track
+    - sp-seedz-handle
+    - sp-seedz-label
+    - sp-seedz-track
+    - sphere-back-hint
+    - sphere-hud-title
+    - sphere-mesh
+    - sphere-settings-box
+    - terrain-mesh
     - title-text
   template_names:
     type: string

@@ -1,4 +1,4 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
+$schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-engine.local/mods/terrain-playground/schemas/effects.yaml
 title: schema terrain-playground effects
 type: array

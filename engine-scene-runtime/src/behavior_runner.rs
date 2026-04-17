@@ -254,6 +254,7 @@ impl SceneRuntime {
             mouse_x: self.gui_state.mouse_x,
             mouse_y: self.gui_state.mouse_y,
             gui_state: Some(self.gui_state_arc()),
+            spatial_meters_per_world_unit: Some(self.spatial_context.scale.meters_per_world_unit),
             orbit_active: self.orbit_camera_active(),
         };
         let mut local_commands = Vec::new();
@@ -312,11 +313,12 @@ impl SceneRuntime {
             .filter_map(|binding| {
                 let color = palette.colors.get(&binding.key)?;
                 let value = serde_json::Value::String(color.clone());
-                let request = engine_api::commands::scene_mutation_request_from_set_property_compat(
-                    &binding.target,
-                    &binding.prop,
-                    &value,
-                )?;
+                let request =
+                    engine_api::commands::scene_mutation_request_from_set_property_compat(
+                        &binding.target,
+                        &binding.prop,
+                        &value,
+                    )?;
                 Some(engine_behavior::BehaviorCommand::ApplySceneMutation { request })
             })
             .collect();
@@ -743,7 +745,11 @@ impl SceneRuntime {
                     }
                     mutation_applied = true;
                 }
-                Render3DMutation::SetObjMaterialParam { target, param, value } => {
+                Render3DMutation::SetObjMaterialParam {
+                    target,
+                    param,
+                    value,
+                } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
@@ -753,7 +759,11 @@ impl SceneRuntime {
                         mutation_applied = true;
                     }
                 }
-                Render3DMutation::SetAtmosphereParamTyped { target, param, value } => {
+                Render3DMutation::SetAtmosphereParamTyped {
+                    target,
+                    param,
+                    value,
+                } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
@@ -763,7 +773,11 @@ impl SceneRuntime {
                         mutation_applied = true;
                     }
                 }
-                Render3DMutation::SetTerrainParamTyped { target, param, value } => {
+                Render3DMutation::SetTerrainParamTyped {
+                    target,
+                    param,
+                    value,
+                } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
@@ -773,7 +787,11 @@ impl SceneRuntime {
                         mutation_applied = true;
                     }
                 }
-                Render3DMutation::SetWorldgenParamTyped { target, param, value } => {
+                Render3DMutation::SetWorldgenParamTyped {
+                    target,
+                    param,
+                    value,
+                } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
@@ -783,7 +801,11 @@ impl SceneRuntime {
                         mutation_applied = true;
                     }
                 }
-                Render3DMutation::SetPlanetParamTyped { target, param, value } => {
+                Render3DMutation::SetPlanetParamTyped {
+                    target,
+                    param,
+                    value,
+                } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };

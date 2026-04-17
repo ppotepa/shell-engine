@@ -5,6 +5,7 @@
 //! independent of the compositor's frame assembly concerns.
 
 use std::cell::RefCell;
+use std::time::Instant;
 
 use engine_asset::{load_render_mesh, ObjFace, ObjMesh};
 use engine_core::assets::AssetRoot;
@@ -12,13 +13,10 @@ use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use rayon::prelude::*;
 
-use crate::ObjRenderParams;
-use engine_core::scene::SpriteSizePreset;
 use crate::api::Render3dPipeline;
-use crate::effects::noise::fbm_3d_octaves;
-use crate::prerender::ObjPrerenderedFrames;
 use crate::effects::atmosphere::apply_atmosphere_overlay_barycentric;
 use crate::effects::biome::{land_biome_signals, polar_ice_mask_ocean_from_view};
+use crate::effects::noise::fbm_3d_octaves;
 use crate::effects::params::{PlanetBiomeParams, PlanetTerrainParams};
 use crate::effects::terrain::{
     apply_crater_overlay_rgb, compute_terrain_noise_at, displace_sphere_vertex,
@@ -29,13 +27,17 @@ use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
 use crate::geom::math::{dot3, normalize3, rotate_xyz};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
+use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::{
     apply_point_light_tint, apply_shading, apply_tone_palette, color_to_rgb,
     face_shading_with_specular, flicker_multiplier, mix_rgb, quantize_shade,
 };
+use crate::ObjRenderParams;
+use engine_core::scene::SpriteSizePreset;
 
 /// Safety cap on face count after early backface culling (front-facing only).
 const MAX_OBJ_FACE_RENDER: usize = 2_000_000;
+const MIN_PROJECTED_FACE_DOUBLE_AREA: f32 = 0.12;
 
 /// Minimum vertex/face count to use parallel processing.
 /// Below this, serial is faster due to rayon thread spawn overhead.
@@ -50,10 +52,88 @@ thread_local! {
     static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_CANVAS_RGBA: RefCell<Vec<Option<[u8; 4]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_DEPTH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+    static OBJ_SORTED_FACE_INDEX: RefCell<Vec<(f32, usize)>> = const { RefCell::new(Vec::new()) };
+    static OBJ_HALO_EDGE_PIXELS: RefCell<Vec<(i32, i32)>> = const { RefCell::new(Vec::new()) };
+    static OBJ_HALO_OCCUPIED_SCAN: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+    static OBJ_HALO_NEAREST_SQ: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static OBJ_SHADED_GOURAUD: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3], f32, f32, f32)>>
         = const { RefCell::new(Vec::new()) };
     static OBJ_SHADED_FLAT: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])>>
         = const { RefCell::new(Vec::new()) };
+    static OBJ_LAST_RASTER_STATS: RefCell<ObjRasterStats> = const {
+        RefCell::new(ObjRasterStats {
+            triangles_processed: 0,
+            faces_drawn: 0,
+            viewport_area_px: 0,
+        })
+    };
+    static OBJ_RASTER_FRAME_METRICS: RefCell<ObjRasterFrameMetrics> = const {
+        RefCell::new(ObjRasterFrameMetrics {
+            rgb_us: 0.0,
+            rgba_us: 0.0,
+            halo_us: 0.0,
+            rgb_calls: 0,
+            rgba_calls: 0,
+            triangles_processed: 0,
+            faces_drawn: 0,
+            viewport_area_px: 0,
+        })
+    };
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ObjRasterStats {
+    pub triangles_processed: u32,
+    pub faces_drawn: u32,
+    pub viewport_area_px: u32,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ObjRasterFrameMetrics {
+    pub rgb_us: f32,
+    pub rgba_us: f32,
+    pub halo_us: f32,
+    pub rgb_calls: u32,
+    pub rgba_calls: u32,
+    pub triangles_processed: u32,
+    pub faces_drawn: u32,
+    pub viewport_area_px: u32,
+}
+
+#[inline]
+fn set_last_obj_raster_stats(stats: ObjRasterStats) {
+    OBJ_LAST_RASTER_STATS.with(|cell| *cell.borrow_mut() = stats);
+}
+
+/// Returns and clears the latest OBJ raster stats captured by
+/// `render_obj_to_canvas` or `render_obj_to_rgba_canvas`.
+pub fn take_last_obj_raster_stats() -> ObjRasterStats {
+    OBJ_LAST_RASTER_STATS.with(|cell| std::mem::take(&mut *cell.borrow_mut()))
+}
+
+#[inline]
+fn accumulate_obj_raster_frame_metrics(delta: ObjRasterFrameMetrics) {
+    OBJ_RASTER_FRAME_METRICS.with(|cell| {
+        let mut acc = cell.borrow_mut();
+        acc.rgb_us += delta.rgb_us;
+        acc.rgba_us += delta.rgba_us;
+        acc.halo_us += delta.halo_us;
+        acc.rgb_calls = acc.rgb_calls.saturating_add(delta.rgb_calls);
+        acc.rgba_calls = acc.rgba_calls.saturating_add(delta.rgba_calls);
+        acc.triangles_processed = acc
+            .triangles_processed
+            .saturating_add(delta.triangles_processed);
+        acc.faces_drawn = acc.faces_drawn.saturating_add(delta.faces_drawn);
+        acc.viewport_area_px = acc.viewport_area_px.max(delta.viewport_area_px);
+    });
+}
+
+pub fn reset_obj_raster_frame_metrics() {
+    OBJ_RASTER_FRAME_METRICS.with(|cell| *cell.borrow_mut() = ObjRasterFrameMetrics::default());
+}
+
+pub fn take_obj_raster_frame_metrics() -> ObjRasterFrameMetrics {
+    OBJ_RASTER_FRAME_METRICS.with(|cell| std::mem::take(&mut *cell.borrow_mut()))
 }
 
 // ── Dimension helpers ─────────────────────────────────────────────────────────
@@ -468,11 +548,8 @@ pub(crate) fn rasterize_triangle_gouraud(
 
                             if let Some(city_c) = b.night_light_color {
                                 if b.night_light_intensity > 0.0 && sig.city_mask > 0.01 {
-                                    px_color = mix_rgb(
-                                        px_color,
-                                        city_c,
-                                        sig.city_mask.clamp(0.0, 0.95),
-                                    );
+                                    px_color =
+                                        mix_rgb(px_color, city_c, sig.city_mask.clamp(0.0, 0.95));
                                 }
                             }
                             px_color
@@ -843,10 +920,9 @@ fn render_mesh_projected(
                 + rel[1] * params.view_right_y
                 + rel[2] * params.view_right_z
                 - params.camera_pan_x;
-            let cam_y = rel[0] * params.view_up_x
-                + rel[1] * params.view_up_y
-                + rel[2] * params.view_up_z
-                - params.camera_pan_y;
+            let cam_y =
+                rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
+                    - params.camera_pan_y;
             let view_z = rel[0] * params.view_forward_x
                 + rel[1] * params.view_forward_y
                 + rel[2] * params.view_forward_z;
@@ -936,32 +1012,34 @@ fn render_mesh_projected(
             light_2_dir_norm[2] + view_dir[2],
         ]);
 
-        let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
-            .faces
-            .iter()
-            .filter(|f| {
-                if !backface_cull {
-                    return true;
-                }
-                let v0 = projected.get(f.indices[0]).and_then(|p| *p);
-                let v1 = projected.get(f.indices[1]).and_then(|p| *p);
-                let v2 = projected.get(f.indices[2]).and_then(|p| *p);
-                match (v0, v1, v2) {
-                    (Some(v0), Some(v1), Some(v2)) => {
-                        edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0
-                    }
-                    _ => false,
-                }
-            })
-            .map(|f| {
-                let key = if params.depth_sort_faces {
-                    face_avg_depth(&projected, f)
-                } else {
-                    0.0
-                };
-                (key, f)
-            })
-            .collect();
+        let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
+            let mut pool = v.borrow_mut();
+            let mut taken = std::mem::take(&mut *pool);
+            taken.clear();
+            taken.reserve(mesh.faces.len());
+            taken
+        });
+        for (face_idx, face) in mesh.faces.iter().enumerate() {
+            let v0 = projected.get(face.indices[0]).and_then(|p| *p);
+            let v1 = projected.get(face.indices[1]).and_then(|p| *p);
+            let v2 = projected.get(face.indices[2]).and_then(|p| *p);
+            let (Some(v0), Some(v1), Some(v2)) = (v0, v1, v2) else {
+                continue;
+            };
+            let projected_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+            if backface_cull && projected_area < 0.0 {
+                continue;
+            }
+            if projected_area.abs() < MIN_PROJECTED_FACE_DOUBLE_AREA {
+                continue;
+            }
+            let key = if params.depth_sort_faces {
+                face_avg_depth(&projected, face)
+            } else {
+                0.0
+            };
+            sorted_faces.push((key, face_idx));
+        }
         if params.depth_sort_faces {
             sorted_faces.sort_unstable_by(|a, b| {
                 b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
@@ -1014,7 +1092,8 @@ fn render_mesh_projected(
                 f32,
             )> = sorted_faces[..face_limit]
                 .par_iter()
-                .filter_map(|(_, face)| {
+                .filter_map(|(_, face_idx)| {
+                    let face = &mesh.faces[*face_idx];
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
@@ -1070,7 +1149,8 @@ fn render_mesh_projected(
             let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
                 sorted_faces[..face_limit]
                     .par_iter()
-                    .filter_map(|(_, face)| {
+                    .filter_map(|(_, face_idx)| {
+                        let face = &mesh.faces[*face_idx];
                         let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                         let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                         let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
@@ -1138,6 +1218,7 @@ fn render_mesh_projected(
             count
         };
 
+        OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
         if drawn_faces == 0 {
             let line_color = color_to_rgb(fg);
             for (a, b) in &mesh.edges {
@@ -1207,7 +1288,6 @@ pub fn render_obj_to_shared_buffers(
         depth_buf,
     );
 }
-
 
 // ── RGBA canvas compositing ───────────────────────────────────────────────────
 
@@ -1496,6 +1576,8 @@ pub fn render_obj_to_canvas(
     fg: Color,
     asset_root: Option<&AssetRoot>,
 ) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
+    let t_render = Instant::now();
+    set_last_obj_raster_stats(ObjRasterStats::default());
     let root = asset_root?;
     let mesh = load_render_mesh(root, source)?;
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
@@ -1676,6 +1758,9 @@ pub fn render_obj_to_canvas(
         taken.resize(canvas_size, None);
         taken
     });
+    let mut triangles_processed = 0u32;
+    let mut faces_drawn = 0u32;
+
     if wireframe {
         let line_color = color_to_rgb(fg);
         let mut depth_buf = OBJ_DEPTH.with(|d| {
@@ -1758,32 +1843,34 @@ pub fn render_obj_to_canvas(
             light_2_dir_norm[1] + view_dir[1],
             light_2_dir_norm[2] + view_dir[2],
         ]);
-        let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
-            .faces
-            .iter()
-            .filter(|f| {
-                if !backface_cull {
-                    return true;
-                }
-                let v0 = projected.get(f.indices[0]).and_then(|p| *p);
-                let v1 = projected.get(f.indices[1]).and_then(|p| *p);
-                let v2 = projected.get(f.indices[2]).and_then(|p| *p);
-                match (v0, v1, v2) {
-                    (Some(v0), Some(v1), Some(v2)) => {
-                        edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0
-                    }
-                    _ => false,
-                }
-            })
-            .map(|f| {
-                let key = if params.depth_sort_faces {
-                    face_avg_depth(&projected, f)
-                } else {
-                    0.0
-                };
-                (key, f)
-            })
-            .collect();
+        let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
+            let mut pool = v.borrow_mut();
+            let mut taken = std::mem::take(&mut *pool);
+            taken.clear();
+            taken.reserve(mesh.faces.len());
+            taken
+        });
+        for (face_idx, face) in mesh.faces.iter().enumerate() {
+            let v0 = projected.get(face.indices[0]).and_then(|p| *p);
+            let v1 = projected.get(face.indices[1]).and_then(|p| *p);
+            let v2 = projected.get(face.indices[2]).and_then(|p| *p);
+            let (Some(v0), Some(v1), Some(v2)) = (v0, v1, v2) else {
+                continue;
+            };
+            let projected_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+            if backface_cull && projected_area < 0.0 {
+                continue;
+            }
+            if projected_area.abs() < MIN_PROJECTED_FACE_DOUBLE_AREA {
+                continue;
+            }
+            let key = if params.depth_sort_faces {
+                face_avg_depth(&projected, face)
+            } else {
+                0.0
+            };
+            sorted_faces.push((key, face_idx));
+        }
         if params.depth_sort_faces {
             sorted_faces.sort_unstable_by(|a, b| {
                 b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
@@ -1791,6 +1878,7 @@ pub fn render_obj_to_canvas(
         }
 
         let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
+        triangles_processed = face_limit as u32;
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
         let light_2_intensity = params.light_2_intensity;
@@ -1826,9 +1914,16 @@ pub fn render_obj_to_canvas(
                 (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
             };
 
-            let shaded_gouraud: Vec<_> = sorted_faces[..face_limit]
-                .par_iter()
-                .filter_map(|(_, face)| {
+            let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
+                let mut pool = g.borrow_mut();
+                let mut taken = std::mem::take(&mut *pool);
+                taken.clear();
+                taken.reserve(face_limit);
+                taken
+            });
+            shaded_gouraud.par_extend(sorted_faces[..face_limit].par_iter().filter_map(
+                |(_, face_idx)| {
+                    let face = &mesh.faces[*face_idx];
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
@@ -1843,8 +1938,8 @@ pub fn render_obj_to_canvas(
                     };
                     let base_color = if unlit { fg_rgb } else { face.color };
                     Some((v0, v1, v2, base_color, s0, s1, s2))
-                })
-                .collect();
+                },
+            ));
 
             let row_w = virtual_w as usize;
             let num_strips = rayon::current_num_threads().max(1);
@@ -1899,9 +1994,16 @@ pub fn render_obj_to_canvas(
             OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
             count
         } else {
-            let shaded_faces: Vec<_> = sorted_faces[..face_limit]
-                .par_iter()
-                .filter_map(|(_, face)| {
+            let mut shaded_faces = OBJ_SHADED_FLAT.with(|g| {
+                let mut pool = g.borrow_mut();
+                let mut taken = std::mem::take(&mut *pool);
+                taken.clear();
+                taken.reserve(face_limit);
+                taken
+            });
+            shaded_faces.par_extend(sorted_faces[..face_limit].par_iter().filter_map(
+                |(_, face_idx)| {
+                    let face = &mesh.faces[*face_idx];
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
@@ -1948,8 +2050,8 @@ pub fn render_obj_to_canvas(
                         shading.3,
                     );
                     Some((v0, v1, v2, shaded_color))
-                })
-                .collect();
+                },
+            ));
 
             let count = shaded_faces.len();
             for (v0, v1, v2, shaded_color) in &shaded_faces {
@@ -1969,7 +2071,9 @@ pub fn render_obj_to_canvas(
             OBJ_SHADED_FLAT.with(|g| *g.borrow_mut() = shaded_faces);
             count
         };
+        OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
 
+        faces_drawn = drawn_faces as u32;
         if drawn_faces == 0 {
             let line_color = color_to_rgb(fg);
             for (a, b) in &mesh.edges {
@@ -2002,6 +2106,7 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
+    let mut halo_us = 0.0f32;
     if params.atmo_density > 0.0
         && (params.atmo_rayleigh_amount > 0.0
             || params.atmo_haze_amount > 0.0
@@ -2025,6 +2130,7 @@ pub fn render_obj_to_canvas(
         let halo_power = (2.4 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.1
             + (1.0 - params.atmo_haze_amount.clamp(0.0, 1.0)) * 0.35)
             .clamp(0.55, 4.0);
+        let t_halo = Instant::now();
         apply_atmosphere_halo_canvas(
             &mut canvas,
             virtual_w,
@@ -2051,9 +2157,25 @@ pub fn render_obj_to_canvas(
             ],
             [params.view_up_x, params.view_up_y, params.view_up_z],
         );
+        halo_us = t_halo.elapsed().as_micros() as f32;
     }
 
     OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+    set_last_obj_raster_stats(ObjRasterStats {
+        triangles_processed,
+        faces_drawn,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
+    accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
+        rgb_us: t_render.elapsed().as_micros() as f32,
+        rgba_us: 0.0,
+        halo_us,
+        rgb_calls: 1,
+        rgba_calls: 0,
+        triangles_processed,
+        faces_drawn,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
     Some((canvas, virtual_w, virtual_h))
 }
 
@@ -2085,7 +2207,12 @@ fn apply_atmosphere_halo_canvas(
     let mut sum_x = 0.0f32;
     let mut sum_y = 0.0f32;
     let mut count = 0usize;
-    let mut edge_pixels = Vec::new();
+    let mut edge_pixels = OBJ_HALO_EDGE_PIXELS.with(|v| {
+        let mut pool = v.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken
+    });
     let mut min_x = w;
     let mut min_y = h;
     let mut max_x = 0usize;
@@ -2113,6 +2240,7 @@ fn apply_atmosphere_halo_canvas(
         }
     }
     if count == 0 || edge_pixels.is_empty() {
+        OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
         return;
     }
 
@@ -2147,11 +2275,77 @@ fn apply_atmosphere_halo_canvas(
     let absorption_amount = absorption_amount.clamp(0.0, 1.0);
     let forward_scatter = forward_scatter.clamp(0.0, 1.0);
 
-    let occupied: Vec<bool> = canvas.iter().map(Option::is_some).collect();
-    let scan_w = scan_max_x.saturating_sub(scan_min_x) + 1;
-    let mut nearest_sq = vec![f32::INFINITY; scan_w * (scan_max_y.saturating_sub(scan_min_y) + 1)];
+    const CORE_LUT_SIZE: usize = 256;
+    const TWILIGHT_LUT_SIZE: usize = 512;
+    const DIST_LUT_SIZE: usize = 512;
+    let core_center = 0.08 + 0.04 * (1.0 - haze_amount);
+    let core_width = 0.08 + halo_width * 0.10;
+    let twilight_width = 0.28 + 0.30 * (1.0 - forward_scatter);
+    let skirt_exp = (halo_power * 0.55).max(0.3);
+    let mut core_lut = [0.0f32; CORE_LUT_SIZE];
+    let mut twilight_lut = [0.0f32; TWILIGHT_LUT_SIZE];
+    let mut dist01_lut = [0.0f32; DIST_LUT_SIZE];
+    let mut skirt_lut = [0.0f32; DIST_LUT_SIZE];
+    for (i, slot) in core_lut.iter_mut().enumerate() {
+        let t = i as f32 / (CORE_LUT_SIZE - 1) as f32;
+        *slot = gaussian(t, core_center, core_width);
+    }
+    for (i, slot) in twilight_lut.iter_mut().enumerate() {
+        let t = i as f32 / (TWILIGHT_LUT_SIZE - 1) as f32;
+        let sun_alignment = t * 2.0 - 1.0;
+        *slot = gaussian(sun_alignment, 0.0, twilight_width);
+    }
+    for i in 0..DIST_LUT_SIZE {
+        let q = i as f32 / (DIST_LUT_SIZE - 1) as f32;
+        let dist01 = q.sqrt();
+        dist01_lut[i] = dist01;
+        skirt_lut[i] = (1.0 - dist01).clamp(0.0, 1.0).powf(skirt_exp);
+    }
 
-    for &(ex, ey) in &edge_pixels {
+    let scan_w = scan_max_x.saturating_sub(scan_min_x) + 1;
+    let scan_h = scan_max_y.saturating_sub(scan_min_y) + 1;
+    let scan_size = scan_w * scan_h;
+
+    let mut occupied_scan = OBJ_HALO_OCCUPIED_SCAN.with(|v| {
+        let mut pool = v.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.resize(scan_size, 0);
+        taken
+    });
+    for y in scan_min_y..=scan_max_y {
+        let row_offset = (y - scan_min_y) * scan_w;
+        let canvas_row = y * w;
+        for x in scan_min_x..=scan_max_x {
+            if canvas[canvas_row + x].is_some() {
+                occupied_scan[row_offset + (x - scan_min_x)] = 1;
+            }
+        }
+    }
+
+    let mut nearest_sq = OBJ_HALO_NEAREST_SQ.with(|v| {
+        let mut pool = v.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.resize(scan_size, f32::INFINITY);
+        taken
+    });
+
+    let edge_stride = if edge_pixels.len() > 7000 {
+        6
+    } else if edge_pixels.len() > 5000 {
+        5
+    } else if edge_pixels.len() > 3200 {
+        4
+    } else if edge_pixels.len() > 1800 {
+        3
+    } else if edge_pixels.len() > 900 {
+        2
+    } else {
+        1
+    };
+
+    for &(ex, ey) in edge_pixels.iter().step_by(edge_stride) {
         let local_min_x = ((ex - search).max(scan_min_x as i32)) as usize;
         let local_max_x = ((ex + search).min(scan_max_x as i32)) as usize;
         let local_min_y = ((ey - search).max(scan_min_y as i32)) as usize;
@@ -2159,15 +2353,13 @@ fn apply_atmosphere_halo_canvas(
         for y in local_min_y..=local_max_y {
             let dy = y as i32 - ey;
             let row_offset = (y - scan_min_y) * scan_w;
-            let canvas_row = y * w;
             for x in local_min_x..=local_max_x {
-                let canvas_idx = canvas_row + x;
-                if occupied[canvas_idx] {
+                let local_idx = row_offset + (x - scan_min_x);
+                if occupied_scan[local_idx] != 0 {
                     continue;
                 }
                 let dx = x as i32 - ex;
                 let dist_sq = (dx * dx + dy * dy) as f32;
-                let local_idx = row_offset + (x - scan_min_x);
                 if dist_sq < nearest_sq[local_idx] {
                     nearest_sq[local_idx] = dist_sq;
                 }
@@ -2178,8 +2370,7 @@ fn apply_atmosphere_halo_canvas(
     for y in scan_min_y..=scan_max_y {
         let row_offset = (y - scan_min_y) * scan_w;
         for x in scan_min_x..=scan_max_x {
-            let idx = y * w + x;
-            if occupied[idx] {
+            if occupied_scan[row_offset + (x - scan_min_x)] != 0 {
                 continue;
             }
             let nearest_sq = nearest_sq[row_offset + (x - scan_min_x)];
@@ -2193,19 +2384,19 @@ fn apply_atmosphere_halo_canvas(
             let edge_dir = [dx / dl, dy / dl];
             let sun_alignment = edge_dir[0] * sun2d[0] + edge_dir[1] * sun2d[1];
             let day = smoothstep(-0.18, 0.92, sun_alignment);
-            let dist01 = (nearest_sq.sqrt() / halo_px).clamp(0.0, 1.0);
-            let skirt = (1.0 - dist01)
-                .clamp(0.0, 1.0)
-                .powf((halo_power * 0.55).max(0.3));
-            let core_ring = gaussian(
-                dist01,
-                0.08 + 0.04 * (1.0 - haze_amount),
-                0.08 + halo_width * 0.10,
-            );
+            let q = (nearest_sq / halo_px_sq).clamp(0.0, 1.0);
+            let dist_idx = ((q * (DIST_LUT_SIZE - 1) as f32) as usize).min(DIST_LUT_SIZE - 1);
+            let dist01 = dist01_lut[dist_idx];
+            let skirt = skirt_lut[dist_idx];
+            let core_idx = ((dist01 * (CORE_LUT_SIZE - 1) as f32) as usize).min(CORE_LUT_SIZE - 1);
+            let core_ring = core_lut[core_idx];
             let wide_scatter = skirt * (0.18 + 0.52 * day);
             let forward_lobe =
                 skirt.powf(0.52) * smoothstep(0.10, 1.0, sun_alignment).powf(1.8) * forward_scatter;
-            let twilight_arc = gaussian(sun_alignment, 0.0, 0.28 + 0.30 * (1.0 - forward_scatter));
+            let twilight_t = ((sun_alignment + 1.0) * 0.5).clamp(0.0, 1.0);
+            let twilight_idx =
+                ((twilight_t * (TWILIGHT_LUT_SIZE - 1) as f32) as usize).min(TWILIGHT_LUT_SIZE - 1);
+            let twilight_arc = twilight_lut[twilight_idx];
             let haze_alpha = (halo_strength
                 * (0.12 + 0.88 * haze_amount)
                 * (core_ring * (0.55 + 0.35 * day + 0.45 * forward_lobe) + wide_scatter * 0.18))
@@ -2235,9 +2426,13 @@ fn apply_atmosphere_halo_canvas(
             if sunset_alpha > 0.0 {
                 out = mix_rgb(out, sunset_tint, sunset_alpha);
             }
-            canvas[idx] = Some(out);
+            canvas[y * w + x] = Some(out);
         }
     }
+
+    OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
+    OBJ_HALO_OCCUPIED_SCAN.with(|v| *v.borrow_mut() = occupied_scan);
+    OBJ_HALO_NEAREST_SQ.with(|v| *v.borrow_mut() = nearest_sq);
 }
 
 #[inline]
@@ -2277,6 +2472,8 @@ pub fn render_obj_to_rgba_canvas(
     fg: Color,
     asset_root: Option<&AssetRoot>,
 ) -> Option<(Vec<Option<[u8; 4]>>, u16, u16)> {
+    let t_render = Instant::now();
+    set_last_obj_raster_stats(ObjRasterStats::default());
     let root = asset_root?;
     let mesh = load_render_mesh(root, source)?;
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
@@ -2431,30 +2628,34 @@ pub fn render_obj_to_rgba_canvas(
 
     let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
 
-    let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
-        .faces
-        .iter()
-        .filter(|f| {
-            if !backface_cull {
-                return true;
-            }
-            let v0 = projected.get(f.indices[0]).and_then(|p| *p);
-            let v1 = projected.get(f.indices[1]).and_then(|p| *p);
-            let v2 = projected.get(f.indices[2]).and_then(|p| *p);
-            match (v0, v1, v2) {
-                (Some(v0), Some(v1), Some(v2)) => edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) >= 0.0,
-                _ => false,
-            }
-        })
-        .map(|f| {
-            let key = if params.depth_sort_faces {
-                face_avg_depth(&projected, f)
-            } else {
-                0.0
-            };
-            (key, f)
-        })
-        .collect();
+    let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
+        let mut pool = v.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.reserve(mesh.faces.len());
+        taken
+    });
+    for (face_idx, face) in mesh.faces.iter().enumerate() {
+        let v0 = projected.get(face.indices[0]).and_then(|p| *p);
+        let v1 = projected.get(face.indices[1]).and_then(|p| *p);
+        let v2 = projected.get(face.indices[2]).and_then(|p| *p);
+        let (Some(v0), Some(v1), Some(v2)) = (v0, v1, v2) else {
+            continue;
+        };
+        let projected_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+        if backface_cull && projected_area < 0.0 {
+            continue;
+        }
+        if projected_area.abs() < MIN_PROJECTED_FACE_DOUBLE_AREA {
+            continue;
+        }
+        let key = if params.depth_sort_faces {
+            face_avg_depth(&projected, face)
+        } else {
+            0.0
+        };
+        sorted_faces.push((key, face_idx));
+    }
     if params.depth_sort_faces {
         sorted_faces
             .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -2462,33 +2663,34 @@ pub fn render_obj_to_rgba_canvas(
     let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
     let unlit = params.unlit;
 
-    let shaded_gouraud: Vec<(
-        ProjectedVertex,
-        ProjectedVertex,
-        ProjectedVertex,
-        [u8; 3],
-        f32,
-        f32,
-        f32,
-    )> = sorted_faces[..face_limit]
-        .par_iter()
-        .filter_map(|(_, face)| {
-            let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-            let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-            let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-            let (s0, s1, s2) = if unlit {
-                (1.0, 1.0, 1.0)
-            } else {
-                (
-                    shade_at_vertex(v0.normal),
-                    shade_at_vertex(v1.normal),
-                    shade_at_vertex(v2.normal),
-                )
-            };
-            let base_color = if unlit { fg_rgb } else { face.color };
-            Some((v0, v1, v2, base_color, s0, s1, s2))
-        })
-        .collect();
+    let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
+        let mut pool = g.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.reserve(face_limit);
+        taken
+    });
+    shaded_gouraud.par_extend(
+        sorted_faces[..face_limit]
+            .par_iter()
+            .filter_map(|(_, face_idx)| {
+                let face = &mesh.faces[*face_idx];
+                let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
+                let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
+                let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+                let (s0, s1, s2) = if unlit {
+                    (1.0, 1.0, 1.0)
+                } else {
+                    (
+                        shade_at_vertex(v0.normal),
+                        shade_at_vertex(v1.normal),
+                        shade_at_vertex(v2.normal),
+                    )
+                };
+                let base_color = if unlit { fg_rgb } else { face.color };
+                Some((v0, v1, v2, base_color, s0, s1, s2))
+            }),
+    );
 
     let row_w = virtual_w as usize;
     let cel_levels = params.cel_levels;
@@ -2542,8 +2744,26 @@ pub fn render_obj_to_rgba_canvas(
         }
     });
 
+    let faces_drawn_count = shaded_gouraud.len() as u32;
     OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+    OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
+    OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
+    set_last_obj_raster_stats(ObjRasterStats {
+        triangles_processed: face_limit as u32,
+        faces_drawn: faces_drawn_count,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
+    accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
+        rgb_us: 0.0,
+        rgba_us: t_render.elapsed().as_micros() as f32,
+        halo_us: 0.0,
+        rgb_calls: 0,
+        rgba_calls: 1,
+        triangles_processed: face_limit as u32,
+        faces_drawn: faces_drawn_count,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
     Some((canvas, virtual_w, virtual_h))
 }
 

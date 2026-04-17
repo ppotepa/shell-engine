@@ -51,70 +51,84 @@ pub fn scene_mutation_from_set_property_3d(
     path: &str,
     value: &serde_json::Value,
 ) -> Option<SceneMutation> {
-    use crate::mutations::{AtmosphereParam, ObjMaterialParam, PlanetParam, TerrainParam, WorldgenParam};
+    use crate::mutations::{
+        AtmosphereParam, ObjMaterialParam, PlanetParam, TerrainParam, WorldgenParam,
+    };
     let mat_value = material_value_from_json(value)?;
 
     if path == "scene3d.frame" {
         if let MaterialValue::Text(frame) = mat_value {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
-                target: target.to_string(),
-                property: Render3DCompatProperty::Scene3dFrame { frame },
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetCompatProperty {
+                    target: target.to_string(),
+                    property: Render3DCompatProperty::Scene3dFrame { frame },
+                },
+            ));
         }
         return None;
     }
 
     if path.starts_with("planet.") {
         if let Some(param) = PlanetParam::from_full_path(path) {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetPlanetParamTyped {
-                target: target.to_string(),
-                param,
-                value: mat_value,
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetPlanetParamTyped {
+                    target: target.to_string(),
+                    param,
+                    value: mat_value,
+                },
+            ));
         }
         return None;
     }
 
     if path.starts_with("obj.atmo.") {
         if let Some(param) = AtmosphereParam::from_full_path(path) {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetAtmosphereParamTyped {
-                target: target.to_string(),
-                param,
-                value: mat_value,
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetAtmosphereParamTyped {
+                    target: target.to_string(),
+                    param,
+                    value: mat_value,
+                },
+            ));
         }
         return None;
     }
 
     if path.starts_with("obj.") {
         if let Some(param) = ObjMaterialParam::from_full_path(path) {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetObjMaterialParam {
-                target: target.to_string(),
-                param,
-                value: mat_value,
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetObjMaterialParam {
+                    target: target.to_string(),
+                    param,
+                    value: mat_value,
+                },
+            ));
         }
         return None;
     }
 
     if path.starts_with("terrain.") {
         if let Some(param) = TerrainParam::from_full_path(path) {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetTerrainParamTyped {
-                target: target.to_string(),
-                param,
-                value: mat_value,
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetTerrainParamTyped {
+                    target: target.to_string(),
+                    param,
+                    value: mat_value,
+                },
+            ));
         }
         return None;
     }
 
     if path.starts_with("world.") {
         if let Some(param) = WorldgenParam::from_full_path(path) {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParamTyped {
-                target: target.to_string(),
-                param,
-                value: mat_value,
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetWorldgenParamTyped {
+                    target: target.to_string(),
+                    param,
+                    value: mat_value,
+                },
+            ));
         }
         return None;
     }

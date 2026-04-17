@@ -1,3 +1,4 @@
+use crate::ObjPrerenderedFrames;
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
@@ -6,8 +7,8 @@ use engine_core::scene::{Effect, Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use engine_core::spatial::SpatialContext;
 use std::collections::HashMap;
-use crate::ObjPrerenderedFrames;
 
 /// All scene-invariant inputs to a single compositor invocation.
 ///
@@ -51,6 +52,8 @@ pub struct PreparedCameraInputs<'a> {
     pub camera_y: i32,
     /// 2D camera zoom factor (default 1.0). Non-UI layers are scaled by this factor.
     pub camera_zoom: f32,
+    /// Scene-wide spatial contract (units + axis convention).
+    pub spatial_context: SpatialContext,
 }
 
 /// Per-frame runtime and render state prepared by engine before compositor dispatch.

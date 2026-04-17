@@ -1,40 +1,20 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-engine.local/mods/terrain-playground/schemas/catalog.yaml
-title: schema terrain-playground catalog
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/planet-generator/schemas/catalog.yaml
+title: schema planet-generator catalog
 $defs:
   scene_ids:
     type: string
     enum:
-    - terrain-exit
-    - terrain-menu
-    - terrain-placeholder-caves
-    - terrain-placeholder-erosion
-    - terrain-placeholder-heightmap
-    - terrain-plain
+    - planet-generator-main
   scene_paths:
     type: string
     enum:
-    - /scenes/exit/scene.yml
-    - /scenes/menu/scene.yml
-    - /scenes/placeholder-caves/scene.yml
-    - /scenes/placeholder-erosion/scene.yml
-    - /scenes/placeholder-heightmap/scene.yml
-    - /scenes/plain-terrain/scene.yml
+    - /scenes/main/scene.yml
   scene_refs:
     type: string
     enum:
-    - /scenes/exit/scene.yml
-    - /scenes/menu/scene.yml
-    - /scenes/placeholder-caves/scene.yml
-    - /scenes/placeholder-erosion/scene.yml
-    - /scenes/placeholder-heightmap/scene.yml
-    - /scenes/plain-terrain/scene.yml
-    - terrain-exit
-    - terrain-menu
-    - terrain-placeholder-caves
-    - terrain-placeholder-erosion
-    - terrain-placeholder-heightmap
-    - terrain-plain
+    - /scenes/main/scene.yml
+    - planet-generator-main
   object_names:
     type: string
     enum: []
@@ -42,16 +22,16 @@ $defs:
     type: string
     enum:
     - fade-in
-    - fade-out
   layer_refs:
     type: string
     enum:
-    - exit/layers/main.yml
-    - menu/layers/main.yml
-    - placeholder-caves/layers/main.yml
-    - placeholder-erosion/layers/main.yml
-    - placeholder-heightmap/layers/main.yml
-    - plain-terrain/layers/main.yml
+    - main/layers/hud-actions.yml
+    - main/layers/hud-panel.yml
+    - main/layers/hud-presets.yml
+    - main/layers/hud-sliders.yml
+    - main/layers/hud-stats.yml
+    - main/layers/hud-tabs.yml
+    - main/layers/planet.yml
   sprite_refs:
     type: string
     enum: []
@@ -66,14 +46,10 @@ $defs:
     enum: []
   font_names:
     type: string
-    enum:
-    - Orbitron
+    enum: []
   font_specs:
     type: string
     enum:
-    - Orbitron
-    - Orbitron:ascii
-    - Orbitron:raster
     - default
     - generic
     - generic:1
@@ -97,16 +73,69 @@ $defs:
   sprite_ids:
     type: string
     enum:
-    - hint
-    - item-0
-    - item-1
-    - item-2
-    - item-3
-    - item-4
-    - menu-content
-    - menu-frame
-    - menu-items
-    - title-text
+    - btn-randomize
+    - btn-reset
+    - hud-actions-box
+    - hud-panel-box
+    - hud-presets-box
+    - hud-stats-box
+    - hud-tabs-box
+    - param-0
+    - param-1
+    - param-2
+    - param-3
+    - param-4
+    - param-5
+    - param-6
+    - param-7
+    - param-handle-0
+    - param-handle-1
+    - param-handle-2
+    - param-handle-3
+    - param-handle-4
+    - param-handle-5
+    - param-handle-6
+    - param-handle-7
+    - param-hint
+    - param-label-0
+    - param-label-1
+    - param-label-2
+    - param-label-3
+    - param-label-4
+    - param-label-5
+    - param-label-6
+    - param-label-7
+    - param-title
+    - param-track-0
+    - param-track-1
+    - param-track-2
+    - param-track-3
+    - param-track-4
+    - param-track-5
+    - param-track-6
+    - param-track-7
+    - planet-mesh
+    - preset-archipelago
+    - preset-btn-archipelago
+    - preset-btn-desert
+    - preset-btn-earth
+    - preset-btn-ice
+    - preset-btn-mars
+    - preset-btn-ocean
+    - preset-btn-volcanic
+    - preset-desert
+    - preset-earth
+    - preset-ice
+    - preset-mars
+    - preset-ocean
+    - preset-volcanic
+    - stats-biomes
+    - stats-seed
+    - tab-btn-atmo
+    - tab-btn-climate
+    - tab-btn-continents
+    - tab-btn-mountains
+    - tab-btn-visual
   template_names:
     type: string
     enum: []

@@ -1,6 +1,7 @@
 use super::effect_applicator::apply_layer_effects;
 use super::provider::resolve_render_2d_pipeline;
 use super::scene_compositor::PreparedLayerFrame;
+use crate::ObjPrerenderedFrames;
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
@@ -10,8 +11,8 @@ use engine_core::effects::Region;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use engine_core::spatial::SpatialContext;
 use engine_pipeline::LayerCompositor;
-use crate::ObjPrerenderedFrames;
 use engine_render_2d::{Render2dInput, Render2dPipeline};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -29,6 +30,7 @@ pub struct PreparedLayerRenderInputs<'a> {
     pub asset_root: Option<&'a AssetRoot>,
     pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
     pub scene_camera_3d: &'a SceneCamera3D,
+    pub spatial_context: SpatialContext,
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
@@ -80,6 +82,7 @@ pub fn composite_layers(
     let asset_root = inputs.render.asset_root;
     let obj_camera_states = inputs.render.obj_camera_states;
     let scene_camera_3d = inputs.render.scene_camera_3d;
+    let spatial_context = inputs.render.spatial_context;
     let celestial_catalogs = inputs.render.celestial_catalogs;
     let is_pixel_backend = inputs.render.is_pixel_backend;
     let default_font = inputs.render.default_font;
@@ -87,6 +90,7 @@ pub fn composite_layers(
         inputs.render.render_2d_pipeline,
         obj_camera_states,
         scene_camera_3d,
+        spatial_context,
         celestial_catalogs,
         inputs.render.prerender_frames,
     );

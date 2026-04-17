@@ -16,6 +16,22 @@ impl MeshBuildKey {
     pub fn into_string(self) -> String {
         self.0
     }
+
+    /// Returns key with explicit LOD suffix (`;lod=N`) for cache-domain partitioning.
+    pub fn with_lod_level(&self, level: u8) -> Self {
+        let base = self
+            .0
+            .split_once(";lod=")
+            .map(|(prefix, _)| prefix)
+            .unwrap_or(self.0.as_str());
+        Self(format!("{base};lod={level}"))
+    }
+
+    /// Parses optional LOD level from key suffix (`;lod=N`).
+    pub fn lod_level(&self) -> Option<u8> {
+        let (_, raw) = self.0.rsplit_once(";lod=")?;
+        raw.parse::<u8>().ok()
+    }
 }
 
 impl From<String> for MeshBuildKey {
@@ -490,5 +506,13 @@ content: hi
         let windows = resolve_image_asset_key(r"  .\assets\images\logo.png  ");
         assert_eq!(unix, windows);
         assert_eq!(windows.as_str(), "assets/images/logo.png");
+    }
+
+    #[test]
+    fn mesh_build_key_round_trips_lod_suffix() {
+        let key = MeshBuildKey::from_source("world://32?shape=sphere&seed=1");
+        let lod_key = key.with_lod_level(2);
+        assert_eq!(lod_key.lod_level(), Some(2));
+        assert!(lod_key.as_str().contains(";lod=2"));
     }
 }

@@ -173,7 +173,19 @@ pub fn game_loop(
         let t1b = Instant::now();
         // Sync Transform2D → scene positions before compositing
         systems::visual_sync::visual_sync_system(world);
+        #[cfg(feature = "render-3d")]
+        engine_render_3d::reset_obj_raster_frame_metrics();
+        #[cfg(feature = "render-3d")]
+        engine_render_3d::pipeline::reset_generated_world_pass_metrics();
         systems::compositor::compositor_system(world);
+        #[cfg(feature = "render-3d")]
+        let world3d_metrics = engine_render_3d::pipeline::take_generated_world_pass_metrics();
+        #[cfg(feature = "render-3d")]
+        let world3d_obj_metrics = engine_render_3d::take_obj_raster_frame_metrics();
+        #[cfg(not(feature = "render-3d"))]
+        let world3d_metrics = ();
+        #[cfg(not(feature = "render-3d"))]
+        let world3d_obj_metrics = ();
         let t2 = Instant::now();
         systems::postfx::postfx_system(world);
         let t3 = Instant::now();
@@ -274,6 +286,59 @@ pub fn game_loop(
                     dirty_cells,
                     total_cells,
                     write_ops,
+                    #[cfg(feature = "render-3d")]
+                    world3d_surface_us: world3d_metrics.surface_us + world3d_obj_metrics.rgb_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_cloud1_us: world3d_metrics.cloud1_us + world3d_obj_metrics.rgba_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_cloud2_us: world3d_metrics.cloud2_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_halo_us: world3d_obj_metrics.halo_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_convert_us: world3d_metrics.convert_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_composite_us: world3d_metrics.composite_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_blit_us: world3d_metrics.blit_us,
+                    #[cfg(feature = "render-3d")]
+                    world3d_triangles: world3d_metrics
+                        .triangles_processed
+                        .saturating_add(world3d_obj_metrics.triangles_processed),
+                    #[cfg(feature = "render-3d")]
+                    world3d_faces: world3d_metrics
+                        .faces_drawn
+                        .saturating_add(world3d_obj_metrics.faces_drawn),
+                    #[cfg(feature = "render-3d")]
+                    world3d_viewport_px: world3d_metrics
+                        .viewport_area_px
+                        .max(world3d_obj_metrics.viewport_area_px),
+                    #[cfg(feature = "render-3d")]
+                    world3d_sprites: world3d_metrics
+                        .sprites_rendered
+                        .saturating_add(world3d_obj_metrics.rgb_calls)
+                        .saturating_add(world3d_obj_metrics.rgba_calls),
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_surface_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_cloud1_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_cloud2_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_halo_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_convert_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_composite_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_blit_us: 0.0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_triangles: 0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_faces: 0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_viewport_px: 0,
+                    #[cfg(not(feature = "render-3d"))]
+                    world3d_sprites: 0,
                 });
             }
         }

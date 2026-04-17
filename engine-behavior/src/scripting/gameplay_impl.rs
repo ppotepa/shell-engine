@@ -36,11 +36,9 @@ fn queue_set_property_or_mutation(
     path: String,
     value: JsonValue,
 ) {
-    if let Some(request) =
-        engine_api::commands::scene_mutation_request_from_set_property_compat(
-            &target, &path, &value,
-        )
-    {
+    if let Some(request) = engine_api::commands::scene_mutation_request_from_set_property_compat(
+        &target, &path, &value,
+    ) {
         queue.push(BehaviorCommand::ApplySceneMutation { request });
     } else {
         queue.push(BehaviorCommand::SetProperty {
@@ -90,6 +88,7 @@ impl ScriptGameplayApi {
         collision_enters: std::sync::Arc<Vec<CollisionHit>>,
         collision_stays: std::sync::Arc<Vec<CollisionHit>>,
         collision_exits: std::sync::Arc<Vec<CollisionHit>>,
+        spatial_meters_per_world_unit: Option<f64>,
         catalogs: Arc<catalog::ModCatalogs>,
         emitter_state: Option<EmitterState>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
@@ -104,6 +103,7 @@ impl ScriptGameplayApi {
                 collision_enters,
                 collision_stays,
                 collision_exits,
+                spatial_meters_per_world_unit,
                 queue,
             ),
             catalogs,
@@ -233,17 +233,17 @@ impl ScriptGameplayApi {
         let uid = id as u64;
         let tree_ids = world.despawn_tree_ids(uid);
         if let Ok(mut commands) = self.ctx.queue.lock() {
-                    for tree_id in &tree_ids {
-                        if let Some(binding) = world.visual(*tree_id) {
-                            for vid in binding.all_visual_ids() {
-                                commands.push(BehaviorCommand::ApplySceneMutation {
-                                    request: SceneMutationRequest::DespawnObject {
-                                        target: vid.to_string(),
-                                    },
-                                });
-                            }
-                        }
+            for tree_id in &tree_ids {
+                if let Some(binding) = world.visual(*tree_id) {
+                    for vid in binding.all_visual_ids() {
+                        commands.push(BehaviorCommand::ApplySceneMutation {
+                            request: SceneMutationRequest::DespawnObject {
+                                target: vid.to_string(),
+                            },
+                        });
                     }
+                }
+            }
         }
         world.despawn(uid)
     }
@@ -719,7 +719,9 @@ impl ScriptGameplayApi {
         let dz = -(z as f32);
         let dist_sq = dx * dx + dy * dy + dz * dz;
         let dist = dist_sq.sqrt();
-        if let Some((ax, ay, az)) = point_gravity_accel_3d(dx, dy, dz, body.gravity_mu as f32) {
+        let gravity_mu_world_units =
+            body.resolved_gravity_mu_world_units(self.ctx.spatial_meters_per_world_unit) as f32;
+        if let Some((ax, ay, az)) = point_gravity_accel_3d(dx, dy, dz, gravity_mu_world_units) {
             map.insert("ax".into(), (ax as rhai::FLOAT).into());
             map.insert("ay".into(), (ay as rhai::FLOAT).into());
             map.insert("az".into(), (az as rhai::FLOAT).into());
@@ -1613,6 +1615,7 @@ impl ScriptGameplayApi {
             .get(id)
             .cloned()
             .unwrap_or_default();
+        let scene_meters_per_world_unit = self.ctx.spatial_meters_per_world_unit;
         let mut map = RhaiMap::new();
         map.insert("center_x".into(), (body.center_x as rhai::FLOAT).into());
         map.insert("center_y".into(), (body.center_y as rhai::FLOAT).into());
@@ -1634,6 +1637,26 @@ impl ScriptGameplayApi {
             (body.surface_radius as rhai::FLOAT).into(),
         );
         map.insert("gravity_mu".into(), (body.gravity_mu as rhai::FLOAT).into());
+        if let Some(v) = body.gravity_mu_km3_s2 {
+            map.insert("gravity_mu_km3_s2".into(), v.into());
+        }
+        if let Some(v) = body.km_per_world_unit(scene_meters_per_world_unit) {
+            map.insert("km_per_world_unit".into(), v.into());
+        }
+        if let Some(v) = body.resolved_radius_km(scene_meters_per_world_unit) {
+            map.insert("resolved_radius_km".into(), v.into());
+        }
+        map.insert(
+            "resolved_gravity_mu".into(),
+            body.resolved_gravity_mu_world_units(scene_meters_per_world_unit)
+                .into(),
+        );
+        if let Some(v) = body.resolved_atmosphere_top_km(scene_meters_per_world_unit) {
+            map.insert("resolved_atmosphere_top_km".into(), v.into());
+        }
+        if let Some(v) = body.resolved_atmosphere_dense_start_km(scene_meters_per_world_unit) {
+            map.insert("resolved_atmosphere_dense_start_km".into(), v.into());
+        }
         if let Some(v) = body.radius_km {
             map.insert("radius_km".into(), v.into());
         }
@@ -1667,6 +1690,22 @@ impl ScriptGameplayApi {
         if let Some(s) = body.parent {
             map.insert("parent".into(), s.into());
         }
+        map
+    }
+
+    /// Returns body world position at `elapsed_sec`, including parent orbit chain.
+    /// Returns empty map when body id is unknown or parent chain is invalid.
+    pub(crate) fn body_position(&mut self, id: &str, elapsed_sec: rhai::FLOAT) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some((x, y)) = self
+            .catalogs
+            .celestial
+            .body_world_position(id, elapsed_sec as f64)
+        else {
+            return map;
+        };
+        map.insert("x".into(), (x as rhai::FLOAT).into());
+        map.insert("y".into(), (y as rhai::FLOAT).into());
         map
     }
 

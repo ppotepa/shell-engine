@@ -7,9 +7,10 @@ pub mod scene_clip_sprite_spec;
 pub mod sprite_mapping;
 
 pub use generated_world_renderer::{
-    render_generated_world_sprite_with, BlitRgbaCanvasFn, CompositeRgbaOverFn,
-    ConvertCanvasToRgbaFn, GeneratedWorldRenderCallbacks, GeneratedWorldRenderProfile,
-    RenderObjToCanvasFn, RenderObjToRgbaCanvasFn,
+    render_generated_world_sprite_with, reset_generated_world_pass_metrics,
+    take_generated_world_pass_metrics, BlitRgbaCanvasFn, CompositeRgbaOverFn,
+    ConvertCanvasToRgbaFn, GeneratedWorldPassMetrics, GeneratedWorldRenderCallbacks,
+    GeneratedWorldRenderProfile, RenderObjToCanvasFn, RenderObjToRgbaCanvasFn,
 };
 pub use generated_world_sprite_spec::{
     extract_generated_world_sprite_spec, GeneratedWorldSpriteSpec,

@@ -29,6 +29,18 @@ pub struct FrameSample {
     pub dirty_cells: u32,
     pub total_cells: u32,
     pub write_ops: u64,
+    // generated-world 3D per-pass stats
+    pub world3d_surface_us: f32,
+    pub world3d_cloud1_us: f32,
+    pub world3d_cloud2_us: f32,
+    pub world3d_halo_us: f32,
+    pub world3d_convert_us: f32,
+    pub world3d_composite_us: f32,
+    pub world3d_blit_us: f32,
+    pub world3d_triangles: u32,
+    pub world3d_faces: u32,
+    pub world3d_viewport_px: u32,
+    pub world3d_sprites: u32,
 }
 
 // ── Accumulator ─────────────────────────────────────────────────────
@@ -170,6 +182,18 @@ pub struct BenchResults {
     pub dirty_cells: MetricStats,
     pub total_cells: f32,
     pub write_ops: MetricStats,
+    // generated-world 3D pass profiling
+    pub world3d_surface: MetricStats,
+    pub world3d_cloud1: MetricStats,
+    pub world3d_cloud2: MetricStats,
+    pub world3d_halo: MetricStats,
+    pub world3d_convert: MetricStats,
+    pub world3d_composite: MetricStats,
+    pub world3d_blit: MetricStats,
+    pub world3d_triangles: MetricStats,
+    pub world3d_faces: MetricStats,
+    pub world3d_viewport_px: MetricStats,
+    pub world3d_sprites: MetricStats,
     // per-scene breakdown
     pub scenes: Vec<SceneStats>,
 }
@@ -207,6 +231,37 @@ impl BenchResults {
         let dirty_cells = MetricStats::from_samples(&dirty_cells_v);
         let write_ops = MetricStats::from_samples(&write_ops_v);
         let total_cells = samples.first().map(|s| s.total_cells as f32).unwrap_or(0.0);
+        let world3d_surface = MetricStats::from_samples(&extract(|s| s.world3d_surface_us));
+        let world3d_cloud1 = MetricStats::from_samples(&extract(|s| s.world3d_cloud1_us));
+        let world3d_cloud2 = MetricStats::from_samples(&extract(|s| s.world3d_cloud2_us));
+        let world3d_halo = MetricStats::from_samples(&extract(|s| s.world3d_halo_us));
+        let world3d_convert = MetricStats::from_samples(&extract(|s| s.world3d_convert_us));
+        let world3d_composite = MetricStats::from_samples(&extract(|s| s.world3d_composite_us));
+        let world3d_blit = MetricStats::from_samples(&extract(|s| s.world3d_blit_us));
+        let world3d_triangles = MetricStats::from_samples(
+            &samples
+                .iter()
+                .map(|s| s.world3d_triangles as f32)
+                .collect::<Vec<_>>(),
+        );
+        let world3d_faces = MetricStats::from_samples(
+            &samples
+                .iter()
+                .map(|s| s.world3d_faces as f32)
+                .collect::<Vec<_>>(),
+        );
+        let world3d_viewport_px = MetricStats::from_samples(
+            &samples
+                .iter()
+                .map(|s| s.world3d_viewport_px as f32)
+                .collect::<Vec<_>>(),
+        );
+        let world3d_sprites = MetricStats::from_samples(
+            &samples
+                .iter()
+                .map(|s| s.world3d_sprites as f32)
+                .collect::<Vec<_>>(),
+        );
 
         // Score: higher is better. Dominated by avg FPS, penalised by variance.
         let score = (fps.avg * 10.0 + (1_000_000.0 / frame.p50.max(1.0)) * 5.0 - frame.p99 / 100.0)
@@ -238,6 +293,17 @@ impl BenchResults {
             dirty_cells,
             total_cells,
             write_ops,
+            world3d_surface,
+            world3d_cloud1,
+            world3d_cloud2,
+            world3d_halo,
+            world3d_convert,
+            world3d_composite,
+            world3d_blit,
+            world3d_triangles,
+            world3d_faces,
+            world3d_viewport_px,
+            world3d_sprites,
             scenes,
         }
     }
@@ -351,6 +417,20 @@ impl BenchResults {
             r.push_str(&format!("  Avg dirty coverage . {:.1}%\n", dirty_pct));
             r.push_str(&format!("  Avg diff coverage .. {:.1}%\n", diff_pct));
         }
+        r.push('\n');
+
+        r.push_str("── 3D OBJECT PASSES (us) ─────────────────────────────────────\n");
+        Self::fmt_metric(&mut r, "3D surface", &self.world3d_surface, "us");
+        Self::fmt_metric(&mut r, "3D cloud1", &self.world3d_cloud1, "us");
+        Self::fmt_metric(&mut r, "3D cloud2", &self.world3d_cloud2, "us");
+        Self::fmt_metric(&mut r, "3D halo", &self.world3d_halo, "us");
+        Self::fmt_metric(&mut r, "3D convert", &self.world3d_convert, "us");
+        Self::fmt_metric(&mut r, "3D comp", &self.world3d_composite, "us");
+        Self::fmt_metric(&mut r, "3D blit", &self.world3d_blit, "us");
+        Self::fmt_metric(&mut r, "3D tris", &self.world3d_triangles, "");
+        Self::fmt_metric(&mut r, "3D faces", &self.world3d_faces, "");
+        Self::fmt_metric(&mut r, "3D viewpx", &self.world3d_viewport_px, "");
+        Self::fmt_metric(&mut r, "3D sprites", &self.world3d_sprites, "");
         r.push('\n');
 
         // Per-scene breakdown

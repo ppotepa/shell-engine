@@ -26,7 +26,11 @@ pub fn scene_mutation_from_request(
             dy: *dy,
             text: text.clone(),
         })),
-        SceneMutationRequest::SetSpriteProperty { target, path, value } => {
+        SceneMutationRequest::SetSpriteProperty {
+            target,
+            path,
+            value,
+        } => {
             let mutation = match path.as_str() {
                 "transform.heading" => Some(SetSpritePropertyMutation::Heading {
                     heading: value.as_f64()? as f32,
@@ -155,12 +159,10 @@ pub fn render3d_mutation_from_request(
             target,
             name,
             value,
-        } => {
-            match scene_mutation_from_set_property_3d(target, name, value)? {
-                crate::SceneMutation::SetRender3D(m) => Some(m),
-                _ => None,
-            }
-        }
+        } => match scene_mutation_from_set_property_3d(target, name, value)? {
+            crate::SceneMutation::SetRender3D(m) => Some(m),
+            _ => None,
+        },
         Render3dMutationRequest::SetSurfaceMode { target, mode } => {
             Some(Render3DMutation::SetObjMaterialParam {
                 target: target.clone(),
@@ -232,7 +234,11 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetObjMaterialParam { target, param, value } => {
+            Render3DMutation::SetObjMaterialParam {
+                target,
+                param,
+                value,
+            } => {
                 assert_eq!(target, "planet-main");
                 assert_eq!(param, crate::mutations::ObjMaterialParam::Scale);
                 assert_eq!(value, MaterialValue::Scalar(1.25));

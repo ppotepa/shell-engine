@@ -44,6 +44,7 @@ concat-report.txt
 # Raw authored asset sources stay local
 !mods/*/assets/raw/.gitignore
 *.features.md
+*.impl.md
 
 # IDE caches
 .clj-kondo/

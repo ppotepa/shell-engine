@@ -11,6 +11,7 @@
 
 use super::*;
 use engine_core::render_types::DirtyMask3D;
+use engine_core::spatial::SpatialContext;
 
 fn cached_arc<T, F>(cache: &mut Option<std::sync::Arc<T>>, build: F) -> std::sync::Arc<T>
 where
@@ -72,6 +73,16 @@ impl SceneRuntime {
     /// Sets the 2D camera zoom factor (called from behavior_runner).
     pub(crate) fn set_camera_zoom_internal(&mut self, zoom: f32) {
         self.camera_zoom = zoom.max(0.001);
+    }
+
+    /// Returns the scene-wide spatial contract (units + axis convention).
+    pub fn spatial_context(&self) -> SpatialContext {
+        self.spatial_context
+    }
+
+    /// Sets scene-wide spatial contract.
+    pub fn set_spatial_context(&mut self, context: SpatialContext) {
+        self.spatial_context = context;
     }
 
     pub fn scene_camera_3d(&self) -> SceneCamera3D {

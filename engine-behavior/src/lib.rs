@@ -63,11 +63,9 @@ fn push_set_property_command(
     path: String,
     value: JsonValue,
 ) {
-    if let Some(request) =
-        engine_api::commands::scene_mutation_request_from_set_property_compat(
-            &target, &path, &value,
-        )
-    {
+    if let Some(request) = engine_api::commands::scene_mutation_request_from_set_property_compat(
+        &target, &path, &value,
+    ) {
         commands.push(BehaviorCommand::ApplySceneMutation { request });
     } else {
         commands.push(BehaviorCommand::SetProperty {
@@ -150,6 +148,8 @@ pub struct BehaviorContext {
     pub mouse_y: f32,
     /// GUI widget runtime state — hit-test results, values, clicked flags.
     pub gui_state: Option<Arc<engine_gui::GuiRuntimeState>>,
+    /// Active scene spatial scale for world-unit to physical conversions in scripts.
+    pub spatial_meters_per_world_unit: Option<f64>,
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -711,6 +711,7 @@ impl Behavior for RhaiScriptBehavior {
                         std::sync::Arc::clone(&ctx.collision_enters),
                         std::sync::Arc::clone(&ctx.collision_stays),
                         std::sync::Arc::clone(&ctx.collision_exits),
+                        ctx.spatial_meters_per_world_unit,
                         Arc::clone(&ctx.catalogs),
                         ctx.emitter_state.clone(),
                         Arc::clone(&helper_commands),
@@ -907,6 +908,7 @@ fn smoke_probe_context(
         mouse_x: 0.0,
         mouse_y: 0.0,
         gui_state: None,
+        spatial_meters_per_world_unit: None,
     }
 }
 
@@ -1191,6 +1193,7 @@ mod tests {
             input: Default::default(),
             postfx: Vec::new(),
             next: None,
+            spatial: Default::default(),
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
@@ -1304,6 +1307,7 @@ mod tests {
             mouse_x: 0.0,
             mouse_y: 0.0,
             gui_state: None,
+            spatial_meters_per_world_unit: None,
         }
     }
 
@@ -3309,14 +3313,12 @@ if id > 0 && world.exists(id) {
 
         // Check that typed scene spawn mutation was emitted.
         assert!(
-            commands
-                .iter()
-                .any(|c| matches!(
-                    c,
-                    BehaviorCommand::ApplySceneMutation {
-                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
-                    } if template == "projectile-template" && target.starts_with("projectile-")
-                )),
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                } if template == "projectile-template" && target.starts_with("projectile-")
+            )),
             "spawn_visual should emit typed spawn mutation: {commands:?}"
         );
 
@@ -3373,14 +3375,12 @@ let id = world.spawn_visual("enemy", "enemy-template", #{
 
         // Check that typed scene spawn mutation was emitted.
         assert!(
-            commands
-                .iter()
-                .any(|c| matches!(
-                    c,
-                    BehaviorCommand::ApplySceneMutation {
-                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
-                    } if template == "enemy-template" && target.starts_with("enemy-")
-                )),
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                } if template == "enemy-template" && target.starts_with("enemy-")
+            )),
             "spawn_visual should emit typed spawn mutation"
         );
 
@@ -3456,25 +3456,21 @@ let entity = world.spawn_prefab("entity", #{
             "spawn_prefab should not produce ScriptError: {commands:?}"
         );
         assert!(
-            commands.iter().any(
-                |c| matches!(
-                    c,
-                    BehaviorCommand::ApplySceneMutation {
-                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
-                    } if template == "entity-template" && target.starts_with("entity-")
-                )
-            ),
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                } if template == "entity-template" && target.starts_with("entity-")
+            )),
             "entity prefab should emit typed spawn mutation"
         );
         assert!(
-            commands.iter().any(
-                |c| matches!(
-                    c,
-                    BehaviorCommand::ApplySceneMutation {
-                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
-                    } if template == "vehicle" && target.starts_with("vehicle-")
-                )
-            ),
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                } if template == "vehicle" && target.starts_with("vehicle-")
+            )),
             "vehicle prefab should emit typed dynamic vehicle spawn mutation"
         );
 
@@ -3649,14 +3645,12 @@ game.set("/test/fx_id", fx);
             .unwrap_or(0);
         assert!(fx_id > 0);
         assert!(gameplay_world.exists(fx_id as u64));
-        assert!(commands
-            .iter()
-            .any(|c| matches!(
-                c,
-                BehaviorCommand::ApplySceneMutation {
-                    request: engine_api::SceneMutationRequest::SetSpriteProperty { path, .. }
-                } if path == "style.fg"
-            )));
+        assert!(commands.iter().any(|c| matches!(
+            c,
+            BehaviorCommand::ApplySceneMutation {
+                request: engine_api::SceneMutationRequest::SetSpriteProperty { path, .. }
+            } if path == "style.fg"
+        )));
     }
 
     #[test]

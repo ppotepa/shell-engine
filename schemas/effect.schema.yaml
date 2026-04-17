@@ -1,4 +1,4 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
+$schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-engine.local/schemas/effect.schema.yaml
 title: Effect Schema
 description: A single named visual effect step used inside scene/layer/sprite lifecycle stages.
@@ -15,7 +15,7 @@ properties:
       - artifact-out: Digital compression artefacts fragmenting the image.
       - blur: Box blur: softens pixel colours by averaging a neighbourhood of pixels.
       - brighten: Brightens pixels toward white by intensity over duration.
-      - clear-to-colour: Clears region to a target colour.
+      - clear-to-colour: Clears region to a target terminal colour.
       - crt-on: CRT startup sweep with phosphor-like reveal.
       - crt-burn-in: PostFX: phosphor persistence — ghost of old scene overlays new one with exponential decay, brightness pump, P31 colour shift, and 2D blur.
       - crt-underlay: PostFX: soft phosphor underlay glow beneath scene content.

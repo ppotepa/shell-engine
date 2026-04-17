@@ -7,6 +7,7 @@ use super::color::TermColour;
 use super::easing::Easing;
 use super::sprite::Sprite;
 use crate::animations::AnimationParams;
+use crate::spatial::SpatialContext;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -28,6 +29,49 @@ pub enum LayerSpace {
     #[serde(rename = "3d")]
     ThreeD,
     Screen,
+}
+
+/// Optional scene-level spatial policy overrides.
+///
+/// This is the authored bridge between YAML scene data and runtime
+/// `SpatialContext`. Any field omitted here falls back to runtime defaults.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SceneSpatial {
+    #[serde(
+        default,
+        rename = "meters-per-world-unit",
+        alias = "meters_per_world_unit"
+    )]
+    pub meters_per_world_unit: Option<f64>,
+    #[serde(
+        default,
+        rename = "virtual-pixels-per-world-unit",
+        alias = "virtual_pixels_per_world_unit"
+    )]
+    pub virtual_pixels_per_world_unit: Option<f64>,
+    #[serde(default)]
+    pub handedness: Option<crate::spatial::Handedness>,
+    #[serde(default, rename = "up-axis", alias = "up_axis")]
+    pub up_axis: Option<crate::spatial::UpAxis>,
+}
+
+impl SceneSpatial {
+    pub fn to_context(&self) -> SpatialContext {
+        let mut context = SpatialContext::default();
+        if let Some(v) = self.meters_per_world_unit {
+            context.scale.meters_per_world_unit = v.max(f64::MIN_POSITIVE);
+        }
+        if let Some(v) = self.virtual_pixels_per_world_unit {
+            context.scale.virtual_pixels_per_world_unit = Some(v.max(0.0));
+        }
+        if let Some(h) = self.handedness {
+            context.axes.handedness = h;
+        }
+        if let Some(axis) = self.up_axis {
+            context.axes.up_axis = axis;
+        }
+        context
+    }
 }
 
 /// Runtime animation attached to a sprite after authored scene parsing.
@@ -640,6 +684,8 @@ pub struct Scene {
     #[serde(default)]
     pub space: SceneSpace,
     #[serde(default)]
+    pub spatial: SceneSpatial,
+    #[serde(default)]
     pub celestial: SceneCelestial,
     #[serde(default, rename = "virtual-size-override")]
     pub virtual_size_override: Option<String>,
@@ -806,6 +852,7 @@ mod tests {
         CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneSpace, UiPersistence,
     };
     use crate::scene::Stage;
+    use crate::spatial::{Handedness, UpAxis};
 
     #[test]
     fn parses_scene_target_fps_kebab_case() {
@@ -990,5 +1037,33 @@ layers: []
         assert_eq!(scene.celestial.focus_site.as_deref(), Some("leo"));
         assert_eq!(scene.celestial.frame, CelestialFrame::Barycentric);
         assert_eq!(scene.celestial.clock_source, CelestialClockSource::Campaign);
+    }
+
+    #[test]
+    fn parses_scene_spatial_policy() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: spatial-scene
+title: Spatial
+spatial:
+  meters-per-world-unit: 50.0
+  virtual-pixels-per-world-unit: 8.0
+  handedness: right
+  up-axis: z
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.spatial.meters_per_world_unit, Some(50.0));
+        assert_eq!(scene.spatial.virtual_pixels_per_world_unit, Some(8.0));
+        assert_eq!(scene.spatial.handedness, Some(Handedness::Right));
+        assert_eq!(scene.spatial.up_axis, Some(UpAxis::Z));
+
+        let context = scene.spatial.to_context();
+        assert_eq!(context.scale.meters_per_world_unit, 50.0);
+        assert_eq!(context.scale.virtual_pixels_per_world_unit, Some(8.0));
+        assert_eq!(context.axes.handedness, Handedness::Right);
+        assert_eq!(context.axes.up_axis, UpAxis::Z);
     }
 }

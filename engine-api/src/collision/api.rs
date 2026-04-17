@@ -171,6 +171,7 @@ impl ScriptCollisionApi {
                 collision_enters,
                 collision_stays,
                 collision_exits,
+                None,
                 queue,
             ),
         }

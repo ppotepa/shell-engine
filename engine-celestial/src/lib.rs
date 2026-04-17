@@ -443,7 +443,7 @@ pub struct BodyDef {
     /// Parent body id. `None` = fixed at center_x/y.
     #[serde(default)]
     pub parent: Option<String>,
-    /// Orbit radius in world pixels (0 = stationary at center_x/y).
+    /// Orbit radius in world units (historical field name kept as authored contract).
     #[serde(default)]
     pub orbit_radius: f64,
     /// Full orbit period in seconds (0 = stationary).
@@ -452,25 +452,34 @@ pub struct BodyDef {
     /// Starting orbital phase in degrees (0 = 3-o'clock).
     #[serde(default)]
     pub orbit_phase_deg: f64,
-    /// Visual sphere radius in world pixels (for display/camera reference).
+    /// Visual sphere radius in world units (historical `_px` name kept for compatibility).
     #[serde(default = "BodyDef::default_radius_px")]
     pub radius_px: f64,
     /// Physical radius in kilometers, when authored explicitly.
     #[serde(default)]
     pub radius_km: Option<f64>,
-    /// Kilometers represented by one world pixel.
+    /// Kilometers represented by one world unit (historical field name kept as authored contract).
     #[serde(default)]
     pub km_per_px: Option<f64>,
-    /// Gravitational mu constant (px³/s²) for orbital mechanics.
+    /// Gravitational mu constant in world-unit^3/s^2 for orbital mechanics.
+    ///
+    /// With default scene spatial policy (`1 wu = 1 m`) this remains equivalent to
+    /// previous behavior; authored values are interpreted in simulation world units.
     #[serde(default)]
     pub gravity_mu: f64,
-    /// Collision/gameplay surface radius in pixels.
+    /// Optional physical gravitational parameter in km^3/s^2.
+    ///
+    /// When provided, runtime may convert it into world-unit^3/s^2 using the active
+    /// scene spatial scale and body km mapping.
+    #[serde(default, rename = "gravity-mu-km3-s2")]
+    pub gravity_mu_km3_s2: Option<f64>,
+    /// Collision/gameplay surface radius in world units.
     #[serde(default = "BodyDef::default_surface_radius")]
     pub surface_radius: f64,
-    /// Atmosphere top in world pixels above the surface.
+    /// Atmosphere top in world units above the surface.
     #[serde(default)]
     pub atmosphere_top: Option<f64>,
-    /// Dense atmosphere start in world pixels above the surface.
+    /// Dense atmosphere start in world units above the surface.
     #[serde(default)]
     pub atmosphere_dense_start: Option<f64>,
     /// Max drag coefficient applied in dense atmosphere.
@@ -497,6 +506,103 @@ impl BodyDef {
     fn default_surface_radius() -> f64 {
         90.0
     }
+
+    /// Resolve kilometers represented by one world-unit for this body.
+    ///
+    /// Resolution order:
+    /// 1. explicit `km_per_px` on the body
+    /// 2. derived from `radius_km / radius_px`
+    /// 3. scene-level `meters_per_world_unit` (when provided and non-default)
+    pub fn km_per_world_unit(&self, scene_meters_per_world_unit: Option<f64>) -> Option<f64> {
+        if let Some(km_per_px) = self.km_per_px {
+            return Some(km_per_px.max(0.0001));
+        }
+        if let Some(radius_km) = self.radius_km {
+            return Some(radius_km / self.radius_px.max(1.0));
+        }
+        let meters = scene_meters_per_world_unit?;
+        if (meters - 1.0).abs() <= f64::EPSILON {
+            return None;
+        }
+        Some((meters / 1000.0).max(f64::MIN_POSITIVE))
+    }
+
+    /// Resolve kilometers per world-unit with Earth-radius fallback.
+    ///
+    /// Falls back to `6371 / radius_px` when no explicit/derived/scene mapping exists.
+    pub fn km_per_world_unit_or_earth(&self, scene_meters_per_world_unit: Option<f64>) -> f64 {
+        self.km_per_world_unit(scene_meters_per_world_unit)
+            .unwrap_or_else(|| 6371.0 / self.radius_px.max(1.0))
+    }
+
+    /// Resolve physical body radius in kilometers.
+    pub fn resolved_radius_km(&self, scene_meters_per_world_unit: Option<f64>) -> Option<f64> {
+        self.radius_km.or_else(|| {
+            self.km_per_world_unit(scene_meters_per_world_unit)
+                .map(|v| self.radius_px * v)
+        })
+    }
+
+    /// Resolve atmosphere top altitude in kilometers above the surface.
+    pub fn resolved_atmosphere_top_km(
+        &self,
+        scene_meters_per_world_unit: Option<f64>,
+    ) -> Option<f64> {
+        self.atmosphere_top_km.or_else(|| {
+            self.atmosphere_top.and_then(|top| {
+                self.km_per_world_unit(scene_meters_per_world_unit)
+                    .map(|v| top * v)
+            })
+        })
+    }
+
+    /// Resolve dense atmosphere start altitude in kilometers above the surface.
+    pub fn resolved_atmosphere_dense_start_km(
+        &self,
+        scene_meters_per_world_unit: Option<f64>,
+    ) -> Option<f64> {
+        self.atmosphere_dense_start_km.or_else(|| {
+            self.atmosphere_dense_start.and_then(|top| {
+                self.km_per_world_unit(scene_meters_per_world_unit)
+                    .map(|v| top * v)
+            })
+        })
+    }
+
+    /// Resolve gravitational parameter in world-unit^3/s^2.
+    ///
+    /// If physical `gravity-mu-km3-s2` is authored and km/world-unit can be resolved,
+    /// it takes precedence. Otherwise falls back to `gravity_mu`.
+    pub fn resolved_gravity_mu_world_units(&self, scene_meters_per_world_unit: Option<f64>) -> f64 {
+        if let Some(mu_km3_s2) = self.gravity_mu_km3_s2 {
+            if let Some(km_per_world_unit) = self.km_per_world_unit(scene_meters_per_world_unit) {
+                let denom = km_per_world_unit.max(f64::MIN_POSITIVE).powi(3);
+                return mu_km3_s2 / denom;
+            }
+        }
+        self.gravity_mu
+    }
+
+    /// Orbit angle in radians for `elapsed_sec` in this body's local orbit frame.
+    ///
+    /// `0 rad` points to +X direction.
+    pub fn orbit_angle_rad(&self, elapsed_sec: f64) -> f64 {
+        let base = self.orbit_phase_deg.to_radians();
+        if self.orbit_period_sec.abs() <= f64::EPSILON {
+            return base;
+        }
+        let omega = std::f64::consts::TAU / self.orbit_period_sec;
+        base + elapsed_sec * omega
+    }
+
+    /// Local orbital offset from parent center at `elapsed_sec`.
+    pub fn orbit_offset(&self, elapsed_sec: f64) -> (f64, f64) {
+        if self.orbit_radius.abs() <= f64::EPSILON {
+            return (0.0, 0.0);
+        }
+        let a = self.orbit_angle_rad(elapsed_sec);
+        (self.orbit_radius * a.cos(), self.orbit_radius * a.sin())
+    }
 }
 
 impl Default for BodyDef {
@@ -513,6 +619,7 @@ impl Default for BodyDef {
             radius_km: None,
             km_per_px: None,
             gravity_mu: 0.0,
+            gravity_mu_km3_s2: None,
             surface_radius: Self::default_surface_radius(),
             atmosphere_top: None,
             atmosphere_dense_start: None,
@@ -578,6 +685,46 @@ impl CelestialCatalogs {
         )?;
 
         Ok(catalogs)
+    }
+
+    /// Resolve world-space body center at `elapsed_sec`, including parent orbits.
+    ///
+    /// Returns `None` when body id is not found or parent chain is cyclic/invalid.
+    pub fn body_world_position(&self, body_id: &str, elapsed_sec: f64) -> Option<(f64, f64)> {
+        fn resolve(
+            catalogs: &CelestialCatalogs,
+            body_id: &str,
+            elapsed_sec: f64,
+            visited: &mut std::collections::HashSet<String>,
+        ) -> Option<(f64, f64)> {
+            if !visited.insert(body_id.to_string()) {
+                return None;
+            }
+            let body = catalogs.bodies.get(body_id)?;
+            let local_center = (body.center_x, body.center_y);
+            let local_offset = body.orbit_offset(elapsed_sec);
+            let world_center = if let Some(parent_id) = body.parent.as_deref() {
+                let parent_center = resolve(catalogs, parent_id, elapsed_sec, visited)?;
+                (
+                    parent_center.0 + local_offset.0,
+                    parent_center.1 + local_offset.1,
+                )
+            } else {
+                (
+                    local_center.0 + local_offset.0,
+                    local_center.1 + local_offset.1,
+                )
+            };
+            visited.remove(body_id);
+            Some(world_center)
+        }
+
+        resolve(
+            self,
+            body_id,
+            elapsed_sec,
+            &mut std::collections::HashSet::new(),
+        )
     }
 }
 
@@ -829,5 +976,136 @@ routes:
                 ..BodyDef::default()
             })
         );
+    }
+
+    #[test]
+    fn body_resolvers_use_expected_priority_order() {
+        let body = BodyDef {
+            km_per_px: Some(42.0),
+            radius_km: Some(1111.0),
+            radius_px: 100.0,
+            atmosphere_top: Some(8.0),
+            atmosphere_dense_start: Some(3.0),
+            ..BodyDef::default()
+        };
+        assert_eq!(body.km_per_world_unit(Some(2000.0)), Some(42.0));
+        assert_eq!(body.resolved_radius_km(Some(2000.0)), Some(1111.0));
+        assert_eq!(body.resolved_atmosphere_top_km(Some(2000.0)), Some(336.0));
+        assert_eq!(
+            body.resolved_atmosphere_dense_start_km(Some(2000.0)),
+            Some(126.0)
+        );
+    }
+
+    #[test]
+    fn scene_spatial_scale_is_used_when_body_km_values_are_missing() {
+        let body = BodyDef {
+            radius_px: 100.0,
+            atmosphere_top: Some(10.0),
+            ..BodyDef::default()
+        };
+        assert_eq!(body.km_per_world_unit(None), None);
+        assert_eq!(body.km_per_world_unit(Some(1.0)), None);
+        assert_eq!(body.km_per_world_unit(Some(2000.0)), Some(2.0));
+        assert_eq!(body.resolved_radius_km(Some(2000.0)), Some(200.0));
+        assert_eq!(body.resolved_atmosphere_top_km(Some(2000.0)), Some(20.0));
+    }
+
+    #[test]
+    fn resolved_gravity_mu_prefers_physical_value_when_scale_is_known() {
+        let body = BodyDef {
+            gravity_mu: 123.0,
+            gravity_mu_km3_s2: Some(1000.0),
+            km_per_px: Some(2.0),
+            ..BodyDef::default()
+        };
+        // 1 wu = 2 km => mu_wu = 1000 / (2^3) = 125
+        assert!((body.resolved_gravity_mu_world_units(None) - 125.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn resolved_gravity_mu_uses_scene_scale_when_body_km_mapping_is_missing() {
+        let body = BodyDef {
+            gravity_mu: 11.0,
+            gravity_mu_km3_s2: Some(1000.0),
+            ..BodyDef::default()
+        };
+        // 2000 m / wu => 2 km / wu => mu_wu = 1000 / 8 = 125
+        assert!((body.resolved_gravity_mu_world_units(Some(2000.0)) - 125.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn km_per_world_unit_or_earth_uses_earth_radius_fallback() {
+        let body = BodyDef {
+            radius_px: 100.0,
+            ..BodyDef::default()
+        };
+        assert!((body.km_per_world_unit_or_earth(None) - 63.71).abs() < 0.00001);
+    }
+
+    #[test]
+    fn body_world_position_resolves_parent_chain() {
+        let mut catalogs = CelestialCatalogs::default();
+        catalogs.bodies.insert(
+            "star".into(),
+            BodyDef {
+                center_x: 100.0,
+                center_y: 200.0,
+                ..BodyDef::default()
+            },
+        );
+        catalogs.bodies.insert(
+            "planet".into(),
+            BodyDef {
+                parent: Some("star".into()),
+                orbit_radius: 10.0,
+                orbit_period_sec: 100.0,
+                orbit_phase_deg: 0.0,
+                ..BodyDef::default()
+            },
+        );
+        catalogs.bodies.insert(
+            "moon".into(),
+            BodyDef {
+                parent: Some("planet".into()),
+                orbit_radius: 2.0,
+                orbit_period_sec: 50.0,
+                orbit_phase_deg: 90.0,
+                ..BodyDef::default()
+            },
+        );
+
+        let (px, py) = catalogs
+            .body_world_position("planet", 0.0)
+            .expect("planet position");
+        assert!((px - 110.0).abs() < 0.0001);
+        assert!((py - 200.0).abs() < 0.0001);
+
+        let (mx, my) = catalogs
+            .body_world_position("moon", 0.0)
+            .expect("moon position");
+        assert!((mx - 110.0).abs() < 0.0001);
+        assert!((my - 202.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn body_world_position_detects_parent_cycles() {
+        let mut catalogs = CelestialCatalogs::default();
+        catalogs.bodies.insert(
+            "a".into(),
+            BodyDef {
+                parent: Some("b".into()),
+                ..BodyDef::default()
+            },
+        );
+        catalogs.bodies.insert(
+            "b".into(),
+            BodyDef {
+                parent: Some("a".into()),
+                ..BodyDef::default()
+            },
+        );
+
+        assert_eq!(catalogs.body_world_position("a", 0.0), None);
     }
 }

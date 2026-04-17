@@ -17,6 +17,7 @@ pub struct ScriptWorldContext {
     pub collision_enters: Arc<Vec<CollisionHit>>,
     pub collision_stays: Arc<Vec<CollisionHit>>,
     pub collision_exits: Arc<Vec<CollisionHit>>,
+    pub spatial_meters_per_world_unit: Option<f64>,
     pub queue: CommandQueue,
 }
 
@@ -27,6 +28,7 @@ impl ScriptWorldContext {
         collision_enters: Arc<Vec<CollisionHit>>,
         collision_stays: Arc<Vec<CollisionHit>>,
         collision_exits: Arc<Vec<CollisionHit>>,
+        spatial_meters_per_world_unit: Option<f64>,
         queue: CommandQueue,
     ) -> Self {
         Self {
@@ -35,6 +37,7 @@ impl ScriptWorldContext {
             collision_enters,
             collision_stays,
             collision_exits,
+            spatial_meters_per_world_unit,
             queue,
         }
     }

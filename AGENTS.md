@@ -9,6 +9,7 @@
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repository structure, dependency graph, per-frame systems, strategy pattern, scene model, buffer architecture, SDL2 pixel rendering, timeline system, input system, logging, schema system, editor design, change playbook
 - **[AUTHORING.md](AUTHORING.md)** — Metadata-first approach, mod structure, asset system, sprite types, scene contract, PostFX pipeline, OBJ lighting, terminal HUD, Rhai scripting, compilation pipeline, author checklist, daily workflow
 - **[MODS.md](MODS.md)** — Bundled playground, worldgen, GUI, and gameplay mods; mod structure and launch patterns
+- **[UNITS.md](UNITS.md)** — Unified units contract (`screen_px`, `virtual_px`, `world_units`, `m/km`)
 - **[BENCHMARKING.md](BENCHMARKING.md)** — Quick start, optimization flags, benchmark targets, frame capture regression testing, benchmark scenarios and reports
 - **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — CLI flags, strategy pattern, 20 optimization implementations, summary stats, key invariants, usage examples
 

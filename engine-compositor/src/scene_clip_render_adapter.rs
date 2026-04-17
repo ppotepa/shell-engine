@@ -89,4 +89,3 @@ pub(crate) fn render_scene_clip_sprite(
         }
     }
 }
-

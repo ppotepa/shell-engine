@@ -12,6 +12,7 @@ use engine_core::scene::{Layer, Sprite};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use engine_core::spatial::SpatialContext;
 use engine_render_2d::{
     compute_flex_cells, compute_grid_cells, dim_colour, image_sprite_dimensions,
     intersect_clip_rect, measure_sprite_for_layout, push_vector_primitive,
@@ -151,6 +152,7 @@ pub(crate) fn render_sprites<'a>(
     elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
     scene_camera_3d: &SceneCamera3D,
+    spatial_context: SpatialContext,
     celestial_catalogs: Option<&CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
@@ -167,6 +169,7 @@ pub(crate) fn render_sprites<'a>(
         layer_buf,
         obj_camera_states,
         scene_camera_3d,
+        spatial_context,
         celestial_catalogs,
         is_pixel_backend,
         default_font,
@@ -346,7 +349,8 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
-            #[cfg(feature = "render-3d")] render_3d,
+            #[cfg(feature = "render-3d")]
+            render_3d,
         ),
         Sprite::Grid { .. } => render_grid_sprite(
             sprite,
@@ -362,7 +366,8 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
-            #[cfg(feature = "render-3d")] render_3d,
+            #[cfg(feature = "render-3d")]
+            render_3d,
         ),
         Sprite::Flex { .. } => render_flex_sprite(
             sprite,
@@ -378,7 +383,8 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
-            #[cfg(feature = "render-3d")] render_3d,
+            #[cfg(feature = "render-3d")]
+            render_3d,
         ),
         Sprite::Obj { .. } | Sprite::Planet { .. } | Sprite::Scene3D { .. } => {}
     }
@@ -931,7 +937,8 @@ fn render_panel_sprite(
             object_regions,
             object_states,
             ctx,
-            #[cfg(feature = "render-3d")] render_3d,
+            #[cfg(feature = "render-3d")]
+            render_3d,
         );
         sprite_path.pop();
     }
@@ -1045,7 +1052,8 @@ fn render_grid_sprite(
                 object_regions,
                 object_states,
                 ctx,
-                #[cfg(feature = "render-3d")] render_3d,
+                #[cfg(feature = "render-3d")]
+                render_3d,
             );
         },
     );
@@ -1155,7 +1163,8 @@ fn render_flex_sprite(
                 object_regions,
                 object_states,
                 ctx,
-                #[cfg(feature = "render-3d")] render_3d,
+                #[cfg(feature = "render-3d")]
+                render_3d,
             );
         },
     );

@@ -1,0 +1,23 @@
+id: asteroids-bench-cloud
+title: Asteroids Cloud Bench
+bg: "#000000"
+celestial:
+  scope: local
+  region: asteroids-sector
+  system: asteroids-sim
+  focus-body: main-planet
+  focus-site: main-orbit
+  frame: focus-relative
+  clock-source: scene
+layers:
+  - ref: bench-cloud/layers/planet-bench-layer.yml
+input:
+  free-look-camera: {}
+stages:
+  on_enter:
+    steps:
+      - { duration: 1 }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 16ms

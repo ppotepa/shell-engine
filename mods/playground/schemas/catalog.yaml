@@ -1,4 +1,4 @@
-﻿$schema: https://json-schema.org/draft/2020-12/schema
+$schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-engine.local/mods/playground/schemas/catalog.yaml
 title: schema playground catalog
 $defs:

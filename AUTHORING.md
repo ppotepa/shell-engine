@@ -58,6 +58,21 @@ Layers can override that default with `space: inherit | 2d | 3d | screen`.
 - `3d` ignores the 2D camera and is intended for OBJ / Scene3D content.
 - `screen` is fixed HUD space.
 
+Scenes can also declare an optional `spatial:` block to set shared world-unit
+scale and axis policy for runtime systems:
+
+```yaml
+spatial:
+  meters-per-world-unit: 50.0
+  virtual-pixels-per-world-unit: 8.0
+  handedness: right
+  up-axis: y
+```
+
+- `meters-per-world-unit` defines physical scale for `world_units -> meters`.
+- `virtual-pixels-per-world-unit` is an optional 2D projection helper.
+- `handedness` / `up-axis` define the scene's world-space axis convention.
+
 OBJ, `planet`, and `scene3_d` sprites can opt into the shared scene camera with `camera-source: scene`. The default remains `camera-source: local`, which preserves authored per-sprite camera values.
 
 Scenes can also bind themselves to a celestial scope:

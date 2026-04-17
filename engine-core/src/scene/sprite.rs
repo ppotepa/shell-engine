@@ -348,7 +348,7 @@ pub enum Sprite {
     /// # Architecture note
     /// Do not add new rendering fields here. New 3D capabilities must go through
     /// the typed `Node3D` scene graph in `engine-render-3d` instead of growing
-    /// this variant. See `3drefactor.md` § Definition of Done.
+    /// this variant. See root `ARCHITECTURE.md` crate-boundary rules.
     Obj {
         #[serde(default)]
         id: Option<String>,

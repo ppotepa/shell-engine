@@ -614,6 +614,7 @@ mod tests {
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
             gui: Default::default(),
+            spatial: Default::default(),
         }
     }
 
@@ -640,6 +641,7 @@ mod tests {
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
             gui: Default::default(),
+            spatial: Default::default(),
         }
     }
 

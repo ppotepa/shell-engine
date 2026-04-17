@@ -68,6 +68,7 @@ pub fn compositor_system(world: &mut World) {
         camera_x,
         camera_y,
         camera_zoom,
+        spatial_context,
     ) = {
         // Get both Arc snapshots first (requires &mut)
         let (object_states, obj_camera_states) = world
@@ -120,6 +121,10 @@ pub fn compositor_system(world: &mut World) {
             .scene_runtime()
             .map(|rt| rt.camera_zoom())
             .unwrap_or(1.0);
+        let spatial_context = world
+            .scene_runtime()
+            .map(|rt| rt.spatial_context())
+            .unwrap_or_default();
         let scene_camera_3d = world
             .scene_runtime()
             .map(|rt| rt.scene_camera_3d())
@@ -142,6 +147,7 @@ pub fn compositor_system(world: &mut World) {
             camera_x,
             camera_y,
             camera_zoom,
+            spatial_context,
         )
     };
 
@@ -165,7 +171,11 @@ pub fn compositor_system(world: &mut World) {
     let prerender_frames_ptr: *const ObjPrerenderedFrames = world
         .get::<ObjPrerenderStatus>()
         .filter(|status| matches!(status, ObjPrerenderStatus::Ready))
-        .and_then(|_| world.get::<ObjPrerenderedFrames>().map(|frames| frames as *const _))
+        .and_then(|_| {
+            world
+                .get::<ObjPrerenderedFrames>()
+                .map(|frames| frames as *const _)
+        })
         .unwrap_or(std::ptr::null());
     // SAFETY: ObjPrerenderedFrames is a singleton world resource that can be read for this
     // frame without aliasing the mutable Buffer borrow. See comments on other resource pointers.
@@ -246,6 +256,7 @@ pub fn compositor_system(world: &mut World) {
                 camera_x,
                 camera_y,
                 camera_zoom,
+                spatial_context,
             },
             target_resolver: target_resolver.as_ref(),
             object_states: &object_states,

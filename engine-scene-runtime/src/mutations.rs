@@ -324,29 +324,22 @@ pub enum SceneMutation {
     SetCamera2D(SetCamera2DMutation),
     SetCamera3D(Camera3DState),
     SetRender3D(Render3DMutation),
-    SpawnObject { template: String, target: String },
-    DespawnObject { target: String },
+    SpawnObject {
+        template: String,
+        target: String,
+    },
+    DespawnObject {
+        target: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SetSpritePropertyMutation {
-    Heading {
-        heading: f32,
-    },
-    TextFont {
-        font: String,
-    },
-    TextColour {
-        fg: bool,
-        value: JsonValue,
-    },
-    VectorProperty {
-        path: String,
-        value: JsonValue,
-    },
-    ImageFrame {
-        frame_index: u16,
-    },
+    Heading { heading: f32 },
+    TextFont { font: String },
+    TextColour { fg: bool, value: JsonValue },
+    VectorProperty { path: String, value: JsonValue },
+    ImageFrame { frame_index: u16 },
 }
 
 #[cfg(test)]

@@ -34,6 +34,8 @@ pub mod scene;
 /// Pure data types shared between scene runtime and behavior system.
 /// Includes TargetResolver, ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState.
 pub mod scene_runtime_types;
+/// Shared spatial model: coordinate spaces, unit scale, and conversion helpers.
+pub mod spatial;
 /// Render pipeline strategy traits and default implementations.
 pub mod strategy;
 /// Type-erased resource container (World) for engine ECS.
