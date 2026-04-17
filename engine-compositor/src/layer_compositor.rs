@@ -11,6 +11,7 @@ use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
 use engine_pipeline::LayerCompositor;
+use crate::ObjPrerenderedFrames;
 use engine_render_2d::{Render2dInput, Render2dPipeline};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -31,6 +32,7 @@ pub struct PreparedLayerRenderInputs<'a> {
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+    pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 
 /// Prepared layer/frame state consumed by compositor assembly.
@@ -86,6 +88,7 @@ pub fn composite_layers(
         obj_camera_states,
         scene_camera_3d,
         celestial_catalogs,
+        inputs.render.prerender_frames,
     );
     let render_2d_pipeline: &dyn Render2dPipeline = resolved_render_pipeline.pipeline();
 

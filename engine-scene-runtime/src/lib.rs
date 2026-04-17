@@ -49,7 +49,7 @@ use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 pub use mutations::{
     Render3DCompatProperty, Render3DMutation, SceneMutation, Set2DPropsMutation,
-    SetCamera2DMutation,
+    SetCamera2DMutation, SetSpritePropertyMutation,
 };
 pub use render3d_state::{scene_mutation_from_set_property_3d, Render3dRebuildDiagnostics};
 pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
@@ -516,9 +516,11 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[BehaviorCommand::SceneSpawn {
-                template: "rock-template".to_string(),
-                target: "rock-live".to_string(),
+            &[BehaviorCommand::ApplySceneMutation {
+                request: engine_api::scene::SceneMutationRequest::SpawnObject {
+                    template: "rock-template".to_string(),
+                    target: "rock-live".to_string(),
+                },
             }],
         );
 
@@ -631,9 +633,11 @@ layers:
             let resolver = runtime.target_resolver();
             runtime.apply_behavior_commands(
                 &resolver,
-                &[BehaviorCommand::SceneSpawn {
-                    template: "rock-template".to_string(),
-                    target: "rock-live".to_string(),
+                &[BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::scene::SceneMutationRequest::SpawnObject {
+                        template: "rock-template".to_string(),
+                        target: "rock-live".to_string(),
+                    },
                 }],
             );
             assert!(runtime
@@ -653,8 +657,10 @@ layers:
             let resolver = runtime.target_resolver();
             runtime.apply_behavior_commands(
                 &resolver,
-                &[BehaviorCommand::SceneDespawn {
-                    target: "rock-live".to_string(),
+                &[BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::scene::SceneMutationRequest::DespawnObject {
+                        target: "rock-live".to_string(),
+                    },
                 }],
             );
             assert!(runtime
@@ -702,13 +708,17 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                BehaviorCommand::SceneSpawn {
-                    template: "ship-template".to_string(),
-                    target: "ship-1".to_string(),
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::scene::SceneMutationRequest::SpawnObject {
+                        template: "ship-template".to_string(),
+                        target: "ship-1".to_string(),
+                    },
                 },
-                BehaviorCommand::SceneSpawn {
-                    template: "fx-template".to_string(),
-                    target: "fx-1".to_string(),
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::scene::SceneMutationRequest::SpawnObject {
+                        template: "fx-template".to_string(),
+                        target: "fx-1".to_string(),
+                    },
                 },
             ],
         );
@@ -748,8 +758,10 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[BehaviorCommand::SceneDespawn {
-                target: "fx-1".to_string(),
+            &[BehaviorCommand::ApplySceneMutation {
+                request: engine_api::scene::SceneMutationRequest::DespawnObject {
+                    target: "fx-1".to_string(),
+                },
             }],
         );
 
@@ -980,8 +992,8 @@ layers:
                     request: SceneMutationRequest::SetRender3d(
                         Render3dMutationRequest::SetWorldParam {
                             target: "helsinki-uni-wireframe".to_string(),
-                            name: "obj.world.x".to_string(),
-                            value: serde_json::json!(2.5),
+                            name: "world.seed".to_string(),
+                            value: serde_json::json!(99),
                         },
                     ),
                 },
@@ -1002,8 +1014,8 @@ layers:
             &resolver,
             &[BehaviorCommand::SetProperty {
                 target: "helsinki-uni-wireframe".to_string(),
-                path: "obj.world.x".to_string(),
-                value: serde_json::json!(2.5),
+                path: "world.seed".to_string(),
+                value: serde_json::json!(7),
             }],
         );
 

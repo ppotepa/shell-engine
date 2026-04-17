@@ -40,14 +40,7 @@ const SURFACE_MODE_OPTIONS: &[&str] = &["material", "wireframe"];
 const CEL_LEVEL_OPTIONS: &[&str] = &["0", "1", "2", "3", "4", "5", "6", "7", "8"];
 const FLEX_DIRECTION_OPTIONS: &[&str] = &["column", "row"];
 const FORCE_FONT_MODE_OPTIONS: &[&str] = &[
-    "ascii",
-    "raster",
-    "1",
-    "2",
-    "3",
-    "tiny",
-    "standard",
-    "large",
+    "ascii", "raster", "1", "2", "3", "tiny", "standard", "large",
 ];
 
 /// Field metadata for scene-level properties.

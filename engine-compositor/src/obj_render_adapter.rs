@@ -1,4 +1,5 @@
-use crate::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered, ObjRenderParams};
+use engine_render_3d::raster::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered};
+use engine_render_3d::ObjRenderParams;
 use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::CameraSource;
@@ -180,6 +181,7 @@ pub(crate) fn render_obj_sprite(
     let clip_max = clip_y_max.unwrap_or(1.0);
     if let Some(sid) = sprite_id_opt {
         if try_blit_prerendered(
+            ctx.prerender_frames,
             sid,
             live_total_yaw,
             current_pitch,

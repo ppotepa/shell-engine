@@ -1,8 +1,8 @@
 //! Editor entry point — SDL2 editor is not yet implemented.
 //! The terminal TUI has been removed; an SDL2-based editor is planned.
 
-use anyhow::Result;
 use crate::cli::Cli;
+use anyhow::Result;
 
 pub fn run(_cli: Cli) -> Result<()> {
     eprintln!("The SDL2 editor is not yet implemented.");

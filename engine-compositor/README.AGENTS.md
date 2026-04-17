@@ -7,7 +7,7 @@ resources it needs from `World`. It contains:
 
 - compositor dispatch,
 - layer traversal and sprite rendering,
-- text/image/OBJ/Scene3D drawing helpers,
+- text/image/OBJ/Scene3D drawing adapters,
 - layout helpers for panel/grid/flex content,
 - PostFX passes,
 - OBJ warmup and prerender helpers,
@@ -20,10 +20,10 @@ The engine-side compositor system should stay a thin wrapper around this crate.
 - `compositor.rs` — `dispatch_composite()` entry point
 - `layer_compositor.rs` / `sprite_renderer.rs` — layer traversal and sprite drawing
 - `text_render.rs`, `image_render.rs`, `obj_render.rs` — per-sprite-type rendering
-- `obj_loader.rs` — OBJ parsing, `mesh_to_obj_mesh()` conversion, `cube-sphere://N` URI handling
+- `engine-asset::mesh_assets` — OBJ parsing, mesh conversion, procedural URI handling (`cube-sphere://N`, etc.)
 - `layout/` — measurement and placement helpers
 - `systems/postfx/` — compiled PostFX pass execution
-- `prerender.rs`, `scene3d_prerender.rs`, `warmup.rs` — scene preparation helpers
+- `prerender.rs`, `warmup.rs` — scene preparation helpers
 
 ## Procedural mesh URIs
 
@@ -34,7 +34,7 @@ falling back to file loading. Currently supported:
 |-----|-----------|---------|
 | `cube-sphere://N` | `engine_mesh::primitives::cube_sphere(N)` | `cube-sphere://64` |
 
-Meshes generated this way are converted via `obj_loader::mesh_to_obj_mesh` and
+Meshes generated this way are converted via `engine_asset::mesh_to_obj_mesh` and
 cached in `OBJ_MESH_CACHE` under the URI string. To add a new scheme, add a
 branch in `get_or_load_obj_mesh` before the file-load fallback.
 

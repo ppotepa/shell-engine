@@ -2,7 +2,7 @@ use engine_api::scene::{Camera3dMutationRequest, Render3dMutationRequest, SceneM
 use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
-use crate::render3d_state::{material_value_from_json, render3d_compat_property_from_param};
+use crate::render3d_state::{material_value_from_json, scene_mutation_from_set_property_3d};
 use crate::{
     Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
     SetSpritePropertyMutation,
@@ -128,20 +128,26 @@ pub fn render3d_mutation_from_request(
             target,
             name,
             value,
-        } => Some(Render3DMutation::SetMaterialParam {
-            target: target.clone(),
-            param: name.clone(),
-            value: material_value_from_json(value)?,
-        }),
+        } => {
+            use crate::mutations::ObjMaterialParam;
+            let full_path = format!("obj.{}", name);
+            let param = ObjMaterialParam::from_full_path(&full_path)?;
+            Some(Render3DMutation::SetObjMaterialParam {
+                target: target.clone(),
+                param,
+                value: material_value_from_json(value)?,
+            })
+        }
         Render3dMutationRequest::SetAtmosphereParam {
             target,
             name,
             value,
         } => {
-            let param = name.strip_prefix("obj.atmo.").unwrap_or(name.as_str());
-            Some(Render3DMutation::SetAtmosphereParam {
+            use crate::mutations::AtmosphereParam;
+            let param = AtmosphereParam::from_full_path(name)?;
+            Some(Render3DMutation::SetAtmosphereParamTyped {
                 target: target.clone(),
-                param: param.to_string(),
+                param,
                 value: material_value_from_json(value)?,
             })
         }
@@ -150,52 +156,15 @@ pub fn render3d_mutation_from_request(
             name,
             value,
         } => {
-            let value = material_value_from_json(value)?;
-            if let Some(property) = render3d_compat_property_from_param(name, value.clone()) {
-                Some(Render3DMutation::SetCompatProperty {
-                    target: target.clone(),
-                    property,
-                })
-            } else if name.starts_with("obj.atmo.") {
-                let param = name.strip_prefix("obj.atmo.").unwrap_or(name.as_str());
-                Some(Render3DMutation::SetAtmosphereParam {
-                    target: target.clone(),
-                    param: param.to_string(),
-                    value,
-                })
-            } else if name.starts_with("obj.") {
-                let obj_param = name.strip_prefix("obj.").unwrap_or(name.as_str());
-                if obj_param.starts_with("world.") || obj_param.starts_with("terrain.") {
-                    Some(Render3DMutation::SetWorldgenParam {
-                        target: target.clone(),
-                        param: name.clone(),
-                        value,
-                    })
-                } else {
-                    Some(Render3DMutation::SetMaterialParam {
-                        target: target.clone(),
-                        param: obj_param.to_string(),
-                        value,
-                    })
-                }
-            } else if name.starts_with("planet.") {
-                Some(Render3DMutation::SetMaterialParam {
-                    target: target.clone(),
-                    param: name.clone(),
-                    value,
-                })
-            } else {
-                Some(Render3DMutation::SetWorldgenParam {
-                    target: target.clone(),
-                    param: name.clone(),
-                    value,
-                })
+            match scene_mutation_from_set_property_3d(target, name, value)? {
+                crate::SceneMutation::SetRender3D(m) => Some(m),
+                _ => None,
             }
         }
         Render3dMutationRequest::SetSurfaceMode { target, mode } => {
-            Some(Render3DMutation::SetMaterialParam {
+            Some(Render3DMutation::SetObjMaterialParam {
                 target: target.clone(),
-                param: "surface_mode".to_string(),
+                param: crate::mutations::ObjMaterialParam::SurfaceMode,
                 value: MaterialValue::Text(mode.clone()),
             })
         }
@@ -236,21 +205,21 @@ mod tests {
     fn maps_render_request_to_worldgen_mutation() {
         let request = Render3dMutationRequest::SetWorldParam {
             target: "planet-main".to_string(),
-            name: "seed".to_string(),
+            name: "world.seed".to_string(),
             value: serde_json::json!(42),
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetWorldgenParam {
+            Render3DMutation::SetWorldgenParamTyped {
                 target,
                 param,
                 value,
             } => {
                 assert_eq!(target, "planet-main");
-                assert_eq!(param, "seed");
+                assert_eq!(param, crate::mutations::WorldgenParam::Seed);
                 assert_eq!(value, MaterialValue::Scalar(42.0));
             }
-            _ => panic!("expected SetWorldgenParam"),
+            _ => panic!("expected SetWorldgenParamTyped"),
         }
     }
 
@@ -263,12 +232,12 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetMaterialParam { target, param, value } => {
+            Render3DMutation::SetObjMaterialParam { target, param, value } => {
                 assert_eq!(target, "planet-main");
-                assert_eq!(param, "scale");
+                assert_eq!(param, crate::mutations::ObjMaterialParam::Scale);
                 assert_eq!(value, MaterialValue::Scalar(1.25));
             }
-            _ => panic!("expected SetMaterialParam"),
+            _ => panic!("expected SetObjMaterialParam"),
         }
     }
 
@@ -306,16 +275,16 @@ mod tests {
         )
         .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
+            SceneMutation::SetRender3D(Render3DMutation::SetPlanetParamTyped {
                 target,
                 param,
                 value,
             }) => {
                 assert_eq!(target, "planet-view");
-                assert_eq!(param, "planet.spin_deg");
+                assert_eq!(param, crate::mutations::PlanetParam::SpinDeg);
                 assert_eq!(value, MaterialValue::Scalar(15.0));
             }
-            _ => panic!("expected SetMaterialParam"),
+            _ => panic!("expected SetPlanetParamTyped"),
         }
     }
 

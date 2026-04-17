@@ -3,9 +3,9 @@
 //! Reads and validates `mod.yaml` from a directory or `.zip` archive, and provides
 //! the pre-run startup check framework.
 
+pub mod display_config;
 pub mod output_backend;
 pub mod startup;
-pub mod display_config;
 
 use std::{
     fs,

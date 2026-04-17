@@ -1,14 +1,10 @@
-use engine_core::assets::AssetRoot;
-use engine_core::buffer::Buffer;
-use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene_runtime_types::ObjectRuntimeState;
 use engine_render::rasterizer::blit;
 use engine_render_2d::RenderArea;
 use engine_render_3d::pipeline::SceneClipSpriteSpec;
 use engine_render_3d::prerender::{
-    render_scene3d_frame_at_with, render_work_item_buffer_with, Scene3DAtlas, Scene3DWorkItem,
-    Scene3DRuntimeStore,
+    render_scene3d_frame_at_with, render_scene3d_work_item, Scene3DAtlas, Scene3DRuntimeStore,
 };
 use engine_render_3d::scene::Renderable3D;
 use std::collections::HashMap;
@@ -94,29 +90,3 @@ pub(crate) fn render_scene_clip_sprite(
     }
 }
 
-pub fn render_scene3d_work_item(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
-    render_work_item_buffer_with(
-        item,
-        asset_root,
-        crate::obj_render::virtual_dimensions,
-        crate::obj_render::render_obj_to_shared_buffers,
-        |buf, canvas, viewport_w, viewport_h| {
-            crate::obj_render::blit_color_canvas(
-                buf,
-                &canvas.colors,
-                canvas.virtual_w,
-                canvas.virtual_h,
-                viewport_w,
-                viewport_h,
-                0,
-                0,
-                false,
-                '#',
-                Color::White,
-                Color::Reset,
-                0,
-                canvas.virtual_h as usize,
-            );
-        },
-    )
-}

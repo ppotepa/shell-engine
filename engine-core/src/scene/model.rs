@@ -366,14 +366,30 @@ impl SceneInput {
     }
 }
 
-fn default_orbit_pitch() -> f32 { -30.0 }
-fn default_orbit_distance() -> f32 { 3.0 }
-fn default_orbit_pitch_min() -> f32 { -85.0 }
-fn default_orbit_pitch_max() -> f32 { -5.0 }
-fn default_orbit_distance_min() -> f32 { 0.5 }
-fn default_orbit_distance_max() -> f32 { 8.0 }
-fn default_orbit_distance_step() -> f32 { 0.25 }
-fn default_orbit_drag_sensitivity() -> f32 { 0.5 }
+fn default_orbit_pitch() -> f32 {
+    -30.0
+}
+fn default_orbit_distance() -> f32 {
+    3.0
+}
+fn default_orbit_pitch_min() -> f32 {
+    -85.0
+}
+fn default_orbit_pitch_max() -> f32 {
+    -5.0
+}
+fn default_orbit_distance_min() -> f32 {
+    0.5
+}
+fn default_orbit_distance_max() -> f32 {
+    8.0
+}
+fn default_orbit_distance_step() -> f32 {
+    0.25
+}
+fn default_orbit_drag_sensitivity() -> f32 {
+    0.5
+}
 
 /// Declarative orbit-camera controls for a single OBJ sprite target.
 ///
@@ -408,7 +424,10 @@ pub struct ObjOrbitCameraControls {
     #[serde(default = "default_orbit_distance_step", rename = "distance-step")]
     pub distance_step: f32,
     /// Mouse drag sensitivity — degrees per pixel (default: 0.5).
-    #[serde(default = "default_orbit_drag_sensitivity", rename = "drag-sensitivity")]
+    #[serde(
+        default = "default_orbit_drag_sensitivity",
+        rename = "drag-sensitivity"
+    )]
     pub drag_sensitivity: f32,
 }
 
@@ -763,9 +782,15 @@ pub enum SceneGuiWidgetDef {
     },
 }
 
-fn default_slider_w() -> i32 { 120 }
-fn default_slider_h() -> i32 { 12 }
-fn default_slider_max() -> f64 { 1.0 }
+fn default_slider_w() -> i32 {
+    120
+}
+fn default_slider_h() -> i32 {
+    12
+}
+fn default_slider_max() -> f64 {
+    1.0
+}
 
 impl Scene {
     /// Total duration of the on_enter stage in milliseconds.
@@ -777,7 +802,9 @@ impl Scene {
 
 #[cfg(test)]
 mod tests {
-    use super::{CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneSpace, UiPersistence};
+    use super::{
+        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneSpace, UiPersistence,
+    };
     use crate::scene::Stage;
 
     #[test]

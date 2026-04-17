@@ -46,13 +46,6 @@ pub enum BehaviorCommand {
     ApplySceneMutation {
         request: crate::scene::SceneMutationRequest,
     },
-    SceneSpawn {
-        template: String,
-        target: String,
-    },
-    SceneDespawn {
-        target: String,
-    },
     SceneTransition {
         to_scene_id: String,
     },
@@ -137,6 +130,39 @@ pub fn scene_mutation_request_from_set_property_compat(
             dx: None,
             dy: None,
             text: Some(value.as_str()?.to_string()),
+        }),
+        "transform.heading" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+            target: target.to_string(),
+            path: "transform.heading".to_string(),
+            value: value.clone(),
+        }),
+        "text.font" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+            target: target.to_string(),
+            path: "text.font".to_string(),
+            value: value.clone(),
+        }),
+        "style.fg" | "text.fg" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+            target: target.to_string(),
+            path: "style.fg".to_string(),
+            value: value.clone(),
+        }),
+        "style.bg" | "text.bg" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+            target: target.to_string(),
+            path: "style.bg".to_string(),
+            value: value.clone(),
+        }),
+        "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg" | "vector.bg"
+        | "style.border" | "style.shadow" => Some(
+            crate::scene::SceneMutationRequest::SetSpriteProperty {
+                target: target.to_string(),
+                path: path.to_string(),
+                value: value.clone(),
+            },
+        ),
+        "image.frame_index" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+            target: target.to_string(),
+            path: "image.frame_index".to_string(),
+            value: value.clone(),
         }),
         _ if is_render3d_compat_set_path(path) => {
             Some(crate::scene::SceneMutationRequest::SetRender3d(

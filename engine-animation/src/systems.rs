@@ -153,8 +153,7 @@ fn tick_animator_primitives(
 mod tests {
     use super::*;
     use engine_core::scene::{
-        Scene, SceneAudio, SceneInput, SceneStages, SceneUi, Stage,
-        StageTrigger, Step,
+        Scene, SceneAudio, SceneInput, SceneStages, SceneUi, Stage, StageTrigger, Step,
     };
 
     struct TestAnimatorProvider {

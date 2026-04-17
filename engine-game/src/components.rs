@@ -284,7 +284,14 @@ impl WrapBounds {
     }
 
     pub fn new_3d(min_x: f32, max_x: f32, min_y: f32, max_y: f32, min_z: f32, max_z: f32) -> Self {
-        Self { min_x, max_x, min_y, max_y, min_z, max_z }
+        Self {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            min_z,
+            max_z,
+        }
     }
 
     /// Wrap a single value in [min, max] toroidally.

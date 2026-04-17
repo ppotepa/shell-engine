@@ -30,6 +30,27 @@ use crate::scripting::ephemeral::{spawn_ephemeral_visual, EphemeralSpawn};
 use crate::scripting::physics::ScriptEntityPhysicsApi;
 use crate::{catalog, BehaviorCommand, EmitterState};
 
+fn queue_set_property_or_mutation(
+    queue: &mut Vec<BehaviorCommand>,
+    target: String,
+    path: String,
+    value: JsonValue,
+) {
+    if let Some(request) =
+        engine_api::commands::scene_mutation_request_from_set_property_compat(
+            &target, &path, &value,
+        )
+    {
+        queue.push(BehaviorCommand::ApplySceneMutation { request });
+    } else {
+        queue.push(BehaviorCommand::SetProperty {
+            target,
+            path,
+            value,
+        });
+    }
+}
+
 // ── Struct Definitions ───────────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -212,15 +233,17 @@ impl ScriptGameplayApi {
         let uid = id as u64;
         let tree_ids = world.despawn_tree_ids(uid);
         if let Ok(mut commands) = self.ctx.queue.lock() {
-            for tree_id in &tree_ids {
-                if let Some(binding) = world.visual(*tree_id) {
-                    for vid in binding.all_visual_ids() {
-                        commands.push(BehaviorCommand::SceneDespawn {
-                            target: vid.to_string(),
-                        });
+                    for tree_id in &tree_ids {
+                        if let Some(binding) = world.visual(*tree_id) {
+                            for vid in binding.all_visual_ids() {
+                                commands.push(BehaviorCommand::ApplySceneMutation {
+                                    request: SceneMutationRequest::DespawnObject {
+                                        target: vid.to_string(),
+                                    },
+                                });
+                            }
+                        }
                     }
-                }
-            }
         }
         world.despawn(uid)
     }
@@ -236,8 +259,10 @@ impl ScriptGameplayApi {
             for id in &all_ids {
                 if let Some(binding) = world.visual(*id) {
                     for vid in binding.all_visual_ids() {
-                        commands.push(BehaviorCommand::SceneDespawn {
-                            target: vid.to_string(),
+                        commands.push(BehaviorCommand::ApplySceneMutation {
+                            request: SceneMutationRequest::DespawnObject {
+                                target: vid.to_string(),
+                            },
                         });
                     }
                 }
@@ -835,7 +860,7 @@ impl ScriptGameplayApi {
         // Step 2: Generate visual_id (format: "{kind}-{entity_id}")
         let visual_id = format!("{}-{}", kind, entity_id);
 
-        // Step 3: Emit SceneSpawn command
+        // Step 3: Emit typed scene spawn mutation for the visual.
         {
             let mut commands = match self.ctx.queue.lock() {
                 Ok(cmds) => cmds,
@@ -844,9 +869,11 @@ impl ScriptGameplayApi {
                     return 0;
                 }
             };
-            commands.push(BehaviorCommand::SceneSpawn {
-                template: template.to_string(),
-                target: visual_id.clone(),
+            commands.push(BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SpawnObject {
+                    template: template.to_string(),
+                    target: visual_id.clone(),
+                },
             });
         }
 
@@ -2336,8 +2363,10 @@ impl ScriptGameplayApi {
                     if let Some(binding) = world.visual(oldest) {
                         if let Ok(mut q) = self.ctx.queue.lock() {
                             for vid in binding.all_visual_ids() {
-                                q.push(BehaviorCommand::SceneDespawn {
-                                    target: vid.to_string(),
+                                q.push(BehaviorCommand::ApplySceneMutation {
+                                    request: SceneMutationRequest::DespawnObject {
+                                        target: vid.to_string(),
+                                    },
                                 });
                             }
                         }
@@ -2388,20 +2417,22 @@ impl ScriptGameplayApi {
             if let Some(visual_id) = binding.visual_id {
                 if !resolved.fg.trim().is_empty() {
                     if let Ok(mut queue) = self.ctx.queue.lock() {
-                        queue.push(BehaviorCommand::SetProperty {
-                            target: visual_id.clone(),
-                            path: "style.fg".to_string(),
-                            value: JsonValue::from(resolved.fg.clone()),
-                        });
+                        queue_set_property_or_mutation(
+                            &mut queue,
+                            visual_id.clone(),
+                            "style.fg".to_string(),
+                            JsonValue::from(resolved.fg.clone()),
+                        );
                     }
                 }
                 if resolved.radius > 1 {
                     let points = vec![[0, 0], [resolved.radius as i32, 0]];
                     if let Ok(mut queue) = self.ctx.queue.lock() {
-                        queue.push(BehaviorCommand::SetProperty {
-                            target: visual_id,
-                            path: "vector.points".to_string(),
-                            value: JsonValue::Array(
+                        queue_set_property_or_mutation(
+                            &mut queue,
+                            visual_id,
+                            "vector.points".to_string(),
+                            JsonValue::Array(
                                 points
                                     .into_iter()
                                     .map(|[px, py]| {
@@ -2412,7 +2443,7 @@ impl ScriptGameplayApi {
                                     })
                                     .collect(),
                             ),
-                        });
+                        );
                     }
                 }
             }
@@ -2865,8 +2896,10 @@ impl ScriptGameplayEntityApi {
             for tree_id in &tree_ids {
                 if let Some(binding) = world.visual(*tree_id) {
                     for vid in binding.all_visual_ids() {
-                        commands.push(BehaviorCommand::SceneDespawn {
-                            target: vid.to_string(),
+                        commands.push(BehaviorCommand::ApplySceneMutation {
+                            request: SceneMutationRequest::DespawnObject {
+                                target: vid.to_string(),
+                            },
                         });
                     }
                 }
@@ -2938,11 +2971,12 @@ impl ScriptGameplayEntityApi {
         let Ok(mut queue) = self.ctx.queue.lock() else {
             return false;
         };
-        queue.push(BehaviorCommand::SetProperty {
-            target: visual_id,
-            path: "style.fg".to_string(),
-            value: JsonValue::from(color),
-        });
+        queue_set_property_or_mutation(
+            &mut queue,
+            visual_id,
+            "style.fg".to_string(),
+            JsonValue::from(color),
+        );
         true
     }
 
@@ -2962,14 +2996,15 @@ impl ScriptGameplayEntityApi {
             return false;
         };
         let r = r.max(0) as i32;
-        queue.push(BehaviorCommand::SetProperty {
-            target: visual_id,
-            path: "vector.points".to_string(),
-            value: JsonValue::Array(vec![
+        queue_set_property_or_mutation(
+            &mut queue,
+            visual_id,
+            "vector.points".to_string(),
+            JsonValue::Array(vec![
                 JsonValue::Array(vec![JsonValue::from(0), JsonValue::from(0)]),
                 JsonValue::Array(vec![JsonValue::from(r), JsonValue::from(0)]),
             ]),
-        });
+        );
         true
     }
 

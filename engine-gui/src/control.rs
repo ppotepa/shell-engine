@@ -96,8 +96,12 @@ impl SliderControl {
 }
 
 impl GuiControl for SliderControl {
-    fn id(&self) -> &str { &self.id }
-    fn sprite(&self) -> &str { &self.sprite }
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn sprite(&self) -> &str {
+        &self.sprite
+    }
 
     fn bounds(&self) -> Option<WidgetRect> {
         let p = self.hit_padding;
@@ -157,14 +161,25 @@ pub struct ButtonControl {
 }
 
 impl GuiControl for ButtonControl {
-    fn id(&self) -> &str { &self.id }
-    fn sprite(&self) -> &str { &self.sprite }
-
-    fn bounds(&self) -> Option<WidgetRect> {
-        Some(WidgetRect { x: self.x, y: self.y, w: self.w, h: self.h })
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn sprite(&self) -> &str {
+        &self.sprite
     }
 
-    fn initial_value(&self) -> f64 { 0.0 }
+    fn bounds(&self) -> Option<WidgetRect> {
+        Some(WidgetRect {
+            x: self.x,
+            y: self.y,
+            w: self.w,
+            h: self.h,
+        })
+    }
+
+    fn initial_value(&self) -> f64 {
+        0.0
+    }
 
     fn on_mouse_down(&self, state: &mut GuiWidgetState, _x: f32, _y: f32) {
         state.pressed = true;
@@ -179,7 +194,9 @@ impl GuiControl for ButtonControl {
         }
     }
 
-    fn visual_sync(&self, _value: f64) -> Option<VisualSync> { None }
+    fn visual_sync(&self, _value: f64) -> Option<VisualSync> {
+        None
+    }
 }
 
 // ── Toggle ───────────────────────────────────────────────────────────────────
@@ -197,15 +214,28 @@ pub struct ToggleControl {
 }
 
 impl GuiControl for ToggleControl {
-    fn id(&self) -> &str { &self.id }
-    fn sprite(&self) -> &str { &self.sprite }
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn sprite(&self) -> &str {
+        &self.sprite
+    }
 
     fn bounds(&self) -> Option<WidgetRect> {
-        Some(WidgetRect { x: self.x, y: self.y, w: self.w, h: self.h })
+        Some(WidgetRect {
+            x: self.x,
+            y: self.y,
+            w: self.w,
+            h: self.h,
+        })
     }
 
     fn initial_value(&self) -> f64 {
-        if self.initial_on { 1.0 } else { 0.0 }
+        if self.initial_on {
+            1.0
+        } else {
+            0.0
+        }
     }
 
     fn on_mouse_down(&self, state: &mut GuiWidgetState, _x: f32, _y: f32) {
@@ -223,7 +253,9 @@ impl GuiControl for ToggleControl {
         }
     }
 
-    fn visual_sync(&self, _value: f64) -> Option<VisualSync> { None }
+    fn visual_sync(&self, _value: f64) -> Option<VisualSync> {
+        None
+    }
 }
 
 // ── Panel ────────────────────────────────────────────────────────────────────
@@ -237,18 +269,30 @@ pub struct PanelControl {
 }
 
 impl GuiControl for PanelControl {
-    fn id(&self) -> &str { &self.id }
-    fn sprite(&self) -> &str { &self.sprite }
-    fn bounds(&self) -> Option<WidgetRect> { None }
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn sprite(&self) -> &str {
+        &self.sprite
+    }
+    fn bounds(&self) -> Option<WidgetRect> {
+        None
+    }
 
     fn initial_value(&self) -> f64 {
-        if self.visible { 1.0 } else { 0.0 }
+        if self.visible {
+            1.0
+        } else {
+            0.0
+        }
     }
 
     fn on_mouse_down(&self, _state: &mut GuiWidgetState, _x: f32, _y: f32) {}
     fn on_drag(&self, _state: &mut GuiWidgetState, _x: f32, _y: f32) {}
     fn on_mouse_up(&self, _state: &mut GuiWidgetState, _still_hovered: bool) {}
-    fn visual_sync(&self, _value: f64) -> Option<VisualSync> { None }
+    fn visual_sync(&self, _value: f64) -> Option<VisualSync> {
+        None
+    }
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -260,10 +304,17 @@ mod tests {
     #[test]
     fn slider_drag_computes_value() {
         let slider = SliderControl {
-            id: "s".into(), sprite: "track".into(),
-            x: 10, y: 10, w: 100, h: 12,
-            min: 0.0, max: 255.0, value: 0.0,
-            hit_padding: 0, handle: "h".into(),
+            id: "s".into(),
+            sprite: "track".into(),
+            x: 10,
+            y: 10,
+            w: 100,
+            h: 12,
+            min: 0.0,
+            max: 255.0,
+            value: 0.0,
+            hit_padding: 0,
+            handle: "h".into(),
         };
         let mut ws = GuiWidgetState::default();
         slider.on_mouse_down(&mut ws, 60.0, 15.0);
@@ -275,10 +326,17 @@ mod tests {
     #[test]
     fn slider_visual_sync_returns_offset() {
         let slider = SliderControl {
-            id: "s".into(), sprite: "track".into(),
-            x: 50, y: 10, w: 190, h: 12,
-            min: 0.0, max: 255.0, value: 0.0,
-            hit_padding: 0, handle: "h".into(),
+            id: "s".into(),
+            sprite: "track".into(),
+            x: 50,
+            y: 10,
+            w: 190,
+            h: 12,
+            min: 0.0,
+            max: 255.0,
+            value: 0.0,
+            hit_padding: 0,
+            handle: "h".into(),
         };
         let sync = slider.visual_sync(127.5).unwrap();
         assert_eq!(sync.sprite_alias, "h");
@@ -289,8 +347,12 @@ mod tests {
     #[test]
     fn button_click_fires_on_release_inside() {
         let btn = ButtonControl {
-            id: "b".into(), sprite: "b".into(),
-            x: 0, y: 0, w: 50, h: 20,
+            id: "b".into(),
+            sprite: "b".into(),
+            x: 0,
+            y: 0,
+            w: 50,
+            h: 20,
         };
         let mut ws = GuiWidgetState::default();
         btn.on_mouse_down(&mut ws, 10.0, 5.0);
@@ -304,8 +366,12 @@ mod tests {
     #[test]
     fn button_no_click_on_release_outside() {
         let btn = ButtonControl {
-            id: "b".into(), sprite: "b".into(),
-            x: 0, y: 0, w: 50, h: 20,
+            id: "b".into(),
+            sprite: "b".into(),
+            x: 0,
+            y: 0,
+            w: 50,
+            h: 20,
         };
         let mut ws = GuiWidgetState::default();
         btn.on_mouse_down(&mut ws, 10.0, 5.0);
@@ -316,10 +382,18 @@ mod tests {
     #[test]
     fn toggle_flips_value() {
         let toggle = ToggleControl {
-            id: "t".into(), sprite: "t".into(),
-            x: 0, y: 0, w: 100, h: 16, initial_on: false,
+            id: "t".into(),
+            sprite: "t".into(),
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 16,
+            initial_on: false,
         };
-        let mut ws = GuiWidgetState { value: 0.0, ..Default::default() };
+        let mut ws = GuiWidgetState {
+            value: 0.0,
+            ..Default::default()
+        };
         toggle.on_mouse_up(&mut ws, true);
         assert!((ws.value - 1.0).abs() < f64::EPSILON);
         assert!(ws.changed);
@@ -331,7 +405,12 @@ mod tests {
 
     #[test]
     fn widget_rect_hit_test() {
-        let r = WidgetRect { x: 10, y: 20, w: 100, h: 50 };
+        let r = WidgetRect {
+            x: 10,
+            y: 20,
+            w: 100,
+            h: 50,
+        };
         assert!(r.hit_test(10.0, 20.0));
         assert!(r.hit_test(109.0, 69.0));
         assert!(!r.hit_test(110.0, 20.0));

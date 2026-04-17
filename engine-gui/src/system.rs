@@ -24,12 +24,13 @@ impl GuiSystem {
     ) {
         // Initialize any new widgets.
         for w in widgets {
-            state.widgets.entry(w.id().to_string()).or_insert_with(|| {
-                GuiWidgetState {
+            state
+                .widgets
+                .entry(w.id().to_string())
+                .or_insert_with(|| GuiWidgetState {
                     value: w.initial_value(),
                     ..Default::default()
-                }
-            });
+                });
         }
 
         // Clear per-frame transient flags.
@@ -67,11 +68,9 @@ impl GuiSystem {
                     Self::update_hover(widgets, state);
                     if *button == MouseButton::Left {
                         state.drag_button = Some(MouseButton::Left);
-                        let hit = widgets.iter().find(|w| {
-                            w.bounds()
-                                .map(|b| b.hit_test(*x, *y))
-                                .unwrap_or(false)
-                        });
+                        let hit = widgets
+                            .iter()
+                            .find(|w| w.bounds().map(|b| b.hit_test(*x, *y)).unwrap_or(false));
                         if let Some(w) = hit {
                             let id = w.id().to_string();
                             state.drag_widget = Some(id.clone());
@@ -116,7 +115,10 @@ impl GuiSystem {
                 }
                 // Keyboard events are accepted but not yet consumed here.
                 // Future: route to focused widget for text input / slider adjustment.
-                InputEvent::KeyDown { .. } | InputEvent::KeyUp { .. } | InputEvent::FocusLost | InputEvent::MouseWheel { .. } => {}
+                InputEvent::KeyDown { .. }
+                | InputEvent::KeyUp { .. }
+                | InputEvent::FocusLost
+                | InputEvent::MouseWheel { .. } => {}
             }
         }
     }
@@ -125,10 +127,7 @@ impl GuiSystem {
         let mx = state.mouse_x;
         let my = state.mouse_y;
         for w in widgets {
-            let hovered = w
-                .bounds()
-                .map(|b| b.hit_test(mx, my))
-                .unwrap_or(false);
+            let hovered = w.bounds().map(|b| b.hit_test(mx, my)).unwrap_or(false);
             if let Some(ws) = state.widgets.get_mut(w.id()) {
                 ws.hovered = hovered;
             }
@@ -146,8 +145,13 @@ mod tests {
         Box::new(SliderControl {
             id: "s".to_string(),
             sprite: "track".to_string(),
-            x: 10, y: 10, w: 100, h: 12,
-            min: 0.0, max: 1.0, value: 0.5,
+            x: 10,
+            y: 10,
+            w: 100,
+            h: 12,
+            min: 0.0,
+            max: 1.0,
+            value: 0.5,
             hit_padding: 0,
             handle: String::new(),
         })
@@ -160,15 +164,15 @@ mod tests {
         GuiSystem::update(&widgets, &mut state, &[]);
         assert!((state.value("s") - 0.5).abs() < 1e-9);
 
-        let events = vec![
-            InputEvent::MouseDown { x: 60.0, y: 15.0, button: MouseButton::Left },
-        ];
+        let events = vec![InputEvent::MouseDown {
+            x: 60.0,
+            y: 15.0,
+            button: MouseButton::Left,
+        }];
         GuiSystem::update(&widgets, &mut state, &events);
         assert!((state.value("s") - 0.5).abs() < 0.01);
 
-        let events = vec![
-            InputEvent::MouseMoved { x: 110.0, y: 15.0 },
-        ];
+        let events = vec![InputEvent::MouseMoved { x: 110.0, y: 15.0 }];
         GuiSystem::update(&widgets, &mut state, &events);
         assert!((state.value("s") - 1.0).abs() < 0.01);
     }
@@ -176,19 +180,34 @@ mod tests {
     #[test]
     fn button_clicked_fires_once() {
         let widgets: Vec<Box<dyn GuiControl>> = vec![Box::new(ButtonControl {
-            id: "btn".to_string(), sprite: "b".to_string(),
-            x: 0, y: 0, w: 50, h: 20,
+            id: "btn".to_string(),
+            sprite: "b".to_string(),
+            x: 0,
+            y: 0,
+            w: 50,
+            h: 20,
         })];
         let mut state = GuiRuntimeState::new();
-        GuiSystem::update(&widgets, &mut state, &[
-            InputEvent::MouseDown { x: 10.0, y: 5.0, button: MouseButton::Left },
-        ]);
-        GuiSystem::update(&widgets, &mut state, &[
-            InputEvent::MouseUp { x: 10.0, y: 5.0, button: MouseButton::Left },
-        ]);
+        GuiSystem::update(
+            &widgets,
+            &mut state,
+            &[InputEvent::MouseDown {
+                x: 10.0,
+                y: 5.0,
+                button: MouseButton::Left,
+            }],
+        );
+        GuiSystem::update(
+            &widgets,
+            &mut state,
+            &[InputEvent::MouseUp {
+                x: 10.0,
+                y: 5.0,
+                button: MouseButton::Left,
+            }],
+        );
         assert!(state.clicked("btn"));
         GuiSystem::update(&widgets, &mut state, &[]);
         assert!(!state.clicked("btn"));
     }
 }
-

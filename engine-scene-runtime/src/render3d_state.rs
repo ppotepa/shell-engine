@@ -51,6 +51,7 @@ pub fn scene_mutation_from_set_property_3d(
     path: &str,
     value: &serde_json::Value,
 ) -> Option<SceneMutation> {
+    use crate::mutations::{AtmosphereParam, ObjMaterialParam, PlanetParam, TerrainParam, WorldgenParam};
     let mat_value = material_value_from_json(value)?;
 
     if path == "scene3d.frame" {
@@ -63,75 +64,62 @@ pub fn scene_mutation_from_set_property_3d(
         return None;
     }
 
-    if let Some(planet_param) = path.strip_prefix("planet.") {
-        return Some(SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
-            target: target.to_string(),
-            param: format!("planet.{planet_param}"),
-            value: mat_value,
-        }));
-    }
-
-    if let Some(atmo_param) = path.strip_prefix("obj.atmo.") {
-        return Some(SceneMutation::SetRender3D(Render3DMutation::SetAtmosphereParam {
-            target: target.to_string(),
-            param: atmo_param.to_string(),
-            value: mat_value,
-        }));
-    }
-
-    if let Some(obj_param) = path.strip_prefix("obj.") {
-        if obj_param.starts_with("world.") || obj_param.starts_with("terrain.") {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
+    if path.starts_with("planet.") {
+        if let Some(param) = PlanetParam::from_full_path(path) {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetPlanetParamTyped {
                 target: target.to_string(),
-                param: path.to_string(),
+                param,
                 value: mat_value,
             }));
         }
-        return Some(SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
-            target: target.to_string(),
-            param: obj_param.to_string(),
-            value: mat_value,
-        }));
+        return None;
     }
 
-    if path.starts_with("terrain.") || path.starts_with("world.") {
-        return Some(SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParam {
-            target: target.to_string(),
-            param: path.to_string(),
-            value: mat_value,
-        }));
+    if path.starts_with("obj.atmo.") {
+        if let Some(param) = AtmosphereParam::from_full_path(path) {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetAtmosphereParamTyped {
+                target: target.to_string(),
+                param,
+                value: mat_value,
+            }));
+        }
+        return None;
+    }
+
+    if path.starts_with("obj.") {
+        if let Some(param) = ObjMaterialParam::from_full_path(path) {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetObjMaterialParam {
+                target: target.to_string(),
+                param,
+                value: mat_value,
+            }));
+        }
+        return None;
+    }
+
+    if path.starts_with("terrain.") {
+        if let Some(param) = TerrainParam::from_full_path(path) {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetTerrainParamTyped {
+                target: target.to_string(),
+                param,
+                value: mat_value,
+            }));
+        }
+        return None;
+    }
+
+    if path.starts_with("world.") {
+        if let Some(param) = WorldgenParam::from_full_path(path) {
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetWorldgenParamTyped {
+                target: target.to_string(),
+                param,
+                value: mat_value,
+            }));
+        }
+        return None;
     }
 
     None
-}
-
-pub(crate) fn render3d_compat_property_from_param(
-    path: &str,
-    value: MaterialValue,
-) -> Option<Render3DCompatProperty> {
-    if path == "scene3d.frame" {
-        if let MaterialValue::Text(frame) = value {
-            return Some(Render3DCompatProperty::Scene3dFrame { frame });
-        }
-    }
-    None
-}
-
-pub(crate) fn render3d_material_value_to_json(
-    value: &engine_core::render_types::MaterialValue,
-) -> Option<JsonValue> {
-    match value {
-        engine_core::render_types::MaterialValue::Scalar(v) => {
-            serde_json::Number::from_f64(*v as f64).map(JsonValue::Number)
-        }
-        engine_core::render_types::MaterialValue::ColorRgb(rgb) => Some(JsonValue::Array(vec![
-            JsonValue::from(rgb[0]),
-            JsonValue::from(rgb[1]),
-            JsonValue::from(rgb[2]),
-        ])),
-        engine_core::render_types::MaterialValue::Bool(v) => Some(JsonValue::Bool(*v)),
-        engine_core::render_types::MaterialValue::Text(v) => Some(JsonValue::String(v.clone())),
-    }
 }
 
 pub(crate) fn material_value_from_json(value: &serde_json::Value) -> Option<MaterialValue> {
@@ -165,16 +153,16 @@ mod tests {
             scene_mutation_from_set_property_3d("ship", "obj.scale", &serde_json::json!(1.25))
                 .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetMaterialParam {
+            SceneMutation::SetRender3D(Render3DMutation::SetObjMaterialParam {
                 target,
                 param,
                 value,
             }) => {
                 assert_eq!(target, "ship");
-                assert_eq!(param, "scale");
+                assert_eq!(param, crate::mutations::ObjMaterialParam::Scale);
                 assert_eq!(value, MaterialValue::Scalar(1.25));
             }
-            _ => panic!("expected SetMaterialParam"),
+            _ => panic!("expected SetObjMaterialParam"),
         }
     }
 

@@ -1,4 +1,6 @@
 use engine_core::assets::AssetRoot;
+use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 
 use super::Scene3DWorkItem;
 
@@ -65,3 +67,36 @@ where
         blit_canvas,
     )
 }
+
+/// Render a [`Scene3DWorkItem`] to a terminal [`Buffer`] using the built-in OBJ raster pipeline.
+///
+/// This is the default renderer for scene3d prerender and real-time clip rendering.
+/// Owned by `engine-render-3d` so that neither `engine` nor the compositor
+/// needs to import from `engine-compositor` for this concern.
+pub fn render_scene3d_work_item(item: &Scene3DWorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
+    render_work_item_buffer_with(
+        item,
+        asset_root,
+        crate::raster::virtual_dimensions,
+        crate::raster::render_obj_to_shared_buffers,
+        |buf, canvas, viewport_w, viewport_h| {
+            crate::raster::blit_color_canvas(
+                buf,
+                &canvas.colors,
+                canvas.virtual_w,
+                canvas.virtual_h,
+                viewport_w,
+                viewport_h,
+                0,
+                0,
+                false,
+                '#',
+                Color::White,
+                Color::Reset,
+                0,
+                canvas.virtual_h as usize,
+            );
+        },
+    )
+}
+

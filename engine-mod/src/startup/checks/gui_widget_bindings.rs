@@ -165,7 +165,9 @@ gui:
                 .expect("manifest");
         let ctx = StartupContext::new(mod_dir.path(), &manifest, "/scenes/ok.yml", &scene_loader);
         let mut report = StartupReport::default();
-        let err = GuiWidgetBindingsCheck.run(&ctx, &mut report).expect_err("must fail");
+        let err = GuiWidgetBindingsCheck
+            .run(&ctx, &mut report)
+            .expect_err("must fail");
         match err {
             EngineError::StartupCheckFailed { check, details } => {
                 assert_eq!(check, "gui-widget-bindings");
@@ -215,8 +217,12 @@ gui:
         let manifest: Value =
             serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/ok.yml\n")
                 .expect("manifest");
-        let ctx =
-            StartupContext::new(mod_dir.path(), &manifest, "/scenes/ok.yml", &scene_loader_ok);
+        let ctx = StartupContext::new(
+            mod_dir.path(),
+            &manifest,
+            "/scenes/ok.yml",
+            &scene_loader_ok,
+        );
         let mut report = StartupReport::default();
 
         GuiWidgetBindingsCheck

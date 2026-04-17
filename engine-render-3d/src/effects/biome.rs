@@ -108,7 +108,11 @@ pub fn city_light_mask_from_local(
     if night <= 0.01 || intensity <= 0.0 {
         return 0.0;
     }
-    let noise = value_noise_3d(local_pos[0] * 18.0, local_pos[1] * 18.0, local_pos[2] * 18.0);
+    let noise = value_noise_3d(
+        local_pos[0] * 18.0,
+        local_pos[1] * 18.0,
+        local_pos[2] * 18.0,
+    );
     city_light_mask(noise, threshold, night, intensity)
 }
 
@@ -133,13 +137,8 @@ pub fn land_biome_signals(
         0.0
     };
     let ice_mask = polar_ice_mask_land(lat_abs, noise, terrain_threshold, ice_start, ice_end);
-    let city_mask = city_light_mask_from_local(
-        local_pos,
-        normal,
-        sun_dir,
-        city_threshold,
-        city_intensity,
-    );
+    let city_mask =
+        city_light_mask_from_local(local_pos, normal, sun_dir, city_threshold, city_intensity);
     LandBiomeSignals {
         normal,
         lat_abs,

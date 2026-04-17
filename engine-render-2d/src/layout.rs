@@ -19,7 +19,11 @@ thread_local! {
 }
 
 #[inline]
-pub fn with_render_context<R>(is_pixel: bool, default_font: Option<&str>, f: impl FnOnce() -> R) -> R {
+pub fn with_render_context<R>(
+    is_pixel: bool,
+    default_font: Option<&str>,
+    f: impl FnOnce() -> R,
+) -> R {
     PIXEL_BACKEND.with(|c| c.set(is_pixel));
     DEFAULT_FONT_SPEC.with(|slot| {
         *slot.borrow_mut() = default_font.map(str::to_string);

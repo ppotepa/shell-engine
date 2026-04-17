@@ -80,7 +80,9 @@ pub fn game_loop(
         }
         for event in input.poll_events() {
             match event {
-                EngineEvent::KeyDown { key, .. } if is_debug_fast_forward_toggle(key.code, key.modifiers) => {
+                EngineEvent::KeyDown { key, .. }
+                    if is_debug_fast_forward_toggle(key.code, key.modifiers) =>
+                {
                     debug_fast_forward = !debug_fast_forward;
                 }
                 other => {

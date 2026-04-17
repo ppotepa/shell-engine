@@ -344,6 +344,11 @@ pub enum Sprite {
         behaviors: Vec<BehaviorSpec>,
     },
     /// Wavefront OBJ mesh rendered as terminal wireframe/material.
+    ///
+    /// # Architecture note
+    /// Do not add new rendering fields here. New 3D capabilities must go through
+    /// the typed `Node3D` scene graph in `engine-render-3d` instead of growing
+    /// this variant. See `3drefactor.md` § Definition of Done.
     Obj {
         #[serde(default)]
         id: Option<String>,
@@ -679,7 +684,6 @@ pub enum Sprite {
         // ── World generator params (world:// URI) ──────────────────────────
         // These drive `engine_terrain::WorldGenParams` → full biome/climate pipeline.
         // Changed at runtime via `scene.set(id, "world.<field>", v)`.
-
         /// World shape: "sphere" (default) or "flat".
         #[serde(default, rename = "world-shape")]
         world_gen_shape: Option<String>,

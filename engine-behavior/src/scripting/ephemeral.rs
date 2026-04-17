@@ -29,8 +29,10 @@ pub(crate) struct EphemeralSpawn {
 
 fn queue_scene_cleanup(queue: &Arc<Mutex<Vec<BehaviorCommand>>>, visual_id: &str) {
     if let Ok(mut commands) = queue.lock() {
-        commands.push(BehaviorCommand::SceneDespawn {
-            target: visual_id.to_string(),
+        commands.push(BehaviorCommand::ApplySceneMutation {
+            request: engine_api::SceneMutationRequest::DespawnObject {
+                target: visual_id.to_string(),
+            },
         });
     }
 }
@@ -58,9 +60,11 @@ pub(crate) fn spawn_ephemeral_visual(
             let _ = world.despawn(entity_id);
             return None;
         };
-        commands.push(BehaviorCommand::SceneSpawn {
-            template: spec.template.to_string(),
-            target: visual_id.clone(),
+        commands.push(BehaviorCommand::ApplySceneMutation {
+            request: engine_api::SceneMutationRequest::SpawnObject {
+                template: spec.template.to_string(),
+                target: visual_id.clone(),
+            },
         });
     }
 

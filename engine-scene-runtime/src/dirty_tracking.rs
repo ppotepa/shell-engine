@@ -6,9 +6,11 @@ pub fn dirty_for_render3d_mutation(mutation: &Render3DMutation) -> DirtyMask3D {
     match mutation {
         Render3DMutation::SetNodeTransform { .. } => DirtyMask3D::TRANSFORM,
         Render3DMutation::SetNodeVisibility { .. } => DirtyMask3D::VISIBILITY,
-        Render3DMutation::SetMaterialParam { .. } => DirtyMask3D::MATERIAL,
-        Render3DMutation::SetAtmosphereParam { .. } => DirtyMask3D::ATMOSPHERE,
-        Render3DMutation::SetWorldgenParam { .. } => DirtyMask3D::WORLDGEN,
+        Render3DMutation::SetObjMaterialParam { .. } => DirtyMask3D::MATERIAL,
+        Render3DMutation::SetAtmosphereParamTyped { .. } => DirtyMask3D::ATMOSPHERE,
+        Render3DMutation::SetTerrainParamTyped { .. } => DirtyMask3D::WORLDGEN,
+        Render3DMutation::SetWorldgenParamTyped { .. } => DirtyMask3D::WORLDGEN,
+        Render3DMutation::SetPlanetParamTyped { .. } => DirtyMask3D::MATERIAL,
         Render3DMutation::SetCompatProperty { .. } => DirtyMask3D::WORLDGEN,
         Render3DMutation::SetSceneCamera { .. } => DirtyMask3D::CAMERA,
         Render3DMutation::SetLight { .. } => DirtyMask3D::LIGHTING,
@@ -49,17 +51,17 @@ mod tests {
                 DirtyMask3D::VISIBILITY,
             ),
             (
-                Render3DMutation::SetMaterialParam {
+                Render3DMutation::SetObjMaterialParam {
                     target: "planet".to_string(),
-                    param: "albedo".to_string(),
+                    param: crate::mutations::ObjMaterialParam::Scale,
                     value: engine_core::render_types::MaterialValue::Scalar(0.8),
                 },
                 DirtyMask3D::MATERIAL,
             ),
             (
-                Render3DMutation::SetAtmosphereParam {
+                Render3DMutation::SetAtmosphereParamTyped {
                     target: "planet".to_string(),
-                    param: "density".to_string(),
+                    param: crate::mutations::AtmosphereParam::Density,
                     value: engine_core::render_types::MaterialValue::Scalar(1.2),
                 },
                 DirtyMask3D::ATMOSPHERE,
@@ -78,9 +80,9 @@ mod tests {
                 DirtyMask3D::CAMERA,
             ),
             (
-                Render3DMutation::SetWorldgenParam {
+                Render3DMutation::SetWorldgenParamTyped {
                     target: "planet".to_string(),
-                    param: "seed".to_string(),
+                    param: crate::mutations::WorldgenParam::Seed,
                     value: engine_core::render_types::MaterialValue::Scalar(42.0),
                 },
                 DirtyMask3D::WORLDGEN,

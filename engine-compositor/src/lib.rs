@@ -11,51 +11,51 @@ pub mod access;
 pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
+#[cfg(feature = "render-3d")]
 mod generated_world_render_adapter;
 mod layer_compositor;
-mod obj_render;
+#[cfg(feature = "render-3d")]
 mod obj_render_adapter;
-mod obj_render_helpers;
+#[cfg(feature = "render-3d")]
 mod prerender;
+#[cfg(feature = "render-3d")]
+pub mod prepared_frame;
 pub mod provider;
 mod render;
+#[cfg(feature = "render-3d")]
 mod scene_clip_render_adapter;
 mod scene_compositor;
 mod sprite_renderer_2d;
 mod systems;
 
+/// Re-export (or stub) of ObjPrerenderedFrames for use in compositor internals.
+///
+/// When the `render-3d` feature is enabled this is the real prerendered frame cache type.
+/// When it is disabled a zero-size stub is used so the compositor structs still compile
+/// (the field will always be `None` and nothing attempts to access it).
+#[cfg(feature = "render-3d")]
+pub use engine_render_3d::prerender::ObjPrerenderedFrames;
+#[cfg(not(feature = "render-3d"))]
+#[derive(Debug, Default)]
+pub struct ObjPrerenderedFrames;
+
 pub use access::CompositorAccess;
 pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
-pub use compositor::{dispatch_composite, dispatch_composite_with_render_2d_pipeline};
-pub use engine_render_3d::prerender::Scene3DAtlas;
-pub use engine_render_3d::prerender::{
-    build_scene3d_runtime_store, with_runtime_store, AnimSpriteFrames, ObjPrerenderStatus,
-    ObjPrerenderedFrames, PrerenderedCanvas, PrerenderedFrame, Scene3DRuntimeStore,
-    YAW_FRAME_COUNT, YAW_STEP_DEG,
+pub use compositor::{
+    dispatch_composite, dispatch_composite_with_render_2d_pipeline,
 };
-pub(crate) use obj_render::{
-    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
-    render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas, try_blit_prerendered,
-    ObjRenderParams,
-};
-pub use obj_render::{virtual_dimensions, with_prerender_frames};
+#[cfg(feature = "render-3d")]
 pub use prerender::prerender_scene_sprites;
+#[cfg(feature = "render-3d")]
+pub use prepared_frame::{
+    layer_frames_from_prepared, prepare_frame_layer_inputs, prepare_frame_layer_inputs_from_frame,
+    PreparedLayerInput, PreparedSprite2d, PreparedSprite3d,
+};
 pub use provider::CompositorProvider;
 pub use scene_compositor::{
     prepare_layer_frames, prepare_layer_timed_visibility, CompositeParams, FrameAssemblyInputs,
     PreparedCameraInputs, PreparedCompositeInputs,
 };
-pub use scene_clip_render_adapter::render_scene3d_work_item;
 pub use systems::postfx;
-
-/// Clear the per-frame vector primitive collector (call before compositing).
-pub fn clear_vector_primitives() {
-    engine_render_2d::clear_vector_primitives();
-}
-
-/// Take collected vector primitives (call after compositing).
-pub fn take_vector_primitives() -> Vec<engine_render::VectorPrimitive> {
-    engine_render_2d::take_vector_primitives()
-}

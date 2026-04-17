@@ -6,7 +6,8 @@ use engine_core::scene::{CameraSource, HorizontalAlign, Sprite, SpriteSizePreset
 const DEFAULT_GENERATED_WORLD_MESH_SOURCE: &str = "cube-sphere://64";
 
 #[derive(Debug, Clone)]
-pub struct GeneratedWorldSpriteSpec {
+pub struct GeneratedWorldSpriteSpec<'a> {
+    pub sprite: &'a Sprite,
     pub node: Node3DInstance,
     pub size: Option<SpriteSizePreset>,
     pub width: Option<u16>,
@@ -26,7 +27,9 @@ pub struct GeneratedWorldSpriteSpec {
     pub align_y: Option<VerticalAlign>,
 }
 
-pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedWorldSpriteSpec> {
+pub fn extract_generated_world_sprite_spec(
+    sprite: &Sprite,
+) -> Option<GeneratedWorldSpriteSpec<'_>> {
     let Sprite::Planet {
         id,
         body_id,
@@ -67,6 +70,7 @@ pub fn extract_generated_world_sprite_spec(sprite: &Sprite) -> Option<GeneratedW
     );
 
     Some(GeneratedWorldSpriteSpec {
+        sprite,
         node: Node3DInstance {
             id: id.clone().unwrap_or_else(|| format!("planet-{body_id}")),
             transform: Transform3D {

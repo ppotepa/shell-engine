@@ -81,7 +81,14 @@ impl GuiWidgetDef {
     /// For sliders, the rect is expanded by `hit_padding` for easier grabbing.
     pub fn bounds(&self) -> Option<(i32, i32, i32, i32)> {
         match self {
-            Self::Slider { x, y, w, h, hit_padding, .. } => {
+            Self::Slider {
+                x,
+                y,
+                w,
+                h,
+                hit_padding,
+                ..
+            } => {
                 let p = *hit_padding;
                 Some((*x - p, *y - p, *w + 2 * p, *h + 2 * p))
             }
@@ -94,7 +101,13 @@ impl GuiWidgetDef {
     pub fn initial_value(&self) -> f64 {
         match self {
             Self::Slider { value, min, .. } => value.max(*min),
-            Self::Toggle { on, .. } => if *on { 1.0 } else { 0.0 },
+            Self::Toggle { on, .. } => {
+                if *on {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         }
     }
@@ -103,7 +116,13 @@ impl GuiWidgetDef {
     /// where frac = (value - min) / (max - min) so the caller can set offset_x = frac * w.
     pub fn handle_offset(&self, current_value: f64) -> Option<(&str, f64)> {
         match self {
-            Self::Slider { handle, w, min, max, .. } if !handle.is_empty() => {
+            Self::Slider {
+                handle,
+                w,
+                min,
+                max,
+                ..
+            } if !handle.is_empty() => {
                 let range = max - min;
                 let frac = if range.abs() > f64::EPSILON {
                     ((current_value - min) / range).clamp(0.0, 1.0)

@@ -895,17 +895,11 @@ fn draw_image_to_buffer(
                 drip_t,
             );
 
-            let (sym, cell_fg, cell_bg) = match render_splash_cell(
-                top,
-                bot,
-                colour_mode,
-                bg_rgb,
-                alpha_threshold,
-                opacity,
-            ) {
-                Some(v) => v,
-                None => continue,
-            };
+            let (sym, cell_fg, cell_bg) =
+                match render_splash_cell(top, bot, colour_mode, bg_rgb, alpha_threshold, opacity) {
+                    Some(v) => v,
+                    None => continue,
+                };
 
             target.set(
                 placement.origin_x.saturating_add(col),
@@ -1006,11 +1000,7 @@ fn fit_logo(img_w: u32, img_h: u32, term_w: u16, term_h: u16) -> (u16, u16) {
     )
 }
 
-fn placement_for_frame(
-    img: &image::RgbaImage,
-    term_w: u16,
-    term_h: u16,
-) -> Option<ImagePlacement> {
+fn placement_for_frame(img: &image::RgbaImage, term_w: u16, term_h: u16) -> Option<ImagePlacement> {
     let (render_cols, render_rows) = fit_logo(img.width(), img.height(), term_w, term_h);
     if render_cols == 0 || render_rows == 0 {
         return None;

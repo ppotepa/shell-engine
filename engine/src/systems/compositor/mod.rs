@@ -1,8 +1,10 @@
 //! Compositor system — walks the scene layer/sprite tree and renders each frame into the active `Buffer`.
 
 use crate::buffer::TRUE_BLACK;
+#[cfg(feature = "render-3d")]
 use crate::obj_prerender::{ObjPrerenderStatus, ObjPrerenderedFrames};
 use crate::scene3d_atlas::Scene3DAtlas;
+#[cfg(feature = "render-3d")]
 use crate::scene3d_runtime_store::Scene3DRuntimeStore;
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
@@ -148,29 +150,33 @@ pub fn compositor_system(world: &mut World) {
     // SAFETY: see comment above effects_ptr declaration (#6).
     let scene_effects: &[crate::scene::Effect] = unsafe { &*effects_ptr };
     let layer_timed_visibility = engine_compositor::prepare_layer_timed_visibility(layers);
-
-    // Determine if prerendering is complete and we can use the prerendered frame store.
-    // We extract a raw pointer to avoid holding a borrow while also needing mut access to world.
-    let prerender_ready = matches!(
-        world.get::<ObjPrerenderStatus>(),
-        Some(ObjPrerenderStatus::Ready)
+    // Pre-classify sprites into 2D and 3D buckets before the compositor dispatch.
+    // This separates authoring-time sprite detail from compositor frame assembly.
+    #[cfg(feature = "render-3d")]
+    let prepared_layer_inputs = engine_compositor::prepare_frame_layer_inputs(
+        layers,
+        &layer_timed_visibility,
+        ui_enabled,
+        scene_space,
+        &current_stage,
     );
-    let prerender_frames_ptr: *const ObjPrerenderedFrames = if prerender_ready {
-        world
-            .get::<ObjPrerenderedFrames>()
-            .map(|c| c as *const _)
-            .unwrap_or(std::ptr::null())
-    } else {
-        std::ptr::null()
-    };
-    // SAFETY: ObjPrerenderedFrames is a singleton world resource (Send+Sync) that lives for the
-    // duration of this function. The mutable buffer borrow below does not alias it because
-    // World stores each type separately.
+
+    #[cfg(feature = "render-3d")]
+    let prerender_frames_ptr: *const ObjPrerenderedFrames = world
+        .get::<ObjPrerenderStatus>()
+        .filter(|status| matches!(status, ObjPrerenderStatus::Ready))
+        .and_then(|_| world.get::<ObjPrerenderedFrames>().map(|frames| frames as *const _))
+        .unwrap_or(std::ptr::null());
+    // SAFETY: ObjPrerenderedFrames is a singleton world resource that can be read for this
+    // frame without aliasing the mutable Buffer borrow. See comments on other resource pointers.
+    #[cfg(feature = "render-3d")]
     let prerender_frames: Option<&ObjPrerenderedFrames> = if prerender_frames_ptr.is_null() {
         None
     } else {
         Some(unsafe { &*prerender_frames_ptr })
     };
+    #[cfg(not(feature = "render-3d"))]
+    let prerender_frames: Option<&engine_compositor::ObjPrerenderedFrames> = None;
 
     // Extract Scene3DAtlas pointer for zero-overhead access during sprite rendering.
     // SAFETY: same reasoning as prerender_frames — Scene3DAtlas is stored separately in World
@@ -187,10 +193,12 @@ pub fn compositor_system(world: &mut World) {
 
     // Extract Scene3DRuntimeStore pointer for real-time clip rendering.
     // SAFETY: same pattern — stored separately in World, not mutated during rendering.
+    #[cfg(feature = "render-3d")]
     let runtime_store_ptr: *const Scene3DRuntimeStore = world
         .get::<Scene3DRuntimeStore>()
         .map(|s| s as *const _)
         .unwrap_or(std::ptr::null());
+    #[cfg(feature = "render-3d")]
     let runtime_store: Option<&Scene3DRuntimeStore> = if runtime_store_ptr.is_null() {
         None
     } else {
@@ -215,8 +223,7 @@ pub fn compositor_system(world: &mut World) {
 
     // Enable pixel canvas for direct SDL2 pixel output (bypass Cell encoding).
     if is_pixel_backend {
-        let (vw, vh) = engine_compositor::virtual_dimensions(buffer.width, buffer.height);
-        buffer.enable_pixel_canvas(vw, vh);
+        buffer.enable_pixel_canvas(buffer.width, buffer.height);
     }
 
     let buf_w = buffer.width;
@@ -230,6 +237,8 @@ pub fn compositor_system(world: &mut World) {
             ui_enabled,
             scene_space,
             scene_effects,
+            #[cfg(feature = "render-3d")]
+            prepared_layer_inputs: Some(prepared_layer_inputs),
         },
         prepared: engine_compositor::PreparedCompositeInputs {
             camera: engine_compositor::PreparedCameraInputs {
@@ -250,16 +259,21 @@ pub fn compositor_system(world: &mut World) {
             celestial_catalogs,
             is_pixel_backend,
             default_font: default_font.as_deref(),
+            prerender_frames,
         },
     };
-    engine_compositor::clear_vector_primitives();
+    engine_render_2d::clear_vector_primitives();
+    #[cfg(feature = "render-3d")]
     let object_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
         crate::scene3d_atlas::with_atlas(atlas, || {
-            engine_compositor::with_prerender_frames(prerender_frames, || {
-                engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
-            })
+            engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
         })
     });
+    #[cfg(not(feature = "render-3d"))]
+    let object_regions = {
+        let _ = atlas;
+        engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
+    };
 
     // Apply script-triggered runtime effects on top of the composited frame.
     // Each entry tracks its own start time so progress is independent of authored steps.
@@ -290,7 +304,7 @@ pub fn compositor_system(world: &mut World) {
 
     // Collect vector primitives produced during compositing for SDL2 native rendering.
     // `buffer` borrow is dropped here; use saved dimensions.
-    let vector_prims = engine_compositor::take_vector_primitives();
+    let vector_prims = engine_render_2d::take_vector_primitives();
     if !vector_prims.is_empty() {
         world.register(engine_render::VectorOverlay {
             buffer_width: buf_w,

@@ -314,11 +314,17 @@ impl engine_compositor::CompositorAccess for World {
     }
 
     fn scene3d_atlas(&self) -> Option<&dyn std::any::Any> {
-        self.resource_any::<engine_render_3d::prerender::Scene3DAtlas>()
+        #[cfg(feature = "render-3d")]
+        { self.resource_any::<engine_render_3d::prerender::Scene3DAtlas>() }
+        #[cfg(not(feature = "render-3d"))]
+        { None }
     }
 
     fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {
-        self.resource_any::<engine_render_3d::prerender::ObjPrerenderedFrames>()
+        #[cfg(feature = "render-3d")]
+        { self.resource_any::<engine_render_3d::prerender::ObjPrerenderedFrames>() }
+        #[cfg(not(feature = "render-3d"))]
+        { None }
     }
 
     fn layer_compositor(&self) -> Option<&dyn std::any::Any> {

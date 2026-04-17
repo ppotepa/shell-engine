@@ -1,4 +1,4 @@
-﻿use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -835,25 +835,34 @@ fn poll_input(
             Event::MouseMotion { x, y, .. } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (vx, vy) =
-                    map_mouse_to_output(x, y, output_width, output_height, present_rect);
+                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect);
                 events.push(EngineEvent::MouseMoved { x: vx, y: vy });
             }
-            Event::MouseButtonDown { mouse_btn, x, y, .. } => {
+            Event::MouseButtonDown {
+                mouse_btn, x, y, ..
+            } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (vx, vy) =
-                    map_mouse_to_output(x, y, output_width, output_height, present_rect);
+                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect);
                 let button = map_mouse_button(mouse_btn);
-                events.push(EngineEvent::MouseButtonDown { button, x: vx, y: vy });
+                events.push(EngineEvent::MouseButtonDown {
+                    button,
+                    x: vx,
+                    y: vy,
+                });
             }
-            Event::MouseButtonUp { mouse_btn, x, y, .. } => {
+            Event::MouseButtonUp {
+                mouse_btn, x, y, ..
+            } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                let (vx, vy) =
-                    map_mouse_to_output(x, y, output_width, output_height, present_rect);
+                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect);
                 let button = map_mouse_button(mouse_btn);
-                events.push(EngineEvent::MouseButtonUp { button, x: vx, y: vy });
+                events.push(EngineEvent::MouseButtonUp {
+                    button,
+                    x: vx,
+                    y: vy,
+                });
             }
             Event::MouseWheel { y, .. } => {
                 events.push(EngineEvent::MouseWheel { delta_y: y as f32 });

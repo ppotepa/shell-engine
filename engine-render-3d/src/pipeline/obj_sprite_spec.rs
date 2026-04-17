@@ -115,6 +115,8 @@ pub struct ObjSpriteSpec<'a> {
     pub view_fwd_x: Option<f32>,
     pub view_fwd_y: Option<f32>,
     pub view_fwd_z: Option<f32>,
+    pub prerender: bool,
+    pub prerender_anim: bool,
     pub visible: bool,
 }
 
@@ -228,6 +230,8 @@ pub fn extract_obj_sprite_spec(sprite: &Sprite) -> Option<ObjSpriteSpec<'_>> {
         view_fwd_x,
         view_fwd_y,
         view_fwd_z,
+        prerender,
+        prerender_anim,
         camera_source,
         ..
     } = sprite
@@ -368,6 +372,8 @@ pub fn extract_obj_sprite_spec(sprite: &Sprite) -> Option<ObjSpriteSpec<'_>> {
         view_fwd_x: *view_fwd_x,
         view_fwd_y: *view_fwd_y,
         view_fwd_z: *view_fwd_z,
+        prerender: *prerender,
+        prerender_anim: *prerender_anim,
         visible: *visible,
     })
 }

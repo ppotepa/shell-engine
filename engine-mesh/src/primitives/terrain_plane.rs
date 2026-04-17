@@ -92,10 +92,10 @@ pub fn terrain_plane(subdivisions: u32, params: TerrainParams) -> Mesh {
     // Build vertex grid
     for row in 0..=rows {
         let t = row as f32 / rows as f32; // [0, 1]
-        let z = t * 2.0 - 1.0;           // [-1, 1]
+        let z = t * 2.0 - 1.0; // [-1, 1]
         for col in 0..=cols {
             let s = col as f32 / cols as f32; // [0, 1]
-            let x = s * 2.0 - 1.0;           // [-1, 1]
+            let x = s * 2.0 - 1.0; // [-1, 1]
             let y = height(x, z, &params);
             vertices.push([x, y, z]);
         }
@@ -140,7 +140,11 @@ fn height(x: f32, z: f32, p: &TerrainParams) -> f32 {
     // In ridge mode the absolute value produces V-shaped ridges instead of sinusoidal hills.
     let sample = |nx: f32, nz: f32| -> f32 {
         let raw = (nx * 2.1 + 0.5).sin() * (nz * 1.7 - 0.3).cos();
-        if p.ridge { raw.abs() } else { raw }
+        if p.ridge {
+            raw.abs()
+        } else {
+            raw
+        }
     };
 
     // Octave 1: broad sweeping hills (always present).
@@ -215,13 +219,43 @@ mod tests {
     #[test]
     fn params_affect_height() {
         let base = terrain_plane(8, TerrainParams::default());
-        let tall = terrain_plane(8, TerrainParams { amplitude: 3.0, ..Default::default() });
-        let flat = terrain_plane(8, TerrainParams { amplitude: 0.1, ..Default::default() });
+        let tall = terrain_plane(
+            8,
+            TerrainParams {
+                amplitude: 3.0,
+                ..Default::default()
+            },
+        );
+        let flat = terrain_plane(
+            8,
+            TerrainParams {
+                amplitude: 0.1,
+                ..Default::default()
+            },
+        );
         // Tall mesh should have larger Y range than default, flat should have smaller.
-        let base_range: f32 = base.vertices.iter().map(|v| v[1].abs()).fold(0.0_f32, f32::max);
-        let tall_range: f32 = tall.vertices.iter().map(|v| v[1].abs()).fold(0.0_f32, f32::max);
-        let flat_range: f32 = flat.vertices.iter().map(|v| v[1].abs()).fold(0.0_f32, f32::max);
-        assert!(tall_range > base_range, "amplitude=3.0 should exceed default");
-        assert!(flat_range < base_range, "amplitude=0.1 should be below default");
+        let base_range: f32 = base
+            .vertices
+            .iter()
+            .map(|v| v[1].abs())
+            .fold(0.0_f32, f32::max);
+        let tall_range: f32 = tall
+            .vertices
+            .iter()
+            .map(|v| v[1].abs())
+            .fold(0.0_f32, f32::max);
+        let flat_range: f32 = flat
+            .vertices
+            .iter()
+            .map(|v| v[1].abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            tall_range > base_range,
+            "amplitude=3.0 should exceed default"
+        );
+        assert!(
+            flat_range < base_range,
+            "amplitude=0.1 should be below default"
+        );
     }
 }

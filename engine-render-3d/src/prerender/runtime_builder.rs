@@ -2,7 +2,9 @@ use engine_core::assets::AssetRoot;
 use engine_core::logging;
 use engine_core::scene::Scene;
 
-use super::{collect_scene3d_sources, load_and_resolve_scene3d, Scene3DRuntimeEntry, Scene3DRuntimeStore};
+use super::{
+    collect_scene3d_sources, load_and_resolve_scene3d, Scene3DRuntimeEntry, Scene3DRuntimeStore,
+};
 
 /// Build a [`Scene3DRuntimeStore`] holding parsed `Scene3DDefinition` entries for every
 /// `.scene3d.yml` referenced by `scene`.

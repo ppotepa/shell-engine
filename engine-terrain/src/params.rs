@@ -81,8 +81,12 @@ impl Default for WorldGenParams {
 }
 
 impl WorldGenParams {
-    pub fn default_subdivisions() -> u32   { 32 }
-    pub fn default_displacement_scale() -> f32 { 0.22 }
+    pub fn default_subdivisions() -> u32 {
+        32
+    }
+    pub fn default_displacement_scale() -> f32 {
+        0.22
+    }
 }
 
 /// High-level parameters for the noise-based planet generator.
@@ -169,21 +173,49 @@ impl Default for PlanetGenParams {
 
 impl PlanetGenParams {
     pub fn with_seed(seed: u64) -> Self {
-        Self { seed, ..Self::default() }
+        Self {
+            seed,
+            ..Self::default()
+        }
     }
 
-    fn default_ocean_fraction() -> f64        { 0.55 }
-    fn default_continent_scale() -> f64       { 2.5 }
-    fn default_continent_warp() -> f64        { 0.65 }
-    fn default_continent_octaves() -> u8      { 5 }
-    fn default_mountain_scale() -> f64        { 6.0 }
-    fn default_mountain_strength() -> f64     { 0.45 }
-    fn default_mountain_ridge_octaves() -> u8 { 5 }
-    fn default_moisture_scale() -> f64        { 3.0 }
-    fn default_ice_cap_strength() -> f64      { 1.0 }
-    fn default_lapse_rate() -> f64            { 0.6 }
-    fn default_rain_shadow() -> f64           { 0.35 }
-    fn default_grid_width() -> usize          { 512 }
-    fn default_grid_height() -> usize         { 256 }
+    fn default_ocean_fraction() -> f64 {
+        0.55
+    }
+    fn default_continent_scale() -> f64 {
+        2.5
+    }
+    fn default_continent_warp() -> f64 {
+        0.65
+    }
+    fn default_continent_octaves() -> u8 {
+        5
+    }
+    fn default_mountain_scale() -> f64 {
+        6.0
+    }
+    fn default_mountain_strength() -> f64 {
+        0.45
+    }
+    fn default_mountain_ridge_octaves() -> u8 {
+        5
+    }
+    fn default_moisture_scale() -> f64 {
+        3.0
+    }
+    fn default_ice_cap_strength() -> f64 {
+        1.0
+    }
+    fn default_lapse_rate() -> f64 {
+        0.6
+    }
+    fn default_rain_shadow() -> f64 {
+        0.35
+    }
+    fn default_grid_width() -> usize {
+        512
+    }
+    fn default_grid_height() -> usize {
+        256
+    }
 }
-

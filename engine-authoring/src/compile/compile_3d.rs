@@ -8,6 +8,20 @@ pub fn compile_3d_viewports(scene: &Scene) -> Vec<Viewport3DRef> {
     compile_3d_viewports_with_authored(scene, None)
 }
 
+/// Compiles 3D viewport references, using a two-mode strategy:
+///
+/// **Primary (authored):** if the scene YAML contains an explicit `viewports-3d:` block that
+/// passes validation (no duplicate sprite refs), those entries are used directly. This is the
+/// preferred path for scenes that explicitly declare their 3D viewport layout.
+///
+/// **Fallback (derived):** if no valid authored block is present, the compiled `Scene` is walked
+/// to collect every `Sprite::Obj`, `Sprite::Planet`, and `Sprite::Scene3D` sprite and derive a
+/// `Viewport3DRef` for each one. This is intentional — it lets simple scenes declare 3D sprites
+/// without needing a hand-authored `viewports-3d:` section.
+///
+/// These are two modes of a **single** compilation path, not a dual path. `SceneDocument::compile`
+/// only produces a `Scene` (runtime sprite tree); `Viewport3DRef` values are produced exclusively
+/// here in `compile_3d`.
 pub(super) fn compile_3d_viewports_with_authored(
     scene: &Scene,
     authored: Option<&RenderScene3dDocument>,

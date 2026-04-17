@@ -15,13 +15,34 @@ pub fn register_with_rhai(engine: &mut RhaiEngine) {
 fn planet_last_stats() -> RhaiMap {
     let mut map = RhaiMap::new();
     if let Some(stats) = engine_terrain::last_planet_stats() {
-        map.insert("ocean".into(), rhai::Dynamic::from_float(stats.ocean_fraction as f64));
-        map.insert("shallow".into(), rhai::Dynamic::from_float(stats.shallow_fraction as f64));
-        map.insert("desert".into(), rhai::Dynamic::from_float(stats.desert_fraction as f64));
-        map.insert("grassland".into(), rhai::Dynamic::from_float(stats.grassland_fraction as f64));
-        map.insert("forest".into(), rhai::Dynamic::from_float(stats.forest_fraction as f64));
-        map.insert("cold".into(), rhai::Dynamic::from_float(stats.cold_fraction as f64));
-        map.insert("mountain".into(), rhai::Dynamic::from_float(stats.mountain_fraction as f64));
+        map.insert(
+            "ocean".into(),
+            rhai::Dynamic::from_float(stats.ocean_fraction as f64),
+        );
+        map.insert(
+            "shallow".into(),
+            rhai::Dynamic::from_float(stats.shallow_fraction as f64),
+        );
+        map.insert(
+            "desert".into(),
+            rhai::Dynamic::from_float(stats.desert_fraction as f64),
+        );
+        map.insert(
+            "grassland".into(),
+            rhai::Dynamic::from_float(stats.grassland_fraction as f64),
+        );
+        map.insert(
+            "forest".into(),
+            rhai::Dynamic::from_float(stats.forest_fraction as f64),
+        );
+        map.insert(
+            "cold".into(),
+            rhai::Dynamic::from_float(stats.cold_fraction as f64),
+        );
+        map.insert(
+            "mountain".into(),
+            rhai::Dynamic::from_float(stats.mountain_fraction as f64),
+        );
     }
     map
 }

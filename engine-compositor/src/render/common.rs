@@ -10,6 +10,7 @@ use engine_core::scene::LayerStages;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use crate::ObjPrerenderedFrames;
 use std::collections::HashMap;
 
 use super::super::effect_applicator::apply_sprite_effects;
@@ -32,6 +33,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,
+    pub(crate) prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 
 /// Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.

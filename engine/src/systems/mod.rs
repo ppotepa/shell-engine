@@ -16,7 +16,9 @@ pub mod linear_brake;
 pub mod orbit_camera;
 pub mod particle_physics;
 pub mod particle_ramp;
+#[cfg(feature = "render-3d")]
 pub mod prerender;
+#[cfg(feature = "render-3d")]
 pub mod scene3d_prerender;
 pub mod thruster_ramp;
 pub mod visual_binding;
@@ -25,6 +27,7 @@ pub use engine_compositor::postfx;
 pub mod renderer;
 mod renderer_tests;
 pub mod scene_lifecycle;
+#[cfg(feature = "render-3d")]
 pub mod warmup;
 
 // Re-export menu from engine-animation

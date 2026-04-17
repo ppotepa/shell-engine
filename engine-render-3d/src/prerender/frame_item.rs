@@ -2,7 +2,8 @@ use engine_3d::scene3d_format::FrameDef;
 use engine_core::scene_runtime_types::SceneCamera3D;
 
 use super::{
-    build_object_specs, clip_progress_at, extract_light_params, Scene3DRuntimeEntry, Scene3DWorkItem,
+    build_object_specs, clip_progress_at, extract_light_params, Scene3DRuntimeEntry,
+    Scene3DWorkItem,
 };
 
 pub fn build_scene3d_frame_item_at(

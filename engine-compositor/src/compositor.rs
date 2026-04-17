@@ -5,8 +5,9 @@ use engine_core::effects::Region;
 use engine_effects::apply_effect;
 use engine_pipeline::LayerCompositor;
 use engine_render_2d::Render2dPipeline;
-
 use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLayerRenderInputs};
+#[cfg(feature = "render-3d")]
+use crate::prepared_frame::layer_frames_from_prepared;
 use crate::{prepare_layer_frames, CompositeParams};
 
 fn composite_scene(
@@ -43,6 +44,14 @@ fn composite_scene(
 
     let scene_w = buffer.width;
     let scene_h = buffer.height;
+    // Use pre-classified layer inputs when available; fall back to inline frame preparation.
+    #[cfg(feature = "render-3d")]
+    let prepared_layers: Vec<_> = if let Some(inputs) = &params.frame.prepared_layer_inputs {
+        layer_frames_from_prepared(inputs)
+    } else {
+        prepare_layer_frames(&params.frame, params.prepared.current_stage)
+    };
+    #[cfg(not(feature = "render-3d"))]
     let prepared_layers = prepare_layer_frames(&params.frame, params.prepared.current_stage);
 
     let mut layer_inputs = LayerCompositeInputs {
@@ -69,6 +78,7 @@ fn composite_scene(
             celestial_catalogs: params.prepared.celestial_catalogs,
             is_pixel_backend: params.prepared.is_pixel_backend,
             default_font: params.prepared.default_font,
+            prerender_frames: params.prepared.prerender_frames,
         },
     };
     composite_layers(&mut layer_inputs, layer, buffer);

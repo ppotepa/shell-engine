@@ -1,5 +1,5 @@
-use engine_core::color::Color;
 use crate::geom::math::{cross3, dot3, normalize3, sub3};
+use engine_core::color::Color;
 
 #[inline(always)]
 pub fn color_to_rgb(color: Color) -> [u8; 3] {

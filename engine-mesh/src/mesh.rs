@@ -14,12 +14,12 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(
-        vertices: Vec<[f32; 3]>,
-        normals: Vec<[f32; 3]>,
-        faces: Vec<[usize; 3]>,
-    ) -> Self {
-        Self { vertices, normals, faces }
+    pub fn new(vertices: Vec<[f32; 3]>, normals: Vec<[f32; 3]>, faces: Vec<[usize; 3]>) -> Self {
+        Self {
+            vertices,
+            normals,
+            faces,
+        }
     }
 }
 

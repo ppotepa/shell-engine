@@ -1,6 +1,6 @@
 # engine-compositor
 
-Scene composition, sprite rendering, layout, PostFX, and prerender helpers.
+Scene composition, sprite dispatch, layout, PostFX, and render orchestration helpers.
 
 ## Purpose
 
@@ -8,12 +8,12 @@ Scene composition, sprite rendering, layout, PostFX, and prerender helpers.
 final back buffer. It contains:
 
 - scene composition dispatch,
-- layer traversal and sprite rendering,
-- text, image, OBJ, and Scene3D rendering helpers,
+- layer traversal and sprite dispatch,
+- text, image, OBJ, and Scene3D render adapters,
 - layout measurement and grid/flex helpers,
 - PostFX passes,
-- OBJ warmup and prerender helpers,
-- Scene3D atlas prerendering.
+- OBJ warmup and prerender coordination,
+- Scene3D atlas coordination.
 
 Rendering-domain math and effect kernels (planet atmosphere/biome/terrain
 signals, shading/color-space helpers, and shared 3D geometry helpers) are
@@ -25,12 +25,12 @@ The engine crate should only extract world resources and call into this crate.
 ## Key modules
 
 - `compositor` — composition entry points such as `dispatch_composite()`
-- `layer_compositor` / `sprite_renderer` — layer traversal and sprite drawing
+- `layer_compositor` / `sprite_renderer_2d` — layer traversal and sprite drawing
 - `text_render`, `image_render`, `obj_render` — sprite-type-specific renderers
-- `obj_loader` — OBJ parsing, `mesh_to_obj_mesh()` conversion, `cube-sphere://N` URI handling
+- `engine-asset::mesh_assets` — OBJ parsing, mesh conversion, procedural URI handling (`cube-sphere://N`, etc.)
 - `layout` — measurement and placement helpers for panel, grid, and flex content
 - `systems::postfx` — PostFX pipeline
-- `prerender`, `scene3d_prerender`, `warmup` — preparation helpers used before scene activation
+- `prerender`, `warmup` — preparation helpers used before scene activation
 - `provider` / `access` — decoupling traits for engine integration
 
 ## Procedural mesh URIs
@@ -42,7 +42,7 @@ back to file loading. Currently supported:
 |-----|-----------|
 | `cube-sphere://N` | `engine_mesh::primitives::cube_sphere(N)` |
 
-Generated meshes are converted to `ObjMesh` via `obj_loader::mesh_to_obj_mesh`
+Generated meshes are converted to `ObjMesh` via `engine_asset::mesh_to_obj_mesh`
 and cached in `OBJ_MESH_CACHE` under the URI string.
 To add a new scheme add a branch in `get_or_load_obj_mesh` before the file-load fallback.
 

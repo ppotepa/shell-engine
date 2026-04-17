@@ -325,27 +325,43 @@ impl PlanetDef {
     fn default_cloud_noise_octaves() -> u8 {
         4
     }
-    fn default_warp_octaves() -> u8 { 2 }
-    fn default_lacunarity() -> f64 { 2.0 }
-    fn default_persistence() -> f64 { 0.5 }
-    fn default_crater_rim() -> f64 { 0.35 }
-    fn default_atmo_haze_power() -> f64 { 1.7 }
-    fn default_cloud_ambient() -> f64 { 0.012 }
-    fn default_ocean_noise_scale() -> f64 { 4.0 }
-    fn default_heightmap_blend() -> f64 { 0.0 }
+    fn default_warp_octaves() -> u8 {
+        2
+    }
+    fn default_lacunarity() -> f64 {
+        2.0
+    }
+    fn default_persistence() -> f64 {
+        0.5
+    }
+    fn default_crater_rim() -> f64 {
+        0.35
+    }
+    fn default_atmo_haze_power() -> f64 {
+        1.7
+    }
+    fn default_cloud_ambient() -> f64 {
+        0.012
+    }
+    fn default_ocean_noise_scale() -> f64 {
+        4.0
+    }
+    fn default_heightmap_blend() -> f64 {
+        0.0
+    }
 
     /// A `PlanetDef` suitable as a base for generated planets.
     /// Same as `Default` but with moderate spin rates pre-set.
     pub fn default_generated() -> Self {
         let mut d = Self::default();
-        d.surface_spin_dps  = 0.06;
-        d.cloud_spin_dps    = 0.10;
-        d.cloud_spin_2_dps  = 0.08;
-        d.ambient           = 0.06;
-        d.marble_depth      = 0.03;
-        d.noise_lacunarity  = 2.1;
+        d.surface_spin_dps = 0.06;
+        d.cloud_spin_dps = 0.10;
+        d.cloud_spin_2_dps = 0.08;
+        d.ambient = 0.06;
+        d.marble_depth = 0.03;
+        d.noise_lacunarity = 2.1;
         d.noise_persistence = 0.48;
-        d.atmo_rim_power    = 3.8;
+        d.atmo_rim_power = 3.8;
         d
     }
 }
@@ -550,7 +566,10 @@ impl CelestialCatalogs {
             &mut catalogs.planet_types,
         )?;
         // Re-process any planet_type that has a `generate:` block.
-        resolve_generated_planets(&celestial_dir.join("planets.yaml"), &mut catalogs.planet_types)?;
+        resolve_generated_planets(
+            &celestial_dir.join("planets.yaml"),
+            &mut catalogs.planet_types,
+        )?;
         load_named_catalog(
             &celestial_dir.join("bodies.yaml"),
             "bodies",
@@ -564,8 +583,13 @@ impl CelestialCatalogs {
 
 /// Post-process planet_types: for any entry that has a `generate:` YAML key,
 /// run the tectonic generator and merge authored overrides on top.
-fn resolve_generated_planets(path: &Path, target: &mut HashMap<String, PlanetDef>) -> Result<(), String> {
-    if !path.exists() { return Ok(()); }
+fn resolve_generated_planets(
+    path: &Path,
+    target: &mut HashMap<String, PlanetDef>,
+) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
 
     let content = std::fs::read_to_string(path)
         .map_err(|e| format!("resolve_generated_planets: read {}: {}", path.display(), e))?;
@@ -577,12 +601,18 @@ fn resolve_generated_planets(path: &Path, target: &mut HashMap<String, PlanetDef
     };
 
     for (key, value) in entries {
-        let Some(key_str) = key.as_str() else { continue; };
-        let Some(map) = value.as_mapping() else { continue; };
+        let Some(key_str) = key.as_str() else {
+            continue;
+        };
+        let Some(map) = value.as_mapping() else {
+            continue;
+        };
 
         // Only process entries that contain a `generate:` key
         let gen_key = serde_yaml::Value::String("generate".to_string());
-        let Some(gen_value) = map.get(&gen_key) else { continue; };
+        let Some(gen_value) = map.get(&gen_key) else {
+            continue;
+        };
 
         // Parse generation params
         let params: PlanetGenParams = serde_yaml::from_value(gen_value.clone())
@@ -598,7 +628,9 @@ fn resolve_generated_planets(path: &Path, target: &mut HashMap<String, PlanetDef
         let mut base_value = serde_yaml::to_value(&base)
             .map_err(|e| format!("planet_type '{}' serialize base: {}", key_str, e))?;
 
-        if let (Some(base_map), Some(overlay_map)) = (base_value.as_mapping_mut(), value.as_mapping()) {
+        if let (Some(base_map), Some(overlay_map)) =
+            (base_value.as_mapping_mut(), value.as_mapping())
+        {
             for (k, v) in overlay_map {
                 if k.as_str() != Some("generate") {
                     base_map.insert(k.clone(), v.clone());

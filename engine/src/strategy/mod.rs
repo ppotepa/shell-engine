@@ -7,12 +7,12 @@
 //! each system consults a strategy object instead of branching on boolean flags.
 
 // Re-export trait defs and simple impls from engine-pipeline
-pub use engine_pipeline::{
-    AlwaysPresenter, AlwaysRender, CoordinatedSkip, DirectLayerCompositor,
-    FrameSkipOracle, HashSkipPresenter, LayerCompositor, PipelineStrategies,
-    ScratchLayerCompositor, VirtualPresenter,
-};
 pub use engine_compositor::CompositeParams;
+pub use engine_pipeline::{
+    AlwaysPresenter, AlwaysRender, CoordinatedSkip, DirectLayerCompositor, FrameSkipOracle,
+    HashSkipPresenter, LayerCompositor, PipelineStrategies, ScratchLayerCompositor,
+    VirtualPresenter,
+};
 
 pub mod behavior_factory;
 

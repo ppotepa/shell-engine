@@ -47,11 +47,7 @@ static LAST_PLANET_STATS: OnceLock<Mutex<Option<PlanetStats>>> = OnceLock::new()
 /// Returns the stats of the most recently generated planet (via `generate()`).
 /// Returns `None` if no planet has been generated yet in this process.
 pub fn last_planet_stats() -> Option<PlanetStats> {
-    LAST_PLANET_STATS
-        .get()?
-        .lock()
-        .ok()?
-        .clone()
+    LAST_PLANET_STATS.get()?.lock().ok()?.clone()
 }
 
 /// Run the full noise-based pipeline and return a `GeneratedPlanet`.
@@ -74,10 +70,23 @@ pub fn generate(params: &PlanetGenParams) -> GeneratedPlanet {
     );
 
     // 3. Biome grid
-    let biomes = biome::classify(&elevation, &moisture, &temperature, params.grid_width, params.grid_height);
+    let biomes = biome::classify(
+        &elevation,
+        &moisture,
+        &temperature,
+        params.grid_width,
+        params.grid_height,
+    );
 
     // 4. Statistics
-    let planet_stats = stats::compute(&elevation, &moisture, &temperature, &biomes, params.grid_width, params.grid_height);
+    let planet_stats = stats::compute(
+        &elevation,
+        &moisture,
+        &temperature,
+        &biomes,
+        params.grid_width,
+        params.grid_height,
+    );
 
     // Cache stats for Rhai readback
     let cache = LAST_PLANET_STATS.get_or_init(|| Mutex::new(None));

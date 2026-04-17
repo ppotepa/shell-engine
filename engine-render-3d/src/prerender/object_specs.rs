@@ -7,8 +7,8 @@ use engine_core::scene_runtime_types::SceneCamera3D;
 use crate::ObjRenderParams;
 
 use super::{
-    evaluate_tween_values, parse_hex_color, resolve_camera_frame_state, resolve_object_frame_motion,
-    LightParams,
+    evaluate_tween_values, parse_hex_color, resolve_camera_frame_state,
+    resolve_object_frame_motion, LightParams,
 };
 
 #[derive(Debug, Clone)]

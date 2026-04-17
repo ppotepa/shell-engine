@@ -55,8 +55,8 @@ pub fn apply_atmosphere_overlay_rgb(
     let day = smoothstep(-0.12 * soft, 0.28 * soft, sun_mu);
     let night = (1.0 - day).clamp(0.0, 1.0);
     let twilight = gaussian(sun_mu, 0.04, 0.12 + 0.16 * soft);
-    let forward =
-        smoothstep(0.12, 1.0, dot3(view_dir, sun_dir)).powf(2.2) * params.forward_scatter.clamp(0.0, 1.0);
+    let forward = smoothstep(0.12, 1.0, dot3(view_dir, sun_dir)).powf(2.2)
+        * params.forward_scatter.clamp(0.0, 1.0);
     let view_airmass = ((1.0 / (mu_view * 0.86 + 0.14)) - 0.78).clamp(0.0, 4.5);
     let optical_depth = density * profile_height_boost * (0.18 + view_airmass);
     let optical = (1.0 - (-optical_depth).exp()).clamp(0.0, 1.0);
@@ -65,12 +65,12 @@ pub fn apply_atmosphere_overlay_rgb(
         params.absorption_height.clamp(0.0, 1.0),
         params.absorption_width.max(0.01),
     );
-    let limb_ring = gaussian(edge, (0.90 + height * 0.05).clamp(0.82, 0.98), 0.07 + height * 0.07);
-    if rayleigh_limb <= 0.01
-        && haze_limb <= 0.01
-        && absorption_profile <= 0.01
-        && optical <= 0.01
-    {
+    let limb_ring = gaussian(
+        edge,
+        (0.90 + height * 0.05).clamp(0.82, 0.98),
+        0.07 + height * 0.07,
+    );
+    if rayleigh_limb <= 0.01 && haze_limb <= 0.01 && absorption_profile <= 0.01 && optical <= 0.01 {
         return pixel;
     }
 
@@ -80,14 +80,16 @@ pub fn apply_atmosphere_overlay_rgb(
     let sunset_tint = mix_rgb([255, 214, 156], params.absorption_color, 0.65);
 
     let extinction_alpha = (optical
-        * (0.05 + 0.30 * params.haze_amount.clamp(0.0, 1.0) + 0.22 * params.absorption_amount.clamp(0.0, 1.0))
+        * (0.05
+            + 0.30 * params.haze_amount.clamp(0.0, 1.0)
+            + 0.22 * params.absorption_amount.clamp(0.0, 1.0))
         * (0.18 + 0.82 * horizon))
         .clamp(0.0, 0.78);
     let disk_haze_alpha = (optical
         * (0.08 + 0.74 * params.haze_amount.clamp(0.0, 1.0))
         * (0.22 + 0.78 * day)
         * (0.18 + 0.82 * horizon.powf(0.82)))
-        .clamp(0.0, 0.88);
+    .clamp(0.0, 0.88);
     let disk_ray_alpha = (optical
         * (0.05 + 0.70 * params.rayleigh_amount.clamp(0.0, 1.0))
         * (0.10 + 0.85 * day + 0.35 * forward)
@@ -114,11 +116,9 @@ pub fn apply_atmosphere_overlay_rgb(
         * (0.16 + 0.84 * absorption_profile.max(horizon))
         * (0.30 + 0.70 * day + 0.18 * forward))
         .clamp(0.0, 0.76);
-    let night_glow_alpha = (params.night_glow.clamp(0.0, 1.0)
-        * density
-        * (0.16 + 0.84 * horizon)
-        * night)
-        .clamp(0.0, 0.55);
+    let night_glow_alpha =
+        (params.night_glow.clamp(0.0, 1.0) * density * (0.16 + 0.84 * horizon) * night)
+            .clamp(0.0, 0.55);
 
     let mut out = scale_rgb(pixel, 1.0 - extinction_alpha * 0.38);
     if disk_haze_alpha > 0.0 {
@@ -261,7 +261,16 @@ mod tests {
         let v1 = v0;
         let v2 = v0;
 
-        let pixel = apply_atmosphere_overlay_barycentric([10, 20, 30], &biome, &v0, &v1, &v2, 1.0, 0.0, 0.0);
+        let pixel = apply_atmosphere_overlay_barycentric(
+            [10, 20, 30],
+            &biome,
+            &v0,
+            &v1,
+            &v2,
+            1.0,
+            0.0,
+            0.0,
+        );
         assert_ne!(pixel, [10, 20, 30]);
     }
 }

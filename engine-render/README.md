@@ -19,7 +19,7 @@ loading support.
 - `RenderCaps`, `ColorDepth`, `PresentMode` — backend capability and present semantics
 - `rasterizer` — shared text/font rasterization helpers
 - `generic` — renderer-agnostic helper utilities
-- `image_loader` / `font_loader` — asset loading helpers used by renderer code
+- `font_loader` — font asset loading helper used by renderer code (image decode/cache lives in `engine-asset`)
 
 ## Integration points
 

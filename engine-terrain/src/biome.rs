@@ -6,20 +6,22 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Biome {
-    Ocean       = 0,
+    Ocean = 0,
     ShallowWater = 1,
-    Beach       = 2,
-    Desert      = 3,
-    Grassland   = 4,
-    Forest      = 5,
-    Tundra      = 6,
-    Snow        = 7,
-    Mountain    = 8,
-    Volcanic    = 9,
+    Beach = 2,
+    Desert = 3,
+    Grassland = 4,
+    Forest = 5,
+    Tundra = 6,
+    Snow = 7,
+    Mountain = 8,
+    Volcanic = 9,
 }
 
 impl Default for Biome {
-    fn default() -> Self { Biome::Ocean }
+    fn default() -> Self {
+        Biome::Ocean
+    }
 }
 
 /// Classify every cell into a `Biome` based on elevation, moisture, temperature.
@@ -39,24 +41,42 @@ pub fn classify(
 }
 
 fn classify_cell(elev: f32, moist: f32, temp: f32) -> Biome {
-    if elev < 0.45 { return Biome::Ocean; }
-    if elev < 0.50 { return Biome::ShallowWater; }
-    if elev < 0.52 { return Biome::Beach; }
+    if elev < 0.45 {
+        return Biome::Ocean;
+    }
+    if elev < 0.50 {
+        return Biome::ShallowWater;
+    }
+    if elev < 0.52 {
+        return Biome::Beach;
+    }
 
     // High elevation → mountain or snow
     if elev > 0.80 {
-        return if temp < 0.3 { Biome::Snow } else { Biome::Mountain };
+        return if temp < 0.3 {
+            Biome::Snow
+        } else {
+            Biome::Mountain
+        };
     }
-    if elev > 0.70 && temp < 0.2 { return Biome::Snow; }
+    if elev > 0.70 && temp < 0.2 {
+        return Biome::Snow;
+    }
 
     // Cold zones
-    if temp < 0.25 { return Biome::Tundra; }
+    if temp < 0.25 {
+        return Biome::Tundra;
+    }
 
     // Dry zones
-    if moist < 0.25 { return Biome::Desert; }
+    if moist < 0.25 {
+        return Biome::Desert;
+    }
 
     // Temperate
-    if moist > 0.6 { return Biome::Forest; }
+    if moist > 0.6 {
+        return Biome::Forest;
+    }
 
     Biome::Grassland
 }

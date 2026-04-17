@@ -38,6 +38,7 @@ pub mod game_object;
 pub mod game_state;
 pub mod level_state;
 pub mod mod_behaviors;
+#[cfg(feature = "render-3d")]
 pub mod obj_prerender;
 pub mod pipeline_flags;
 pub mod pipelines;
@@ -48,6 +49,7 @@ pub mod runtime_settings;
 pub mod scene3d_atlas;
 pub mod scene3d_format;
 pub mod scene3d_resolve;
+#[cfg(feature = "render-3d")]
 pub mod scene3d_runtime_store;
 mod scene_loader;
 pub mod scene_pipeline;

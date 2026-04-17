@@ -29,9 +29,7 @@ impl ScenePreparationStep for ObjPrerenderStep {
         let Some(asset_root) = world.asset_root().cloned() else {
             return;
         };
-        let Some(frames) =
-            prerender_scene_sprites(&scene.layers, &scene.id, &asset_root)
-        else {
+        let Some(frames) = prerender_scene_sprites(&scene.layers, &scene.id, &asset_root) else {
             return;
         };
         world.register_scoped(frames);

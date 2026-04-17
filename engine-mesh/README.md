@@ -48,7 +48,7 @@ mesh-source: cube-sphere://64
 
 The compositor intercepts this URI in `get_or_load_obj_mesh`, calls
 `engine_mesh::primitives::cube_sphere(64)`, converts with
-`obj_loader::mesh_to_obj_mesh`, and caches the result under that key.
+`engine_asset::mesh_to_obj_mesh`, and caches the result under that key.
 
 No file I/O occurs — generation happens once per subdivision level at
 first use and is shared across all sprites via `Arc<ObjMesh>`.

@@ -24,8 +24,7 @@ pub fn renderer_system(world: &mut World) {
     if has_script_errors && debug_enabled {
         logging::warn(
             "renderer.flicker_diag",
-            "restore_front_to_back TRIGGERED (has_script_errors=true + debug_enabled)"
-                .to_string(),
+            "restore_front_to_back TRIGGERED (has_script_errors=true + debug_enabled)".to_string(),
         );
         if let Some(buffer) = world.get_mut::<Buffer>() {
             buffer.restore_front_to_back();
@@ -359,7 +358,11 @@ fn apply_perf_hud(world: &mut World) {
             if !hud_text.is_empty() {
                 hud_text.push_str("  ");
             }
-            let _ = write!(hud_text, "{:.0}% CPU  {:.1}MB", stats.cpu_percent, stats.rss_mb);
+            let _ = write!(
+                hud_text,
+                "{:.0}% CPU  {:.1}MB",
+                stats.cpu_percent, stats.rss_mb
+            );
         }
         if hud_text.is_empty() {
             return;

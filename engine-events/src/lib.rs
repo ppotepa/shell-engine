@@ -14,20 +14,48 @@ pub use mouse::MouseButton;
 pub enum EngineEvent {
     Tick,
     /// A key was pressed. `repeat` is true when the platform is auto-repeating a held key.
-    KeyDown { key: KeyEvent, repeat: bool },
+    KeyDown {
+        key: KeyEvent,
+        repeat: bool,
+    },
     /// A key was released.
-    KeyUp { key: KeyEvent },
+    KeyUp {
+        key: KeyEvent,
+    },
     InputFocusLost,
     /// Mouse cursor moved to virtual-space coordinates `(x, y)` in `[0, width) × [0, height)`.
-    MouseMoved { x: f32, y: f32 },
-    MouseButtonDown { button: MouseButton, x: f32, y: f32 },
-    MouseButtonUp { button: MouseButton, x: f32, y: f32 },
+    MouseMoved {
+        x: f32,
+        y: f32,
+    },
+    MouseButtonDown {
+        button: MouseButton,
+        x: f32,
+        y: f32,
+    },
+    MouseButtonUp {
+        button: MouseButton,
+        x: f32,
+        y: f32,
+    },
     /// Mouse scroll wheel moved. Positive `delta_y` = scroll up, negative = scroll down.
-    MouseWheel { delta_y: f32 },
-    SceneLoaded { scene_id: String },
-    SceneTransition { to_scene_id: String },
-    AudioCue { cue: String, volume: Option<f32> },
-    OutputResized { width: u16, height: u16 },
+    MouseWheel {
+        delta_y: f32,
+    },
+    SceneLoaded {
+        scene_id: String,
+    },
+    SceneTransition {
+        to_scene_id: String,
+    },
+    AudioCue {
+        cue: String,
+        volume: Option<f32>,
+    },
+    OutputResized {
+        width: u16,
+        height: u16,
+    },
     Quit,
 }
 
@@ -36,11 +64,22 @@ impl EngineEvent {
     /// Non-input events (Tick, SceneTransition, etc.) return `None`.
     pub fn as_input_event(&self) -> Option<InputEvent> {
         match self {
-            Self::KeyDown { key, repeat } => Some(InputEvent::KeyDown { key: *key, repeat: *repeat }),
+            Self::KeyDown { key, repeat } => Some(InputEvent::KeyDown {
+                key: *key,
+                repeat: *repeat,
+            }),
             Self::KeyUp { key } => Some(InputEvent::KeyUp { key: *key }),
             Self::MouseMoved { x, y } => Some(InputEvent::MouseMoved { x: *x, y: *y }),
-            Self::MouseButtonDown { button, x, y } => Some(InputEvent::MouseDown { button: *button, x: *x, y: *y }),
-            Self::MouseButtonUp { button, x, y } => Some(InputEvent::MouseUp { button: *button, x: *x, y: *y }),
+            Self::MouseButtonDown { button, x, y } => Some(InputEvent::MouseDown {
+                button: *button,
+                x: *x,
+                y: *y,
+            }),
+            Self::MouseButtonUp { button, x, y } => Some(InputEvent::MouseUp {
+                button: *button,
+                x: *x,
+                y: *y,
+            }),
             Self::MouseWheel { delta_y } => Some(InputEvent::MouseWheel { delta_y: *delta_y }),
             Self::InputFocusLost => Some(InputEvent::FocusLost),
             _ => None,

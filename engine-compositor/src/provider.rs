@@ -7,12 +7,18 @@ use engine_core::effects::Region;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
+use crate::ObjPrerenderedFrames;
 use engine_render_2d::{Render2dInput, Render2dPipeline};
 
+#[cfg(feature = "render-3d")]
 use crate::generated_world_render_adapter::render_generated_world_sprite as render_generated_world_sprite_adapter;
+#[cfg(feature = "render-3d")]
 use crate::obj_render_adapter::render_obj_sprite as render_obj_sprite_adapter;
+#[cfg(feature = "render-3d")]
 use crate::scene_clip_render_adapter::render_scene_clip_sprite as render_scene_clip_sprite_adapter;
-use crate::sprite_renderer_2d::{render_sprites, Render3dDelegate};
+use crate::sprite_renderer_2d::render_sprites;
+#[cfg(feature = "render-3d")]
+use crate::sprite_renderer_2d::{Render3dDelegate, Render3dNodeSpec};
 
 /// Provides access to compositor-needed resources from World.
 pub trait CompositorProvider {
@@ -46,6 +52,7 @@ pub(crate) fn resolve_render_2d_pipeline<'a>(
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
+    prerender_frames: Option<&'a ObjPrerenderedFrames>,
 ) -> ResolvedRender2dPipeline<'a> {
     match pipeline {
         Some(pipeline) => ResolvedRender2dPipeline::Provided(pipeline),
@@ -53,6 +60,7 @@ pub(crate) fn resolve_render_2d_pipeline<'a>(
             obj_camera_states,
             scene_camera_3d,
             celestial_catalogs,
+            prerender_frames,
         )),
     }
 }
@@ -66,12 +74,16 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
         obj_camera_states: &'a HashMap<String, ObjCameraState>,
         scene_camera_3d: &'a SceneCamera3D,
         celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
+        prerender_frames: Option<&'a ObjPrerenderedFrames>,
     ) -> Self {
+        #[cfg(feature = "render-3d")]
         let render_3d = DefaultCompositorRender3dDelegate;
         let render_2d = DefaultCompositorRender2dPipeline {
             obj_camera_states,
             scene_camera_3d,
             celestial_catalogs,
+            prerender_frames,
+            #[cfg(feature = "render-3d")]
             render_3d,
         };
         Self { render_2d }
@@ -82,6 +94,8 @@ pub struct DefaultCompositorRender2dPipeline<'a> {
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
+    prerender_frames: Option<&'a ObjPrerenderedFrames>,
+    #[cfg(feature = "render-3d")]
     render_3d: DefaultCompositorRender3dDelegate,
 }
 
@@ -107,18 +121,21 @@ impl Render2dPipeline for DefaultCompositorRender2dPipeline<'_> {
             self.celestial_catalogs,
             input.is_pixel_backend,
             input.default_font,
-            &self.render_3d,
+            #[cfg(feature = "render-3d")] &self.render_3d,
+            self.prerender_frames,
             target,
         );
     }
 }
 
+#[cfg(feature = "render-3d")]
 pub struct DefaultCompositorRender3dDelegate;
 
+#[cfg(feature = "render-3d")]
 impl Render3dDelegate for DefaultCompositorRender3dDelegate {
-    fn render_obj_sprite(
+    fn render_3d_node(
         &self,
-        spec: engine_render_3d::pipeline::ObjSpriteSpec<'_>,
+        spec: Render3dNodeSpec<'_>,
         area: engine_render_2d::RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
@@ -128,40 +145,33 @@ impl Render3dDelegate for DefaultCompositorRender3dDelegate {
         sprite_elapsed: u64,
         ctx: &mut crate::render::RenderCtx<'_>,
     ) {
-        render_obj_sprite_adapter(
-            spec,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            object_state,
-            appear_at,
-            sprite_elapsed,
-            ctx,
-        );
-    }
-
-    fn render_generated_world_sprite(
-        &self,
-        spec: engine_render_3d::pipeline::GeneratedWorldSpriteSpec<'_>,
-        area: engine_render_2d::RenderArea,
-        target_resolver: Option<&TargetResolver>,
-        object_regions: &mut HashMap<String, Region>,
-        object_id: Option<&str>,
-        object_state: &ObjectRuntimeState,
-        sprite_elapsed: u64,
-        ctx: &mut crate::render::RenderCtx<'_>,
-    ) {
-        render_generated_world_sprite_adapter(
-            spec,
-            area,
-            target_resolver,
-            object_regions,
-            object_id,
-            object_state,
-            sprite_elapsed,
-            ctx,
-        );
+        match spec {
+            Render3dNodeSpec::Obj(obj_spec) => {
+                render_obj_sprite_adapter(
+                    obj_spec,
+                    area,
+                    target_resolver,
+                    object_regions,
+                    object_id,
+                    object_state,
+                    appear_at,
+                    sprite_elapsed,
+                    ctx,
+                );
+            }
+            Render3dNodeSpec::GeneratedWorld(world_spec) => {
+                render_generated_world_sprite_adapter(
+                    world_spec,
+                    area,
+                    target_resolver,
+                    object_regions,
+                    object_id,
+                    object_state,
+                    sprite_elapsed,
+                    ctx,
+                );
+            }
+        }
     }
 
     fn render_scene_clip_sprite(

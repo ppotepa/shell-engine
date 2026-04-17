@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+default = ["render-3d"]
+render-3d = ["dep:engine-render-3d"]
+
 [dependencies]
 engine-terrain = { path = "../engine-terrain" }
 engine-celestial = { workspace = true }
@@ -13,7 +17,7 @@ engine-effects = { workspace = true }
 engine-mesh = { workspace = true }
 engine-worldgen = { workspace = true }
 engine-render-2d = { workspace = true }
-engine-render-3d = { workspace = true }
+engine-render-3d = { workspace = true, optional = true }
 engine-animation = { path = "../engine-animation" }
 engine-asset = { path = "../engine-asset" }
 engine-layout = { path = "../engine-layout" }

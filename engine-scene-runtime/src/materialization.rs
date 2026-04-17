@@ -1,4 +1,7 @@
 use super::*;
+use crate::mutations::{
+    AtmosphereParam, ObjMaterialParam, PlanetParam, TerrainParam, WorldgenParam,
+};
 
 impl SceneRuntime {
     pub fn text_sprite_content(&self, sprite_id: &str) -> Option<&str> {
@@ -184,112 +187,111 @@ impl SceneRuntime {
         false
     }
 
-    pub(crate) fn set_obj_sprite_property_by_path(
+    /// Typed wrapper for ObjMaterialParam mutations
+    pub(crate) fn set_obj_material_typed_wrapper(
         &mut self,
         sprite_id: &str,
-        path: &str,
-        value: &JsonValue,
+        param: &ObjMaterialParam,
+        value: &engine_core::render_types::MaterialValue,
     ) -> bool {
-        let mut updated = false;
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                set_obj_property_recursive(
-                    &mut layer.sprites,
-                    sprite_id,
-                    path,
-                    value,
-                    &mut updated,
-                );
-                if updated {
+                if set_obj_material_typed(&mut layer.sprites, sprite_id, param, value) {
                     return true;
                 }
             }
         }
         for layer in &mut self.scene.layers {
-            set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
-            if updated {
+            if set_obj_material_typed(&mut layer.sprites, sprite_id, param, value) {
                 return true;
             }
         }
         false
     }
 
-    fn set_planet_sprite_property_by_path(
+    /// Typed wrapper for AtmosphereParam mutations
+    pub(crate) fn set_obj_atmosphere_typed_wrapper(
         &mut self,
         sprite_id: &str,
-        path: &str,
-        value: &JsonValue,
+        param: &AtmosphereParam,
+        value: &engine_core::render_types::MaterialValue,
     ) -> bool {
-        let mut updated = false;
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                set_planet_property_recursive(
-                    &mut layer.sprites,
-                    sprite_id,
-                    path,
-                    value,
-                    &mut updated,
-                );
-                if updated {
+                if set_obj_atmosphere_typed(&mut layer.sprites, sprite_id, param, value) {
                     return true;
                 }
             }
         }
         for layer in &mut self.scene.layers {
-            set_planet_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
-            if updated {
+            if set_obj_atmosphere_typed(&mut layer.sprites, sprite_id, param, value) {
                 return true;
             }
         }
         false
     }
 
-    pub(crate) fn set_obj_material_param(
+    pub(crate) fn set_obj_terrain_typed_wrapper(
         &mut self,
         sprite_id: &str,
-        param: &str,
-        value: &JsonValue,
+        param: &TerrainParam,
+        value: &engine_core::render_types::MaterialValue,
     ) -> bool {
-        let full_path = if param.starts_with("planet.") {
-            param.to_string()
-        } else {
-            format!("obj.{param}")
-        };
-        self.set_obj_sprite_property_by_path(sprite_id, &full_path, value)
-    }
-
-    pub(crate) fn set_obj_atmosphere_param(
-        &mut self,
-        sprite_id: &str,
-        param: &str,
-        value: &JsonValue,
-    ) -> bool {
-        let full_path = format!("obj.atmo.{param}");
-        self.set_obj_sprite_property_by_path(sprite_id, &full_path, value)
-    }
-
-    pub(crate) fn set_obj_worldgen_param(
-        &mut self,
-        sprite_id: &str,
-        param: &str,
-        value: &JsonValue,
-    ) -> bool {
-        if param.starts_with("obj.") || param.starts_with("terrain.") || param.starts_with("world.") {
-            self.set_obj_sprite_property_by_path(sprite_id, param, value)
-        } else {
-            self.set_obj_sprite_property_by_path(sprite_id, &format!("terrain.{param}"), value)
-                || self.set_obj_sprite_property_by_path(sprite_id, &format!("world.{param}"), value)
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                if set_obj_terrain_typed(&mut layer.sprites, sprite_id, param, value) {
+                    return true;
+                }
+            }
         }
+        for layer in &mut self.scene.layers {
+            if set_obj_terrain_typed(&mut layer.sprites, sprite_id, param, value) {
+                return true;
+            }
+        }
+        false
     }
 
-    pub(crate) fn set_planet_material_param(
+    pub(crate) fn set_obj_worldgen_typed_wrapper(
         &mut self,
         sprite_id: &str,
-        param: &str,
-        value: &JsonValue,
+        param: &WorldgenParam,
+        value: &engine_core::render_types::MaterialValue,
     ) -> bool {
-        let full_path = format!("planet.{param}");
-        self.set_planet_sprite_property_by_path(sprite_id, &full_path, value)
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                if set_obj_worldgen_typed(&mut layer.sprites, sprite_id, param, value) {
+                    return true;
+                }
+            }
+        }
+        for layer in &mut self.scene.layers {
+            if set_obj_worldgen_typed(&mut layer.sprites, sprite_id, param, value) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub(crate) fn set_planet_typed_wrapper(
+        &mut self,
+        sprite_id: &str,
+        param: &PlanetParam,
+        value: &engine_core::render_types::MaterialValue,
+    ) -> bool {
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                if set_planet_typed(&mut layer.sprites, sprite_id, param, value) {
+                    return true;
+                }
+            }
+        }
+        for layer in &mut self.scene.layers {
+            if set_planet_typed(&mut layer.sprites, sprite_id, param, value) {
+                return true;
+            }
+        }
+        false
     }
 
     pub(crate) fn set_vector_sprite_property(
@@ -793,1027 +795,6 @@ fn set_scene3d_frame_recursive(
     }
 }
 
-fn set_obj_property_recursive(
-    sprites: &mut [Sprite],
-    sprite_id: &str,
-    path: &str,
-    value: &JsonValue,
-    updated: &mut bool,
-) {
-    for sprite in sprites.iter_mut() {
-        match sprite {
-            Sprite::Obj {
-                id: Some(id),
-                source,
-                scale,
-                yaw_deg,
-                pitch_deg,
-                roll_deg,
-                rotate_y_deg_per_sec,
-                ambient,
-                atmo_color,
-                atmo_height,
-                atmo_density,
-                atmo_strength,
-                atmo_rayleigh_amount,
-                atmo_rayleigh_color,
-                atmo_rayleigh_falloff,
-                atmo_haze_amount,
-                atmo_haze_color,
-                atmo_haze_falloff,
-                atmo_absorption_amount,
-                atmo_absorption_color,
-                atmo_absorption_height,
-                atmo_absorption_width,
-                atmo_forward_scatter,
-                atmo_limb_boost,
-                atmo_terminator_softness,
-                atmo_night_glow,
-                atmo_night_glow_color,
-                atmo_rim_power,
-                atmo_haze_strength,
-                atmo_haze_power,
-                atmo_veil_strength,
-                atmo_veil_power,
-                atmo_halo_strength,
-                atmo_halo_width,
-                atmo_halo_power,
-                light_direction_x,
-                light_direction_y,
-                light_direction_z,
-                surface_mode,
-                clip_y_min,
-                clip_y_max,
-                camera_distance,
-                terrain_plane_amplitude,
-                terrain_plane_frequency,
-                terrain_plane_roughness,
-                terrain_plane_octaves,
-                terrain_plane_seed_x,
-                terrain_plane_seed_z,
-                terrain_plane_lacunarity,
-                terrain_plane_ridge,
-                terrain_plane_plateau,
-                terrain_plane_sea_level,
-                terrain_plane_scale_x,
-                terrain_plane_scale_z,
-                world_gen_shape,
-                world_gen_base,
-                world_gen_coloring,
-                world_gen_seed,
-                world_gen_ocean_fraction,
-                world_gen_continent_scale,
-                world_gen_continent_warp,
-                world_gen_continent_octaves,
-                world_gen_mountain_scale,
-                world_gen_mountain_strength,
-                world_gen_mountain_ridge_octaves,
-                world_gen_moisture_scale,
-                world_gen_ice_cap_strength,
-                world_gen_lapse_rate,
-                world_gen_rain_shadow,
-                world_gen_displacement_scale,
-                world_gen_subdivisions,
-                world_x,
-                world_y,
-                world_z,
-                cam_world_x,
-                cam_world_y,
-                cam_world_z,
-                view_right_x,
-                view_right_y,
-                view_right_z,
-                view_up_x,
-                view_up_y,
-                view_up_z,
-                view_fwd_x,
-                view_fwd_y,
-                view_fwd_z,
-                ..
-            } if id == sprite_id => match path {
-                "obj.source" => {
-                    let Some(next) = value.as_str() else {
-                        continue;
-                    };
-                    if source.as_str() != next {
-                        *source = next.to_string();
-                        *updated = true;
-                    }
-                }
-                "terrain.amplitude" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.01, 10.0);
-                        if terrain_plane_amplitude.map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *terrain_plane_amplitude = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.frequency" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.01, 16.0);
-                        if terrain_plane_frequency.map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *terrain_plane_frequency = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.roughness" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if terrain_plane_roughness.map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *terrain_plane_roughness = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.octaves" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = (next.round() as u8).clamp(1, 3);
-                        if terrain_plane_octaves.map_or(true, |v| v != next) {
-                            *terrain_plane_octaves = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.seed_x" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        if terrain_plane_seed_x.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *terrain_plane_seed_x = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.seed_z" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        if terrain_plane_seed_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *terrain_plane_seed_z = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.lacunarity" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(1.0, 4.0);
-                        if terrain_plane_lacunarity
-                            .map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *terrain_plane_lacunarity = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.ridge" => {
-                    let next = value
-                        .as_bool()
-                        .unwrap_or_else(|| value.as_f64().map(|f| f != 0.0).unwrap_or(false));
-                    if terrain_plane_ridge.map_or(true, |v| v != next) {
-                        *terrain_plane_ridge = Some(next);
-                        *updated = true;
-                    }
-                }
-                "terrain.plateau" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if terrain_plane_plateau.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *terrain_plane_plateau = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.sea_level" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if terrain_plane_sea_level.map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *terrain_plane_sea_level = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.scale_x" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.25, 4.0);
-                        if terrain_plane_scale_x.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *terrain_plane_scale_x = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "terrain.scale_z" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.25, 4.0);
-                        if terrain_plane_scale_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *terrain_plane_scale_z = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.seed" => {
-                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64))
-                    {
-                        if world_gen_seed.map_or(true, |v| v != next) {
-                            *world_gen_seed = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.ocean_fraction" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.0, 1.0);
-                        if world_gen_ocean_fraction.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_ocean_fraction = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.continent_scale" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.5, 10.0);
-                        if world_gen_continent_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_continent_scale = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.continent_warp" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.0, 2.0);
-                        if world_gen_continent_warp.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_continent_warp = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.continent_octaves" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = (next.round() as u8).clamp(2, 8);
-                        if world_gen_continent_octaves.map_or(true, |v| v != next) {
-                            *world_gen_continent_octaves = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.mountain_scale" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(1.0, 20.0);
-                        if world_gen_mountain_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_mountain_scale = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.mountain_strength" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.0, 1.0);
-                        if world_gen_mountain_strength.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_mountain_strength = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.moisture_scale" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.5, 10.0);
-                        if world_gen_moisture_scale.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_moisture_scale = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.mountain_ridge_octaves" => {
-                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64))
-                    {
-                        let next = (next as u8).clamp(2, 8);
-                        if world_gen_mountain_ridge_octaves.map_or(true, |v| v != next) {
-                            *world_gen_mountain_ridge_octaves = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.ice_cap_strength" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.0, 3.0);
-                        if world_gen_ice_cap_strength.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_ice_cap_strength = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.lapse_rate" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.0, 1.0);
-                        if world_gen_lapse_rate.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_lapse_rate = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.rain_shadow" => {
-                    if let Some(next) = value.as_f64() {
-                        let next = next.clamp(0.0, 1.0);
-                        if world_gen_rain_shadow.map_or(true, |v| (v - next).abs() > 1e-6) {
-                            *world_gen_rain_shadow = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.subdivisions" => {
-                    if let Some(next) = value.as_u64().or_else(|| value.as_f64().map(|f| f as u64))
-                    {
-                        let next = (next as u32).clamp(1, 512);
-                        if world_gen_subdivisions.map_or(true, |v| v != next) {
-                            *world_gen_subdivisions = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.displacement_scale" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if world_gen_displacement_scale
-                            .map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *world_gen_displacement_scale = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.coloring" => {
-                    if let Some(next) = value.as_str() {
-                        let s = next.to_string();
-                        if world_gen_coloring.as_deref() != Some(next) {
-                            *world_gen_coloring = Some(s);
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.base" => {
-                    if let Some(next) = value.as_str() {
-                        let normalized = match next {
-                            "uv" | "tetra" | "octa" | "icosa" => next,
-                            _ => "cube",
-                        };
-                        if world_gen_base.as_deref() != Some(normalized) {
-                            *world_gen_base = Some(normalized.to_string());
-                            *updated = true;
-                        }
-                    }
-                }
-                "world.shape" => {
-                    if let Some(next) = value.as_str() {
-                        let normalized = if next == "flat" { "flat" } else { "sphere" };
-                        if world_gen_shape.as_deref() != Some(normalized) {
-                            *world_gen_shape = Some(normalized.to_string());
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.camera-distance" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.3, 10.0);
-                        if camera_distance.map_or(true, |c| (c - next).abs() > f32::EPSILON) {
-                            *camera_distance = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.scale" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    let next = next.clamp(0.1, 8.0);
-                    if (scale.unwrap_or(1.0) - next).abs() > f32::EPSILON {
-                        *scale = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.yaw" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (yaw_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *yaw_deg = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.pitch" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (pitch_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *pitch_deg = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.roll" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (roll_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *roll_deg = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.orbit_speed" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (rotate_y_deg_per_sec.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *rotate_y_deg_per_sec = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.rotation-speed" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 60.0);
-                        if (rotate_y_deg_per_sec.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                            *rotate_y_deg_per_sec = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.ambient" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if ambient.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *ambient = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.color" => {
-                    if let Some(next_str) = value.as_str() {
-                        let normalized = next_str.trim().to_ascii_lowercase();
-                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
-                            if atmo_color.is_some() {
-                                *atmo_color = None;
-                                *updated = true;
-                            }
-                        } else if let Some(next) = parse_term_colour(value) {
-                            if atmo_color.as_ref() != Some(&next) {
-                                *atmo_color = Some(next);
-                                *updated = true;
-                            }
-                        }
-                    }
-                }
-                "obj.atmo.height" | "obj.atmo.height_rel" | "obj.atmo.height-rel" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_height.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_height = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.density" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_density.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_density = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.strength" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_strength = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.rayleigh_amount" | "obj.atmo.rayleigh-amount" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_rayleigh_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_rayleigh_amount = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.rayleigh_color" | "obj.atmo.rayleigh-color" => {
-                    if let Some(next_str) = value.as_str() {
-                        let normalized = next_str.trim().to_ascii_lowercase();
-                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
-                            if atmo_rayleigh_color.is_some() {
-                                *atmo_rayleigh_color = None;
-                                *updated = true;
-                            }
-                        } else if let Some(next) = parse_term_colour(value) {
-                            if atmo_rayleigh_color.as_ref() != Some(&next) {
-                                *atmo_rayleigh_color = Some(next);
-                                *updated = true;
-                            }
-                        }
-                    }
-                }
-                "obj.atmo.rayleigh_falloff" | "obj.atmo.rayleigh-falloff" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.01, 1.0);
-                        if atmo_rayleigh_falloff.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_rayleigh_falloff = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.haze_amount" | "obj.atmo.haze-amount" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_haze_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_haze_amount = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.haze_color" | "obj.atmo.haze-color" => {
-                    if let Some(next_str) = value.as_str() {
-                        let normalized = next_str.trim().to_ascii_lowercase();
-                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
-                            if atmo_haze_color.is_some() {
-                                *atmo_haze_color = None;
-                                *updated = true;
-                            }
-                        } else if let Some(next) = parse_term_colour(value) {
-                            if atmo_haze_color.as_ref() != Some(&next) {
-                                *atmo_haze_color = Some(next);
-                                *updated = true;
-                            }
-                        }
-                    }
-                }
-                "obj.atmo.haze_falloff" | "obj.atmo.haze-falloff" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.01, 1.0);
-                        if atmo_haze_falloff.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_haze_falloff = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.absorption_amount" | "obj.atmo.absorption-amount" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_absorption_amount.map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *atmo_absorption_amount = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.absorption_color" | "obj.atmo.absorption-color" => {
-                    if let Some(next_str) = value.as_str() {
-                        let normalized = next_str.trim().to_ascii_lowercase();
-                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
-                            if atmo_absorption_color.is_some() {
-                                *atmo_absorption_color = None;
-                                *updated = true;
-                            }
-                        } else if let Some(next) = parse_term_colour(value) {
-                            if atmo_absorption_color.as_ref() != Some(&next) {
-                                *atmo_absorption_color = Some(next);
-                                *updated = true;
-                            }
-                        }
-                    }
-                }
-                "obj.atmo.absorption_height" | "obj.atmo.absorption-height" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_absorption_height.map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *atmo_absorption_height = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.absorption_width" | "obj.atmo.absorption-width" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.01, 1.0);
-                        if atmo_absorption_width.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_absorption_width = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.forward_scatter" | "obj.atmo.forward-scatter" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_forward_scatter.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_forward_scatter = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.limb_boost" | "obj.atmo.limb-boost" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 4.0);
-                        if atmo_limb_boost.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_limb_boost = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.terminator_softness" | "obj.atmo.terminator-softness" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.05, 4.0);
-                        if atmo_terminator_softness
-                            .map_or(true, |v| (v - next).abs() > f32::EPSILON)
-                        {
-                            *atmo_terminator_softness = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.night_glow" | "obj.atmo.night-glow" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_night_glow.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_night_glow = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.night_glow_color" | "obj.atmo.night-glow-color" => {
-                    if let Some(next_str) = value.as_str() {
-                        let normalized = next_str.trim().to_ascii_lowercase();
-                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
-                            if atmo_night_glow_color.is_some() {
-                                *atmo_night_glow_color = None;
-                                *updated = true;
-                            }
-                        } else if let Some(next) = parse_term_colour(value) {
-                            if atmo_night_glow_color.as_ref() != Some(&next) {
-                                *atmo_night_glow_color = Some(next);
-                                *updated = true;
-                            }
-                        }
-                    }
-                }
-                "obj.atmo.rim_power" | "obj.atmo.rim-power" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.1, 16.0);
-                        if atmo_rim_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_rim_power = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.haze_strength" | "obj.atmo.haze-strength" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_haze_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_haze_strength = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.haze_power" | "obj.atmo.haze-power" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.1, 8.0);
-                        if atmo_haze_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_haze_power = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.veil_strength" | "obj.atmo.veil-strength" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_veil_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_veil_strength = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.veil_power" | "obj.atmo.veil-power" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.1, 8.0);
-                        if atmo_veil_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_veil_power = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.halo_strength" | "obj.atmo.halo-strength" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_halo_strength.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_halo_strength = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.halo_width" | "obj.atmo.halo-width" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.0, 1.0);
-                        if atmo_halo_width.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_halo_width = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.atmo.halo_power" | "obj.atmo.halo-power" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(0.1, 8.0);
-                        if atmo_halo_power.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *atmo_halo_power = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.light.x" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(-1.0, 1.0);
-                        if light_direction_x.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *light_direction_x = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.light.y" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(-1.0, 1.0);
-                        if light_direction_y.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *light_direction_y = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.light.z" => {
-                    if let Some(next) = json_value_to_f32(value) {
-                        let next = next.clamp(-1.0, 1.0);
-                        if light_direction_z.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
-                            *light_direction_z = Some(next);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.surface_mode" => {
-                    let Some(next) = value.as_str() else {
-                        continue;
-                    };
-                    if surface_mode.as_deref() != Some(next) {
-                        *surface_mode = Some(next.to_string());
-                        *updated = true;
-                    }
-                }
-                "obj.clip_y_min" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    let next = next.clamp(0.0, 1.0);
-                    if (clip_y_min.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *clip_y_min = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.clip_y_max" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    let next = next.clamp(0.0, 1.0);
-                    if (clip_y_max.unwrap_or(1.0) - next).abs() > f32::EPSILON {
-                        *clip_y_max = Some(next);
-                        *updated = true;
-                    }
-                }
-                // ── Object world-space translation ──────────────────────────
-                "obj.world.x" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *world_x = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.world.y" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *world_y = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.world.z" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *world_z = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                // ── Cockpit camera world position ──────────────────────────
-                "obj.cam.wx" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if cam_world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *cam_world_x = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.cam.wy" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if cam_world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *cam_world_y = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.cam.wz" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if cam_world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *cam_world_z = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                // ── Cockpit camera view basis ──────────────────────────────
-                "obj.view.rx" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_right_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_right_x = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.ry" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_right_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_right_y = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.rz" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_right_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_right_z = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.ux" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_up_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_up_x = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.uy" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_up_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_up_y = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.uz" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_up_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_up_z = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.fx" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_fwd_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_fwd_x = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.fy" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_fwd_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_fwd_y = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                "obj.view.fz" => {
-                    if let Some(v) = json_value_to_f32(value) {
-                        if view_fwd_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
-                            *view_fwd_z = Some(v);
-                            *updated = true;
-                        }
-                    }
-                }
-                _ => {}
-            },
-            Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => {
-                set_obj_property_recursive(children, sprite_id, path, value, updated);
-            }
-            _ => {}
-        }
-    }
-}
-
-fn set_planet_property_recursive(
-    sprites: &mut [Sprite],
-    sprite_id: &str,
-    path: &str,
-    value: &JsonValue,
-    updated: &mut bool,
-) {
-    for sprite in sprites.iter_mut() {
-        match sprite {
-            Sprite::Planet {
-                id: Some(id),
-                spin_deg,
-                cloud_spin_deg,
-                cloud2_spin_deg,
-                observer_altitude_km,
-                sun_dir_x,
-                sun_dir_y,
-                sun_dir_z,
-                ..
-            } if id == sprite_id => match path {
-                "planet.spin_deg" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (spin_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *spin_deg = Some(next);
-                        *updated = true;
-                    }
-                }
-                "planet.cloud_spin_deg" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (cloud_spin_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *cloud_spin_deg = Some(next);
-                        *updated = true;
-                    }
-                }
-                "planet.cloud2_spin_deg" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (cloud2_spin_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *cloud2_spin_deg = Some(next);
-                        *updated = true;
-                    }
-                }
-                "planet.observer_altitude_km" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    let next = next.max(0.0);
-                    if (observer_altitude_km.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *observer_altitude_km = Some(next);
-                        *updated = true;
-                    }
-                }
-                "planet.sun_dir.x" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if sun_dir_x.map_or(true, |current| (current - next).abs() > f32::EPSILON) {
-                        *sun_dir_x = Some(next);
-                        *updated = true;
-                    }
-                }
-                "planet.sun_dir.y" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if sun_dir_y.map_or(true, |current| (current - next).abs() > f32::EPSILON) {
-                        *sun_dir_y = Some(next);
-                        *updated = true;
-                    }
-                }
-                "planet.sun_dir.z" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if sun_dir_z.map_or(true, |current| (current - next).abs() > f32::EPSILON) {
-                        *sun_dir_z = Some(next);
-                        *updated = true;
-                    }
-                }
-                _ => {}
-            },
-            Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => {
-                set_planet_property_recursive(children, sprite_id, path, value, updated);
-            }
-            _ => {}
-        }
-    }
-}
-
 fn set_vector_property_recursive(
     sprites: &mut [Sprite],
     sprite_id: &str,
@@ -1985,11 +966,843 @@ fn term_colour_to_json(colour: &TermColour) -> JsonValue {
     }
 }
 
-pub(crate) fn json_value_to_f32(value: &JsonValue) -> Option<f32> {
-    value
-        .as_f64()
-        .map(|number| number as f32)
-        .or_else(|| value.as_i64().map(|number| number as f32))
+/// Typed helper: apply ObjMaterialParam to Sprite::Obj directly.
+/// Returns true if the sprite was found and mutated.
+pub(crate) fn set_obj_material_typed(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    param: &ObjMaterialParam,
+    value: &engine_core::render_types::MaterialValue,
+) -> bool {
+    use crate::mutations::ObjMaterialParam::*;
+    use engine_core::render_types::MaterialValue as MV;
+
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                source,
+                scale,
+                yaw_deg,
+                pitch_deg,
+                roll_deg,
+                rotate_y_deg_per_sec,
+                ambient,
+                camera_distance,
+                surface_mode,
+                clip_y_min,
+                clip_y_max,
+                light_direction_x,
+                light_direction_y,
+                light_direction_z,
+                world_x,
+                world_y,
+                world_z,
+                cam_world_x,
+                cam_world_y,
+                cam_world_z,
+                view_right_x,
+                view_right_y,
+                view_right_z,
+                view_up_x,
+                view_up_y,
+                view_up_z,
+                view_fwd_x,
+                view_fwd_y,
+                view_fwd_z,
+                ..
+            } if id == sprite_id => {
+                match (param, value) {
+                    (Source, MV::Text(s)) if source.as_str() != s => {
+                        *source = s.clone();
+                        return true;
+                    }
+                    (Scale, MV::Scalar(v)) => {
+                        let v = v.clamp(0.1, 8.0);
+                        if (scale.unwrap_or(1.0) - v).abs() > f32::EPSILON {
+                            *scale = Some(v);
+                            return true;
+                        }
+                    }
+                    (Yaw, MV::Scalar(v)) if (yaw_deg.unwrap_or(0.0) - v).abs() > f32::EPSILON => {
+                        *yaw_deg = Some(*v);
+                        return true;
+                    }
+                    (Pitch, MV::Scalar(v))
+                        if (pitch_deg.unwrap_or(0.0) - v).abs() > f32::EPSILON =>
+                    {
+                        *pitch_deg = Some(*v);
+                        return true;
+                    }
+                    (Roll, MV::Scalar(v)) if (roll_deg.unwrap_or(0.0) - v).abs() > f32::EPSILON => {
+                        *roll_deg = Some(*v);
+                        return true;
+                    }
+                    (OrbitSpeed, MV::Scalar(v))
+                        if (rotate_y_deg_per_sec.unwrap_or(0.0) - v).abs() > f32::EPSILON =>
+                    {
+                        *rotate_y_deg_per_sec = Some(*v);
+                        return true;
+                    }
+                    (RotationSpeed, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 60.0);
+                        if (rotate_y_deg_per_sec.unwrap_or(0.0) - v).abs() > f32::EPSILON {
+                            *rotate_y_deg_per_sec = Some(v);
+                            return true;
+                        }
+                    }
+                    (Ambient, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if ambient.map_or(true, |a| (a - v).abs() > f32::EPSILON) {
+                            *ambient = Some(v);
+                            return true;
+                        }
+                    }
+                    (CameraDistance, MV::Scalar(v)) => {
+                        let v = v.clamp(0.3, 10.0);
+                        if camera_distance.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *camera_distance = Some(v);
+                            return true;
+                        }
+                    }
+                    (SurfaceMode, MV::Text(s)) if surface_mode.as_deref() != Some(s) => {
+                        *surface_mode = Some(s.clone());
+                        return true;
+                    }
+                    (ClipYMin, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if (clip_y_min.unwrap_or(0.0) - v).abs() > f32::EPSILON {
+                            *clip_y_min = Some(v);
+                            return true;
+                        }
+                    }
+                    (ClipYMax, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if (clip_y_max.unwrap_or(1.0) - v).abs() > f32::EPSILON {
+                            *clip_y_max = Some(v);
+                            return true;
+                        }
+                    }
+                    (LightDirectionX, MV::Scalar(v)) => {
+                        let v = v.clamp(-1.0, 1.0);
+                        if light_direction_x.map_or(true, |l| (l - v).abs() > f32::EPSILON) {
+                            *light_direction_x = Some(v);
+                            return true;
+                        }
+                    }
+                    (LightDirectionY, MV::Scalar(v)) => {
+                        let v = v.clamp(-1.0, 1.0);
+                        if light_direction_y.map_or(true, |l| (l - v).abs() > f32::EPSILON) {
+                            *light_direction_y = Some(v);
+                            return true;
+                        }
+                    }
+                    (LightDirectionZ, MV::Scalar(v)) => {
+                        let v = v.clamp(-1.0, 1.0);
+                        if light_direction_z.map_or(true, |l| (l - v).abs() > f32::EPSILON) {
+                            *light_direction_z = Some(v);
+                            return true;
+                        }
+                    }
+                    (WorldX, MV::Scalar(v)) if world_x.map_or(true, |w| (w - v).abs() > f32::EPSILON) => {
+                        *world_x = Some(*v);
+                        return true;
+                    }
+                    (WorldY, MV::Scalar(v)) if world_y.map_or(true, |w| (w - v).abs() > f32::EPSILON) => {
+                        *world_y = Some(*v);
+                        return true;
+                    }
+                    (WorldZ, MV::Scalar(v)) if world_z.map_or(true, |w| (w - v).abs() > f32::EPSILON) => {
+                        *world_z = Some(*v);
+                        return true;
+                    }
+                    (CamWorldX, MV::Scalar(v)) if cam_world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) => {
+                        *cam_world_x = Some(*v);
+                        return true;
+                    }
+                    (CamWorldY, MV::Scalar(v)) if cam_world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) => {
+                        *cam_world_y = Some(*v);
+                        return true;
+                    }
+                    (CamWorldZ, MV::Scalar(v)) if cam_world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) => {
+                        *cam_world_z = Some(*v);
+                        return true;
+                    }
+                    (ViewRightX, MV::Scalar(v)) if view_right_x.map_or(true, |vx| (vx - v).abs() > f32::EPSILON) => {
+                        *view_right_x = Some(*v);
+                        return true;
+                    }
+                    (ViewRightY, MV::Scalar(v)) if view_right_y.map_or(true, |vy| (vy - v).abs() > f32::EPSILON) => {
+                        *view_right_y = Some(*v);
+                        return true;
+                    }
+                    (ViewRightZ, MV::Scalar(v)) if view_right_z.map_or(true, |vz| (vz - v).abs() > f32::EPSILON) => {
+                        *view_right_z = Some(*v);
+                        return true;
+                    }
+                    (ViewUpX, MV::Scalar(v)) if view_up_x.map_or(true, |ux| (ux - v).abs() > f32::EPSILON) => {
+                        *view_up_x = Some(*v);
+                        return true;
+                    }
+                    (ViewUpY, MV::Scalar(v)) if view_up_y.map_or(true, |uy| (uy - v).abs() > f32::EPSILON) => {
+                        *view_up_y = Some(*v);
+                        return true;
+                    }
+                    (ViewUpZ, MV::Scalar(v)) if view_up_z.map_or(true, |uz| (uz - v).abs() > f32::EPSILON) => {
+                        *view_up_z = Some(*v);
+                        return true;
+                    }
+                    (ViewFwdX, MV::Scalar(v)) if view_fwd_x.map_or(true, |fx| (fx - v).abs() > f32::EPSILON) => {
+                        *view_fwd_x = Some(*v);
+                        return true;
+                    }
+                    (ViewFwdY, MV::Scalar(v)) if view_fwd_y.map_or(true, |fy| (fy - v).abs() > f32::EPSILON) => {
+                        *view_fwd_y = Some(*v);
+                        return true;
+                    }
+                    (ViewFwdZ, MV::Scalar(v)) if view_fwd_z.map_or(true, |fz| (fz - v).abs() > f32::EPSILON) => {
+                        *view_fwd_z = Some(*v);
+                        return true;
+                    }
+                    _ => {}
+                }
+                return false;
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if set_obj_material_typed(children, sprite_id, param, value) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Typed helper: apply AtmosphereParam to Sprite::Obj atmosphere fields.
+pub(crate) fn set_obj_atmosphere_typed(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    param: &AtmosphereParam,
+    value: &engine_core::render_types::MaterialValue,
+) -> bool {
+    use crate::mutations::AtmosphereParam::*;
+    use engine_core::render_types::MaterialValue as MV;
+
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                atmo_color,
+                atmo_height,
+                atmo_density,
+                atmo_strength,
+                atmo_rayleigh_amount,
+                atmo_rayleigh_color,
+                atmo_rayleigh_falloff,
+                atmo_haze_amount,
+                atmo_haze_color,
+                atmo_haze_falloff,
+                atmo_absorption_amount,
+                atmo_absorption_color,
+                atmo_absorption_height,
+                atmo_absorption_width,
+                atmo_forward_scatter,
+                atmo_limb_boost,
+                atmo_terminator_softness,
+                atmo_night_glow,
+                atmo_night_glow_color,
+                atmo_rim_power,
+                atmo_haze_strength,
+                atmo_haze_power,
+                atmo_veil_strength,
+                atmo_veil_power,
+                atmo_halo_strength,
+                atmo_halo_width,
+                atmo_halo_power,
+                ..
+            } if id == sprite_id => {
+                match (param, value) {
+                    (Color, MV::Text(s)) => {
+                        let normalized = s.trim().to_ascii_lowercase();
+                        if normalized.is_empty() || normalized == "none" || normalized == "off" {
+                            if atmo_color.is_some() {
+                                *atmo_color = None;
+                                return true;
+                            }
+                        } else if let Ok(color_json) = serde_json::json!(s).as_str().ok_or(()) {
+                            if let Some(next) = parse_term_colour(&serde_json::json!(color_json)) {
+                                if atmo_color.as_ref() != Some(&next) {
+                                    *atmo_color = Some(next);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    (Height, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_height.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_height = Some(v);
+                            return true;
+                        }
+                    }
+                    (Density, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_density.map_or(true, |d| (d - v).abs() > f32::EPSILON) {
+                            *atmo_density = Some(v);
+                            return true;
+                        }
+                    }
+                    (Strength, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_strength.map_or(true, |s| (s - v).abs() > f32::EPSILON) {
+                            *atmo_strength = Some(v);
+                            return true;
+                        }
+                    }
+                    (RayleighAmount, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_rayleigh_amount.map_or(true, |r| (r - v).abs() > f32::EPSILON) {
+                            *atmo_rayleigh_amount = Some(v);
+                            return true;
+                        }
+                    }
+                    (RayleighFalloff, MV::Scalar(v)) => {
+                        let v = v.clamp(0.01, 1.0);
+                        if atmo_rayleigh_falloff.map_or(true, |r| (r - v).abs() > f32::EPSILON) {
+                            *atmo_rayleigh_falloff = Some(v);
+                            return true;
+                        }
+                    }
+                    (HazeAmount, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_haze_amount.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_haze_amount = Some(v);
+                            return true;
+                        }
+                    }
+                    (HazeFalloff, MV::Scalar(v)) => {
+                        let v = v.clamp(0.01, 1.0);
+                        if atmo_haze_falloff.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_haze_falloff = Some(v);
+                            return true;
+                        }
+                    }
+                    (AbsorptionAmount, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_absorption_amount.map_or(true, |a| (a - v).abs() > f32::EPSILON) {
+                            *atmo_absorption_amount = Some(v);
+                            return true;
+                        }
+                    }
+                    (AbsorptionHeight, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_absorption_height.map_or(true, |a| (a - v).abs() > f32::EPSILON) {
+                            *atmo_absorption_height = Some(v);
+                            return true;
+                        }
+                    }
+                    (AbsorptionWidth, MV::Scalar(v)) => {
+                        let v = v.clamp(0.01, 1.0);
+                        if atmo_absorption_width.map_or(true, |a| (a - v).abs() > f32::EPSILON) {
+                            *atmo_absorption_width = Some(v);
+                            return true;
+                        }
+                    }
+                    (ForwardScatter, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_forward_scatter.map_or(true, |f| (f - v).abs() > f32::EPSILON) {
+                            *atmo_forward_scatter = Some(v);
+                            return true;
+                        }
+                    }
+                    (LimbBoost, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 4.0);
+                        if atmo_limb_boost.map_or(true, |l| (l - v).abs() > f32::EPSILON) {
+                            *atmo_limb_boost = Some(v);
+                            return true;
+                        }
+                    }
+                    (TerminatorSoftness, MV::Scalar(v)) => {
+                        let v = v.clamp(0.05, 4.0);
+                        if atmo_terminator_softness.map_or(true, |t| (t - v).abs() > f32::EPSILON) {
+                            *atmo_terminator_softness = Some(v);
+                            return true;
+                        }
+                    }
+                    (NightGlow, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_night_glow.map_or(true, |n| (n - v).abs() > f32::EPSILON) {
+                            *atmo_night_glow = Some(v);
+                            return true;
+                        }
+                    }
+                    (RimPower, MV::Scalar(v)) => {
+                        let v = v.clamp(0.1, 16.0);
+                        if atmo_rim_power.map_or(true, |r| (r - v).abs() > f32::EPSILON) {
+                            *atmo_rim_power = Some(v);
+                            return true;
+                        }
+                    }
+                    (HazeStrength, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_haze_strength.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_haze_strength = Some(v);
+                            return true;
+                        }
+                    }
+                    (HazePower, MV::Scalar(v)) => {
+                        let v = v.clamp(0.1, 8.0);
+                        if atmo_haze_power.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_haze_power = Some(v);
+                            return true;
+                        }
+                    }
+                    (VeilStrength, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_veil_strength.map_or(true, |v_s| (v_s - v).abs() > f32::EPSILON) {
+                            *atmo_veil_strength = Some(v);
+                            return true;
+                        }
+                    }
+                    (VeilPower, MV::Scalar(v)) => {
+                        let v = v.clamp(0.1, 8.0);
+                        if atmo_veil_power.map_or(true, |vp| (vp - v).abs() > f32::EPSILON) {
+                            *atmo_veil_power = Some(v);
+                            return true;
+                        }
+                    }
+                    (HaloStrength, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_halo_strength.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_halo_strength = Some(v);
+                            return true;
+                        }
+                    }
+                    (HaloWidth, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if atmo_halo_width.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_halo_width = Some(v);
+                            return true;
+                        }
+                    }
+                    (HaloPower, MV::Scalar(v)) => {
+                        let v = v.clamp(0.1, 8.0);
+                        if atmo_halo_power.map_or(true, |h| (h - v).abs() > f32::EPSILON) {
+                            *atmo_halo_power = Some(v);
+                            return true;
+                        }
+                    }
+                    _ => {}
+                }
+                return false;
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if set_obj_atmosphere_typed(children, sprite_id, param, value) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+pub(crate) fn set_obj_terrain_typed(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    param: &TerrainParam,
+    value: &engine_core::render_types::MaterialValue,
+) -> bool {
+    use crate::mutations::TerrainParam::*;
+    use engine_core::render_types::MaterialValue as MV;
+
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                terrain_plane_amplitude,
+                terrain_plane_frequency,
+                terrain_plane_roughness,
+                terrain_plane_octaves,
+                terrain_plane_seed_x,
+                terrain_plane_seed_z,
+                terrain_plane_lacunarity,
+                terrain_plane_ridge,
+                terrain_plane_plateau,
+                terrain_plane_sea_level,
+                terrain_plane_scale_x,
+                terrain_plane_scale_z,
+                ..
+            } if id == sprite_id => {
+                let updated = match (param, value) {
+                    (Amplitude, MV::Scalar(v)) => {
+                        let v = v.clamp(0.01, 10.0);
+                        if terrain_plane_amplitude.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_amplitude = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (Frequency, MV::Scalar(v)) => {
+                        let v = v.clamp(0.01, 16.0);
+                        if terrain_plane_frequency.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_frequency = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (Roughness, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if terrain_plane_roughness.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_roughness = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (Octaves, MV::Scalar(v)) => {
+                        let v = (v.round() as u8).clamp(1, 3);
+                        if terrain_plane_octaves.map_or(true, |c| c != v) {
+                            *terrain_plane_octaves = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (SeedX, MV::Scalar(v)) => {
+                        if terrain_plane_seed_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_seed_x = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (SeedZ, MV::Scalar(v)) => {
+                        if terrain_plane_seed_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_seed_z = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (Lacunarity, MV::Scalar(v)) => {
+                        let v = v.clamp(1.0, 4.0);
+                        if terrain_plane_lacunarity.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_lacunarity = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (Ridge, MV::Bool(b)) => {
+                        if terrain_plane_ridge.map_or(true, |c| c != *b) {
+                            *terrain_plane_ridge = Some(*b);
+                            true
+                        } else { false }
+                    }
+                    (Ridge, MV::Scalar(v)) => {
+                        let b = *v != 0.0;
+                        if terrain_plane_ridge.map_or(true, |c| c != b) {
+                            *terrain_plane_ridge = Some(b);
+                            true
+                        } else { false }
+                    }
+                    (Plateau, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if terrain_plane_plateau.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_plateau = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (SeaLevel, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if terrain_plane_sea_level.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_sea_level = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (ScaleX, MV::Scalar(v)) => {
+                        let v = v.clamp(0.25, 4.0);
+                        if terrain_plane_scale_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_scale_x = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (ScaleZ, MV::Scalar(v)) => {
+                        let v = v.clamp(0.25, 4.0);
+                        if terrain_plane_scale_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *terrain_plane_scale_z = Some(v);
+                            true
+                        } else { false }
+                    }
+                    _ => false,
+                };
+                if updated {
+                    return true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if set_obj_terrain_typed(children, sprite_id, param, value) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+pub(crate) fn set_obj_worldgen_typed(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    param: &WorldgenParam,
+    value: &engine_core::render_types::MaterialValue,
+) -> bool {
+    use crate::mutations::WorldgenParam::*;
+    use engine_core::render_types::MaterialValue as MV;
+
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                world_gen_seed,
+                world_gen_ocean_fraction,
+                world_gen_continent_scale,
+                world_gen_continent_warp,
+                world_gen_continent_octaves,
+                world_gen_mountain_scale,
+                world_gen_mountain_strength,
+                world_gen_mountain_ridge_octaves,
+                world_gen_moisture_scale,
+                world_gen_ice_cap_strength,
+                world_gen_lapse_rate,
+                world_gen_rain_shadow,
+                world_gen_subdivisions,
+                world_gen_displacement_scale,
+                world_gen_coloring,
+                world_gen_base,
+                world_gen_shape,
+                ..
+            } if id == sprite_id => {
+                let updated = match (param, value) {
+                    (Seed, MV::Scalar(v)) => {
+                        let v = *v as u64;
+                        if world_gen_seed.map_or(true, |c| c != v) {
+                            *world_gen_seed = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (OceanFraction, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.0, 1.0);
+                        if world_gen_ocean_fraction.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_ocean_fraction = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (ContinentScale, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.5, 10.0);
+                        if world_gen_continent_scale.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_continent_scale = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (ContinentWarp, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.0, 2.0);
+                        if world_gen_continent_warp.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_continent_warp = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (ContinentOctaves, MV::Scalar(v)) => {
+                        let v = (v.round() as u8).clamp(2, 8);
+                        if world_gen_continent_octaves.map_or(true, |c| c != v) {
+                            *world_gen_continent_octaves = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (MountainScale, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(1.0, 20.0);
+                        if world_gen_mountain_scale.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_mountain_scale = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (MountainStrength, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.0, 1.0);
+                        if world_gen_mountain_strength.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_mountain_strength = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (MountainRidgeOctaves, MV::Scalar(v)) => {
+                        let v = (v.round() as u8).clamp(2, 8);
+                        if world_gen_mountain_ridge_octaves.map_or(true, |c| c != v) {
+                            *world_gen_mountain_ridge_octaves = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (MoistureScale, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.5, 10.0);
+                        if world_gen_moisture_scale.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_moisture_scale = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (IceCapStrength, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.0, 3.0);
+                        if world_gen_ice_cap_strength.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_ice_cap_strength = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (LapseRate, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.0, 1.0);
+                        if world_gen_lapse_rate.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_lapse_rate = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (RainShadow, MV::Scalar(v)) => {
+                        let v = (*v as f64).clamp(0.0, 1.0);
+                        if world_gen_rain_shadow.map_or(true, |c| (c - v).abs() > 1e-6) {
+                            *world_gen_rain_shadow = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (Subdivisions, MV::Scalar(v)) => {
+                        let v = (v.round() as u32).clamp(1, 512);
+                        if world_gen_subdivisions.map_or(true, |c| c != v) {
+                            *world_gen_subdivisions = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (DisplacementScale, MV::Scalar(v)) => {
+                        let v = v.clamp(0.0, 1.0);
+                        if world_gen_displacement_scale.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *world_gen_displacement_scale = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (Coloring, MV::Text(s)) => {
+                        if world_gen_coloring.as_deref() != Some(s.as_str()) {
+                            *world_gen_coloring = Some(s.clone());
+                            true
+                        } else { false }
+                    }
+                    (Base, MV::Text(s)) => {
+                        let normalized = match s.as_str() {
+                            "uv" | "tetra" | "octa" | "icosa" => s.as_str(),
+                            _ => "cube",
+                        };
+                        if world_gen_base.as_deref() != Some(normalized) {
+                            *world_gen_base = Some(normalized.to_string());
+                            true
+                        } else { false }
+                    }
+                    (Shape, MV::Text(s)) => {
+                        let normalized = if s == "flat" { "flat" } else { "sphere" };
+                        if world_gen_shape.as_deref() != Some(normalized) {
+                            *world_gen_shape = Some(normalized.to_string());
+                            true
+                        } else { false }
+                    }
+                    _ => false,
+                };
+                if updated {
+                    return true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if set_obj_worldgen_typed(children, sprite_id, param, value) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+pub(crate) fn set_planet_typed(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    param: &PlanetParam,
+    value: &engine_core::render_types::MaterialValue,
+) -> bool {
+    use crate::mutations::PlanetParam::*;
+    use engine_core::render_types::MaterialValue as MV;
+
+    for sprite in sprites {
+        match sprite {
+            Sprite::Planet {
+                id: Some(id),
+                spin_deg,
+                cloud_spin_deg,
+                cloud2_spin_deg,
+                observer_altitude_km,
+                sun_dir_x,
+                sun_dir_y,
+                sun_dir_z,
+                ..
+            } if id == sprite_id => {
+                let updated = match (param, value) {
+                    (SpinDeg, MV::Scalar(v)) => {
+                        if spin_deg.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *spin_deg = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (CloudSpinDeg, MV::Scalar(v)) => {
+                        if cloud_spin_deg.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *cloud_spin_deg = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (Cloud2SpinDeg, MV::Scalar(v)) => {
+                        if cloud2_spin_deg.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *cloud2_spin_deg = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (ObserverAltitudeKm, MV::Scalar(v)) => {
+                        let v = v.max(0.0);
+                        if observer_altitude_km.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *observer_altitude_km = Some(v);
+                            true
+                        } else { false }
+                    }
+                    (SunDirX, MV::Scalar(v)) => {
+                        if sun_dir_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *sun_dir_x = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (SunDirY, MV::Scalar(v)) => {
+                        if sun_dir_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *sun_dir_y = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    (SunDirZ, MV::Scalar(v)) => {
+                        if sun_dir_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *sun_dir_z = Some(*v);
+                            true
+                        } else { false }
+                    }
+                    _ => false,
+                };
+                if updated {
+                    return true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if set_planet_typed(children, sprite_id, param, value) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn json_value_to_i32(value: &JsonValue) -> Option<i32> {

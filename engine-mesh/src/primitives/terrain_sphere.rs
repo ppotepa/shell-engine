@@ -23,12 +23,12 @@ pub type FaceColors = Vec<[u8; 3]>;
 
 /// The (normal, right, up) tangent basis for each cube face in the order [+X, -X, +Y, -Y, +Z, -Z].
 const FACE_BASES: [([f32; 3], [f32; 3], [f32; 3]); 6] = [
-    ([1.0,  0.0,  0.0], [0.0,  0.0, -1.0], [0.0,  1.0,  0.0]),
-    ([-1.0, 0.0,  0.0], [0.0,  0.0,  1.0], [0.0,  1.0,  0.0]),
-    ([0.0,  1.0,  0.0], [1.0,  0.0,  0.0], [0.0,  0.0, -1.0]),
-    ([0.0, -1.0,  0.0], [1.0,  0.0,  0.0], [0.0,  0.0,  1.0]),
-    ([0.0,  0.0,  1.0], [1.0,  0.0,  0.0], [0.0,  1.0,  0.0]),
-    ([0.0,  0.0, -1.0], [-1.0, 0.0,  0.0], [0.0,  1.0,  0.0]),
+    ([1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]),
+    ([-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]),
+    ([0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]),
+    ([0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
+    ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
+    ([0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
 ];
 
 /// Generate a terrain sphere with `subdivisions` grid divisions per cube face edge.
@@ -105,7 +105,11 @@ fn sphere_height(dir: [f32; 3], p: &TerrainParams) -> f32 {
     // Each octave samples a different axis pair to break up regular patterns.
     let sample = |nx: f32, ny: f32, nz: f32| -> f32 {
         let raw = (nx * 2.1 + ny * 0.9 + 0.5).sin() * (nz * 1.7 + ny * 1.3 - 0.3).cos();
-        if p.ridge { raw.abs() } else { raw }
+        if p.ridge {
+            raw.abs()
+        } else {
+            raw
+        }
     };
 
     let h1 = sample(fx, fy, fz) * 0.12 * p.amplitude;
@@ -248,7 +252,10 @@ mod tests {
         let mesh = terrain_sphere(8, TerrainParams::default());
         for v in &mesh.vertices {
             let r = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-            assert!(r > 0.5 && r < 2.0, "vertex radius out of expected range: r={r}");
+            assert!(
+                r > 0.5 && r < 2.0,
+                "vertex radius out of expected range: r={r}"
+            );
         }
     }
 

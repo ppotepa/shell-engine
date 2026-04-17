@@ -4,10 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["sdl2"]
+default = ["sdl2", "render-3d"]
 sdl2 = ["dep:engine-render-sdl2"]
+render-3d = ["dep:engine-render-3d", "engine-compositor/render-3d"]
 
 [dependencies]
+engine-api = { workspace = true }
 engine-authoring = { workspace = true }
 engine-animation = { path = "../engine-animation" }
 engine-audio = { path = "../engine-audio" }
@@ -17,7 +19,7 @@ engine-3d = { path = "../engine-3d" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
 engine-render = { path = "../engine-render" }
-engine-render-3d = { path = "../engine-render-3d" }
+engine-render-3d = { path = "../engine-render-3d", optional = true }
 engine-render-2d = { path = "../engine-render-2d" }
 engine-render-sdl2 = { path = "../engine-render-sdl2", optional = true }
 engine-render-policy = { path = "../engine-render-policy" }
@@ -30,7 +32,7 @@ engine-mod = { path = "../engine-mod" }
 engine-behavior = { path = "../engine-behavior" }
 engine-scene-runtime = { path = "../engine-scene-runtime" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
-engine-compositor = { path = "../engine-compositor" }
+engine-compositor = { path = "../engine-compositor", default-features = false }
 engine-debug = { path = "../engine-debug" }
 engine-asset = { path = "../engine-asset" }
 engine-gui = { workspace = true }

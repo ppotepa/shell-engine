@@ -472,9 +472,9 @@ paths work for both unpacked directories and zip-packaged mods.
 
 | Category     | Location           | Loader              | Notes                          |
 |--------------|--------------------|----------------------|--------------------------------|
-| Images       | assets/images/     | image_loader.rs      | PNG, GIF (animated), static    |
+| Images       | assets/images/     | image_assets.rs      | PNG, GIF (animated), static    |
 | Fonts        | assets/fonts/      | font_loader.rs       | Manifest-based, generic:* built-in |
-| OBJ meshes   | assets/3d/ or scenes/ | obj_loader.rs     | Wavefront OBJ + MTL           |
+| OBJ meshes   | assets/3d/ or scenes/ | mesh_assets.rs    | Wavefront OBJ + MTL           |
 | YAML prefabs | objects/, layers/  | engine-authoring     | Reusable authored resources    |
 
 `mod.yaml` can define `terminal.default_font`. Then any text sprite using

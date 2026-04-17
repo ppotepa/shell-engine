@@ -33,13 +33,13 @@ pub fn value_noise(x: f64, y: f64, z: f64, seed: u64) -> f64 {
     let v = yf * yf * (3.0 - 2.0 * yf);
     let w = zf * zf * (3.0 - 2.0 * zf);
 
-    let c000 = hash3(xi,     yi,     zi,     seed);
-    let c100 = hash3(xi + 1, yi,     zi,     seed);
-    let c010 = hash3(xi,     yi + 1, zi,     seed);
-    let c110 = hash3(xi + 1, yi + 1, zi,     seed);
-    let c001 = hash3(xi,     yi,     zi + 1, seed);
-    let c101 = hash3(xi + 1, yi,     zi + 1, seed);
-    let c011 = hash3(xi,     yi + 1, zi + 1, seed);
+    let c000 = hash3(xi, yi, zi, seed);
+    let c100 = hash3(xi + 1, yi, zi, seed);
+    let c010 = hash3(xi, yi + 1, zi, seed);
+    let c110 = hash3(xi + 1, yi + 1, zi, seed);
+    let c001 = hash3(xi, yi, zi + 1, seed);
+    let c101 = hash3(xi + 1, yi, zi + 1, seed);
+    let c011 = hash3(xi, yi + 1, zi + 1, seed);
     let c111 = hash3(xi + 1, yi + 1, zi + 1, seed);
 
     let x0 = c000 + u * (c100 - c000);
@@ -93,18 +93,61 @@ pub fn ridged_fbm(x: f64, y: f64, z: f64, octaves: u8, seed: u64) -> f64 {
 /// Works in 3D sphere space: input (cx, cy, cz) should be on the unit sphere.
 /// `scale` controls continent size (smaller = bigger continents).
 /// `warp` controls coastline chaos (0 = smooth, 1.5 = very chaotic).
-pub fn continent_noise(cx: f64, cy: f64, cz: f64, scale: f64, warp: f64, octaves: u8, seed: u64) -> f64 {
+pub fn continent_noise(
+    cx: f64,
+    cy: f64,
+    cz: f64,
+    scale: f64,
+    warp: f64,
+    octaves: u8,
+    seed: u64,
+) -> f64 {
     let s = scale;
     // First warp layer
-    let wx1 = (fbm(cx * s,         cy * s,         cz * s,         octaves, seed + 100) - 0.5) * warp;
-    let wy1 = (fbm(cx * s + 3.2,   cy * s + 1.8,   cz * s + 0.7,   octaves, seed + 200) - 0.5) * warp;
-    let wz1 = (fbm(cx * s + 1.5,   cy * s + 4.1,   cz * s + 2.3,   octaves, seed + 300) - 0.5) * warp;
+    let wx1 = (fbm(cx * s, cy * s, cz * s, octaves, seed + 100) - 0.5) * warp;
+    let wy1 = (fbm(
+        cx * s + 3.2,
+        cy * s + 1.8,
+        cz * s + 0.7,
+        octaves,
+        seed + 200,
+    ) - 0.5)
+        * warp;
+    let wz1 = (fbm(
+        cx * s + 1.5,
+        cy * s + 4.1,
+        cz * s + 2.3,
+        octaves,
+        seed + 300,
+    ) - 0.5)
+        * warp;
 
     // Second warp layer (warp-of-warp) — half strength
     let w2 = warp * 0.45;
-    let wx2 = (fbm((cx + wx1) * s,         (cy + wy1) * s,         (cz + wz1) * s,         3, seed + 400) - 0.5) * w2;
-    let wy2 = (fbm((cx + wx1) * s + 2.0,   (cy + wy1) * s,         (cz + wz1) * s,         3, seed + 500) - 0.5) * w2;
-    let wz2 = (fbm((cx + wx1) * s,         (cy + wy1) * s + 2.0,   (cz + wz1) * s,         3, seed + 600) - 0.5) * w2;
+    let wx2 = (fbm(
+        (cx + wx1) * s,
+        (cy + wy1) * s,
+        (cz + wz1) * s,
+        3,
+        seed + 400,
+    ) - 0.5)
+        * w2;
+    let wy2 = (fbm(
+        (cx + wx1) * s + 2.0,
+        (cy + wy1) * s,
+        (cz + wz1) * s,
+        3,
+        seed + 500,
+    ) - 0.5)
+        * w2;
+    let wz2 = (fbm(
+        (cx + wx1) * s,
+        (cy + wy1) * s + 2.0,
+        (cz + wz1) * s,
+        3,
+        seed + 600,
+    ) - 0.5)
+        * w2;
 
     fbm(
         (cx + wx1 + wx2) * s,

@@ -7,8 +7,8 @@
 use engine_animation::Animator;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
-use engine_runtime::RuntimeSettings;
 use engine_render_2d::Render2dPipeline;
+use engine_runtime::RuntimeSettings;
 
 /// Trait providing access to the resources needed by the compositor system.
 pub trait CompositorAccess {

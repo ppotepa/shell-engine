@@ -27,7 +27,7 @@ impl ScenePreparationStep for Scene3DPrerenderStep {
         if let Some(atlas) = prerender_scene3d_atlas_with(
             scene,
             &asset_root,
-            engine_compositor::render_scene3d_work_item,
+            engine_render_3d::prerender::render_scene3d_work_item,
         ) {
             world.register_scoped(atlas);
         }

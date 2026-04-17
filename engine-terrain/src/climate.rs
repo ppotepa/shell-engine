@@ -30,14 +30,15 @@ pub fn build(
     for y in 0..height {
         let lat_norm = (y as f32 + 0.5) / height as f32;
         let lat_rad = lat_norm * std::f32::consts::PI;
-        let from_equator = (lat_rad - std::f32::consts::FRAC_PI_2).abs() / std::f32::consts::FRAC_PI_2;
+        let from_equator =
+            (lat_rad - std::f32::consts::FRAC_PI_2).abs() / std::f32::consts::FRAC_PI_2;
 
         // Temperature: equator hot, poles cold — strength scaled by ice_cap_strength
         let base_temp = (1.0 - from_equator * ice).clamp(0.0, 1.0);
 
         let lat_moisture = {
             let t = from_equator;
-            let itcz   =       (-((t - 0.00) * 4.0).powi(2)).exp();
+            let itcz = (-((t - 0.00) * 4.0).powi(2)).exp();
             let midlat = 0.5 * (-((t - 0.45) * 5.0).powi(2)).exp();
             (itcz + midlat).min(1.0)
         };
@@ -53,11 +54,19 @@ pub fn build(
             let m = lat_moisture * 0.55 + noise_m * 0.45;
 
             // Rain shadow: above sea level reduces moisture (parameterized)
-            let shadow_factor = if elev > 0.5 { ((elev - 0.5) * 2.0) * shadow } else { 0.0 };
+            let shadow_factor = if elev > 0.5 {
+                ((elev - 0.5) * 2.0) * shadow
+            } else {
+                0.0
+            };
             moisture[idx] = (m - shadow_factor).clamp(0.0, 1.0);
 
             // Temperature: base − elevation lapse (parameterized)
-            let lapse_factor = if elev > 0.5 { (elev - 0.5) * 2.0 * lapse } else { 0.0 };
+            let lapse_factor = if elev > 0.5 {
+                (elev - 0.5) * 2.0 * lapse
+            } else {
+                0.0
+            };
             temperature[idx] = (base_temp - lapse_factor).clamp(0.0, 1.0);
         }
     }

@@ -80,16 +80,24 @@ This keeps slider handle positioning (and future widget visual sync) at the
 engine level — Rhai scripts only need to read values, not manually position
 handle sprites.
 
-## OBJ / world runtime property paths
+## OBJ / world runtime property mutations
 
-`materialization.rs` handles `scene.set(id, path, value)` for `Sprite::Obj`
-sprites. Notable property path groups:
+`materialization.rs` handles typed `Render3DMutation` variants for `Sprite::Obj` and `Sprite::Planet`
+sprites. The runtime is typed-first: supported property writes are translated into typed
+mutations before reaching `materialization.rs`, while a narrow compatibility fallback still exists
+for unsupported raw `scene.set(...)` paths.
 
-| Prefix | Notes |
-|--------|-------|
-| `obj.ambient`, `obj.light.x/y/z`, `obj.rotation-speed` | Lighting + motion — no mesh rebuild |
-| `obj.atmo.color/strength/rim_power/haze_strength/haze_power` | Atmosphere rim/haze — no mesh rebuild |
-| `world.*` (seed, ocean_fraction, continent_*, mountain_*, moisture_*, ice_cap_strength, lapse_rate, rain_shadow, displacement_scale, subdivisions, coloring, base) | Any change rebuilds the URI key → mesh regeneration |
+| Typed enum | Variants | Notes |
+|------------|----------|-------|
+| `ObjMaterialParam` | `Source`, `Scale`, `Yaw`, `Pitch`, `Roll`, `RotationSpeed`, `Ambient`, `SurfaceMode`, `LightDirectionX/Y/Z`, `WorldX/Y/Z`, … | Lighting, motion, material — no mesh rebuild |
+| `AtmosphereParam` | `Color`, `Strength`, `HaloStrength`, `HazeStrength`, `RimPower`, … | Atmosphere render properties — no mesh rebuild |
+| `TerrainParam` | `Amplitude`, `Frequency`, `Roughness`, `Octaves`, `SeedX/Z`, … | Terrain plane geometry — triggers mesh rebuild |
+| `WorldgenParam` | `Seed`, `OceanFraction`, `ContinentScale`, `MountainScale`, `Subdivisions`, `Coloring`, … | World generation params — triggers mesh rebuild |
+| `PlanetParam` | `SpinDeg`, `CloudSpinDeg`, `ObserverAltitudeKm`, `SunDirX/Y/Z` | Planet animation state |
+
+Rhai scripts still use `scene.set(id, "obj.yaw", val)` which is translated into typed mutations
+before reaching `materialization.rs`. Unsupported paths may still fall back through the bounded
+compatibility converter in `behavior_runner.rs`.
 
 ## Integration points
 

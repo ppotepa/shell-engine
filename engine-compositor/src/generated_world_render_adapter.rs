@@ -1,4 +1,4 @@
-use crate::{
+use engine_render_3d::raster::{
     blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
     render_obj_to_canvas, render_obj_to_rgba_canvas,
 };

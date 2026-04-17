@@ -21,13 +21,15 @@ pub use frame_item::build_scene3d_frame_item_at;
 pub use frame_schedule::{clip_progress_at, expand_frame_samples, FrameSample};
 pub use lighting::{extract_light_params, parse_hex_color, LightParams};
 pub use obj_prerender::{
-    AnimSpriteFrames, ObjPrerenderStatus, ObjPrerenderedFrames, PrerenderedCanvas,
-    PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
+    prerender_obj_sprites_with, AnimSpriteFrames, ObjPrerenderStatus, ObjPrerenderedFrames,
+    ObjSpriteDimensionsFn, PrerenderedCanvas, PrerenderedFrame, RenderObjToCanvasFn,
+    YAW_FRAME_COUNT, YAW_STEP_DEG,
 };
 pub use object_motion::{resolve_object_frame_motion, ObjectFrameMotion};
 pub use object_specs::{build_object_specs, ObjectRenderSpec};
 pub use render_item::{
-    render_work_item_buffer_with, render_work_item_canvas_with, Scene3DColorCanvas,
+    render_scene3d_work_item, render_work_item_buffer_with, render_work_item_canvas_with,
+    Scene3DColorCanvas,
 };
 pub use runtime_builder::build_scene3d_runtime_store;
 pub use runtime_store::{with_runtime_store, Scene3DRuntimeEntry, Scene3DRuntimeStore};

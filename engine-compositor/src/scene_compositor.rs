@@ -2,11 +2,12 @@ use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
 use engine_core::color::Color;
-use engine_core::scene::{Effect, Layer, SceneSpace};
+use engine_core::scene::{Effect, Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
 use std::collections::HashMap;
+use crate::ObjPrerenderedFrames;
 
 /// All scene-invariant inputs to a single compositor invocation.
 ///
@@ -25,6 +26,21 @@ pub struct FrameAssemblyInputs<'a> {
     pub ui_enabled: bool,
     pub scene_space: SceneSpace,
     pub scene_effects: &'a [Effect],
+    /// Pre-classified layer inputs with sprites split into 2D and 3D buckets.
+    ///
+    /// When `Some`, the compositor uses this prepared path instead of dispatching
+    /// on raw `layers` sprite data. When `None`, falls back to direct sprite dispatch.
+    #[cfg(feature = "render-3d")]
+    pub prepared_layer_inputs: Option<Vec<crate::prepared_frame::PreparedLayerInput<'a>>>,
+}
+
+/// Layer-level frame inputs prepared before composition.
+pub struct PreparedLayerFrame<'a> {
+    pub index: usize,
+    pub layer: &'a Layer,
+    pub uses_2d_camera: bool,
+    pub authored_visible: bool,
+    pub has_active_effects: bool,
 }
 
 /// Camera inputs prepared by engine runtime before frame assembly.
@@ -52,6 +68,7 @@ pub struct PreparedCompositeInputs<'a> {
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+    pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 
 /// Prepare per-layer timing flags used by compositor assembly decisions.
@@ -59,5 +76,59 @@ pub fn prepare_layer_timed_visibility(layers: &[Layer]) -> Vec<bool> {
     layers
         .iter()
         .map(engine_render_2d::layer_has_timed_sprites)
+        .collect()
+}
+
+/// Prepare per-layer frame records so compositor assembly consumes precomputed
+/// visibility/effects/camera-space decisions instead of interpreting layer data inline.
+pub fn prepare_layer_frames<'a>(
+    frame: &'a FrameAssemblyInputs<'a>,
+    current_stage: &SceneStage,
+) -> Vec<PreparedLayerFrame<'a>> {
+    frame
+        .layers
+        .iter()
+        .enumerate()
+        .filter_map(|(index, layer)| {
+            if layer.ui && !frame.ui_enabled {
+                return None;
+            }
+
+            let resolved_space = match layer.space {
+                LayerSpace::Inherit => {
+                    if layer.ui {
+                        LayerSpace::Screen
+                    } else {
+                        match frame.scene_space {
+                            SceneSpace::TwoD => LayerSpace::TwoD,
+                            SceneSpace::ThreeD => LayerSpace::ThreeD,
+                        }
+                    }
+                }
+                other => other,
+            };
+            let uses_2d_camera = matches!(resolved_space, LayerSpace::TwoD);
+
+            let stage_ref = match current_stage {
+                SceneStage::OnEnter => &layer.stages.on_enter,
+                SceneStage::OnIdle => &layer.stages.on_idle,
+                SceneStage::OnLeave => &layer.stages.on_leave,
+                SceneStage::Done => &layer.stages.on_idle,
+            };
+            let has_active_effects = stage_ref.steps.iter().any(|s| !s.effects.is_empty())
+                || frame
+                    .layer_timed_visibility
+                    .get(index)
+                    .copied()
+                    .unwrap_or(false);
+
+            Some(PreparedLayerFrame {
+                index,
+                layer,
+                uses_2d_camera,
+                authored_visible: layer.visible,
+                has_active_effects,
+            })
+        })
         .collect()
 }

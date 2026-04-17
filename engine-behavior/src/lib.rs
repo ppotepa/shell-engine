@@ -57,6 +57,27 @@ use scripting::{
     ui::ScriptUiApi,
 };
 
+fn push_set_property_command(
+    commands: &mut Vec<BehaviorCommand>,
+    target: String,
+    path: String,
+    value: JsonValue,
+) {
+    if let Some(request) =
+        engine_api::commands::scene_mutation_request_from_set_property_compat(
+            &target, &path, &value,
+        )
+    {
+        commands.push(BehaviorCommand::ApplySceneMutation { request });
+    } else {
+        commands.push(BehaviorCommand::SetProperty {
+            target,
+            path,
+            value,
+        });
+    }
+}
+
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
 pub struct BehaviorContext {
@@ -1008,11 +1029,7 @@ fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>)
                 let Some(value) = map.get("value").and_then(rhai_dynamic_to_json) else {
                     continue;
                 };
-                commands.push(BehaviorCommand::SetProperty {
-                    target,
-                    path: normalize_set_path(&path),
-                    value,
-                });
+                push_set_property_command(commands, target, normalize_set_path(&path), value);
             }
             "transition" => {
                 let Some(to_scene_id) = map
@@ -2347,12 +2364,16 @@ scene.despawn_object("item-99");
         assert_eq!(
             commands,
             vec![
-                BehaviorCommand::SceneSpawn {
-                    template: "item-0".to_string(),
-                    target: "item-99".to_string()
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::SpawnObject {
+                        template: "item-0".to_string(),
+                        target: "item-99".to_string()
+                    }
                 },
-                BehaviorCommand::SceneDespawn {
-                    target: "item-99".to_string()
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::DespawnObject {
+                        target: "item-99".to_string()
+                    }
                 }
             ]
         );
@@ -2580,11 +2601,15 @@ obj.set("position.y", dy + 2);
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
             commands,
-            vec![BehaviorCommand::SetProperty {
-                // Alias "menu-item-0" resolves to real object id "obj:menu-item-0".
-                target: "obj:menu-item-0".to_string(),
-                path: "position.y".to_string(),
-                value: JsonValue::Number(7.into())
+            vec![BehaviorCommand::ApplySceneMutation {
+                request: engine_api::SceneMutationRequest::Set2dProps {
+                    // Alias "menu-item-0" resolves to real object id "obj:menu-item-0".
+                    target: "obj:menu-item-0".to_string(),
+                    visible: None,
+                    dx: None,
+                    dy: Some(2),
+                    text: None,
+                }
             }]
         );
     }
@@ -3282,15 +3307,17 @@ if id > 0 && world.exists(id) {
             "spawn_visual should not produce ScriptError: {commands:?}"
         );
 
-        // Check that SceneSpawn command was emitted
+        // Check that typed scene spawn mutation was emitted.
         assert!(
             commands
                 .iter()
-                .any(|c| matches!(c, BehaviorCommand::SceneSpawn {
-                template,
-                target
-            } if template == "projectile-template" && target.starts_with("projectile-"))),
-            "spawn_visual should emit SceneSpawn command: {commands:?}"
+                .any(|c| matches!(
+                    c,
+                    BehaviorCommand::ApplySceneMutation {
+                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                    } if template == "projectile-template" && target.starts_with("projectile-")
+                )),
+            "spawn_visual should emit typed spawn mutation: {commands:?}"
         );
 
         // Check entity was created and has correct transform
@@ -3344,15 +3371,17 @@ let id = world.spawn_visual("enemy", "enemy-template", #{
             "spawn_visual with polygon should not produce ScriptError: {commands:?}"
         );
 
-        // Check that SceneSpawn command was emitted
+        // Check that typed scene spawn mutation was emitted.
         assert!(
             commands
                 .iter()
-                .any(|c| matches!(c, BehaviorCommand::SceneSpawn {
-                template,
-                target
-            } if template == "enemy-template" && target.starts_with("enemy-"))),
-            "spawn_visual should emit SceneSpawn command"
+                .any(|c| matches!(
+                    c,
+                    BehaviorCommand::ApplySceneMutation {
+                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                    } if template == "enemy-template" && target.starts_with("enemy-")
+                )),
+            "spawn_visual should emit typed spawn mutation"
         );
 
         // Check entity was created
@@ -3428,17 +3457,25 @@ let entity = world.spawn_prefab("entity", #{
         );
         assert!(
             commands.iter().any(
-                |c| matches!(c, BehaviorCommand::SceneSpawn { template, target }
-                if template == "entity-template" && target.starts_with("entity-"))
+                |c| matches!(
+                    c,
+                    BehaviorCommand::ApplySceneMutation {
+                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                    } if template == "entity-template" && target.starts_with("entity-")
+                )
             ),
-            "entity prefab should emit SceneSpawn"
+            "entity prefab should emit typed spawn mutation"
         );
         assert!(
             commands.iter().any(
-                |c| matches!(c, BehaviorCommand::SceneSpawn { template, target }
-                if template == "vehicle" && target.starts_with("vehicle-"))
+                |c| matches!(
+                    c,
+                    BehaviorCommand::ApplySceneMutation {
+                        request: engine_api::SceneMutationRequest::SpawnObject { template, target }
+                    } if template == "vehicle" && target.starts_with("vehicle-")
+                )
             ),
-            "vehicle prefab should emit dynamic vehicle SceneSpawn"
+            "vehicle prefab should emit typed dynamic vehicle spawn mutation"
         );
 
         let vehicle_ids = gameplay_world.query_kind("vehicle");
@@ -3614,7 +3651,12 @@ game.set("/test/fx_id", fx);
         assert!(gameplay_world.exists(fx_id as u64));
         assert!(commands
             .iter()
-            .any(|c| matches!(c, BehaviorCommand::SetProperty { path, .. } if path == "style.fg")));
+            .any(|c| matches!(
+                c,
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::SetSpriteProperty { path, .. }
+                } if path == "style.fg"
+            )));
     }
 
     #[test]

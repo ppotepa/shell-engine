@@ -18,10 +18,21 @@ use engine_render_2d::{
     render_children_in_cells, render_image_content, render_panel_box, render_text_content,
     resolve_x, resolve_y, text_sprite_dimensions, with_render_context, ClipRect, RenderArea,
 };
+#[cfg(feature = "render-3d")]
 use engine_render_3d::pipeline::{
     extract_render3d_sprite_spec, GeneratedWorldSpriteSpec, ObjSpriteSpec, Render3dSpriteSpec,
     SceneClipSpriteSpec,
 };
+
+/// Unified 3D node spec — carries either an OBJ mesh or a GeneratedWorld (planet) node.
+///
+/// `SceneClip` is intentionally excluded: it composites pre-rendered Scene3D content and
+/// therefore has a distinct dispatch path (`render_scene_clip_sprite`).
+#[cfg(feature = "render-3d")]
+pub(crate) enum Render3dNodeSpec<'a> {
+    Obj(ObjSpriteSpec<'a>),
+    GeneratedWorld(GeneratedWorldSpriteSpec<'a>),
+}
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -92,28 +103,20 @@ use super::render::{
     sprite_transform_offset, RenderCtx,
 };
 
+#[cfg(feature = "render-3d")]
 pub(crate) trait Render3dDelegate {
-    fn render_obj_sprite(
+    /// Render any OBJ or GeneratedWorld (planet) 3D node through a single unified dispatch path.
+    /// The implementation branches on the spec variant internally; the compositor no longer
+    /// differentiates between OBJ and planet at this boundary.
+    fn render_3d_node(
         &self,
-        spec: ObjSpriteSpec<'_>,
+        spec: Render3dNodeSpec<'_>,
         area: RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
         appear_at: u64,
-        sprite_elapsed: u64,
-        ctx: &mut RenderCtx<'_>,
-    );
-
-    fn render_generated_world_sprite(
-        &self,
-        spec: GeneratedWorldSpriteSpec<'_>,
-        area: RenderArea,
-        target_resolver: Option<&TargetResolver>,
-        object_regions: &mut HashMap<String, Region>,
-        object_id: Option<&str>,
-        object_state: &ObjectRuntimeState,
         sprite_elapsed: u64,
         ctx: &mut RenderCtx<'_>,
     );
@@ -131,7 +134,7 @@ pub(crate) trait Render3dDelegate {
 
 /// Render all sprites in a layer onto `layer_buf`.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn render_sprites(
+pub(crate) fn render_sprites<'a>(
     layer_idx: usize,
     layer: &Layer,
     scene_w: u16,
@@ -151,7 +154,8 @@ pub(crate) fn render_sprites(
     celestial_catalogs: Option<&CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
-    render_3d: &dyn Render3dDelegate,
+    #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
+    prerender_frames: Option<&'a crate::ObjPrerenderedFrames>,
     layer_buf: &mut Buffer,
 ) {
     let mut ctx = RenderCtx {
@@ -166,6 +170,7 @@ pub(crate) fn render_sprites(
         celestial_catalogs,
         is_pixel_backend,
         default_font,
+        prerender_frames,
     };
     let root_area = RenderArea {
         origin_x: root_origin_x,
@@ -195,6 +200,7 @@ pub(crate) fn render_sprites(
                 object_regions,
                 object_states,
                 &mut ctx,
+                #[cfg(feature = "render-3d")]
                 render_3d,
             );
         }
@@ -213,7 +219,7 @@ fn render_sprite(
     object_regions: &mut HashMap<String, Region>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
-    render_3d: &dyn Render3dDelegate,
+    #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
 ) {
     let object_id =
         target_resolver.and_then(|resolver| resolver.sprite_object_id(layer_idx, sprite_path));
@@ -246,11 +252,12 @@ fn render_sprite(
     };
     let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
 
+    #[cfg(feature = "render-3d")]
     if let Some(spec) = extract_render3d_sprite_spec(sprite) {
         match spec {
             Render3dSpriteSpec::Obj(spec) => {
-                render_3d.render_obj_sprite(
-                    spec,
+                render_3d.render_3d_node(
+                    Render3dNodeSpec::Obj(spec),
                     area,
                     target_resolver,
                     object_regions,
@@ -262,13 +269,14 @@ fn render_sprite(
                 );
             }
             Render3dSpriteSpec::GeneratedWorld(spec) => {
-                render_3d.render_generated_world_sprite(
-                    spec,
+                render_3d.render_3d_node(
+                    Render3dNodeSpec::GeneratedWorld(spec),
                     area,
                     target_resolver,
                     object_regions,
                     object_id,
                     &object_state,
+                    appear_at,
                     sprite_elapsed,
                     ctx,
                 );
@@ -338,7 +346,7 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
-            render_3d,
+            #[cfg(feature = "render-3d")] render_3d,
         ),
         Sprite::Grid { .. } => render_grid_sprite(
             sprite,
@@ -354,7 +362,7 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
-            render_3d,
+            #[cfg(feature = "render-3d")] render_3d,
         ),
         Sprite::Flex { .. } => render_flex_sprite(
             sprite,
@@ -370,7 +378,7 @@ fn render_sprite(
             sprite_path,
             object_states,
             ctx,
-            render_3d,
+            #[cfg(feature = "render-3d")] render_3d,
         ),
         Sprite::Obj { .. } | Sprite::Planet { .. } | Sprite::Scene3D { .. } => {}
     }
@@ -816,7 +824,7 @@ fn render_panel_sprite(
     sprite_path: &mut Vec<usize>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
-    render_3d: &dyn Render3dDelegate,
+    #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
 ) {
     let Sprite::Panel {
         x,
@@ -923,7 +931,7 @@ fn render_panel_sprite(
             object_regions,
             object_states,
             ctx,
-            render_3d,
+            #[cfg(feature = "render-3d")] render_3d,
         );
         sprite_path.pop();
     }
@@ -960,7 +968,7 @@ fn render_grid_sprite(
     sprite_path: &mut Vec<usize>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
-    render_3d: &dyn Render3dDelegate,
+    #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
 ) {
     let Sprite::Grid {
         x,
@@ -1037,7 +1045,7 @@ fn render_grid_sprite(
                 object_regions,
                 object_states,
                 ctx,
-                render_3d,
+                #[cfg(feature = "render-3d")] render_3d,
             );
         },
     );
@@ -1074,7 +1082,7 @@ fn render_flex_sprite(
     sprite_path: &mut Vec<usize>,
     object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
-    render_3d: &dyn Render3dDelegate,
+    #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
 ) {
     let Sprite::Flex {
         x,
@@ -1147,7 +1155,7 @@ fn render_flex_sprite(
                 object_regions,
                 object_states,
                 ctx,
-                render_3d,
+                #[cfg(feature = "render-3d")] render_3d,
             );
         },
     );

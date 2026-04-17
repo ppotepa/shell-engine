@@ -733,25 +733,6 @@ impl SceneRuntime {
                     );
                     mutation_applied = true;
                 }
-                Render3DMutation::SetWorldgenParam {
-                    target,
-                    param,
-                    value,
-                } => {
-                    let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
-                    };
-                    let Some(json_value) =
-                        crate::render3d_state::render3d_material_value_to_json(value)
-                    else {
-                        return;
-                    };
-                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                        runtime.set_obj_worldgen_param(alias, param, &json_value)
-                    }) {
-                        mutation_applied = true;
-                    }
-                }
                 Render3DMutation::SetCompatProperty { target, property } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
@@ -762,40 +743,52 @@ impl SceneRuntime {
                     }
                     mutation_applied = true;
                 }
-                Render3DMutation::SetMaterialParam { target, param, value } => {
+                Render3DMutation::SetObjMaterialParam { target, param, value } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
-                    };
-                    let Some(json_value) =
-                        crate::render3d_state::render3d_material_value_to_json(value)
-                    else {
-                        return;
-                    };
-                    let applied = if param.starts_with("planet.") {
-                        let stripped = param.strip_prefix("planet.").unwrap_or(param.as_str());
-                        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                            runtime.set_planet_material_param(alias, stripped, &json_value)
-                        })
-                    } else {
-                        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                            runtime.set_obj_material_param(alias, param, &json_value)
-                        })
-                    };
-                    if applied {
-                        mutation_applied = true;
-                    }
-                }
-                Render3DMutation::SetAtmosphereParam { target, param, value } => {
-                    let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
-                    };
-                    let Some(json_value) =
-                        crate::render3d_state::render3d_material_value_to_json(value)
-                    else {
                         return;
                     };
                     if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                        runtime.set_obj_atmosphere_param(alias, param, &json_value)
+                        runtime.set_obj_material_typed_wrapper(alias, param, value)
+                    }) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetAtmosphereParamTyped { target, param, value } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                        runtime.set_obj_atmosphere_typed_wrapper(alias, param, value)
+                    }) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetTerrainParamTyped { target, param, value } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                        runtime.set_obj_terrain_typed_wrapper(alias, param, value)
+                    }) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetWorldgenParamTyped { target, param, value } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                        runtime.set_obj_worldgen_typed_wrapper(alias, param, value)
+                    }) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetPlanetParamTyped { target, param, value } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        return;
+                    };
+                    if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                        runtime.set_planet_typed_wrapper(alias, param, value)
                     }) {
                         mutation_applied = true;
                     }

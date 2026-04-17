@@ -160,15 +160,11 @@ fn fmt_mod(m: &MenuMod, expanded: bool, selected: bool, _term_w: usize) -> Strin
         } else {
             String::new()
         };
-        let parts: Vec<&str> = [
-            colors.as_str(),
-            m.render_size.as_str(),
-            m.policy.as_str(),
-        ]
-        .iter()
-        .filter(|s: &&&str| !s.is_empty())
-        .copied()
-        .collect();
+        let parts: Vec<&str> = [colors.as_str(), m.render_size.as_str(), m.policy.as_str()]
+            .iter()
+            .filter(|s: &&&str| !s.is_empty())
+            .copied()
+            .collect();
         parts.join("  ")
     };
 

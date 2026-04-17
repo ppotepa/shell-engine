@@ -563,6 +563,7 @@ dependencies = [
  "base64",
  "engine-3d",
  "engine-animation",
+ "engine-api",
  "engine-asset",
  "engine-audio",
  "engine-audio-sequencer",
@@ -585,6 +586,8 @@ dependencies = [
  "engine-persistence",
  "engine-pipeline",
  "engine-render",
+ "engine-render-2d",
+ "engine-render-3d",
  "engine-render-policy",
  "engine-render-sdl2",
  "engine-runtime",
@@ -913,6 +916,7 @@ dependencies = [
  "engine-render",
  "engine-render-policy",
  "engine-vector",
+ "serde_yaml",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-﻿pub mod access;
+pub mod access;
 
 use serde_yaml::Value;
 use std::env;
@@ -362,7 +362,13 @@ mod tests {
     fn keeps_defaults_when_block_absent() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>("name: test\n").expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
-        assert_eq!(settings.render_size, RenderSize::Fixed { width: 320, height: 240 });
+        assert_eq!(
+            settings.render_size,
+            RenderSize::Fixed {
+                width: 320,
+                height: 240
+            }
+        );
         assert_eq!(settings.presentation_policy, PresentationPolicy::Fit);
         assert_eq!(settings.default_font, None);
     }

@@ -1,4 +1,5 @@
 use crate::behavior::BehaviorCommand;
+use engine_api::scene::mutation::SceneMutationRequest;
 
 #[derive(Default)]
 pub struct VisualCleanupBuffer {
@@ -33,7 +34,9 @@ pub fn cleanup_visuals(world: &mut engine_core::world::World) {
     let resolver = runtime.target_resolver();
     let commands: Vec<BehaviorCommand> = targets
         .into_iter()
-        .map(|target| BehaviorCommand::SceneDespawn { target })
+        .map(|target| BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::DespawnObject { target },
+        })
         .collect();
     runtime.apply_behavior_commands(&resolver, &commands);
 }

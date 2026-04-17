@@ -12,16 +12,16 @@ use crate::Biome;
 /// boundaries visible at cube-sphere subdivision levels 24–48.
 pub fn biome_color(biome: Biome) -> [u8; 3] {
     match biome {
-        Biome::Ocean       => [13,  43,  82],   // #0d2b52 deep ocean
-        Biome::ShallowWater => [26,  95, 160],  // #1a5fa0 shallow water
-        Biome::Beach       => [194, 165,  96],  // #c2a560 sand
-        Biome::Desert      => [212, 168,  85],  // #d4a855 hot desert
-        Biome::Grassland   => [58,  140,  58],  // #3a8c3a temperate grass
-        Biome::Forest      => [30,  107,  30],  // #1e6b1e temperate forest
-        Biome::Tundra      => [122, 140, 106],  // #7a8c6a cold scrubland
-        Biome::Snow        => [232, 238, 245],  // #e8eef5 snow / ice cap
-        Biome::Mountain    => [154, 138, 122],  // #9a8a7a exposed rock
-        Biome::Volcanic    => [90,  42,  26],   // #5a2a1a volcanic rock
+        Biome::Ocean => [13, 43, 82],         // #0d2b52 deep ocean
+        Biome::ShallowWater => [26, 95, 160], // #1a5fa0 shallow water
+        Biome::Beach => [194, 165, 96],       // #c2a560 sand
+        Biome::Desert => [212, 168, 85],      // #d4a855 hot desert
+        Biome::Grassland => [58, 140, 58],    // #3a8c3a temperate grass
+        Biome::Forest => [30, 107, 30],       // #1e6b1e temperate forest
+        Biome::Tundra => [122, 140, 106],     // #7a8c6a cold scrubland
+        Biome::Snow => [232, 238, 245],       // #e8eef5 snow / ice cap
+        Biome::Mountain => [154, 138, 122],   // #9a8a7a exposed rock
+        Biome::Volcanic => [90, 42, 26],      // #5a2a1a volcanic rock
     }
 }
 
@@ -68,19 +68,19 @@ pub fn moisture_color(moisture: f32) -> [u8; 3] {
     let m = moisture.clamp(0.0, 1.0);
     if m < 0.20 {
         let t = m / 0.20;
-        lerp_rgb([196, 168,  96], [172, 148,  72], t)   // bone dry — tan
+        lerp_rgb([196, 168, 96], [172, 148, 72], t) // bone dry — tan
     } else if m < 0.40 {
         let t = (m - 0.20) / 0.20;
-        lerp_rgb([172, 148,  72], [120, 148,  64], t)   // semi-arid — olive
+        lerp_rgb([172, 148, 72], [120, 148, 64], t) // semi-arid — olive
     } else if m < 0.65 {
         let t = (m - 0.40) / 0.25;
-        lerp_rgb([120, 148,  64], [ 52, 132,  72], t)   // moderate — green
+        lerp_rgb([120, 148, 64], [52, 132, 72], t) // moderate — green
     } else if m < 0.85 {
         let t = (m - 0.65) / 0.20;
-        lerp_rgb([ 52, 132,  72], [ 32, 120, 110], t)   // humid — green→teal
+        lerp_rgb([52, 132, 72], [32, 120, 110], t) // humid — green→teal
     } else {
         let t = (m - 0.85) / 0.15;
-        lerp_rgb([ 32, 120, 110], [ 24,  90, 148], t)   // saturated — teal→blue
+        lerp_rgb([32, 120, 110], [24, 90, 148], t) // saturated — teal→blue
     }
 }
 
@@ -100,9 +100,16 @@ mod tests {
     #[test]
     fn biome_colors_all_variants() {
         let biomes = [
-            Biome::Ocean, Biome::ShallowWater, Biome::Beach, Biome::Desert,
-            Biome::Grassland, Biome::Forest, Biome::Tundra, Biome::Snow,
-            Biome::Mountain, Biome::Volcanic,
+            Biome::Ocean,
+            Biome::ShallowWater,
+            Biome::Beach,
+            Biome::Desert,
+            Biome::Grassland,
+            Biome::Forest,
+            Biome::Tundra,
+            Biome::Snow,
+            Biome::Mountain,
+            Biome::Volcanic,
         ];
         for b in biomes {
             let c = biome_color(b);

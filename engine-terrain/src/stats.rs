@@ -1,7 +1,7 @@
 //! Aggregate statistics and output types.
 
-use serde::{Deserialize, Serialize};
 use crate::{Biome, PlanetGenParams};
+use serde::{Deserialize, Serialize};
 
 /// Single heightmap cell — the elementary output unit.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -98,7 +98,9 @@ pub fn compute(
     let ocean_fraction = ocean_count as f32 / total;
 
     // Land cell stats
-    let land: Vec<usize> = (0..elevation.len()).filter(|&i| elevation[i] >= 0.5).collect();
+    let land: Vec<usize> = (0..elevation.len())
+        .filter(|&i| elevation[i] >= 0.5)
+        .collect();
     let land_moisture = if land.is_empty() {
         0.5
     } else {
@@ -121,28 +123,60 @@ pub fn compute(
 
     // Elevation std
     let mean_elev = elevation.iter().sum::<f32>() / total;
-    let var = elevation.iter().map(|&e| (e - mean_elev).powi(2)).sum::<f32>() / total;
+    let var = elevation
+        .iter()
+        .map(|&e| (e - mean_elev).powi(2))
+        .sum::<f32>()
+        / total;
     let elevation_std = var.sqrt();
 
     let mountain_count = elevation.iter().filter(|&&e| e > 0.7).count();
     let mountain_fraction = mountain_count as f32 / total;
 
     let desert_count = biomes.iter().filter(|&&b| b == Biome::Desert).count();
-    let desert_fraction = if land.is_empty() { 0.0 } else { desert_count as f32 / land.len() as f32 };
+    let desert_fraction = if land.is_empty() {
+        0.0
+    } else {
+        desert_count as f32 / land.len() as f32
+    };
 
-    let cold_count = biomes.iter().filter(|&&b| matches!(b, Biome::Snow | Biome::Tundra)).count();
-    let cold_fraction = if land.is_empty() { 0.0 } else { cold_count as f32 / land.len() as f32 };
+    let cold_count = biomes
+        .iter()
+        .filter(|&&b| matches!(b, Biome::Snow | Biome::Tundra))
+        .count();
+    let cold_fraction = if land.is_empty() {
+        0.0
+    } else {
+        cold_count as f32 / land.len() as f32
+    };
 
     let shallow_count = biomes.iter().filter(|&&b| b == Biome::ShallowWater).count();
-    let shallow_fraction = if ocean_count == 0 { 0.0 } else { shallow_count as f32 / ocean_count as f32 };
+    let shallow_fraction = if ocean_count == 0 {
+        0.0
+    } else {
+        shallow_count as f32 / ocean_count as f32
+    };
 
     let forest_count = biomes.iter().filter(|&&b| b == Biome::Forest).count();
-    let forest_fraction = if land.is_empty() { 0.0 } else { forest_count as f32 / land.len() as f32 };
+    let forest_fraction = if land.is_empty() {
+        0.0
+    } else {
+        forest_count as f32 / land.len() as f32
+    };
 
     let grassland_count = biomes.iter().filter(|&&b| b == Biome::Grassland).count();
-    let grassland_fraction = if land.is_empty() { 0.0 } else { grassland_count as f32 / land.len() as f32 };
+    let grassland_fraction = if land.is_empty() {
+        0.0
+    } else {
+        grassland_count as f32 / land.len() as f32
+    };
 
-    let archetype = derive_archetype(ocean_fraction, desert_fraction, cold_fraction, mountain_fraction);
+    let archetype = derive_archetype(
+        ocean_fraction,
+        desert_fraction,
+        cold_fraction,
+        mountain_fraction,
+    );
 
     PlanetStats {
         ocean_fraction,
@@ -161,9 +195,17 @@ pub fn compute(
 }
 
 fn derive_archetype(ocean: f32, desert: f32, cold: f32, mountain: f32) -> BiomeArchetype {
-    if ocean > 0.80 { return BiomeArchetype::Oceanic; }
-    if desert > 0.55 { return BiomeArchetype::Arid; }
-    if cold > 0.55   { return BiomeArchetype::Frozen; }
-    if mountain > 0.35 { return BiomeArchetype::Volcanic; }
+    if ocean > 0.80 {
+        return BiomeArchetype::Oceanic;
+    }
+    if desert > 0.55 {
+        return BiomeArchetype::Arid;
+    }
+    if cold > 0.55 {
+        return BiomeArchetype::Frozen;
+    }
+    if mountain > 0.35 {
+        return BiomeArchetype::Volcanic;
+    }
     BiomeArchetype::Terrestrial
 }

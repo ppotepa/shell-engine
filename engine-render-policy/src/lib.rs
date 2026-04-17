@@ -111,26 +111,16 @@ mod tests {
 
     #[test]
     fn applies_named_font_mode_override() {
-        let resolved = resolve_font_spec(
-            Some("Abril Fatface"),
-            Some("ascii"),
-            false,
-            None,
-        )
-        .expect("font should resolve");
+        let resolved = resolve_font_spec(Some("Abril Fatface"), Some("ascii"), false, None)
+            .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");
     }
 
     #[test]
     fn size_preset_creates_generic_text_font_when_font_missing() {
-        let resolved = resolve_text_font_spec(
-            None,
-            None,
-            Some(SpriteSizePreset::Large),
-            false,
-            None,
-        )
-        .expect("font should resolve");
+        let resolved =
+            resolve_text_font_spec(None, None, Some(SpriteSizePreset::Large), false, None)
+                .expect("font should resolve");
         assert_eq!(resolved, "generic:3");
     }
 
@@ -162,49 +152,29 @@ mod tests {
 
     #[test]
     fn pixel_backend_adds_raster_mode_to_bare_named_font() {
-        let resolved = resolve_font_spec(
-            Some("Abril Fatface"),
-            None,
-            true,
-            None,
-        )
-        .expect("font should resolve");
+        let resolved = resolve_font_spec(Some("Abril Fatface"), None, true, None)
+            .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:raster");
     }
 
     #[test]
     fn pixel_backend_does_not_override_explicit_mode() {
-        let resolved = resolve_font_spec(
-            Some("Abril Fatface:ascii"),
-            None,
-            true,
-            None,
-        )
-        .expect("font should resolve");
+        let resolved = resolve_font_spec(Some("Abril Fatface:ascii"), None, true, None)
+            .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");
     }
 
     #[test]
     fn default_font_alias_uses_mod_default_when_available() {
-        let resolved = resolve_font_spec(
-            Some("default"),
-            None,
-            false,
-            Some("Abril Fatface"),
-        )
-        .expect("font should resolve");
+        let resolved = resolve_font_spec(Some("default"), None, false, Some("Abril Fatface"))
+            .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface");
     }
 
     #[test]
     fn default_font_alias_uses_engine_fallback_when_mod_default_missing() {
-        let resolved = resolve_font_spec(
-            Some("default"),
-            None,
-            false,
-            None,
-        )
-        .expect("font should resolve");
+        let resolved =
+            resolve_font_spec(Some("default"), None, false, None).expect("font should resolve");
         assert_eq!(resolved, ENGINE_DEFAULT_FONT_SPEC);
     }
 }

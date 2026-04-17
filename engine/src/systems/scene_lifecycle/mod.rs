@@ -54,14 +54,30 @@ impl SceneLifecycleManager {
         );
 
         // Collect mouse moves for 3D camera consumers (extract from input_events).
-        let mouse_moves: Vec<(f32, f32)> = lifecycle.input_events.iter().filter_map(|e| {
-            if let InputEvent::MouseMoved { x, y } = e { Some((*x, *y)) } else { None }
-        }).collect();
+        let mouse_moves: Vec<(f32, f32)> = lifecycle
+            .input_events
+            .iter()
+            .filter_map(|e| {
+                if let InputEvent::MouseMoved { x, y } = e {
+                    Some((*x, *y))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // Collect scroll wheel deltas for orbit camera zoom.
-        let scroll_deltas: Vec<f32> = lifecycle.input_events.iter().filter_map(|e| {
-            if let InputEvent::MouseWheel { delta_y } = e { Some(*delta_y) } else { None }
-        }).collect();
+        let scroll_deltas: Vec<f32> = lifecycle
+            .input_events
+            .iter()
+            .filter_map(|e| {
+                if let InputEvent::MouseWheel { delta_y } = e {
+                    Some(*delta_y)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         handle_scene_free_look_input(
             world,
@@ -515,8 +531,7 @@ mod tests {
     use crate::events::EngineEvent;
     use crate::runtime_settings::{RenderSize, RuntimeSettings};
     use crate::scene::{
-        MenuOption, Scene, SceneAudio, SceneStages, Sprite, Stage, StageTrigger,
-        TermColour,
+        MenuOption, Scene, SceneAudio, SceneStages, Sprite, Stage, StageTrigger, TermColour,
     };
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
@@ -528,15 +543,23 @@ mod tests {
     use tempfile::tempdir;
 
     fn key_pressed(code: KeyCode) -> EngineEvent {
-        EngineEvent::KeyDown { key: KeyEvent::new(code, KeyModifiers::NONE), repeat: false }
+        EngineEvent::KeyDown {
+            key: KeyEvent::new(code, KeyModifiers::NONE),
+            repeat: false,
+        }
     }
 
     fn key_released(code: KeyCode) -> EngineEvent {
-        EngineEvent::KeyUp { key: KeyEvent::new(code, KeyModifiers::NONE) }
+        EngineEvent::KeyUp {
+            key: KeyEvent::new(code, KeyModifiers::NONE),
+        }
     }
 
     fn key_pressed_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> EngineEvent {
-        EngineEvent::KeyDown { key: KeyEvent::new(code, modifiers), repeat: false }
+        EngineEvent::KeyDown {
+            key: KeyEvent::new(code, modifiers),
+            repeat: false,
+        }
     }
 
     fn make_idle_animator() -> Animator {

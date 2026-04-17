@@ -19,6 +19,13 @@ pub enum SceneMutationRequest {
         dy: Option<i32>,
         text: Option<String>,
     },
+    /// Mutate a single typed property path.
+    #[serde(alias = "set_sprite_property")]
+    SetSpriteProperty {
+        target: String,
+        path: String,
+        value: JsonValue,
+    },
     /// Mutate the shared 2D camera state.
     SetCamera2d { x: f32, y: f32, zoom: Option<f32> },
     /// Mutate the shared 3D camera state.
