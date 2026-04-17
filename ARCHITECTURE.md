@@ -34,10 +34,11 @@ shell-engine/
 ├── engine-render-sdl2/        SDL2 presenter + input backend
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
 ├── mods/                      Content mods
-│   ├── shell-engine/           Main game mod
-│   ├── shell-engine-tests/     Automated test mod (no user input)
-│   ├── playground/            Development playground
-│   └── planet-generator/      Procedural planet viewer + HUD
+│   ├── playground/            Development sandbox
+│   ├── planet-generator/      Procedural planet viewer + HUD
+│   ├── gui-playground/        GUI/widget playground
+│   ├── terrain-playground/    Terrain/worldgen experiments
+│   └── asteroids/             Gameplay-heavy orbital prototype
 ├── schemas/                   JSON schemas for YAML validation
 └── tools/                     schema-gen, devtool, benchmarks
 ```
@@ -182,7 +183,7 @@ Scene3D assets now have two complementary runtime surfaces:
 - **`Scene3DRuntimeStore`**: parsed Scene3D definitions kept live for clip frames.
 
 During compositing, static Scene3D frame ids blit directly from the atlas. Bare
-clip ids such as `solar-orbit` are instead evaluated against the current
+clip ids such as `orbit` are instead evaluated against the current
 `elapsed_ms` and rendered on demand from the runtime store, which keeps clip
 tweens, orbit motion, and vertical reveal masks (`clip_y_min/max`) live without
 forcing authors to reference generated `clip-0..N` frame names.
@@ -385,40 +386,38 @@ The engine supports procedural planet generation via the `world://` URI scheme.
 The pipeline spans three crates:
 
 ```
-scene YAML                  Rhai script (world.* paths)
-     │                              │
-     ▼                              ▼
-engine-core (Sprite::Obj)   engine-scene-runtime (materialization)
-  world_gen_* fields              builds effective URI string
-          │                              │
-          └───────────┬──────────────────┘
-                      ▼
-         engine-compositor (sprite_renderer)
-           world://{subdiv}?seed=..&ocean=..&...
-                      │
-                      ▼
-         engine-terrain::generate(PlanetGenParams)
-           512×256 lat/lon heightmap
-           domain-warped fBm → continents
-           ridged noise → mountains
-           climate (moisture, temperature, ice)
-           biome classification (10 types)
-                      │
-                      ▼
-         engine-mesh::cube_sphere(subdiv)
-           per-vertex elevation displacement
-           per-face biome/altitude/moisture coloring
-           compute_smooth_normals
-                      │
-                      ▼
-         ObjMesh cached by full URI key
+scene YAML                     Rhai / typed mutation requests
+     │                                      │
+     ▼                                      ▼
+engine-core (`Sprite::Obj`)        engine-api / engine-scene-runtime
+  authored world fields              typed-first runtime mutation flow
+          │                                      │
+          └──────────────────┬───────────────────┘
+                             ▼
+          engine-render-3d prepared sprite specs / build keys
+                             │
+                             ▼
+              engine-worldgen (`world://` -> `WorldGenParams`)
+                             │
+                             ▼
+               engine-terrain::generate(PlanetGenParams)
+                 512×256 lat/lon heightmap
+                 climate + biome classification
+                             │
+                             ▼
+                 engine-mesh base sphere primitives
+                             │
+                             ▼
+                  GeneratedWorldMesh / normalized build key
+                             │
+                             ▼
+        engine-render-3d raster + compositor frame assembly
 ```
 
-World meshes are generated lazily on first compositor access and cached by
-URI. Changing any parameter rebuilds the URI key, causing a cache miss and
-regeneration. The `planet_last_stats()` Rhai function (registered by
-`engine-behavior`) exposes biome coverage percentages from the most recent
-generation.
+World meshes are generated lazily from normalized build keys. Changing any
+parameter changes the key and forces regeneration. The `planet_last_stats()`
+Rhai function (registered by `engine-behavior`) exposes biome coverage
+percentages from the most recent generation.
 
 ### Key types
 
@@ -462,7 +461,7 @@ Scripts adjust planet parameters through `scene.set(id, path, value)`:
 | Render/compositor | Verify compositor + renderer + backend presentation interactions |
 | Transitions/lifecycle | Verify scoped reset behavior, scene loader reference resolution |
 | Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `AUTHORING.md`, regression tests in `engine-behavior` |
-| World generation params | `engine-terrain` params, `engine-core` Sprite::Obj `world_gen_*` fields, `engine-compositor` URI builder + parser, `engine-scene-runtime` materialization `world.*` paths, `engine-behavior` world module |
+| World generation params | `engine-terrain` params, `engine-core` authored world fields, `engine-worldgen` URI/build-key layer, `engine-render-3d` generated-world specs, `engine-scene-runtime` runtime mutation mapping, `engine-behavior` world module |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |
 | Input events | `engine-events` variants + `as_input_event()`, SDL2 producer (`engine-render-sdl2/runtime.rs`), `scene_lifecycle::classify_events`, all pattern-match sites (`game_loop.rs`, `editor/state/scene_run.rs`); **Rhai scripts do not need changes** (they use `input.down/just_pressed` which reads `keys_down` HashSet) |
 | GUI widget types | `engine-gui` control trait / state / system, `engine-core` `SceneGuiWidgetDef` YAML enum, `engine-scene-runtime` construction + `sync_widget_visuals`, `engine-authoring` compile path, schema, `ScriptGuiApi` in `engine-behavior` |
@@ -477,7 +476,7 @@ the underlying runtime order.
 
 | Flag | Description |
 |------|-------------|
-| `--mod <NAME>` | Mod to load by name (default: `shell-engine`) |
+| `--mod <NAME>` | Mod to load by name (`mods/<name>/`) |
 | `--mod-source <PATH>` | Full mod source path (dir or .zip), overrides `--mod` |
 | `--dev` | Enable dev helpers (overlays, scene nav). Auto in debug builds |
 | `--no-dev` | Disable dev helpers even in debug builds |
@@ -507,7 +506,7 @@ the underlying runtime order.
 
 | Flag | Description |
 |------|-------------|
-| `--mod-source <PATH>` | Path to mod root (default: `mods/shell-engine`) |
+| `--mod-source <PATH>` | Path to mod root (no fixed default; launcher or explicit mod selection drives startup) |
 | `--logs` | Force-enable run logging |
 | `--no-logs` | Force-disable run logging |
 | `--log-root <DIR>` | Override log root directory |

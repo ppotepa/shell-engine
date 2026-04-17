@@ -1,57 +1,44 @@
-# engine-compositor — composition and rendering internals
+# engine-compositor — frame assembly
 
 ## Purpose
 
-`engine-compositor` owns scene composition after the engine has extracted the
-resources it needs from `World`. It contains:
+`engine-compositor` assembles frame output after the engine has extracted the
+resources it needs from `World`.
 
-- compositor dispatch,
-- layer traversal and sprite rendering,
-- text/image/OBJ/Scene3D drawing adapters,
-- layout helpers for panel/grid/flex content,
-- PostFX passes,
-- OBJ warmup and prerender helpers,
-- Scene3D atlas prerendering.
+It should own:
 
-The engine-side compositor system should stay a thin wrapper around this crate.
+- layer/frame preparation,
+- composition entry points,
+- adapter-level dispatch into 2D and 3D render crates,
+- PostFX application,
+- data-oriented prerender orchestration.
+
+It should not own:
+
+- 2D sprite raster internals,
+- 3D raster/shading internals,
+- generated-world mesh building,
+- Scene3D work-item rendering kernels.
 
 ## Main modules
 
-- `compositor.rs` — `dispatch_composite()` entry point
-- `layer_compositor.rs` / `sprite_renderer.rs` — layer traversal and sprite drawing
-- `text_render.rs`, `image_render.rs`, `obj_render.rs` — per-sprite-type rendering
-- `engine-asset::mesh_assets` — OBJ parsing, mesh conversion, procedural URI handling (`cube-sphere://N`, etc.)
-- `layout/` — measurement and placement helpers
-- `systems/postfx/` — compiled PostFX pass execution
-- `prerender.rs`, `warmup.rs` — scene preparation helpers
+- `compositor.rs` — top-level composition entry points
+- `scene_compositor.rs` — frame input structs and layer prep
+- `prepared_frame.rs` — prepared 2D/3D frame inputs
+- `provider.rs` / `access.rs` — engine integration seams
+- `prerender.rs` — prerender orchestration surface
+- `systems/postfx` — PostFX execution
 
-## Procedural mesh URIs
-
-`get_or_load_obj_mesh` in `obj_render.rs` intercepts URI-scheme paths before
-falling back to file loading. Currently supported:
-
-| URI | Generator | Example |
-|-----|-----------|---------|
-| `cube-sphere://N` | `engine_mesh::primitives::cube_sphere(N)` | `cube-sphere://64` |
-
-Meshes generated this way are converted via `engine_asset::mesh_to_obj_mesh` and
-cached in `OBJ_MESH_CACHE` under the URI string. To add a new scheme, add a
-branch in `get_or_load_obj_mesh` before the file-load fallback.
-
-## Working with this crate
-
-When changing compositor behavior:
+## Working rules
 
 - keep engine/world orchestration outside this crate,
+- keep 2D raster logic in `engine-render-2d`,
+- keep 3D raster/prerender logic in `engine-render-3d`,
 - preserve object region reporting for targeted effects and behavior consumers,
-- update measurement helpers together with the renderer that consumes them,
-- preserve dirty-region correctness through PostFX.
-
-When changing prerender logic, return data for engine-side scoped registration
-rather than mutating `World` directly.
+- preserve dirty-region correctness through the full frame assembly chain.
 
 ## Invariants
 
 - PostFX must preserve the combined dirty region across pass swaps.
-- OBJ prerender and Scene3D atlas generation are optional accelerators, not the
-  only render path.
+- Prepared-frame paths must stay equivalent to direct dispatch behavior.
+- Prerender outputs are accelerators, not the only render path.

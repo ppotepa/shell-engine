@@ -1,25 +1,27 @@
-﻿# app
+# app
 
-CLI launcher for running Shell Engine.
+CLI entrypoint for running Shell Engine.
 
 ## Purpose
 
-`app/` is the thin executable entrypoint that parses command-line flags,
-initializes logging, builds `EngineConfig`, and starts `ShellEngine`.
+`app/` parses command-line flags, initializes logging, resolves startup mode,
+builds `EngineConfig`, and starts `ShellEngine`.
 
 ## What it owns
 
 - CLI parsing via `clap`
-- dev/logging mode resolution
-- launcher-level flag aliases and defaults
+- logging/dev-mode resolution
 - translation from CLI inputs into `engine::EngineConfig`
+- startup scene checks for a selected mod
+- handoff to the interactive launcher when no mod is specified
 
 ## Common usage
 
 ```bash
 cargo run -p app
-cargo run -p app -- --mod shell-engine-tests --bench 5 --opt
-cargo run -p app -- --mod-source=mods/playground --debug-feature
+cargo run -p app -- --mod playground
+cargo run -p app -- --mod-source=mods/planet-generator
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
 ```
 
 ## Related docs

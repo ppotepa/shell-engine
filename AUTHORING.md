@@ -1051,6 +1051,11 @@ Important runtime rules:
 - For camera-follow and parallax logic, keep values in float space inside Rhai
   and let the runtime perform the final rounding pass. Pre-truncating in script
   makes near layers and particle-bound visuals step more visibly on SDL2.
+- `scene.set(...)` is now typed-first. Supported paths are translated into typed
+  mutation requests before runtime application. A narrow raw-property fallback
+  still exists for unsupported paths, so docs and scripts should treat
+  `scene.mutate(...)` as the strongest contract and `scene.set(...)` as the
+  ergonomic compatibility layer.
 
 ### `game.*` — Global Game State & Navigation
 

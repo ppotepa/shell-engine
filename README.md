@@ -1,91 +1,118 @@
-﻿# Shell Engine - Inspired by One Lone Coder https://www.youtube.com/javidx9
+# Shell Engine
 
-## about this project
+Shell Engine is an SDL2-first scene engine built around YAML authoring, Rhai
+runtime scripting, a software-rendered 2D/3D compositor, and mod-local content
+packages.
 
-after ~20 years of coding, regular programming lost its appeal — but building something new still brings spark. this engine is slow going right now, but it's being built as a reusable foundation for future projects.
+The repo is currently used as a reusable engine playground. The bundled mods
+focus on renderer development, UI experiments, and procedural world/planet
+generation rather than one single shipped game campaign.
 
-shell quest runs entirely in the terminal with inherent limitations. the aesthetic is **lo-fi by design** due to budget constraints, paired with **cyber-noire cutscene graphics**. gameplay is terminal-native, where bash commands become your spells and powers. difficulty levels affect simulated machine resources (ram, cpu). the world is open-ended using real state machines under the hood, styled as retro dos text-adventure.
+## What It Is
 
-core philosophy: lean on **freedom** in design. no closed ecosystems.
-this is a work-in-progress playground.
+- YAML-authored scenes, layers, sprites, effects, and GUI widgets
+- Rhai-driven runtime behaviors and scene mutation APIs
+- split rendering architecture:
+  - `engine-render-2d` owns 2D sprite/layout rendering
+  - `engine-render-3d` owns 3D scene/raster/prerender logic
+  - `engine-compositor` assembles frame output and PostFX
+- procedural world generation through `engine-terrain`, `engine-mesh`, and
+  `engine-worldgen`
+- mod loading from directories or zip archives
 
----
+Optional sidecar and IPC crates still exist in the workspace, but they are not
+the defining center of the current engine architecture.
 
-## Demo
+## Getting Started
 
-![Shell Engine demo](./docs/demo.gif)
+1. Install Rust.
+2. Clone the repo:
 
-Shell Engine is a terminal game + engine for learning shell stuff by actually using commands.
-
-You run YAML-based scenes, solve quests, and get old-school terminal effects on top.
-
-## Getting started
-
-1. Install Rust (1.75+)
-2. Clone the repository:
 ```bash
 git clone https://github.com/ppotepa/shell-engine.git
 cd shell-engine
 ```
-3. Run the game:
+
+3. Start the interactive launcher:
+
 ```bash
 cargo run -p app
 ```
-4. Run the editor (optional):
+
+4. Or launch a specific mod directly:
+
+```bash
+cargo run -p app -- --mod playground
+cargo run -p app -- --mod-source=mods/planet-generator
+```
+
+5. Run the editor:
+
 ```bash
 cargo run -p editor
 ```
 
-## Architecture
+## Included Mods
 
-shell quest is a two-process system:
-- **engine (rust)** — renderer, scene runtime, systems, compositor
-- **sidecar (c#)** — simulated os (cognitOS) with shell, filesystem, ftp
+- `mods/playground` — general engine sandbox
+- `mods/planet-generator` — procedural world/planet tuning mod
+- `mods/gui-playground` — GUI/widget behavior playground
+- `mods/terrain-playground` — terrain and worldgen experiments
+- `mods/asteroids` — gameplay-heavy orbital combat prototype
 
-the engine spawns the sidecar when entering a terminal scene. they talk via json lines on stdin/stdout through the `engine-io` crate. the sidecar manages all gameplay state: login, shell commands, ftp transfers, quest progress.
+## Repo Map
 
-difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidth, disk space. everything reads from `MachineSpec`, nothing is hardcoded.
-
-## Repo map
-
-- `app/` — launcher
-- `engine/` — runtime loop, systems, renderer
-- `engine-core/` — shared model, metadata, built-in effects
-- `engine-authoring/` — yaml compile/normalize/schema pipeline
-- `engine-io/` — ipc bridge between engine and sidecar processes
-- `editor/` — tui authoring editor
-- `mods/shell-engine/` — main game mod
-  - `os/cognitOS/` — c# simulated minix sidecar
-  - `docs/` — quest scripts, design docs
-- `mods/` — other content mods
-- `schemas/` — shared base schemas
-- `docs/` — static docs site + api generation
-- `tools/` — asset pipeline, devtool cli, schema-gen
+- `app/` — CLI entrypoint
+- `launcher/` — interactive launcher UI
+- `editor/` — authoring/editor tooling
+- `engine/` — top-level runtime orchestration
+- `engine-core/` — shared scene/runtime/model types
+- `engine-authoring/` — YAML compile/normalize/validate pipeline
+- `engine-api/` — script-facing engine API surface
+- `engine-render-2d/` — 2D sprite/layout rendering
+- `engine-render-3d/` — 3D scene, raster, prerender, generated-world rendering
+- `engine-compositor/` — frame assembly and PostFX
+- `engine-worldgen/` — `world://` parsing, mesh build keys, generated meshes
+- `engine-terrain/` — climate/biome/elevation generation
+- `engine-mesh/` — procedural geometry primitives
+- `mods/` — bundled content mods
+- `schemas/` — shared and generated YAML schemas
+- `tools/` — schema-gen and support tools
 
 ## Documentation
 
-### Root guides
+### Root docs
 
-- **[README.md](README.md)** — project overview and navigation
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — repository structure, dependency graph, systems, rendering pipeline
-- **[AUTHORING.md](AUTHORING.md)** — authored scene contract, assets, sprites, effects, PostFX, Rhai
-- **[BENCHMARKING.md](BENCHMARKING.md)** — benchmark workflow and regression capture
-- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — optimization flags, strategy pattern, invariants
+- [README.md](README.md) — overview
+- [ARCHITECTURE.md](ARCHITECTURE.md) — crate boundaries, system order, rendering flow
+- [AUTHORING.md](AUTHORING.md) — authored scene contract, assets, sprites, Rhai
+- [MODS.md](MODS.md) — bundled mods and mod structure
+- [BENCHMARKING.md](BENCHMARKING.md) — benchmark workflow and capture
+- [OPTIMIZATIONS.md](OPTIMIZATIONS.md) — optimization flags and invariants
+- [CHANGELOG.md](CHANGELOG.md) — development log
 
-### Local technical READMEs
+### Subsystem docs
 
-Technical details are being moved into directory-local README files so knowledge
-lives next to the code it describes.
+- `app/README.md` and `app/README.AGENTS.MD`
+- `engine/README.md` and `engine/README.AGENTS.MD`
+- `engine-core/README.md` and `engine-core/README.AGENTS.MD`
+- `engine-compositor/README.md` and `engine-compositor/README.AGENTS.md`
+- `engine-scene-runtime/README.md` and `engine-scene-runtime/README.AGENTS.md`
+- `engine-render/README.md`
+- `engine-render-2d/README.md`
+- `engine-render-3d/README.md`
+- `engine-worldgen/README.md`
+- `engine-mesh/README.md`
+- `engine-terrain/README.md`
+- `engine-behavior/README.md` and `engine-behavior/README.AGENTS.md`
+- `mods/README.md`
 
-- `app/README.AGENTS.MD` — launcher flow and CLI configuration
-- `editor/README.AGENTS.MD` — editor architecture and hot reload
-- `engine/README.AGENTS.MD` — runtime orchestration and system order
-- `engine-core/README.md` and `engine-core/README.AGENTS.MD` — shared model layer
-- `engine-asset/README.md` — scene and asset repository abstraction
-- `engine-behavior/README.md` — behavior runtime and Rhai integration
-- `engine-compositor/README.md` — composition, rendering, PostFX, prerender
-- `engine-scene-runtime/README.md` — mutable scene runtime and control routing
-- `mods/shell-engine/README.AGENTS.MD` — main mod structure and content
-- `mods/shell-engine-tests/README.AGENTS.MD` — automated test mod and benchmarking usage
-- `tools/README.AGENTS.MD` — tooling entry points
-- `schemas/README.AGENTS.MD` — schema generation and validation
+## Status
+
+The large 2D/3D ownership split is now in place in code:
+
+- 2D and 3D rendering live in separate crates,
+- compositor no longer owns the 3D raster domain,
+- runtime mutation flow is typed-first,
+- remaining raw string-path mutation support is intentionally narrow and
+  documented.

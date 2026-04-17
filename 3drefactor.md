@@ -42,6 +42,11 @@ Policy notes (verified against current code, audit date: 2026-04-16):
   whether bounded `SetProperty` compatibility remains a sanctioned low-level
   escape hatch or should be removed entirely.
 - See `left.md` for the current post-audit list of actually open work.
+- Synced root docs and crate READMEs with the final architecture split:
+  `README.md`, `ARCHITECTURE.md`, `AUTHORING.md`, `MODS.md`, `CHANGELOG.md`,
+  `app/README.md`, `engine-compositor/*README*`, `engine-render-3d/README.md`,
+  `engine-worldgen/README.md`, `engine-mesh/README.md`, `engine-api/README.md`,
+  `engine-render-2d/README.md`, `mods/README.md`.
 - Completed (String-path setter retirement): removed all string-path dispatcher
   functions from `engine-scene-runtime/src/materialization.rs`
   (`set_obj_property_recursive`, `set_planet_property_recursive`,

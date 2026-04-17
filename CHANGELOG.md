@@ -2,6 +2,15 @@
 
 Daily progress updates for Shell Engine development.
 
+## 17-04-2026
+
+**3D ownership split closed + docs sync** ✅
+- **engine-render-3d**: now owns the moved raster path, Scene3D prerender work-item flow, generated-world rendering internals, and the final 3D-side seams consumed by compositor
+- **engine-compositor**: reduced to frame assembly, prepared-frame orchestration, PostFX, and adapter-level delegation into `engine-render-2d` / `engine-render-3d`
+- **engine-api / engine-scene-runtime / engine-behavior**: typed-first scene mutation flow consolidated; spawn/despawn command variants removed; raw `SetProperty` left only as a narrow documented fallback
+- **docs**: refreshed root docs, mod docs, compositor/render/worldgen docs, and runtime mutation docs to match the current architecture and bundled mods
+- **validation**: `cargo check -p engine`, `cargo test -p engine-api --lib`, `cargo test -p engine-scene-runtime --lib`, `cargo test -p engine-compositor --lib`
+
 ## Format Guidelines
 
 Each day should follow this structure:

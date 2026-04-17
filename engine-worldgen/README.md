@@ -1,62 +1,41 @@
 # engine-worldgen
 
-World URI parsing, base-sphere selection, and procedural world mesh building.
+World URI parsing, mesh build keys, and procedural generated-world meshes.
 
 ## Purpose
 
-`engine-worldgen` owns the bridge between `engine-terrain` (planet heightmap
-generation) and `engine-mesh` (geometry primitives). It provides:
+`engine-worldgen` owns the bridge between `engine-terrain` and `engine-mesh`.
+It provides:
 
-- `world://` URI parsing → `WorldGenParams`
-- Canonical URI serialization for cache keys
-- Base-sphere selection (`cube`, `uv`, `tetra`, `octa`, `icosa`)
-- Per-vertex elevation displacement
-- Per-face biome/altitude coloring
-- `GeneratedWorldMesh` output consumed by `engine-compositor`
+- `world://` URI parsing into `WorldGenParams`
+- canonical URI serialization and normalized mesh build keys
+- base-sphere selection (`cube`, `uv`, `tetra`, `octa`, `icosa`)
+- per-vertex elevation displacement
+- per-face biome/altitude coloring
+- `GeneratedWorldMesh` output consumed by `engine-render-3d`
 
-This keeps `engine-compositor` focused on orchestration and buffer
-composition — the world mesh pipeline is self-contained here.
+This keeps generated-world mesh construction outside compositor frame assembly.
 
 ## Key functions
 
 | Function | Description |
 |----------|-------------|
 | `parse_world_params_from_uri(uri)` | Parse `world://N?...` into `WorldGenParams` |
-| `world_uri_from_params(p)` | Canonical URI string for cache key / runtime updates |
-| `prepare_world_gen_from_uri(uri)` | Metadata-only prep (`params` + canonical mesh build key) |
-| `build_world_mesh(p)` | Generate `GeneratedWorldMesh` (mesh + face colors) from params |
-
-`prepare_world_gen_from_uri` is intended for cache/build-key resolution outside
-render hot paths; `build_world_mesh` is the explicit geometry generation step.
+| `world_uri_from_params(p)` | Canonical URI string for cache keys and runtime updates |
+| `world_mesh_build_key_from_uri(uri)` | Stable normalized build key for generated meshes |
+| `prepare_world_gen_from_uri(uri)` | Metadata-only prep (`params` + normalized build key) |
+| `build_world_mesh(p)` | Generate `GeneratedWorldMesh` from params |
 
 ## URI format
 
-```
+```text
 world://SUBDIVISIONS?shape=sphere&base=cube&coloring=biome&seed=42&ocean=0.55&...
 ```
 
-All query parameters are optional — missing ones fall back to `WorldGenParams::default()`.
-
-| Key | Values | Default | Description |
-|-----|--------|---------|-------------|
-| `shape` | `sphere` / `flat` | `sphere` | Overall shape |
-| `base` | `cube` / `uv` / `tetra` / `octa` / `icosa` | `cube` | Sphere topology |
-| `coloring` | `biome` / `altitude` / `none` | `biome` | Face coloring strategy |
-| `seed` | 0–9999 | 0 | Planet random seed |
-| `ocean` | 0.01–0.99 | 0.55 | Ocean fraction |
-| `cscale` | 0.5–10 | 2.5 | Continent scale |
-| `cwarp` | 0–2 | 0.65 | Coastline chaos |
-| `coct` | 2–8 | 5 | Continent noise octaves |
-| `mscale` | 1–20 | 6.0 | Mountain spacing |
-| `mstr` | 0–1 | 0.45 | Mountain strength |
-| `mroct` | 2–8 | 5 | Ridge jaggedness |
-| `moistscale` | 0.5–10 | 3.0 | Moisture scale |
-| `ice` | 0–3 | 1.0 | Polar ice intensity |
-| `lapse` | 0–1 | 0.6 | Altitude cooling |
-| `rainshadow` | 0–1 | 0.35 | Rain shadow |
-| `disp` | 0–1 | 0.22 | Vertex displacement scale |
+All query parameters are optional. Missing ones fall back to
+`WorldGenParams::default()`.
 
 ## Dependencies
 
-- `engine-terrain` — heightmap generation and biome pipeline
-- `engine-mesh` — geometry primitives (cube/uv/poly spheres)
+- `engine-terrain` — climate, elevation, biomes
+- `engine-mesh` — base geometry primitives

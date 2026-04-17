@@ -1,25 +1,27 @@
-﻿# mods
+# mods
 
-Built-in content mods used for gameplay, testing, and experimentation.
+Bundled content mods used for renderer development, gameplay experiments, and
+authoring validation.
 
 ## Included mods
 
-- `shell-engine/` — main playable mod
-- `shell-engine-tests/` — automation-friendly benchmark/regression variant
-- `playground/` — development sandbox for experiments
-- `demo-mod/` and `test-scenes/` — smaller sample/test content
+- `playground/` — general engine sandbox
+- `planet-generator/` — procedural world and planet tuning
+- `gui-playground/` — widget system playground
+- `terrain-playground/` — terrain/worldgen experiments
+- `asteroids/` — gameplay-heavy orbital prototype
 
 ## Usage
 
 ```bash
-cargo run -p app -- --mod shell-engine
-cargo run -p app -- --mod shell-engine-tests --bench 5
+cargo run -p app -- --mod playground
+cargo run -p app -- --mod-source=mods/planet-generator
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
 ```
 
-You can also point the app at a mod directory directly with `--mod-source`.
+You can also point the app at any unpacked or zipped mod with `--mod-source`.
 
 ## Related docs
 
-- `mods/shell-engine/README.AGENTS.MD`
-- `mods/shell-engine-tests/README.AGENTS.MD`
 - root `MODS.md`
+- per-mod `README.md` files inside `mods/`
