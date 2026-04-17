@@ -6,6 +6,7 @@ render-size: 640x360
 layers:
   - ref: planet
   - ref: hud-tabs
+  - ref: hud-models
   - ref: hud-panel
   - ref: hud-sliders
   - ref: hud-actions
@@ -45,50 +46,79 @@ gui:
     # Panel outer: x=408..632, y=8..30. Buttons divide the full width.
     - type: button
       id: tab-btn-continents
-      sprite: tab-btn-continents
+      sprite: tab-label-continents
       x: 408
       y: 8
       w: 45
       h: 22
     - type: button
       id: tab-btn-mountains
-      sprite: tab-btn-mountains
+      sprite: tab-label-mountains
       x: 453
       y: 8
       w: 45
       h: 22
     - type: button
       id: tab-btn-climate
-      sprite: tab-btn-climate
+      sprite: tab-label-climate
       x: 498
       y: 8
       w: 45
       h: 22
     - type: button
       id: tab-btn-visual
-      sprite: tab-btn-visual
+      sprite: tab-label-visual
       x: 543
       y: 8
       w: 45
       h: 22
     - type: button
       id: tab-btn-atmo
-      sprite: tab-btn-atmo
+      sprite: tab-label-atmo
       x: 588
       y: 8
       w: 44
       h: 22
+    # ── Model selection buttons (bottom row of top HUD) ──────────────────────
+    - type: button
+      id: model-btn-planet
+      sprite: model-label-planet
+      x: 410
+      y: 34
+      w: 54
+      h: 22
+    - type: button
+      id: model-btn-sphere
+      sprite: model-label-sphere
+      x: 466
+      y: 34
+      w: 54
+      h: 22
+    - type: button
+      id: model-btn-cube
+      sprite: model-label-cube
+      x: 522
+      y: 34
+      w: 54
+      h: 22
+    - type: button
+      id: model-btn-suzanne
+      sprite: model-label-suzanne
+      x: 578
+      y: 34
+      w: 54
+      h: 22
     # ── Action buttons (bottom-right) ────────────────────────────────────────
     - type: button
       id: btn-randomize
-      sprite: btn-randomize
+      sprite: btn-label-randomize
       x: 410
       y: 304
       w: 108
       h: 22
     - type: button
       id: btn-reset
-      sprite: btn-reset
+      sprite: btn-label-reset
       x: 522
       y: 304
       w: 108
@@ -96,49 +126,49 @@ gui:
     # ── Preset strip buttons (bottom-right) ──────────────────────────────────
     - type: button
       id: preset-btn-earth
-      sprite: preset-earth
+      sprite: preset-label-earth
       x: 410
       y: 328
       w: 30
       h: 22
     - type: button
       id: preset-btn-mars
-      sprite: preset-mars
+      sprite: preset-label-mars
       x: 442
       y: 328
       w: 30
       h: 22
     - type: button
       id: preset-btn-ocean
-      sprite: preset-ocean
+      sprite: preset-label-ocean
       x: 474
       y: 328
       w: 30
       h: 22
     - type: button
       id: preset-btn-desert
-      sprite: preset-desert
+      sprite: preset-label-desert
       x: 506
       y: 328
       w: 30
       h: 22
     - type: button
       id: preset-btn-ice
-      sprite: preset-ice
+      sprite: preset-label-ice
       x: 538
       y: 328
       w: 30
       h: 22
     - type: button
       id: preset-btn-volcanic
-      sprite: preset-volcanic
+      sprite: preset-label-volcanic
       x: 570
       y: 328
       w: 30
       h: 22
     - type: button
       id: preset-btn-archipelago
-      sprite: preset-archipelago
+      sprite: preset-label-archipelago
       x: 602
       y: 328
       w: 28
@@ -250,3 +280,4 @@ stages:
     looping: true
     steps:
       - pause: 60ms
+

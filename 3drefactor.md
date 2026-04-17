@@ -78,6 +78,11 @@ Owner: `engine/render/runtime`
 - Recent stabilization fixes:
   - startup window and viewport scaling in app launch now auto-resolve `sdl-pixel-scale` from `display.render_size` when CLI does not override it (`app/src/main.rs`).
   - direct layer compositor now always uses scratch path for layers containing any 3D sprite to avoid stale black stripes under mixed 2D/3D composition.
+- Planet-generator UI/model runtime bridge now supports runtime model source switching in `mods/planet-generator/scenes/main/main.rhai`:
+  - number keys `1..4` and mouse buttons `model-btn-*` select renderer model source (`world://32`, `sphere.obj`, `cube.obj`, `suzanne.obj`).
+  - model HUD strip added in `mods/planet-generator/scenes/main/layers/hud-models.yml` and wired into scene widgets.
+  - worldgen pushes are now conditional (`world.*` only for world mode), preventing irrelevant updates when object modes are active.
+- Planet-generator preset label sprites are now correctly bound to preset widgets (`preset-label-*` ↔ `preset-btn-*`) so startup check `gui-widget-bindings` passes with non-colliding HUD IDs.
 
 ## 8. Renderer-Agnostic Lighting Floor + Surface Flight (Implemented)
 
