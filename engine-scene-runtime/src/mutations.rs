@@ -114,6 +114,37 @@ pub enum PlanetParam {
     SunDirZ,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum LightingProfileParam {
+    AmbientIntensity,
+    KeyLightIntensity,
+    FillLightIntensity,
+    RimLightIntensity,
+    BlackLevel,
+    ShadowContrast,
+    Exposure,
+    Tonemap,
+    Gamma,
+    NightGlowScale,
+    HazeNightLeak,
+    SpecularFloor,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpaceEnvironmentParam {
+    BackgroundColor,
+    BackgroundFloor,
+    StarfieldDensity,
+    StarfieldBrightness,
+    StarfieldSizeMin,
+    StarfieldSizeMax,
+    PrimaryStarColor,
+    PrimaryStarGlareStrength,
+    PrimaryStarGlareWidth,
+    NebulaStrength,
+    DustBandStrength,
+}
+
 impl ObjMaterialParam {
     pub(crate) fn from_full_path(path: &str) -> Option<Self> {
         match path {
@@ -239,6 +270,49 @@ impl PlanetParam {
     }
 }
 
+impl LightingProfileParam {
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "ambient_intensity" | "ambient-intensity" => Some(Self::AmbientIntensity),
+            "key_light_intensity" | "key-light-intensity" => Some(Self::KeyLightIntensity),
+            "fill_light_intensity" | "fill-light-intensity" => Some(Self::FillLightIntensity),
+            "rim_light_intensity" | "rim-light-intensity" => Some(Self::RimLightIntensity),
+            "black_level" | "black-level" => Some(Self::BlackLevel),
+            "shadow_contrast" | "shadow-contrast" => Some(Self::ShadowContrast),
+            "exposure" => Some(Self::Exposure),
+            "tonemap" => Some(Self::Tonemap),
+            "gamma" => Some(Self::Gamma),
+            "night_glow_scale" | "night-glow-scale" => Some(Self::NightGlowScale),
+            "haze_night_leak" | "haze-night-leak" => Some(Self::HazeNightLeak),
+            "specular_floor" | "specular-floor" => Some(Self::SpecularFloor),
+            _ => None,
+        }
+    }
+}
+
+impl SpaceEnvironmentParam {
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "background_color" | "background-color" => Some(Self::BackgroundColor),
+            "background_floor" | "background-floor" => Some(Self::BackgroundFloor),
+            "starfield_density" | "starfield-density" => Some(Self::StarfieldDensity),
+            "starfield_brightness" | "starfield-brightness" => Some(Self::StarfieldBrightness),
+            "starfield_size_min" | "starfield-size-min" => Some(Self::StarfieldSizeMin),
+            "starfield_size_max" | "starfield-size-max" => Some(Self::StarfieldSizeMax),
+            "primary_star_color" | "primary-star-color" => Some(Self::PrimaryStarColor),
+            "primary_star_glare_strength" | "primary-star-glare-strength" => {
+                Some(Self::PrimaryStarGlareStrength)
+            }
+            "primary_star_glare_width" | "primary-star-glare-width" => {
+                Some(Self::PrimaryStarGlareWidth)
+            }
+            "nebula_strength" | "nebula-strength" => Some(Self::NebulaStrength),
+            "dust_band_strength" | "dust-band-strength" => Some(Self::DustBandStrength),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Set2DPropsMutation {
     pub target: String,
@@ -256,12 +330,24 @@ pub struct SetCamera2DMutation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Render3DCompatProperty {
-    Scene3dFrame { frame: String },
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Render3DMutation {
+    SetViewProfile {
+        profile: String,
+    },
+    SetLightingProfile {
+        profile: String,
+    },
+    SetSpaceEnvironmentProfile {
+        profile: String,
+    },
+    SetLightingParam {
+        param: LightingProfileParam,
+        value: MaterialValue,
+    },
+    SetSpaceEnvironmentParam {
+        param: SpaceEnvironmentParam,
+        value: MaterialValue,
+    },
     SetNodeTransform {
         target: String,
         transform: Transform3D,
@@ -295,9 +381,9 @@ pub enum Render3DMutation {
         param: PlanetParam,
         value: MaterialValue,
     },
-    SetCompatProperty {
+    SetScene3DFrame {
         target: String,
-        property: Render3DCompatProperty,
+        frame: String,
     },
     SetSceneCamera {
         camera: Camera3DState,
@@ -404,5 +490,33 @@ mod tests {
             }
             _ => panic!("unexpected mutation shape"),
         }
+    }
+
+    #[test]
+    fn typed_lighting_profile_param_mutation() {
+        let mutation = Render3DMutation::SetLightingParam {
+            param: LightingProfileParam::Exposure,
+            value: MaterialValue::Scalar(0.9),
+        };
+
+        match mutation {
+            Render3DMutation::SetLightingParam { param, value } => {
+                assert_eq!(param, LightingProfileParam::Exposure);
+                assert_eq!(value, MaterialValue::Scalar(0.9));
+            }
+            _ => panic!("unexpected mutation shape"),
+        }
+    }
+
+    #[test]
+    fn lighting_param_parses_supported_names() {
+        assert_eq!(
+            LightingProfileParam::from_name("shadow_contrast"),
+            Some(LightingProfileParam::ShadowContrast)
+        );
+        assert_eq!(
+            SpaceEnvironmentParam::from_name("primary-star-glare-width"),
+            Some(SpaceEnvironmentParam::PrimaryStarGlareWidth)
+        );
     }
 }

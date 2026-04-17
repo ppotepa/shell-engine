@@ -63,16 +63,10 @@ fn push_set_property_command(
     path: String,
     value: JsonValue,
 ) {
-    if let Some(request) = engine_api::commands::scene_mutation_request_from_set_property_compat(
-        &target, &path, &value,
-    ) {
+    if let Some(request) =
+        engine_api::commands::scene_mutation_request_from_set_path(&target, &path, &value, None)
+    {
         commands.push(BehaviorCommand::ApplySceneMutation { request });
-    } else {
-        commands.push(BehaviorCommand::SetProperty {
-            target,
-            path,
-            value,
-        });
     }
 }
 
@@ -2285,10 +2279,14 @@ out
         );
         assert_eq!(
             commands,
-            vec![BehaviorCommand::SetProperty {
-                target: "menu-item-0".to_string(),
-                path: "position.y".to_string(),
-                value: JsonValue::Number(3.into())
+            vec![BehaviorCommand::ApplySceneMutation {
+                request: engine_api::commands::scene_mutation_request_from_set_path(
+                    "menu-item-0",
+                    "position.y",
+                    &JsonValue::Number(3.into()),
+                    Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
+                )
+                .expect("typed mutation")
             }]
         );
     }
@@ -2312,10 +2310,14 @@ scene.set("menu-item-0", "position.y", 6);
         );
         assert_eq!(
             commands,
-            vec![BehaviorCommand::SetProperty {
-                target: "menu-item-0".to_string(),
-                path: "position.y".to_string(),
-                value: JsonValue::Number(6.into())
+            vec![BehaviorCommand::ApplySceneMutation {
+                request: engine_api::commands::scene_mutation_request_from_set_path(
+                    "menu-item-0",
+                    "position.y",
+                    &JsonValue::Number(6.into()),
+                    Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
+                )
+                .expect("typed mutation")
             }]
         );
     }
@@ -2339,10 +2341,14 @@ scene.set("menu-item-0", "props.position.y", 6);
         );
         assert_eq!(
             commands,
-            vec![BehaviorCommand::SetProperty {
-                target: "menu-item-0".to_string(),
-                path: "position.y".to_string(),
-                value: JsonValue::Number(6.into())
+            vec![BehaviorCommand::ApplySceneMutation {
+                request: engine_api::commands::scene_mutation_request_from_set_path(
+                    "menu-item-0",
+                    "position.y",
+                    &JsonValue::Number(6.into()),
+                    Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
+                )
+                .expect("typed mutation")
             }]
         );
     }
@@ -2407,15 +2413,23 @@ out
         assert_eq!(
             commands,
             vec![
-                BehaviorCommand::SetProperty {
-                    target: "menu-item-0".to_string(),
-                    path: "position.x".to_string(),
-                    value: JsonValue::Number(4.into()),
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::commands::scene_mutation_request_from_set_path(
+                        "menu-item-0",
+                        "position.x",
+                        &JsonValue::Number(4.into()),
+                        Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
+                    )
+                    .expect("typed mutation")
                 },
-                BehaviorCommand::SetProperty {
-                    target: "menu-item-0".to_string(),
-                    path: "position.y".to_string(),
-                    value: JsonValue::Number(0.into()),
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::commands::scene_mutation_request_from_set_path(
+                        "menu-item-0",
+                        "position.y",
+                        &JsonValue::Number(0.into()),
+                        Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
+                    )
+                    .expect("typed mutation")
                 },
             ]
         );

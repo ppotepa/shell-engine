@@ -4,6 +4,11 @@ use crate::mutations::{Render3DMutation, SceneMutation};
 
 pub fn dirty_for_render3d_mutation(mutation: &Render3DMutation) -> DirtyMask3D {
     match mutation {
+        Render3DMutation::SetViewProfile { .. } => DirtyMask3D::LIGHTING,
+        Render3DMutation::SetLightingProfile { .. } => DirtyMask3D::LIGHTING,
+        Render3DMutation::SetSpaceEnvironmentProfile { .. } => DirtyMask3D::LIGHTING,
+        Render3DMutation::SetLightingParam { .. } => DirtyMask3D::LIGHTING,
+        Render3DMutation::SetSpaceEnvironmentParam { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetNodeTransform { .. } => DirtyMask3D::TRANSFORM,
         Render3DMutation::SetNodeVisibility { .. } => DirtyMask3D::VISIBILITY,
         Render3DMutation::SetObjMaterialParam { .. } => DirtyMask3D::MATERIAL,
@@ -11,7 +16,7 @@ pub fn dirty_for_render3d_mutation(mutation: &Render3DMutation) -> DirtyMask3D {
         Render3DMutation::SetTerrainParamTyped { .. } => DirtyMask3D::WORLDGEN,
         Render3DMutation::SetWorldgenParamTyped { .. } => DirtyMask3D::WORLDGEN,
         Render3DMutation::SetPlanetParamTyped { .. } => DirtyMask3D::MATERIAL,
-        Render3DMutation::SetCompatProperty { .. } => DirtyMask3D::WORLDGEN,
+        Render3DMutation::SetScene3DFrame { .. } => DirtyMask3D::WORLDGEN,
         Render3DMutation::SetSceneCamera { .. } => DirtyMask3D::CAMERA,
         Render3DMutation::SetLight { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::RebuildMesh { .. } => DirtyMask3D::MESH,
@@ -36,6 +41,38 @@ mod tests {
     #[test]
     fn maps_render3d_mutations_to_expected_dirty_masks() {
         let cases = vec![
+            (
+                Render3DMutation::SetViewProfile {
+                    profile: "orbit-realistic".to_string(),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
+                Render3DMutation::SetLightingProfile {
+                    profile: "space-hard-vacuum".to_string(),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
+                Render3DMutation::SetSpaceEnvironmentProfile {
+                    profile: "deep-space-sparse".to_string(),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
+                Render3DMutation::SetLightingParam {
+                    param: crate::mutations::LightingProfileParam::Exposure,
+                    value: engine_core::render_types::MaterialValue::Scalar(0.85),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
+                Render3DMutation::SetSpaceEnvironmentParam {
+                    param: crate::mutations::SpaceEnvironmentParam::StarfieldBrightness,
+                    value: engine_core::render_types::MaterialValue::Scalar(0.75),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
             (
                 Render3DMutation::SetNodeTransform {
                     target: "planet".to_string(),

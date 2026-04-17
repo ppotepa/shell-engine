@@ -1,5 +1,6 @@
 //! Side-effect commands produced by scripts and consumed by engine systems.
 
+use engine_core::scene_runtime_types::ObjectRuntimeState;
 use serde_json::Value as JsonValue;
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -36,11 +37,6 @@ pub enum BehaviorCommand {
         dx: Option<i32>,
         dy: Option<i32>,
         text: Option<String>,
-    },
-    SetProperty {
-        target: String,
-        path: String,
-        value: JsonValue,
     },
     /// Apply a typed scene mutation request.
     ApplySceneMutation {
@@ -111,10 +107,20 @@ pub enum BehaviorCommand {
     },
 }
 
-pub fn scene_mutation_request_from_set_property_compat(
+fn rounded_i32(value: &JsonValue) -> Option<i32> {
+    if let Some(number) = value.as_i64() {
+        return i32::try_from(number).ok();
+    }
+    value
+        .as_f64()
+        .and_then(|number| i32::try_from(number.round() as i64).ok())
+}
+
+pub fn scene_mutation_request_from_set_path(
     target: &str,
     path: &str,
     value: &JsonValue,
+    current_state: Option<&ObjectRuntimeState>,
 ) -> Option<crate::scene::SceneMutationRequest> {
     match path {
         "visible" => Some(crate::scene::SceneMutationRequest::Set2dProps {
@@ -164,7 +170,29 @@ pub fn scene_mutation_request_from_set_property_compat(
             path: "image.frame_index".to_string(),
             value: value.clone(),
         }),
-        _ if is_render3d_compat_set_path(path) => {
+        "offset.x" | "position.x" => {
+            let state = current_state?;
+            let next_x = rounded_i32(value)?;
+            Some(crate::scene::SceneMutationRequest::Set2dProps {
+                target: target.to_string(),
+                visible: None,
+                dx: Some(next_x.saturating_sub(state.offset_x)),
+                dy: None,
+                text: None,
+            })
+        }
+        "offset.y" | "position.y" => {
+            let state = current_state?;
+            let next_y = rounded_i32(value)?;
+            Some(crate::scene::SceneMutationRequest::Set2dProps {
+                target: target.to_string(),
+                visible: None,
+                dx: None,
+                dy: Some(next_y.saturating_sub(state.offset_y)),
+                text: None,
+            })
+        }
+        _ if is_render3d_set_path(path) => {
             Some(crate::scene::SceneMutationRequest::SetRender3d(
                 crate::scene::Render3dMutationRequest::SetWorldParam {
                     target: target.to_string(),
@@ -177,7 +205,7 @@ pub fn scene_mutation_request_from_set_property_compat(
     }
 }
 
-fn is_render3d_compat_set_path(path: &str) -> bool {
+fn is_render3d_set_path(path: &str) -> bool {
     path == "scene3d.frame"
         || path.starts_with("planet.")
         || path.starts_with("obj.")
@@ -199,10 +227,11 @@ mod tests {
 
     #[test]
     fn maps_render_set_property_to_typed_render3d_request() {
-        let request = scene_mutation_request_from_set_property_compat(
+        let request = scene_mutation_request_from_set_path(
             "planet",
             "obj.world.x",
             &serde_json::json!(1.5),
+            None,
         )
         .expect("typed request");
 
@@ -218,9 +247,13 @@ mod tests {
 
     #[test]
     fn maps_text_content_set_property_to_typed_2d_request() {
-        let request =
-            scene_mutation_request_from_set_property_compat("hud", "text.content", &"HELLO".into())
-                .expect("typed request");
+        let request = scene_mutation_request_from_set_path(
+            "hud",
+            "text.content",
+            &"HELLO".into(),
+            None,
+        )
+        .expect("typed request");
 
         assert_eq!(
             request,
@@ -230,6 +263,31 @@ mod tests {
                 dx: None,
                 dy: None,
                 text: Some("HELLO".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn maps_position_x_to_delta_when_state_is_available() {
+        let request = scene_mutation_request_from_set_path(
+            "hud",
+            "position.x",
+            &serde_json::json!(9.8),
+            Some(&ObjectRuntimeState {
+                offset_x: 4,
+                ..ObjectRuntimeState::default()
+            }),
+        )
+        .expect("typed request");
+
+        assert_eq!(
+            request,
+            SceneMutationRequest::Set2dProps {
+                target: "hud".to_string(),
+                visible: None,
+                dx: Some(6),
+                dy: None,
+                text: None,
             }
         );
     }

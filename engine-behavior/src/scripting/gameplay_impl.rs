@@ -36,16 +36,10 @@ fn queue_set_property_or_mutation(
     path: String,
     value: JsonValue,
 ) {
-    if let Some(request) = engine_api::commands::scene_mutation_request_from_set_property_compat(
-        &target, &path, &value,
-    ) {
+    if let Some(request) =
+        engine_api::commands::scene_mutation_request_from_set_path(&target, &path, &value, None)
+    {
         queue.push(BehaviorCommand::ApplySceneMutation { request });
-    } else {
-        queue.push(BehaviorCommand::SetProperty {
-            target,
-            path,
-            value,
-        });
     }
 }
 

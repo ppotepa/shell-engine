@@ -17,15 +17,15 @@ exposing runtime internals directly.
 
 ## Important note
 
-Scene mutation flow is typed-first. `scene.mutate(...)` and supported
+Scene mutation flow is fully typed. `scene.mutate(...)` and supported
 `scene.set(...)` paths are translated into typed mutation requests before
-runtime application. A narrow `SetProperty` fallback still exists for paths
-without typed coverage.
+runtime application. Unsupported `scene.set(...)` paths do not enqueue runtime
+commands.
 
 ## Main modules
 
 - `scene` — scene object access and typed mutation requests
-- `commands` — command types and compatibility mappers
+- `commands` — command types and path-to-mutation mapping
 - `audio`, `effects`, `collision`, `input` — script-facing domain APIs
 - `gameplay` — gameplay context/helpers used by behavior code
 - `rhai` — conversion utilities

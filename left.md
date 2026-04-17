@@ -19,15 +19,15 @@ Next follow-up:
 - Kept and extended with feature-gating regression coverage:
   - added `scene_pipeline_3d_prerender_scene_schedules_obj_prepass_state`.
 
-## 2) Legacy Script API Retirement (DoD [ ] not done)
+## 2) Script Mutation API
 
-- Current behavior is typed-first, but raw `scene.set(path, value)` compatibility remains:
-  - `engine-api/src/scene/api.rs`,
-  - `engine-scene-runtime/src/behavior_runner.rs`.
-- To fully retire:
-  - inventory remaining unsupported `SetProperty` routes,
-  - add typed API equivalents in `engine-api`,
-  - keep temporary deprecation window, then gate removal by migration completion.
+- Runtime-side raw `SetProperty` fallback is removed.
+- Supported `scene.set(path, value)` routes are translated to typed mutations in:
+  - `engine-api/src/commands.rs`,
+  - `engine-api/src/scene/api.rs`.
+- Remaining follow-up is only product/API design:
+  - decide whether unsupported `scene.set(...)` paths should remain silent no-op,
+  - or emit script diagnostics at API boundary.
 
 ## 3) Docs and Status Consistency (DoD [x] mostly done)
 
@@ -38,7 +38,7 @@ Next follow-up:
   - `AUTHORING.md`,
   - `CHANGELOG.md`.
 - Current update completed:
-  - `3drefactor.md` reflects that typed path is primary and compatibility is API-edge only.
+  - `3drefactor.md` reflects that runtime mutation flow is fully typed.
 
 ## 4) Performance Cleanup Passes (DoD [ ] partially done)
 

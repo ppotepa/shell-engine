@@ -2,10 +2,10 @@ use engine_api::scene::{Camera3dMutationRequest, Render3dMutationRequest, SceneM
 use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
-use crate::render3d_state::{material_value_from_json, scene_mutation_from_set_property_3d};
+use crate::render3d_state::{material_value_from_json, scene_mutation_from_render_path};
 use crate::{
-    Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
-    SetSpritePropertyMutation,
+    LightingProfileParam, Render3DMutation, SceneMutation, Set2DPropsMutation,
+    SetCamera2DMutation, SetSpritePropertyMutation, SpaceEnvironmentParam,
 };
 
 pub fn scene_mutation_from_request(
@@ -115,6 +115,33 @@ pub fn render3d_mutation_from_request(
     request: &Render3dMutationRequest,
 ) -> Option<Render3DMutation> {
     match request {
+        Render3dMutationRequest::SetViewProfile { profile } => {
+            Some(Render3DMutation::SetViewProfile {
+                profile: profile.clone(),
+            })
+        }
+        Render3dMutationRequest::SetLightingProfile { profile } => {
+            Some(Render3DMutation::SetLightingProfile {
+                profile: profile.clone(),
+            })
+        }
+        Render3dMutationRequest::SetSpaceEnvironmentProfile { profile } => {
+            Some(Render3DMutation::SetSpaceEnvironmentProfile {
+                profile: profile.clone(),
+            })
+        }
+        Render3dMutationRequest::SetLightingParam { name, value } => {
+            Some(Render3DMutation::SetLightingParam {
+                param: LightingProfileParam::from_name(name)?,
+                value: material_value_from_json(value)?,
+            })
+        }
+        Render3dMutationRequest::SetSpaceEnvironmentParam { name, value } => {
+            Some(Render3DMutation::SetSpaceEnvironmentParam {
+                param: SpaceEnvironmentParam::from_name(name)?,
+                value: material_value_from_json(value)?,
+            })
+        }
         Render3dMutationRequest::SetNodeTransform {
             target,
             translation,
@@ -159,7 +186,7 @@ pub fn render3d_mutation_from_request(
             target,
             name,
             value,
-        } => match scene_mutation_from_set_property_3d(target, name, value)? {
+        } => match scene_mutation_from_render_path(target, name, value)? {
             crate::SceneMutation::SetRender3D(m) => Some(m),
             _ => None,
         },
@@ -176,7 +203,7 @@ pub fn render3d_mutation_from_request(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scene_mutation_from_set_property_3d;
+    use crate::scene_mutation_from_render_path;
     use engine_api::scene::SceneMutationRequest;
 
     #[test]
@@ -226,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn maps_compat_world_param_request_to_typed_material_mutation() {
+    fn maps_world_param_request_to_typed_material_mutation() {
         let request = Render3dMutationRequest::SetWorldParam {
             target: "planet-main".to_string(),
             name: "obj.scale".to_string(),
@@ -249,32 +276,24 @@ mod tests {
 
     #[test]
     fn maps_scene3d_frame_set_property_to_typed_mutation() {
-        let mutation = scene_mutation_from_set_property_3d(
+        let mutation = scene_mutation_from_render_path(
             "scene-view",
             "scene3d.frame",
             &serde_json::json!("main-7"),
         )
         .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetCompatProperty {
-                target,
-                property,
-            }) => {
+            SceneMutation::SetRender3D(Render3DMutation::SetScene3DFrame { target, frame }) => {
                 assert_eq!(target, "scene-view");
-                assert_eq!(
-                    property,
-                    crate::Render3DCompatProperty::Scene3dFrame {
-                        frame: "main-7".to_string()
-                    }
-                );
+                assert_eq!(frame, "main-7");
             }
-            _ => panic!("expected SetCompatProperty"),
+            _ => panic!("expected SetScene3DFrame"),
         }
     }
 
     #[test]
     fn maps_planet_spin_set_property_to_typed_mutation() {
-        let mutation = scene_mutation_from_set_property_3d(
+        let mutation = scene_mutation_from_render_path(
             "planet-view",
             "planet.spin_deg",
             &serde_json::json!(15.0),
@@ -295,13 +314,29 @@ mod tests {
     }
 
     #[test]
-    fn leaves_unmapped_set_property_for_compatibility_fallback() {
-        let mutation = scene_mutation_from_set_property_3d(
+    fn leaves_unmapped_render_path_unmapped() {
+        let mutation = scene_mutation_from_render_path(
             "planet-view",
             "text.content",
             &serde_json::json!(0.42),
         );
 
         assert!(mutation.is_none());
+    }
+
+    #[test]
+    fn maps_lighting_param_request_to_typed_mutation() {
+        let request = Render3dMutationRequest::SetLightingParam {
+            name: "exposure".to_string(),
+            value: serde_json::json!(0.82),
+        };
+        let mutation = render3d_mutation_from_request(&request).expect("render mutation");
+        match mutation {
+            Render3DMutation::SetLightingParam { param, value } => {
+                assert_eq!(param, crate::LightingProfileParam::Exposure);
+                assert_eq!(value, MaterialValue::Scalar(0.82));
+            }
+            _ => panic!("expected SetLightingParam"),
+        }
     }
 }

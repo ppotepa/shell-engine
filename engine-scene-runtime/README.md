@@ -12,6 +12,8 @@ other systems can consume frame by frame. It owns:
 - behavior attachment and behavior command application,
 - UI focus and theme state,
 - OBJ viewer camera state,
+- resolved scene-level view/lighting/environment state and runtime-only
+  lighting/environment overrides,
 - runtime-side lifecycle helpers for object viewer and UI focus controls.
 
 This crate is the mutable scene instance, not the scene compiler and not the
@@ -27,6 +29,8 @@ The crate is intentionally split by responsibility:
 - `behavior_runner` — behavior updates and command application
 - `ui_focus` — focus order, theme state, and text layout helpers
 - `camera_3d` — OBJ viewer camera and orbit helpers
+- `render3d_state` — resolved scene-view profile storage and runtime overlay state
+- `dirty_tracking` — narrow dirty-mask mapping for typed 3D mutations
 - `lifecycle_controls` — runtime-owned control routing consumed by engine lifecycle orchestration; includes `update_gui` (input → `GuiSystem`) and `sync_widget_visuals` (trait-based `visual_sync()` → sprite offsets)
 
 ## Key types
@@ -35,6 +39,7 @@ The crate is intentionally split by responsibility:
 - `TargetResolver` — stable lookup for scene/layer/sprite/object aliases
 - `ObjectRuntimeState` — visibility and offset state per object
 - `ObjCameraState` — free-camera state for OBJ viewer scenes
+- `ResolvedViewProfile` — effective scene-wide lighting/environment contract
 - `RawKeyEvent` / `SidecarIoFrameState` — per-frame input and sidecar snapshots
 - `gui_widgets: Vec<Box<dyn GuiControl>>` — trait-object widget collection, built from `SceneGuiWidgetDef` at construction
 
@@ -80,12 +85,33 @@ This keeps slider handle positioning (and future widget visual sync) at the
 engine level — Rhai scripts only need to read values, not manually position
 handle sprites.
 
+## Scene view profiles
+
+Scene runtime now materializes one effective scene-wide look contract from:
+
+- authored `scene.view`,
+- optional asset-backed `view-profile`,
+- optional asset-backed `lighting-profile`,
+- optional asset-backed `space-environment-profile`,
+- optional typed runtime overrides.
+
+Preferred mutations in this area are typed:
+
+- `SetViewProfile`
+- `SetLightingProfile`
+- `SetSpaceEnvironmentProfile`
+- `SetLightingParam`
+- `SetSpaceEnvironmentParam`
+
+This should stay the preferred path. Do not add new render-facing string-path
+semantics when typed scene mutations can express the same intent.
+
 ## OBJ / world runtime property mutations
 
 `materialization.rs` handles typed `Render3DMutation` variants for `Sprite::Obj` and `Sprite::Planet`
-sprites. The runtime is typed-first: supported property writes are translated into typed
-mutations before reaching `materialization.rs`, while a narrow compatibility fallback still exists
-for unsupported raw `scene.set(...)` paths.
+sprites. Property writes are translated into typed mutations before reaching
+`materialization.rs`; the runtime no longer accepts a separate raw string-path
+mutation branch.
 
 | Typed enum | Variants | Notes |
 |------------|----------|-------|
@@ -95,9 +121,9 @@ for unsupported raw `scene.set(...)` paths.
 | `WorldgenParam` | `Seed`, `OceanFraction`, `ContinentScale`, `MountainScale`, `Subdivisions`, `Coloring`, … | World generation params — triggers mesh rebuild |
 | `PlanetParam` | `SpinDeg`, `CloudSpinDeg`, `ObserverAltitudeKm`, `SunDirX/Y/Z` | Planet animation state |
 
-Rhai scripts still use `scene.set(id, "obj.yaw", val)` which is translated into typed mutations
-before reaching `materialization.rs`. Unsupported paths may still fall back through the bounded
-compatibility converter in `behavior_runner.rs`.
+Rhai scripts can still use `scene.set(id, "obj.yaw", val)` for supported paths,
+but those paths are converted at the API boundary into typed mutations before
+they reach runtime materialization.
 
 ## Integration points
 

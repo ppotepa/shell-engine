@@ -9,7 +9,7 @@ Owner: `engine/render/runtime`
 - [x] Do not keep permanent compatibility layers in renderer/compositor internals.
 - [x] Treat planets as one producer of 3D data (renderer remains domain-agnostic).
 - [x] Keep 3D domain logic out of `engine-compositor`.
-- [x] Runtime mutation path converges toward typed APIs; narrow raw `scene.set(...)` compatibility path is intentionally retained at API edge for old mods/scripts only.
+- [x] Runtime mutation path is unified around typed APIs; supported `scene.set(...)` paths are translated at the API edge.
 - [x] `engine-compositor` no longer owns domain render logic (3D logic lives in `engine-render-3d`).
 
 ## 2. Crate Ownership
@@ -24,13 +24,13 @@ Owner: `engine/render/runtime`
 
 - [x] Scene composition routes through domain pipelines, not sprite-specific render logic in compositor.
 - [x] Shared render contracts moved to typed seams (`render_types`, scene graph instances, pipeline adapters).
-- [x] Final cleanup of stale comments/docs in active refactor tracking updated (remaining legacy mentions are bounded to explicit compatibility API docs).
+- [x] Final cleanup of stale comments/docs in active refactor tracking updated.
 
 ## 4. Runtime Mutation Convergence
 
-- [~] Collapse mutation handling toward one typed implementation path (active: compatibility path exists at API edge only).
-- [x] `SetProperty` routes to typed mutation handling where covered.
-- [ ] Retire string-path setters fully after typed API takeover (blocked on full migration of legacy-facing scripts).
+- [x] Collapse mutation handling toward one typed implementation path.
+- [x] Supported `scene.set(...)` paths route to typed mutation handling at the API edge.
+- [x] Retire raw string-path runtime setters.
 - [x] Avoid adding any new string-path branches.
 
 ## 5. Temporary / Dual Paths
@@ -43,7 +43,7 @@ Owner: `engine/render/runtime`
 
 - [x] 2D-only project validation pass (no 3D leakage).
 - [x] 3D no longer grows through new `Sprite::Obj` fields.
-- [~] Runtime mutation path mostly typed; final legacy-script retirement pending.
+- [x] Runtime mutation path fully converged on typed mutations.
 - [x] `engine-compositor` no longer owns domain render logic.
 
 ## 7. Current Performance Workstream Link

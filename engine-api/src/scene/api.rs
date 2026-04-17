@@ -12,7 +12,9 @@ use crate::rhai::conversion::{
     json_to_rhai_dynamic, map_get_path_dynamic, map_set_path_dynamic, merge_rhai_maps,
     normalize_set_path, rhai_dynamic_to_json,
 };
-use crate::{BehaviorCommand, Camera3dMutationRequest, SceneMutationRequest};
+use crate::{
+    BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
+};
 
 /// Helpers for object state conversion (should ideally be shared or generic).
 fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
@@ -65,59 +67,6 @@ fn kind_capabilities(kind: Option<&str>) -> RhaiMap {
         }
     }
     cap
-}
-
-fn scene_mutation_from_compat_set(
-    target: &str,
-    path: &str,
-    value: JsonValue,
-) -> Option<SceneMutationRequest> {
-    crate::commands::scene_mutation_request_from_set_property_compat(target, path, &value)
-}
-
-fn rounded_i32(value: &JsonValue) -> Option<i32> {
-    if let Some(number) = value.as_i64() {
-        return i32::try_from(number).ok();
-    }
-    value
-        .as_f64()
-        .and_then(|number| i32::try_from(number.round() as i64).ok())
-}
-
-fn scene_mutation_from_stateful_set(
-    target: &str,
-    path: &str,
-    value: JsonValue,
-    current_state: Option<&ObjectRuntimeState>,
-) -> Option<SceneMutationRequest> {
-    if let Some(request) = scene_mutation_from_compat_set(target, path, value.clone()) {
-        return Some(request);
-    }
-
-    let state = current_state?;
-    match path {
-        "offset.x" | "position.x" => {
-            let next_x = rounded_i32(&value)?;
-            Some(SceneMutationRequest::Set2dProps {
-                target: target.to_string(),
-                visible: None,
-                dx: Some(next_x.saturating_sub(state.offset_x)),
-                dy: None,
-                text: None,
-            })
-        }
-        "offset.y" | "position.y" => {
-            let next_y = rounded_i32(&value)?;
-            Some(SceneMutationRequest::Set2dProps {
-                target: target.to_string(),
-                visible: None,
-                dx: None,
-                dy: Some(next_y.saturating_sub(state.offset_y)),
-                text: None,
-            })
-        }
-        _ => None,
-    }
 }
 
 /// Script-facing API for scene management.
@@ -243,23 +192,14 @@ impl ScriptSceneApi {
         let Ok(mut queue) = self.queue.lock() else {
             return;
         };
-        if let Some(request) = scene_mutation_from_stateful_set(
+        if let Some(request) = crate::commands::scene_mutation_request_from_set_path(
             &resolved,
             &normalized_path,
-            value.clone(),
+            &value,
             self.object_states.get(&resolved),
         ) {
             queue.push(BehaviorCommand::ApplySceneMutation { request });
-            return;
         }
-        // Intentional fallback: `scene_mutation_from_stateful_set` above covers all typed-mutation
-        // paths. Remaining properties (e.g. render-domain 3D params not yet typed) fall through as
-        // raw SetProperty for the compatibility handler in behavior_runner.rs. Do NOT convert blindly.
-        queue.push(BehaviorCommand::SetProperty {
-            target: resolved,
-            path: normalized_path,
-            value,
-        });
     }
     ///
     /// ```rhai
@@ -285,23 +225,14 @@ impl ScriptSceneApi {
                 .resolve_alias(&target_str)
                 .unwrap_or(&target_str)
                 .to_string();
-            if let Some(request) = scene_mutation_from_stateful_set(
+            if let Some(request) = crate::commands::scene_mutation_request_from_set_path(
                 &resolved,
                 &normalized_path,
-                json_value.clone(),
+                &json_value,
                 self.object_states.get(&resolved),
             ) {
                 queue.push(BehaviorCommand::ApplySceneMutation { request });
-                continue;
             }
-            // Intentional fallback: `scene_mutation_from_stateful_set` above covers all typed-mutation
-            // paths. Remaining properties fall through as raw SetProperty for the compatibility
-            // handler in behavior_runner.rs. Do NOT convert blindly.
-            queue.push(BehaviorCommand::SetProperty {
-                target: resolved,
-                path: normalized_path.clone(),
-                value: json_value.clone(),
-            });
         }
     }
 
@@ -393,6 +324,74 @@ impl ScriptSceneApi {
             Camera3dMutationRequest::Up { up },
         ))
     }
+
+    /// Convenience helper for typed 3D view-profile switching.
+    pub fn set_view_profile(&mut self, profile: &str) -> bool {
+        if profile.trim().is_empty() {
+            return false;
+        }
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetViewProfile {
+                profile: profile.to_string(),
+            },
+        ))
+    }
+
+    /// Convenience helper for typed 3D lighting-profile switching.
+    pub fn set_lighting_profile(&mut self, profile: &str) -> bool {
+        if profile.trim().is_empty() {
+            return false;
+        }
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetLightingProfile {
+                profile: profile.to_string(),
+            },
+        ))
+    }
+
+    /// Convenience helper for typed 3D space-environment-profile switching.
+    pub fn set_space_environment_profile(&mut self, profile: &str) -> bool {
+        if profile.trim().is_empty() {
+            return false;
+        }
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetSpaceEnvironmentProfile {
+                profile: profile.to_string(),
+            },
+        ))
+    }
+
+    /// Convenience helper for typed 3D lighting-profile parameter override.
+    pub fn set_lighting_param(&mut self, name: &str, value: RhaiDynamic) -> bool {
+        if name.trim().is_empty() {
+            return false;
+        }
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetLightingParam {
+                name: name.to_string(),
+                value,
+            },
+        ))
+    }
+
+    /// Convenience helper for typed 3D space-environment parameter override.
+    pub fn set_space_environment_param(&mut self, name: &str, value: RhaiDynamic) -> bool {
+        if name.trim().is_empty() {
+            return false;
+        }
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetSpaceEnvironmentParam {
+                name: name.to_string(),
+                value,
+            },
+        ))
+    }
 }
 
 impl ScriptObjectApi {
@@ -436,23 +435,14 @@ impl ScriptObjectApi {
                     ..ObjectRuntimeState::default()
                 })
             });
-        if let Some(request) = scene_mutation_from_stateful_set(
+        if let Some(request) = crate::commands::scene_mutation_request_from_set_path(
             &self.target,
             &normalized_path,
-            value.clone(),
+            &value,
             object_state.as_ref(),
         ) {
             queue.push(BehaviorCommand::ApplySceneMutation { request });
-            return;
         }
-        // Intentional fallback: `scene_mutation_from_stateful_set` above covers all typed-mutation
-        // paths. Remaining properties (e.g. render-domain 3D params not yet typed) fall through as
-        // raw SetProperty for the compatibility handler in behavior_runner.rs. Do NOT convert blindly.
-        queue.push(BehaviorCommand::SetProperty {
-            target: self.target.clone(),
-            path: normalized_path,
-            value,
-        });
     }
 }
 
@@ -527,6 +517,30 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
         "set_camera3d_up",
         |scene: &mut ScriptSceneApi, ux: rhai::FLOAT, uy: rhai::FLOAT, uz: rhai::FLOAT| {
             scene.set_camera3d_up([ux as f32, uy as f32, uz as f32])
+        },
+    );
+    engine.register_fn(
+        "set_view_profile",
+        |scene: &mut ScriptSceneApi, profile: &str| scene.set_view_profile(profile),
+    );
+    engine.register_fn(
+        "set_lighting_profile",
+        |scene: &mut ScriptSceneApi, profile: &str| scene.set_lighting_profile(profile),
+    );
+    engine.register_fn(
+        "set_space_environment_profile",
+        |scene: &mut ScriptSceneApi, profile: &str| scene.set_space_environment_profile(profile),
+    );
+    engine.register_fn(
+        "set_lighting_param",
+        |scene: &mut ScriptSceneApi, name: &str, value: RhaiDynamic| {
+            scene.set_lighting_param(name, value)
+        },
+    );
+    engine.register_fn(
+        "set_space_environment_param",
+        |scene: &mut ScriptSceneApi, name: &str, value: RhaiDynamic| {
+            scene.set_space_environment_param(name, value)
         },
     );
 
@@ -613,6 +627,69 @@ mod tests {
                 request: SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::Up {
                     up: [0.0, 1.0, 0.0],
                 }),
+            }
+        );
+    }
+
+    #[test]
+    fn set_view_helpers_enqueue_typed_mutations() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        assert!(api.set_view_profile("orbit-realistic"));
+        assert!(api.set_lighting_profile("space-hard-vacuum"));
+        assert!(api.set_space_environment_profile("deep-space-sparse"));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 3);
+    }
+
+    #[test]
+    fn set_view_param_helpers_enqueue_typed_mutations() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        assert!(api.set_lighting_param("exposure", 0.88.into()));
+        assert!(api.set_space_environment_param("background_color", "#010203".into()));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 2);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetLightingParam {
+                        name: "exposure".to_string(),
+                        value: serde_json::json!(0.88),
+                    },
+                ),
+            }
+        );
+        assert_eq!(
+            queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetSpaceEnvironmentParam {
+                        name: "background_color".to_string(),
+                        value: serde_json::json!("#010203"),
+                    },
+                ),
             }
         );
     }
@@ -824,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    fn set_keeps_untyped_non_render_paths_on_set_property_compatibility() {
+    fn set_drops_unsupported_paths_without_enqueuing_commands() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
         let mut api = ScriptSceneApi::new(
             Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
@@ -839,14 +916,6 @@ mod tests {
         api.set("title", "audio.pitch", 2.0.into());
 
         let queue = queue.lock().expect("queue lock");
-        assert_eq!(queue.len(), 1);
-        assert_eq!(
-            queue[0],
-            BehaviorCommand::SetProperty {
-                target: "title".to_string(),
-                path: "audio.pitch".to_string(),
-                value: serde_json::json!(2.0),
-            }
-        );
+        assert!(queue.is_empty());
     }
 }

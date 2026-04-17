@@ -313,12 +313,12 @@ impl SceneRuntime {
             .filter_map(|binding| {
                 let color = palette.colors.get(&binding.key)?;
                 let value = serde_json::Value::String(color.clone());
-                let request =
-                    engine_api::commands::scene_mutation_request_from_set_property_compat(
-                        &binding.target,
-                        &binding.prop,
-                        &value,
-                    )?;
+                let request = engine_api::commands::scene_mutation_request_from_set_path(
+                    &binding.target,
+                    &binding.prop,
+                    &value,
+                    None,
+                )?;
                 Some(engine_behavior::BehaviorCommand::ApplySceneMutation { request })
             })
             .collect();
@@ -455,7 +455,7 @@ impl SceneRuntime {
 
     fn scene_mutation_from_behavior_command(
         &self,
-        resolver: &TargetResolver,
+        _resolver: &TargetResolver,
         command: &BehaviorCommand,
     ) -> Option<SceneMutation> {
         match command {
@@ -538,23 +538,6 @@ impl SceneRuntime {
                 }
                 scene_mutation_from_request(request, self.scene_camera_3d)
             }
-            // Narrow compat converter: translates a raw SetProperty into a typed
-            // SceneMutationRequest, then routes it through scene_mutation_from_request —
-            // the exact same function used by ApplySceneMutation above. There is no
-            // second runtime path here; SetProperty is purely a conversion layer. Any
-            // path not covered by the compat table returns None and is silently dropped.
-            BehaviorCommand::SetProperty {
-                target,
-                path,
-                value,
-            } => scene_mutation_request_from_set_property_runtime_compat(
-                resolver,
-                &self.object_states,
-                target,
-                path,
-                value,
-            )
-            .and_then(|request| scene_mutation_from_request(&request, self.scene_camera_3d)),
             _ => None,
         }
     }
@@ -704,6 +687,34 @@ impl SceneRuntime {
                 mutation_applied = true;
             }
             SceneMutation::SetRender3D(render3d) => match render3d {
+                Render3DMutation::SetViewProfile { profile } => {
+                    let view = self.scene.view.get_or_insert_with(Default::default);
+                    view.profile = Some(profile.clone());
+                    self.refresh_resolved_view_profile();
+                    mutation_applied = true;
+                }
+                Render3DMutation::SetLightingProfile { profile } => {
+                    let view = self.scene.view.get_or_insert_with(Default::default);
+                    view.lighting_profile = Some(profile.clone());
+                    self.refresh_resolved_view_profile();
+                    mutation_applied = true;
+                }
+                Render3DMutation::SetSpaceEnvironmentProfile { profile } => {
+                    let view = self.scene.view.get_or_insert_with(Default::default);
+                    view.space_environment_profile = Some(profile.clone());
+                    self.refresh_resolved_view_profile();
+                    mutation_applied = true;
+                }
+                Render3DMutation::SetLightingParam { param, value } => {
+                    if self.apply_lighting_profile_param(param, value) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetSpaceEnvironmentParam { param, value } => {
+                    if self.apply_space_environment_param(param, value) {
+                        mutation_applied = true;
+                    }
+                }
                 Render3DMutation::SetNodeVisibility { target, visible } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
@@ -735,12 +746,11 @@ impl SceneRuntime {
                     );
                     mutation_applied = true;
                 }
-                Render3DMutation::SetCompatProperty { target, property } => {
+                Render3DMutation::SetScene3DFrame { target, frame } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         return;
                     };
-                    if !self.apply_render3d_compat_property_for_target(object_id, target, property)
-                    {
+                    if !self.apply_scene3d_frame_for_target(object_id, target, frame) {
                         return;
                     }
                     mutation_applied = true;
@@ -1723,65 +1733,5 @@ fn collect_sprite_ids_recursive(
             }
             _ => {}
         }
-    }
-}
-
-fn json_value_to_rounded_i32(value: &JsonValue) -> Option<i32> {
-    if let Some(number) = value.as_i64() {
-        return i32::try_from(number).ok();
-    }
-    value
-        .as_f64()
-        .and_then(|number| i32::try_from(number.round() as i64).ok())
-}
-
-/// Converts a raw `SetProperty` path+value into a typed `SceneMutationRequest`,
-/// or returns `None` for paths without compat coverage.
-///
-/// This is the only runtime site that translates string-path `SetProperty` commands.
-/// After conversion the result is passed to `scene_mutation_from_request`, the same
-/// function that `ApplySceneMutation` uses, so the two branches share one execution path.
-///
-/// `position.x` / `position.y` require the current object state to compute the delta,
-/// which is why they live here rather than in the stateless `scene_mutation_request_from_set_property_compat`.
-fn scene_mutation_request_from_set_property_runtime_compat(
-    resolver: &TargetResolver,
-    object_states: &HashMap<String, ObjectRuntimeState>,
-    target: &str,
-    path: &str,
-    value: &JsonValue,
-) -> Option<engine_api::scene::SceneMutationRequest> {
-    if let Some(request) =
-        engine_api::commands::scene_mutation_request_from_set_property_compat(target, path, value)
-    {
-        return Some(request);
-    }
-
-    match path {
-        "offset.x" | "position.x" => {
-            let object_id = resolver.resolve_alias(target)?;
-            let state = object_states.get(object_id)?;
-            let next_x = json_value_to_rounded_i32(value)?;
-            Some(engine_api::scene::SceneMutationRequest::Set2dProps {
-                target: target.to_string(),
-                visible: None,
-                dx: Some(next_x.saturating_sub(state.offset_x)),
-                dy: None,
-                text: None,
-            })
-        }
-        "offset.y" | "position.y" => {
-            let object_id = resolver.resolve_alias(target)?;
-            let state = object_states.get(object_id)?;
-            let next_y = json_value_to_rounded_i32(value)?;
-            Some(engine_api::scene::SceneMutationRequest::Set2dProps {
-                target: target.to_string(),
-                visible: None,
-                dx: None,
-                dy: Some(next_y.saturating_sub(state.offset_y)),
-                text: None,
-            })
-        }
-        _ => None,
     }
 }

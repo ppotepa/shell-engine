@@ -38,8 +38,9 @@ use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::render_types::DirtyMask3D;
 use engine_core::scene::{
-    resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, ObjOrbitCameraControls,
-    Scene, Sprite, TermColour, UiThemeStyle,
+    resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, LightingProfile,
+    ObjOrbitCameraControls, ResolvedViewProfile, Scene, SpaceEnvironmentProfile, Sprite,
+    TermColour, UiThemeStyle,
 };
 pub use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, RawKeyEvent, SceneCamera3D, SidecarIoFrameState,
@@ -49,10 +50,11 @@ use engine_core::spatial::SpatialContext;
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 pub use mutations::{
-    Render3DCompatProperty, Render3DMutation, SceneMutation, Set2DPropsMutation,
-    SetCamera2DMutation, SetSpritePropertyMutation,
+    LightingProfileParam, Render3DMutation, SceneMutation,
+    Set2DPropsMutation, SetCamera2DMutation, SetSpritePropertyMutation,
+    SpaceEnvironmentParam,
 };
-pub use render3d_state::{scene_mutation_from_set_property_3d, Render3dRebuildDiagnostics};
+pub use render3d_state::{scene_mutation_from_render_path, Render3dRebuildDiagnostics};
 pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -106,6 +108,9 @@ pub struct SceneRuntime {
     /// Scene-wide spatial contract (units and axis convention).
     spatial_context: SpatialContext,
     scene_camera_3d: SceneCamera3D,
+    resolved_view_profile: ResolvedViewProfile,
+    runtime_lighting_profile_override: Option<LightingProfile>,
+    runtime_space_environment_override: Option<SpaceEnvironmentProfile>,
     render3d_dirty_mask: DirtyMask3D,
     render3d_rebuild_diagnostics: Render3dRebuildDiagnostics,
     /// Palette version when bindings were last applied; 0 means not yet applied.
@@ -272,11 +277,25 @@ struct BehaviorBinding {
 #[cfg(test)]
 mod tests {
     use super::{ObjOrbitCameraState, SceneRuntime};
+    use engine_api::commands::scene_mutation_request_from_set_path;
     use engine_api::scene::{Render3dMutationRequest, SceneMutationRequest};
     use engine_behavior::BehaviorCommand;
     use engine_core::game_object::GameObjectKind;
     use engine_core::render_types::DirtyMask3D;
     use engine_core::scene::{Scene, Sprite, TermColour};
+    use engine_core::scene_runtime_types::ObjectRuntimeState;
+
+    fn set_path(
+        target: &str,
+        path: &str,
+        value: serde_json::Value,
+        current_state: Option<&ObjectRuntimeState>,
+    ) -> BehaviorCommand {
+        BehaviorCommand::ApplySceneMutation {
+            request: scene_mutation_request_from_set_path(target, path, &value, current_state)
+                .expect("typed mutation"),
+        }
+    }
 
     fn intro_scene() -> Scene {
         serde_yaml::from_str(
@@ -843,41 +862,23 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "visible".to_string(),
-                    value: serde_json::json!(false),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "position.x".to_string(),
-                    value: serde_json::json!(9),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "position.y".to_string(),
-                    value: serde_json::json!(-2),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "text.content".to_string(),
-                    value: serde_json::json!("PATH-SET"),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "text.font".to_string(),
-                    value: serde_json::json!("generic:2"),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "style.fg".to_string(),
-                    value: serde_json::json!("yellow"),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "style.bg".to_string(),
-                    value: serde_json::json!("#112233"),
-                },
+                set_path("title", "visible", serde_json::json!(false), None),
+                set_path(
+                    "title",
+                    "position.x",
+                    serde_json::json!(9),
+                    Some(&ObjectRuntimeState::default()),
+                ),
+                set_path(
+                    "title",
+                    "position.y",
+                    serde_json::json!(-2),
+                    Some(&ObjectRuntimeState::default()),
+                ),
+                set_path("title", "text.content", serde_json::json!("PATH-SET"), None),
+                set_path("title", "text.font", serde_json::json!("generic:2"), None),
+                set_path("title", "style.fg", serde_json::json!("yellow"), None),
+                set_path("title", "style.bg", serde_json::json!("#112233"), None),
             ],
         );
         assert_eq!(runtime.text_sprite_content("title"), Some("PATH-SET"));
@@ -921,16 +922,18 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "position.x".to_string(),
-                    value: serde_json::json!(9.8),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "title".to_string(),
-                    path: "position.y".to_string(),
-                    value: serde_json::json!(-2.4),
-                },
+                set_path(
+                    "title",
+                    "position.x",
+                    serde_json::json!(9.8),
+                    Some(&ObjectRuntimeState::default()),
+                ),
+                set_path(
+                    "title",
+                    "position.y",
+                    serde_json::json!(-2.4),
+                    Some(&ObjectRuntimeState::default()),
+                ),
             ],
         );
         let title_id = resolver.resolve_alias("title").expect("title id");
@@ -1033,11 +1036,7 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[BehaviorCommand::SetProperty {
-                target: "helsinki-uni-wireframe".to_string(),
-                path: "world.seed".to_string(),
-                value: serde_json::json!(7),
-            }],
+            &[set_path("helsinki-uni-wireframe", "world.seed", serde_json::json!(7), None)],
         );
 
         let diagnostics = runtime.take_render3d_rebuild_diagnostics();
@@ -1053,36 +1052,12 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.scale".to_string(),
-                    value: serde_json::json!(1.5),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.yaw".to_string(),
-                    value: serde_json::json!(15),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.pitch".to_string(),
-                    value: serde_json::json!(-10),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.roll".to_string(),
-                    value: serde_json::json!(2),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.orbit_speed".to_string(),
-                    value: serde_json::json!(22),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.surface_mode".to_string(),
-                    value: serde_json::json!("wireframe"),
-                },
+                set_path("helsinki-uni-wireframe", "obj.scale", serde_json::json!(1.5), None),
+                set_path("helsinki-uni-wireframe", "obj.yaw", serde_json::json!(15), None),
+                set_path("helsinki-uni-wireframe", "obj.pitch", serde_json::json!(-10), None),
+                set_path("helsinki-uni-wireframe", "obj.roll", serde_json::json!(2), None),
+                set_path("helsinki-uni-wireframe", "obj.orbit_speed", serde_json::json!(22), None),
+                set_path("helsinki-uni-wireframe", "obj.surface_mode", serde_json::json!("wireframe"), None),
             ],
         );
         let obj_props = runtime
@@ -1126,21 +1101,9 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.world.x".to_string(),
-                    value: serde_json::json!(12.5),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.world.y".to_string(),
-                    value: serde_json::json!(-7.25),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "helsinki-uni-wireframe".to_string(),
-                    path: "obj.world.z".to_string(),
-                    value: serde_json::json!(3.0),
-                },
+                set_path("helsinki-uni-wireframe", "obj.world.x", serde_json::json!(12.5), None),
+                set_path("helsinki-uni-wireframe", "obj.world.y", serde_json::json!(-7.25), None),
+                set_path("helsinki-uni-wireframe", "obj.world.z", serde_json::json!(3.0), None),
             ],
         );
 
@@ -1175,41 +1138,13 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.spin_deg".to_string(),
-                    value: serde_json::json!(15),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.cloud_spin_deg".to_string(),
-                    value: serde_json::json!(21),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.cloud2_spin_deg".to_string(),
-                    value: serde_json::json!(33),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.observer_altitude_km".to_string(),
-                    value: serde_json::json!(420),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.sun_dir.x".to_string(),
-                    value: serde_json::json!(0.5),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.sun_dir.y".to_string(),
-                    value: serde_json::json!(-0.4),
-                },
-                BehaviorCommand::SetProperty {
-                    target: "main-planet-view".to_string(),
-                    path: "planet.sun_dir.z".to_string(),
-                    value: serde_json::json!(0.2),
-                },
+                set_path("main-planet-view", "planet.spin_deg", serde_json::json!(15), None),
+                set_path("main-planet-view", "planet.cloud_spin_deg", serde_json::json!(21), None),
+                set_path("main-planet-view", "planet.cloud2_spin_deg", serde_json::json!(33), None),
+                set_path("main-planet-view", "planet.observer_altitude_km", serde_json::json!(420), None),
+                set_path("main-planet-view", "planet.sun_dir.x", serde_json::json!(0.5), None),
+                set_path("main-planet-view", "planet.sun_dir.y", serde_json::json!(-0.4), None),
+                set_path("main-planet-view", "planet.sun_dir.z", serde_json::json!(0.2), None),
             ],
         );
         let planet_props = runtime
@@ -1255,11 +1190,7 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[BehaviorCommand::SetProperty {
-                target: "intro-view".to_string(),
-                path: "scene3d.frame".to_string(),
-                value: serde_json::json!("closeup"),
-            }],
+            &[set_path("intro-view", "scene3d.frame", serde_json::json!("closeup"), None)],
         );
 
         let scene3d_frame = runtime
@@ -1287,11 +1218,7 @@ layers:
 
         via_property.apply_behavior_commands(
             &resolver_a,
-            &[BehaviorCommand::SetProperty {
-                target: "helsinki-uni-wireframe".to_string(),
-                path: "obj.scale".to_string(),
-                value: serde_json::json!(1.5),
-            }],
+            &[set_path("helsinki-uni-wireframe", "obj.scale", serde_json::json!(1.5), None)],
         );
         via_typed.apply_behavior_commands(
             &resolver_b,
@@ -1334,11 +1261,7 @@ layers:
 
         via_property.apply_behavior_commands(
             &resolver_a,
-            &[BehaviorCommand::SetProperty {
-                target: "main-planet-view".to_string(),
-                path: "planet.spin_deg".to_string(),
-                value: serde_json::json!(15.0),
-            }],
+            &[set_path("main-planet-view", "planet.spin_deg", serde_json::json!(15.0), None)],
         );
         via_typed.apply_behavior_commands(
             &resolver_b,
@@ -1381,11 +1304,7 @@ layers:
 
         via_property.apply_behavior_commands(
             &resolver_a,
-            &[BehaviorCommand::SetProperty {
-                target: "intro-view".to_string(),
-                path: "scene3d.frame".to_string(),
-                value: serde_json::json!("closeup"),
-            }],
+            &[set_path("intro-view", "scene3d.frame", serde_json::json!("closeup"), None)],
         );
         via_typed.apply_behavior_commands(
             &resolver_b,
@@ -1423,11 +1342,7 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[BehaviorCommand::SetProperty {
-                target: "title".to_string(),
-                path: "text.content".to_string(),
-                value: serde_json::json!("HELLO_TYPED"),
-            }],
+            &[set_path("title", "text.content", serde_json::json!("HELLO_TYPED"), None)],
         );
 
         let title_id = resolver.resolve_alias("title").expect("title id");
@@ -1447,11 +1362,7 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[BehaviorCommand::SetProperty {
-                target: "intro-view".to_string(),
-                path: "scene3d.frame".to_string(),
-                value: serde_json::json!(7),
-            }],
+            &[set_path("intro-view", "scene3d.frame", serde_json::json!(7), None)],
         );
 
         let scene3d_frame = runtime
@@ -1621,3 +1532,4 @@ layers: []
         assert_eq!(spatial.axes.up_axis, engine_core::spatial::UpAxis::Z);
     }
 }
+

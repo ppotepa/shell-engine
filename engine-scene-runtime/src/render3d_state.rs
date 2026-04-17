@@ -1,6 +1,7 @@
 use super::*;
 use engine_core::render_types::DirtyMask3D;
 use engine_core::render_types::MaterialValue;
+use engine_core::scene::{LightingProfile, SpaceEnvironmentProfile, TonemapOperator};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Render3dRebuildDiagnostics {
@@ -15,19 +16,145 @@ impl Render3dRebuildDiagnostics {
 }
 
 impl SceneRuntime {
-    pub(crate) fn apply_render3d_compat_property_for_target(
+    pub(crate) fn refresh_resolved_view_profile(&mut self) {
+        let mut resolved = engine_core::scene::resolve_scene_view_profile(&self.scene);
+        if let Some(override_profile) = self.runtime_lighting_profile_override.as_ref() {
+            resolved.lighting =
+                engine_core::scene::merge_lighting_profile(resolved.lighting, override_profile);
+        }
+        if let Some(override_profile) = self.runtime_space_environment_override.as_ref() {
+            resolved.environment = engine_core::scene::merge_space_environment_profile(
+                resolved.environment,
+                override_profile,
+            );
+        }
+        self.resolved_view_profile = resolved;
+    }
+
+    pub(crate) fn apply_lighting_profile_param(
+        &mut self,
+        param: &crate::mutations::LightingProfileParam,
+        value: &MaterialValue,
+    ) -> bool {
+        let profile = self
+            .runtime_lighting_profile_override
+            .get_or_insert_with(|| LightingProfile {
+                id: if self.resolved_view_profile.lighting.id.is_empty() {
+                    "runtime-lighting-override".to_string()
+                } else {
+                    self.resolved_view_profile.lighting.id.clone()
+                },
+                ..Default::default()
+            });
+
+        match param {
+            crate::mutations::LightingProfileParam::AmbientIntensity => {
+                profile.ambient_intensity = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::KeyLightIntensity => {
+                profile.key_light_intensity = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::FillLightIntensity => {
+                profile.fill_light_intensity = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::RimLightIntensity => {
+                profile.rim_light_intensity = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::BlackLevel => {
+                profile.black_level = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::ShadowContrast => {
+                profile.shadow_contrast = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::Exposure => {
+                profile.exposure = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::Tonemap => {
+                profile.tonemap = tonemap_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::Gamma => {
+                profile.gamma = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::NightGlowScale => {
+                profile.night_glow_scale = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::HazeNightLeak => {
+                profile.haze_night_leak = scalar_from_material_value(value);
+            }
+            crate::mutations::LightingProfileParam::SpecularFloor => {
+                profile.specular_floor = scalar_from_material_value(value);
+            }
+        }
+
+        self.refresh_resolved_view_profile();
+        true
+    }
+
+    pub(crate) fn apply_space_environment_param(
+        &mut self,
+        param: &crate::mutations::SpaceEnvironmentParam,
+        value: &MaterialValue,
+    ) -> bool {
+        let profile = self
+            .runtime_space_environment_override
+            .get_or_insert_with(|| SpaceEnvironmentProfile {
+                id: if self.resolved_view_profile.environment.id.is_empty() {
+                    "runtime-space-environment-override".to_string()
+                } else {
+                    self.resolved_view_profile.environment.id.clone()
+                },
+                ..Default::default()
+            });
+
+        match param {
+            crate::mutations::SpaceEnvironmentParam::BackgroundColor => {
+                profile.background_color = text_or_hex_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::BackgroundFloor => {
+                profile.background_floor = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::StarfieldDensity => {
+                profile.starfield_density = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::StarfieldBrightness => {
+                profile.starfield_brightness = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::StarfieldSizeMin => {
+                profile.starfield_size_min = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::StarfieldSizeMax => {
+                profile.starfield_size_max = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::PrimaryStarColor => {
+                profile.primary_star_color = text_or_hex_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::PrimaryStarGlareStrength => {
+                profile.primary_star_glare_strength = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::PrimaryStarGlareWidth => {
+                profile.primary_star_glare_width = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::NebulaStrength => {
+                profile.nebula_strength = scalar_from_material_value(value);
+            }
+            crate::mutations::SpaceEnvironmentParam::DustBandStrength => {
+                profile.dust_band_strength = scalar_from_material_value(value);
+            }
+        }
+
+        self.refresh_resolved_view_profile();
+        true
+    }
+
+    pub(crate) fn apply_scene3d_frame_for_target(
         &mut self,
         object_id: &str,
         target: &str,
-        property: &Render3DCompatProperty,
+        frame: &str,
     ) -> bool {
-        match property {
-            Render3DCompatProperty::Scene3dFrame { frame } => {
-                self.apply_text_property_for_target(object_id, target, |runtime, alias| {
-                    runtime.set_scene3d_sprite_frame(alias, frame)
-                })
-            }
-        }
+        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+            runtime.set_scene3d_sprite_frame(alias, frame)
+        })
     }
 
     pub(crate) fn track_render3d_rebuild_cause(&mut self, dirty: DirtyMask3D) {
@@ -46,7 +173,7 @@ impl SceneRuntime {
     }
 }
 
-pub fn scene_mutation_from_set_property_3d(
+pub fn scene_mutation_from_render_path(
     target: &str,
     path: &str,
     value: &serde_json::Value,
@@ -58,12 +185,10 @@ pub fn scene_mutation_from_set_property_3d(
 
     if path == "scene3d.frame" {
         if let MaterialValue::Text(frame) = mat_value {
-            return Some(SceneMutation::SetRender3D(
-                Render3DMutation::SetCompatProperty {
-                    target: target.to_string(),
-                    property: Render3DCompatProperty::Scene3dFrame { frame },
-                },
-            ));
+            return Some(SceneMutation::SetRender3D(Render3DMutation::SetScene3DFrame {
+                target: target.to_string(),
+                frame,
+            }));
         }
         return None;
     }
@@ -157,14 +282,78 @@ pub(crate) fn material_value_from_json(value: &serde_json::Value) -> Option<Mate
     None
 }
 
+fn scalar_from_material_value(value: &MaterialValue) -> Option<f32> {
+    match value {
+        MaterialValue::Scalar(v) => Some(*v),
+        _ => None,
+    }
+}
+
+fn text_or_hex_from_material_value(value: &MaterialValue) -> Option<String> {
+    match value {
+        MaterialValue::Text(text) => Some(text.clone()),
+        MaterialValue::ColorRgb([r, g, b]) => Some(format!("#{r:02x}{g:02x}{b:02x}")),
+        _ => None,
+    }
+}
+
+fn tonemap_from_material_value(value: &MaterialValue) -> Option<TonemapOperator> {
+    match value {
+        MaterialValue::Text(text) => match text.as_str() {
+            "linear" => Some(TonemapOperator::Linear),
+            "reinhard" => Some(TonemapOperator::Reinhard),
+            "aces_approx" | "aces-approx" => Some(TonemapOperator::AcesApprox),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::scene::{Scene, SceneView};
+
+    fn test_scene_runtime() -> SceneRuntime {
+        SceneRuntime::new(Scene {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            cutscene: false,
+            target_fps: None,
+            space: Default::default(),
+            spatial: Default::default(),
+            celestial: Default::default(),
+            lighting: None,
+            view: Some(SceneView {
+                profile: Some("orbit-realistic".to_string()),
+                lighting_profile: None,
+                space_environment_profile: None,
+                resolved_view_profile_asset: None,
+                resolved_lighting_profile_asset: None,
+                resolved_space_environment_profile_asset: None,
+            }),
+            virtual_size_override: None,
+            bg_colour: None,
+            stages: Default::default(),
+            behaviors: Vec::new(),
+            audio: Default::default(),
+            ui: Default::default(),
+            layers: Vec::new(),
+            menu_options: Vec::new(),
+            input: Default::default(),
+            postfx: Vec::new(),
+            next: None,
+            prerender: false,
+            palette_bindings: Vec::new(),
+            game_state_bindings: Vec::new(),
+            gui: Default::default(),
+        })
+    }
 
     #[test]
     fn maps_obj_namespace_set_property_to_typed_material_mutation() {
         let mutation =
-            scene_mutation_from_set_property_3d("ship", "obj.scale", &serde_json::json!(1.25))
+            scene_mutation_from_render_path("ship", "obj.scale", &serde_json::json!(1.25))
                 .expect("typed mutation");
         match mutation {
             SceneMutation::SetRender3D(Render3DMutation::SetObjMaterialParam {
@@ -183,7 +372,26 @@ mod tests {
     #[test]
     fn leaves_non_render3d_set_property_unmapped() {
         let mutation =
-            scene_mutation_from_set_property_3d("hud", "text.content", &serde_json::json!("hello"));
+            scene_mutation_from_render_path("hud", "text.content", &serde_json::json!("hello"));
         assert!(mutation.is_none());
+    }
+
+    #[test]
+    fn apply_scene_level_profile_param_mutations_refreshes_resolved_view() {
+        let mut runtime = test_scene_runtime();
+        assert!(runtime.apply_lighting_profile_param(
+            &crate::mutations::LightingProfileParam::Exposure,
+            &MaterialValue::Scalar(0.81),
+        ));
+        assert!(runtime.apply_space_environment_param(
+            &crate::mutations::SpaceEnvironmentParam::BackgroundColor,
+            &MaterialValue::Text("#010203".to_string()),
+        ));
+
+        assert_eq!(runtime.resolved_view_profile().lighting.exposure, Some(0.81));
+        assert_eq!(
+            runtime.resolved_view_profile().environment.background_color.as_deref(),
+            Some("#010203")
+        );
     }
 }
