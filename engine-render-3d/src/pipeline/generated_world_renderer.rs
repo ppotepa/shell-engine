@@ -184,6 +184,22 @@ fn scaled_dim(dim: u16, scale: f32) -> u16 {
     ((dim as f32 * clamped_cloud_render_scale(scale)).round() as u16).max(1)
 }
 
+#[inline]
+fn adaptive_cloud_render_scale(base_scale: f32, sprite_w: u16, sprite_h: u16, layer: u8) -> f32 {
+    let area_px = sprite_w as u32 * sprite_h as u32;
+    let area_factor = if area_px >= 230_000 {
+        0.82
+    } else if area_px >= 170_000 {
+        0.88
+    } else if area_px >= 120_000 {
+        0.94
+    } else {
+        1.0
+    };
+    let layer_factor = if layer == 2 { 0.94 } else { 1.0 };
+    clamped_cloud_render_scale(base_scale * area_factor * layer_factor)
+}
+
 fn cloud_mesh_source(mesh_path: &str, divisor: u32, min_subdivisions: u32) -> String {
     if !mesh_path.starts_with("world://") {
         return mesh_path.to_string();
@@ -607,8 +623,10 @@ pub fn render_generated_world_sprite_with(
     let cloud1_noise_scale = cloud_params.terrain_noise_scale;
     let cloud1_noise_octaves = cloud_params.terrain_noise_octaves;
 
-    let cloud1_w = scaled_dim(sprite_width, profile.cloud_render_scale_1);
-    let cloud1_h = scaled_dim(sprite_height, profile.cloud_render_scale_1);
+    let cloud1_render_scale =
+        adaptive_cloud_render_scale(profile.cloud_render_scale_1, sprite_width, sprite_height, 1);
+    let cloud1_w = scaled_dim(sprite_width, cloud1_render_scale);
+    let cloud1_h = scaled_dim(sprite_height, cloud1_render_scale);
     let cloud1_mesh_path = cloud_mesh_source(mesh_path, 2, 24);
     let cloud1_interval_ms = cloud_update_interval_ms(
         1,
@@ -731,8 +749,10 @@ pub fn render_generated_world_sprite_with(
     let cloud2_noise_scale = cloud2_params.terrain_noise_scale;
     let cloud2_noise_octaves = cloud2_params.terrain_noise_octaves;
 
-    let cloud2_w = scaled_dim(sprite_width, profile.cloud_render_scale_2);
-    let cloud2_h = scaled_dim(sprite_height, profile.cloud_render_scale_2);
+    let cloud2_render_scale =
+        adaptive_cloud_render_scale(profile.cloud_render_scale_2, sprite_width, sprite_height, 2);
+    let cloud2_w = scaled_dim(sprite_width, cloud2_render_scale);
+    let cloud2_h = scaled_dim(sprite_height, cloud2_render_scale);
     let cloud2_mesh_path = cloud_mesh_source(mesh_path, 4, 16);
     let cloud2_interval_ms = cloud_update_interval_ms(
         2,
