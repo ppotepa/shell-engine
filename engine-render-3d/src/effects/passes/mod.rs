@@ -1,2 +1,3 @@
 pub mod halo;
+pub mod planet_params;
 pub mod surface;

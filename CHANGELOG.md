@@ -50,6 +50,11 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: `raster.rs` now treats planet-surface shading as a pass dependency instead of embedding the full terrain/biome/crater logic inline.
 - **validation**: `cargo check -p engine-render-3d` and halo regression test still pass after extraction.
 
+**3D renderer elasticity step: Planet param mapping extraction** ✅
+- **engine-render-3d**: moved `ObjRenderParams -> PlanetBiomeParams/PlanetTerrainParams` mapping out of `raster.rs` into `effects/passes/planet_params.rs`.
+- **engine-render-3d**: `raster.rs` now consumes pass-level parameter builders (`build_biome_params`, `build_terrain_extra_params`) instead of owning planet-profile projection details inline.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
