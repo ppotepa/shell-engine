@@ -33,6 +33,10 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: cloud1/cloud2 offscreen render scales now adapt to viewport area (`generated_world_renderer`) instead of using fixed defaults only, reducing cloud pass cost on larger 3D sprites while preserving small-viewport quality.
 - **perf**: cloud-heavy smoke (`20260418-114805`) keeps FPS class stable with lower cloud pass cost (`3D cloud1`/`3D cloud2`) and no new conversion overhead.
 
+**Atmosphere halo pass: temporal reuse + tighter ROI** ✅
+- **engine-render-3d**: `raster.rs` now reuses computed halo pixels between nearby motion states (`halo_temporal_key` + material signature) and tightens halo nearest-distance work to a circular ROI with an additional radial cutoff in final scan.
+- **validation**: `cargo check -p engine-render-3d` and halo regression test (`atmosphere_halo_paints_pixels_outside_the_planet_silhouette`) pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

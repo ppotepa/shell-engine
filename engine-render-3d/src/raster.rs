@@ -57,6 +57,7 @@ thread_local! {
     static OBJ_HALO_EDGE_PIXELS: RefCell<Vec<(i32, i32)>> = const { RefCell::new(Vec::new()) };
     static OBJ_HALO_OCCUPIED_SCAN: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
     static OBJ_HALO_NEAREST_SQ: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+    static OBJ_HALO_TEMPORAL_CACHE: RefCell<Option<HaloTemporalCache>> = const { RefCell::new(None) };
     static OBJ_SHADED_GOURAUD: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3], f32, f32, f32)>>
         = const { RefCell::new(Vec::new()) };
     static OBJ_SHADED_FLAT: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])>>
@@ -99,6 +100,19 @@ pub struct ObjRasterFrameMetrics {
     pub triangles_processed: u32,
     pub faces_drawn: u32,
     pub viewport_area_px: u32,
+}
+
+#[derive(Debug, Clone)]
+struct HaloTemporalCache {
+    virtual_w: u16,
+    virtual_h: u16,
+    temporal_key: u64,
+    material_key: u64,
+    center_x: f32,
+    center_y: f32,
+    radius: f32,
+    edge_count: usize,
+    halo_pixels: Vec<(u32, [u8; 3])>,
 }
 
 #[inline]
@@ -218,6 +232,51 @@ fn apply_canvas_grading(
             *rgb = grade_rgb(*rgb, exposure, gamma, tonemap, shadow_contrast);
         }
     }
+}
+
+#[inline]
+fn quantize_f32(value: f32, step: f32) -> i32 {
+    (value / step.max(1e-6)).round() as i32
+}
+
+#[inline]
+fn mix_hash(seed: &mut u64, value: i64) {
+    *seed ^= value as u64;
+    *seed = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    *seed ^= *seed >> 29;
+}
+
+fn halo_temporal_key(params: &ObjRenderParams) -> u64 {
+    let mut key = 0xCBF2_9CE4_8422_2325u64;
+    mix_hash(&mut key, quantize_f32(params.yaw_deg + params.rotation_y, 0.4) as i64);
+    mix_hash(
+        &mut key,
+        quantize_f32(params.pitch_deg + params.rotation_x, 0.4) as i64,
+    );
+    mix_hash(
+        &mut key,
+        quantize_f32(params.roll_deg + params.rotation_z, 0.5) as i64,
+    );
+    mix_hash(&mut key, quantize_f32(params.scale, 0.02) as i64);
+    mix_hash(
+        &mut key,
+        quantize_f32(params.camera_distance.max(0.01), 0.05) as i64,
+    );
+    mix_hash(&mut key, quantize_f32(params.camera_look_yaw, 0.2) as i64);
+    mix_hash(&mut key, quantize_f32(params.camera_look_pitch, 0.2) as i64);
+    mix_hash(
+        &mut key,
+        quantize_f32(params.object_translate_x, 0.08) as i64,
+    );
+    mix_hash(
+        &mut key,
+        quantize_f32(params.object_translate_y, 0.08) as i64,
+    );
+    mix_hash(
+        &mut key,
+        quantize_f32(params.object_translate_z, 0.08) as i64,
+    );
+    key
 }
 
 fn apply_rgba_canvas_grading(
@@ -2267,6 +2326,7 @@ pub fn render_obj_to_canvas(
         } else {
             [0.0, -1.0, 0.0]
         };
+        let halo_key = halo_temporal_key(&params);
         let t_halo = Instant::now();
         apply_atmosphere_halo_canvas(
             &mut canvas,
@@ -2293,6 +2353,7 @@ pub fn render_obj_to_canvas(
                 params.view_right_z,
             ],
             [params.view_up_x, params.view_up_y, params.view_up_z],
+            halo_key,
         );
         halo_us = t_halo.elapsed().as_micros() as f32;
     }
@@ -2345,6 +2406,7 @@ fn apply_atmosphere_halo_canvas(
     light_dir: [f32; 3],
     view_right: [f32; 3],
     view_up: [f32; 3],
+    temporal_key: u64,
 ) {
     if halo_strength <= 0.0 || halo_width <= 0.0 {
         return;
@@ -2388,6 +2450,7 @@ fn apply_atmosphere_halo_canvas(
         }
     }
     if count == 0 || edge_pixels.is_empty() {
+        OBJ_HALO_TEMPORAL_CACHE.with(|cell| *cell.borrow_mut() = None);
         OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
         return;
     }
@@ -2405,6 +2468,70 @@ fn apply_atmosphere_halo_canvas(
     let scan_min_y = min_y.saturating_sub(search as usize);
     let scan_max_x = (max_x + search as usize).min(w.saturating_sub(1));
     let scan_max_y = (max_y + search as usize).min(h.saturating_sub(1));
+    let edge_count = edge_pixels.len();
+
+    let mut material_key = 0xA24B_6F13_91D4_EE99u64;
+    mix_hash(&mut material_key, ray_color[0] as i64);
+    mix_hash(&mut material_key, ray_color[1] as i64);
+    mix_hash(&mut material_key, ray_color[2] as i64);
+    mix_hash(&mut material_key, haze_color[0] as i64);
+    mix_hash(&mut material_key, haze_color[1] as i64);
+    mix_hash(&mut material_key, haze_color[2] as i64);
+    mix_hash(&mut material_key, absorption_color[0] as i64);
+    mix_hash(&mut material_key, absorption_color[1] as i64);
+    mix_hash(&mut material_key, absorption_color[2] as i64);
+    mix_hash(&mut material_key, quantize_f32(halo_strength, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(halo_width, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(halo_power, 0.03) as i64);
+    mix_hash(&mut material_key, quantize_f32(rayleigh_amount, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(haze_amount, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(absorption_amount, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(forward_scatter, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(haze_night_leak, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(night_glow, 0.01) as i64);
+    mix_hash(&mut material_key, quantize_f32(light_intensity, 0.05) as i64);
+    mix_hash(&mut material_key, quantize_f32(light_dir[0], 0.04) as i64);
+    mix_hash(&mut material_key, quantize_f32(light_dir[1], 0.04) as i64);
+    mix_hash(&mut material_key, quantize_f32(light_dir[2], 0.04) as i64);
+
+    let should_try_temporal_reuse = edge_count >= 1200;
+    if should_try_temporal_reuse {
+        let mut reused = false;
+        OBJ_HALO_TEMPORAL_CACHE.with(|cell| {
+            let slot = cell.borrow();
+            let Some(cache) = slot.as_ref() else {
+                return;
+            };
+            if cache.virtual_w != virtual_w || cache.virtual_h != virtual_h {
+                return;
+            }
+            if cache.temporal_key != temporal_key || cache.material_key != material_key {
+                return;
+            }
+            if (cache.center_x - cx).abs() > 0.75
+                || (cache.center_y - cy).abs() > 0.75
+                || (cache.radius - radius).abs() > 0.75
+            {
+                return;
+            }
+            let edge_delta = cache.edge_count.abs_diff(edge_count);
+            let edge_tolerance = (edge_count / 6).max(24);
+            if edge_delta > edge_tolerance {
+                return;
+            }
+            for &(idx, color) in cache.halo_pixels.iter() {
+                let i = idx as usize;
+                if i < canvas.len() && canvas[i].is_none() {
+                    canvas[i] = Some(color);
+                }
+            }
+            reused = true;
+        });
+        if reused {
+            OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
+            return;
+        }
+    }
 
     let sx = dot3(light_dir, view_right);
     let sy = dot3(light_dir, view_up);
@@ -2482,6 +2609,15 @@ fn apply_atmosphere_halo_canvas(
         taken.resize(scan_size, f32::INFINITY);
         taken
     });
+    let mut halo_pixels = OBJ_HALO_TEMPORAL_CACHE.with(|cell| {
+        let mut slot = cell.borrow_mut();
+        if let Some(mut cache) = slot.take() {
+            cache.halo_pixels.clear();
+            cache.halo_pixels
+        } else {
+            Vec::new()
+        }
+    });
 
     let edge_stride = if edge_pixels.len() > 7000 {
         6
@@ -2512,6 +2648,9 @@ fn apply_atmosphere_halo_canvas(
                 }
                 let dx = x as i32 - ex;
                 let dist_sq = (dx * dx + dy * dy) as f32;
+                if dist_sq > halo_px_sq {
+                    continue;
+                }
                 if dist_sq < nearest_sq[local_idx] {
                     nearest_sq[local_idx] = dist_sq;
                 }
@@ -2519,10 +2658,17 @@ fn apply_atmosphere_halo_canvas(
         }
     }
 
+    let radial_limit_sq = (radius + halo_px + 1.5).powi(2);
     for y in scan_min_y..=scan_max_y {
         let row_offset = (y - scan_min_y) * scan_w;
         for x in scan_min_x..=scan_max_x {
             if occupied_scan[row_offset + (x - scan_min_x)] != 0 {
+                continue;
+            }
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let dl_sq = dx * dx + dy * dy;
+            if dl_sq > radial_limit_sq {
                 continue;
             }
             let nearest_sq = nearest_sq[row_offset + (x - scan_min_x)];
@@ -2530,9 +2676,7 @@ fn apply_atmosphere_halo_canvas(
                 continue;
             }
 
-            let dx = x as f32 - cx;
-            let dy = y as f32 - cy;
-            let dl = (dx * dx + dy * dy).sqrt().max(1e-5);
+            let dl = dl_sq.sqrt().max(1e-5);
             let edge_dir = [dx / dl, dy / dl];
             let sun_alignment = edge_dir[0] * sun2d[0] + edge_dir[1] * sun2d[1];
             let day = smoothstep(-0.18, 0.92, sun_alignment);
@@ -2600,10 +2744,25 @@ fn apply_atmosphere_halo_canvas(
             if night_glow_alpha > 0.0 {
                 out = mix_rgb(out, night_glow_color, night_glow_alpha);
             }
-            canvas[y * w + x] = Some(out);
+            let idx = y * w + x;
+            canvas[idx] = Some(out);
+            halo_pixels.push((idx as u32, out));
         }
     }
 
+    OBJ_HALO_TEMPORAL_CACHE.with(|cell| {
+        *cell.borrow_mut() = Some(HaloTemporalCache {
+            virtual_w,
+            virtual_h,
+            temporal_key,
+            material_key,
+            center_x: cx,
+            center_y: cy,
+            radius,
+            edge_count,
+            halo_pixels,
+        });
+    });
     OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
     OBJ_HALO_OCCUPIED_SCAN.with(|v| *v.borrow_mut() = occupied_scan);
     OBJ_HALO_NEAREST_SQ.with(|v| *v.borrow_mut() = nearest_sq);
@@ -3167,6 +3326,7 @@ mod tests {
             [1.0, 0.2, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
+            0,
         );
 
         let outside_pixels = (0..h as i32)
