@@ -78,3 +78,29 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | F5 | Ice | Strong polar caps, cold lapse rate |
 | F6 | Volcanic | Extreme terrain displacement, high ridges |
 | F7 | Archipelago | High ocean, island chains |
+
+## Performance presets (practical)
+
+Use these as starting points when tuning quality vs FPS on the current CPU software 3D path.
+
+- **Balanced (default gameplay target)**:
+  - `RESOLUTION`: `64` or `128`
+  - `DISPLACEMENT`: `0.12–0.22`
+  - Atmosphere sliders: moderate (`density/height` mid range)
+  - Good compromise for interactive camera movement and editing.
+
+- **Look-dev / hero stills**:
+  - `RESOLUTION`: `128` (or `256` for static shots)
+  - Atmosphere: higher haze/rayleigh values
+  - Best visual fidelity, but expect clearly lower FPS while moving.
+
+- **Fast iteration / scripting**:
+  - `RESOLUTION`: `32` or `64`
+  - Lower displacement, lighter atmosphere
+  - Highest responsiveness for authoring and parameter exploration.
+
+### Benchmark smoke command
+
+```bash
+cargo run -p app -- --mod-source=mods/planet-generator --bench 5 --opt --skip-splash
+```
