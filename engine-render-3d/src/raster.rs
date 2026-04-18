@@ -28,10 +28,12 @@ use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassi
 use crate::pipeline::stages::project::{
     project_vertices_into, ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
+use crate::pipeline::stages::shade::{
+    prepare_flat_faces_into, prepare_gouraud_faces_into, FlatShadingStageContext,
+};
 use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::{
-    apply_point_light_tint, apply_shading, apply_tone_palette, color_to_rgb,
-    face_shading_with_specular, flicker_multiplier,
+    color_to_rgb, flicker_multiplier,
 };
 use crate::ObjRenderParams;
 use engine_core::scene::SpriteSizePreset;
@@ -750,34 +752,17 @@ fn render_mesh_projected(
                 (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
             };
 
-            let shaded_gouraud: Vec<(
-                ProjectedVertex,
-                ProjectedVertex,
-                ProjectedVertex,
-                [u8; 3],
-                f32,
-                f32,
-                f32,
-            )> = sorted_faces[..face_limit]
-                .par_iter()
-                .filter_map(|(_, face_idx)| {
-                    let face = &mesh.faces[*face_idx];
-                    let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-                    let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-                    let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    let (s0, s1, s2) = if unlit {
-                        (1.0, 1.0, 1.0)
-                    } else {
-                        (
-                            shade_at_vertex(v0.normal),
-                            shade_at_vertex(v1.normal),
-                            shade_at_vertex(v2.normal),
-                        )
-                    };
-                    let base_color = if unlit { fg_rgb } else { face.color };
-                    Some((v0, v1, v2, base_color, s0, s1, s2))
-                })
-                .collect();
+            let mut shaded_gouraud = Vec::with_capacity(face_limit);
+            prepare_gouraud_faces_into(
+                &mesh,
+                &sorted_faces,
+                face_limit,
+                &projected,
+                unlit,
+                fg_rgb,
+                shade_at_vertex,
+                &mut shaded_gouraud,
+            );
 
             let count = shaded_gouraud.len();
             for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
@@ -814,59 +799,38 @@ fn render_mesh_projected(
             }
             count
         } else {
-            let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
-                sorted_faces[..face_limit]
-                    .par_iter()
-                    .filter_map(|(_, face_idx)| {
-                        let face = &mesh.faces[*face_idx];
-                        let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-                        let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-                        let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                        if unlit {
-                            return Some((v0, v1, v2, fg_rgb));
-                        }
-                        let shading = face_shading_with_specular(
-                            v0.view,
-                            v1.view,
-                            v2.view,
-                            face.ka,
-                            face.ks,
-                            face.ns,
-                            light_dir_norm,
-                            light_2_dir_norm,
-                            half_dir_1,
-                            half_dir_2,
-                            light_2_intensity,
-                            [light_1_x, light_point_y, light_1_z],
-                            light_point_intensity * point_1_flicker,
-                            [light_2_x, light_point_2_y, light_2_z],
-                            light_point_2_intensity * point_2_flicker,
-                            cel_levels,
-                            tone_mix,
-                            ambient,
-                            view_dir,
-                            light_point_falloff,
-                            light_point_2_falloff,
-                        );
-                        let shaded_base = apply_shading(face.color, shading.0);
-                        let toned_color = apply_tone_palette(
-                            shaded_base,
-                            shading.1,
-                            shadow_colour,
-                            midtone_colour,
-                            highlight_colour,
-                            tone_mix,
-                        );
-                        let shaded_color = apply_point_light_tint(
-                            toned_color,
-                            light_point_colour,
-                            shading.2,
-                            light_point_2_colour,
-                            shading.3,
-                        );
-                        Some((v0, v1, v2, shaded_color))
-                    })
-                    .collect();
+            let mut shaded_faces = Vec::with_capacity(face_limit);
+            prepare_flat_faces_into(
+                &mesh,
+                &sorted_faces,
+                face_limit,
+                &projected,
+                FlatShadingStageContext {
+                    unlit,
+                    fg_rgb,
+                    light_dir_norm,
+                    light_2_dir_norm,
+                    half_dir_1,
+                    half_dir_2,
+                    light_2_intensity,
+                    light_1_pos: [light_1_x, light_point_y, light_1_z],
+                    light_point_intensity: light_point_intensity * point_1_flicker,
+                    light_2_pos: [light_2_x, light_point_2_y, light_2_z],
+                    light_point_2_intensity: light_point_2_intensity * point_2_flicker,
+                    cel_levels,
+                    tone_mix,
+                    ambient,
+                    view_dir,
+                    light_point_falloff,
+                    light_point_2_falloff,
+                    shadow_colour,
+                    midtone_colour,
+                    highlight_colour,
+                    light_point_colour,
+                    light_point_2_colour,
+                },
+                &mut shaded_faces,
+            );
 
             let count = shaded_faces.len();
             for (v0, v1, v2, shaded_color) in &shaded_faces {
@@ -1358,25 +1322,16 @@ pub fn render_obj_to_canvas(
                 taken.reserve(face_limit);
                 taken
             });
-            shaded_gouraud.par_extend(sorted_faces[..face_limit].par_iter().filter_map(
-                |(_, face_idx)| {
-                    let face = &mesh.faces[*face_idx];
-                    let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-                    let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-                    let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    let (s0, s1, s2) = if unlit {
-                        (1.0, 1.0, 1.0)
-                    } else {
-                        (
-                            shade_at_vertex(v0.normal),
-                            shade_at_vertex(v1.normal),
-                            shade_at_vertex(v2.normal),
-                        )
-                    };
-                    let base_color = if unlit { fg_rgb } else { face.color };
-                    Some((v0, v1, v2, base_color, s0, s1, s2))
-                },
-            ));
+            prepare_gouraud_faces_into(
+                &mesh,
+                &sorted_faces,
+                face_limit,
+                &projected,
+                unlit,
+                fg_rgb,
+                shade_at_vertex,
+                &mut shaded_gouraud,
+            );
 
             let row_w = virtual_w as usize;
             let num_strips = rayon::current_num_threads().max(1);
@@ -1438,57 +1393,37 @@ pub fn render_obj_to_canvas(
                 taken.reserve(face_limit);
                 taken
             });
-            shaded_faces.par_extend(sorted_faces[..face_limit].par_iter().filter_map(
-                |(_, face_idx)| {
-                    let face = &mesh.faces[*face_idx];
-                    let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-                    let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-                    let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    if unlit {
-                        return Some((v0, v1, v2, fg_rgb));
-                    }
-                    let shading = face_shading_with_specular(
-                        v0.view,
-                        v1.view,
-                        v2.view,
-                        face.ka,
-                        face.ks,
-                        face.ns,
-                        light_dir_norm,
-                        light_2_dir_norm,
-                        half_dir_1,
-                        half_dir_2,
-                        light_2_intensity,
-                        [light_1_x, light_point_y, light_1_z],
-                        light_point_intensity * point_1_flicker,
-                        [light_2_x, light_point_2_y, light_2_z],
-                        light_point_2_intensity * point_2_flicker,
-                        cel_levels,
-                        tone_mix,
-                        ambient,
-                        view_dir,
-                        light_point_falloff,
-                        light_point_2_falloff,
-                    );
-                    let shaded_base = apply_shading(face.color, shading.0);
-                    let toned_color = apply_tone_palette(
-                        shaded_base,
-                        shading.1,
-                        shadow_colour,
-                        midtone_colour,
-                        highlight_colour,
-                        tone_mix,
-                    );
-                    let shaded_color = apply_point_light_tint(
-                        toned_color,
-                        light_point_colour,
-                        shading.2,
-                        light_point_2_colour,
-                        shading.3,
-                    );
-                    Some((v0, v1, v2, shaded_color))
+            prepare_flat_faces_into(
+                &mesh,
+                &sorted_faces,
+                face_limit,
+                &projected,
+                FlatShadingStageContext {
+                    unlit,
+                    fg_rgb,
+                    light_dir_norm,
+                    light_2_dir_norm,
+                    half_dir_1,
+                    half_dir_2,
+                    light_2_intensity,
+                    light_1_pos: [light_1_x, light_point_y, light_1_z],
+                    light_point_intensity: light_point_intensity * point_1_flicker,
+                    light_2_pos: [light_2_x, light_point_2_y, light_2_z],
+                    light_point_2_intensity: light_point_2_intensity * point_2_flicker,
+                    cel_levels,
+                    tone_mix,
+                    ambient,
+                    view_dir,
+                    light_point_falloff,
+                    light_point_2_falloff,
+                    shadow_colour,
+                    midtone_colour,
+                    highlight_colour,
+                    light_point_colour,
+                    light_point_2_colour,
                 },
-            ));
+                &mut shaded_faces,
+            );
 
             let count = shaded_faces.len();
             for (v0, v1, v2, shaded_color) in &shaded_faces {
