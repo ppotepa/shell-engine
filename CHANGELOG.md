@@ -21,6 +21,10 @@ Daily progress updates for Shell Engine development.
 - **engine-worldgen**: tightened `recommended_subdivisions_cap_for_lod` caps (`112/80/60/48/32`) to reduce CPU surface raster cost on `world://` meshes under screen-space LOD.
 - **perf**: cloud-heavy benchmark (`mods/asteroids` bench-cloud, 6s, `--opt`) improved from ~16.6 FPS to ~18.3 FPS; compositor avg dropped (~54.8ms -> ~50.9ms), with lower average tri count.
 
+**Cloud cadence smoothing follow-up** ✅
+- **engine-render-3d**: tuned cloud cadence/stale policy in generated-world renderer (shorter update intervals, tighter stale-cache window, lighter cloud2 mesh source) to reduce perceived cloud lag while keeping software path cost bounded.
+- **perf**: follow-up cloud-heavy bench reached ~18.8 FPS class with lower compositor and renderer averages; tri count dropped again versus earlier cloud-heavy baseline.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

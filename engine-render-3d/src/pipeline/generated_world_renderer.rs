@@ -232,15 +232,15 @@ fn cloud_update_interval_ms(cloud_layer_index: u8, angular_motion_deg: f32) -> u
     }
     if angular_motion_deg >= 0.35 {
         if cloud_layer_index == 1 {
-            66
+            58
         } else {
-            100
+            84
         }
     } else {
         if cloud_layer_index == 1 {
-            140
+            120
         } else {
-            220
+            170
         }
     }
 }
@@ -751,7 +751,7 @@ pub fn render_generated_world_sprite_with(
 
     let cloud2_w = scaled_dim(sprite_width, profile.cloud_render_scale_2);
     let cloud2_h = scaled_dim(sprite_height, profile.cloud_render_scale_2);
-    let cloud2_mesh_path = cloud_mesh_source(mesh_path, 3, 20);
+    let cloud2_mesh_path = cloud_mesh_source(mesh_path, 4, 16);
     let cloud2_interval_ms = cloud_update_interval_ms(
         2,
         (cloud2_yaw_deg - base_yaw).abs() + (cloud2_pitch_deg - pitch).abs(),
@@ -779,7 +779,7 @@ pub fn render_generated_world_sprite_with(
     ) {
         Some(cached.rgba)
     } else if expensive_cloud_update_rendered {
-        let stale_max_age_ms = cloud2_interval_ms.saturating_mul(4).saturating_add(120);
+        let stale_max_age_ms = cloud2_interval_ms.saturating_mul(2).saturating_add(80);
         get_stale_cached_cloud_layer(
             cloud2_cache_key.as_str(),
             sprite_elapsed,
