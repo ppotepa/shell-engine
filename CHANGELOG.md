@@ -71,6 +71,12 @@ Daily progress updates for Shell Engine development.
 - **architecture**: this is the first true stage seam in the 3D pipeline (`project`) and reduces direct planet-specific projection logic in raster orchestration.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer stage split: shared face classification stage** ✅
+- **engine-render-3d**: added `pipeline/stages/classify.rs` with `classify_and_sort_faces_into(...)` and typed `FaceClassificationConfig`.
+- **engine-render-3d**: the three duplicated face-selection/depth-sort blocks in `raster.rs` now share one stage implementation; call sites only provide policy (`backface_cull`, `depth_sort_faces`, min projected area, max faces).
+- **architecture**: `raster.rs` now has explicit `project -> classify` seams, making the remaining shading/raster passes easier to isolate next.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

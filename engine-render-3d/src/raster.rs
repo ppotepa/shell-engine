@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::time::Instant;
 
-use engine_asset::{load_render_mesh, ObjFace, ObjMesh};
+use engine_asset::{load_render_mesh, ObjMesh};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
@@ -24,6 +24,7 @@ use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
 use crate::geom::math::{dot3, normalize3};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
+use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::project::{
     project_vertices_into, ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
@@ -491,25 +492,6 @@ pub(crate) fn rasterize_triangle(
     }
 }
 
-// ── Face depth helper ─────────────────────────────────────────────────────────
-
-#[inline(always)]
-pub(crate) fn face_avg_depth(projected: &[Option<ProjectedVertex>], face: &ObjFace) -> f32 {
-    let mut sum = 0.0f32;
-    let mut count = 0u32;
-    for &i in &face.indices {
-        if let Some(Some(v)) = projected.get(i) {
-            sum += v.depth;
-            count += 1;
-        }
-    }
-    if count == 0 {
-        f32::INFINITY
-    } else {
-        sum / count as f32
-    }
-}
-
 // ── Setup helpers (light/camera param extraction) ─────────────────────────────
 
 #[inline]
@@ -722,34 +704,17 @@ fn render_mesh_projected(
             taken.reserve(mesh.faces.len());
             taken
         });
-        for (face_idx, face) in mesh.faces.iter().enumerate() {
-            let v0 = projected.get(face.indices[0]).and_then(|p| *p);
-            let v1 = projected.get(face.indices[1]).and_then(|p| *p);
-            let v2 = projected.get(face.indices[2]).and_then(|p| *p);
-            let (Some(v0), Some(v1), Some(v2)) = (v0, v1, v2) else {
-                continue;
-            };
-            let projected_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
-            if backface_cull && projected_area < 0.0 {
-                continue;
-            }
-            if projected_area.abs() < MIN_PROJECTED_FACE_DOUBLE_AREA {
-                continue;
-            }
-            let key = if params.depth_sort_faces {
-                face_avg_depth(&projected, face)
-            } else {
-                0.0
-            };
-            sorted_faces.push((key, face_idx));
-        }
-        if params.depth_sort_faces {
-            sorted_faces.sort_unstable_by(|a, b| {
-                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
-            });
-        }
-
-        let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
+        let face_limit = classify_and_sort_faces_into(
+            &mesh,
+            &projected,
+            FaceClassificationConfig {
+                backface_cull,
+                depth_sort_faces: params.depth_sort_faces,
+                min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
+                max_faces: MAX_OBJ_FACE_RENDER,
+            },
+            &mut sorted_faces,
+        );
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
         let light_2_intensity = params.light_2_intensity;
@@ -1339,34 +1304,17 @@ pub fn render_obj_to_canvas(
             taken.reserve(mesh.faces.len());
             taken
         });
-        for (face_idx, face) in mesh.faces.iter().enumerate() {
-            let v0 = projected.get(face.indices[0]).and_then(|p| *p);
-            let v1 = projected.get(face.indices[1]).and_then(|p| *p);
-            let v2 = projected.get(face.indices[2]).and_then(|p| *p);
-            let (Some(v0), Some(v1), Some(v2)) = (v0, v1, v2) else {
-                continue;
-            };
-            let projected_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
-            if backface_cull && projected_area < 0.0 {
-                continue;
-            }
-            if projected_area.abs() < MIN_PROJECTED_FACE_DOUBLE_AREA {
-                continue;
-            }
-            let key = if params.depth_sort_faces {
-                face_avg_depth(&projected, face)
-            } else {
-                0.0
-            };
-            sorted_faces.push((key, face_idx));
-        }
-        if params.depth_sort_faces {
-            sorted_faces.sort_unstable_by(|a, b| {
-                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
-            });
-        }
-
-        let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
+        let face_limit = classify_and_sort_faces_into(
+            &mesh,
+            &projected,
+            FaceClassificationConfig {
+                backface_cull,
+                depth_sort_faces: params.depth_sort_faces,
+                min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
+                max_faces: MAX_OBJ_FACE_RENDER,
+            },
+            &mut sorted_faces,
+        );
         triangles_processed = face_limit as u32;
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
@@ -1755,32 +1703,17 @@ pub fn render_obj_to_rgba_canvas(
         taken.reserve(mesh.faces.len());
         taken
     });
-    for (face_idx, face) in mesh.faces.iter().enumerate() {
-        let v0 = projected.get(face.indices[0]).and_then(|p| *p);
-        let v1 = projected.get(face.indices[1]).and_then(|p| *p);
-        let v2 = projected.get(face.indices[2]).and_then(|p| *p);
-        let (Some(v0), Some(v1), Some(v2)) = (v0, v1, v2) else {
-            continue;
-        };
-        let projected_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
-        if backface_cull && projected_area < 0.0 {
-            continue;
-        }
-        if projected_area.abs() < MIN_PROJECTED_FACE_DOUBLE_AREA {
-            continue;
-        }
-        let key = if params.depth_sort_faces {
-            face_avg_depth(&projected, face)
-        } else {
-            0.0
-        };
-        sorted_faces.push((key, face_idx));
-    }
-    if params.depth_sort_faces {
-        sorted_faces
-            .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    }
-    let face_limit = sorted_faces.len().min(MAX_OBJ_FACE_RENDER);
+    let face_limit = classify_and_sort_faces_into(
+        &mesh,
+        &projected,
+        FaceClassificationConfig {
+            backface_cull,
+            depth_sort_faces: params.depth_sort_faces,
+            min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
+            max_faces: MAX_OBJ_FACE_RENDER,
+        },
+        &mut sorted_faces,
+    );
     let unlit = params.unlit;
 
     let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
