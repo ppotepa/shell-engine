@@ -55,6 +55,11 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: `raster.rs` now consumes pass-level parameter builders (`build_biome_params`, `build_terrain_extra_params`) instead of owning planet-profile projection details inline.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer elasticity step: Halo orchestration extraction** ✅
+- **engine-render-3d**: added `apply_obj_halo_from_params(...)` in `effects/passes/halo.rs`; this now owns atmospheric halo gating + param projection from `ObjRenderParams`.
+- **engine-render-3d**: `render_obj_to_canvas` in `raster.rs` now invokes one pass-level function for halo instead of embedding halo-mapping logic inline.
+- **tests/cleanup**: removed raster-local halo wrapper and switched the halo regression test to call the pass API (`apply_halo_pass` + `HaloPassParams`) directly.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

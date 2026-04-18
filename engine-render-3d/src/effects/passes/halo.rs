@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::time::Instant;
 
 use crate::geom::math::dot3;
 use crate::shading::mix_rgb;
@@ -92,6 +93,91 @@ pub fn halo_temporal_key_from_obj_params(params: &ObjRenderParams) -> u64 {
         quantize_f32(params.object_translate_z, 0.08) as i64,
     );
     key
+}
+
+pub(crate) fn apply_obj_halo_from_params(
+    canvas: &mut [Option<[u8; 3]>],
+    virtual_w: u16,
+    virtual_h: u16,
+    params: &ObjRenderParams,
+) -> f32 {
+    if params.atmo_density <= 0.0
+        || (params.atmo_rayleigh_amount <= 0.0
+            && params.atmo_haze_amount <= 0.0
+            && params.atmo_absorption_amount <= 0.0)
+    {
+        return 0.0;
+    }
+
+    let ray_color = params
+        .atmo_rayleigh_color
+        .or(params.atmo_color)
+        .unwrap_or([124, 200, 255]);
+    let haze_color = params.atmo_haze_color.unwrap_or(ray_color);
+    let absorption_color = params.atmo_absorption_color.unwrap_or([255, 170, 110]);
+    let halo_strength = (params.atmo_density
+        * (0.18
+            + 0.46 * params.atmo_rayleigh_amount.clamp(0.0, 1.0)
+            + 0.36 * params.atmo_haze_amount.clamp(0.0, 1.0))
+        * params.atmo_limb_boost.max(0.0))
+    .clamp(0.0, 0.98);
+    let halo_width = (0.02
+        + params.atmo_height * (0.58 + 1.05 * params.atmo_haze_amount.clamp(0.0, 1.0)))
+    .clamp(0.02, 0.75);
+    let halo_power = (2.4 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.1
+        + (1.0 - params.atmo_haze_amount.clamp(0.0, 1.0)) * 0.35)
+        .clamp(0.55, 4.0);
+    let light_vec = [
+        params.light_direction_x,
+        params.light_direction_y,
+        params.light_direction_z,
+    ];
+    let light_mag =
+        (light_vec[0] * light_vec[0] + light_vec[1] * light_vec[1] + light_vec[2] * light_vec[2])
+            .sqrt()
+            .clamp(0.0, 4.0);
+    let light_dir = if light_mag > 1e-5 {
+        [
+            light_vec[0] / light_mag,
+            light_vec[1] / light_mag,
+            light_vec[2] / light_mag,
+        ]
+    } else {
+        [0.0, -1.0, 0.0]
+    };
+    let temporal_key = halo_temporal_key_from_obj_params(params);
+
+    let t_halo = Instant::now();
+    apply_halo_pass(
+        canvas,
+        virtual_w,
+        virtual_h,
+        HaloPassParams {
+            ray_color,
+            haze_color,
+            absorption_color,
+            halo_strength,
+            halo_width,
+            halo_power,
+            rayleigh_amount: params.atmo_rayleigh_amount,
+            haze_amount: params.atmo_haze_amount,
+            absorption_amount: params.atmo_absorption_amount,
+            forward_scatter: params.atmo_forward_scatter,
+            haze_night_leak: params.atmo_haze_night_leak,
+            night_glow: params.atmo_night_glow,
+            night_glow_color: params.atmo_night_glow_color.unwrap_or([90, 130, 255]),
+            light_intensity: light_mag,
+            light_dir,
+            view_right: [
+                params.view_right_x,
+                params.view_right_y,
+                params.view_right_z,
+            ],
+            view_up: [params.view_up_x, params.view_up_y, params.view_up_z],
+            temporal_key,
+        },
+    );
+    t_halo.elapsed().as_micros() as f32
 }
 
 #[allow(clippy::too_many_lines)]

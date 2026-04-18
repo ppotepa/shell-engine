@@ -15,9 +15,7 @@ use engine_core::scene::TonemapOperator;
 use rayon::prelude::*;
 
 use crate::api::Render3dPipeline;
-use crate::effects::passes::halo::{
-    apply_halo_pass, halo_temporal_key_from_obj_params, HaloPassParams,
-};
+use crate::effects::passes::halo::apply_obj_halo_from_params;
 use crate::effects::passes::planet_params::{build_biome_params, build_terrain_extra_params};
 use crate::effects::passes::surface::{
     rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba,
@@ -1695,80 +1693,7 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
-    let mut halo_us = 0.0f32;
-    if params.atmo_density > 0.0
-        && (params.atmo_rayleigh_amount > 0.0
-            || params.atmo_haze_amount > 0.0
-            || params.atmo_absorption_amount > 0.0)
-    {
-        let ray_color = params
-            .atmo_rayleigh_color
-            .or(params.atmo_color)
-            .unwrap_or([124, 200, 255]);
-        let haze_color = params.atmo_haze_color.unwrap_or(ray_color);
-        let absorption_color = params.atmo_absorption_color.unwrap_or([255, 170, 110]);
-        let halo_strength = (params.atmo_density
-            * (0.18
-                + 0.46 * params.atmo_rayleigh_amount.clamp(0.0, 1.0)
-                + 0.36 * params.atmo_haze_amount.clamp(0.0, 1.0))
-            * params.atmo_limb_boost.max(0.0))
-        .clamp(0.0, 0.98);
-        let halo_width = (0.02
-            + params.atmo_height * (0.58 + 1.05 * params.atmo_haze_amount.clamp(0.0, 1.0)))
-        .clamp(0.02, 0.75);
-        let halo_power = (2.4 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.1
-            + (1.0 - params.atmo_haze_amount.clamp(0.0, 1.0)) * 0.35)
-            .clamp(0.55, 4.0);
-        let light_vec = [
-            params.light_direction_x,
-            params.light_direction_y,
-            params.light_direction_z,
-        ];
-        let light_mag = (light_vec[0] * light_vec[0]
-            + light_vec[1] * light_vec[1]
-            + light_vec[2] * light_vec[2])
-            .sqrt()
-            .clamp(0.0, 4.0);
-        let light_dir = if light_mag > 1e-5 {
-            [
-                light_vec[0] / light_mag,
-                light_vec[1] / light_mag,
-                light_vec[2] / light_mag,
-            ]
-        } else {
-            [0.0, -1.0, 0.0]
-        };
-        let halo_key = halo_temporal_key_from_obj_params(&params);
-        let t_halo = Instant::now();
-        apply_atmosphere_halo_canvas(
-            &mut canvas,
-            virtual_w,
-            virtual_h,
-            ray_color,
-            haze_color,
-            absorption_color,
-            halo_strength,
-            halo_width,
-            halo_power,
-            params.atmo_rayleigh_amount,
-            params.atmo_haze_amount,
-            params.atmo_absorption_amount,
-            params.atmo_forward_scatter,
-            params.atmo_haze_night_leak,
-            params.atmo_night_glow,
-            params.atmo_night_glow_color.unwrap_or([90, 130, 255]),
-            light_mag,
-            light_dir,
-            [
-                params.view_right_x,
-                params.view_right_y,
-                params.view_right_z,
-            ],
-            [params.view_up_x, params.view_up_y, params.view_up_z],
-            halo_key,
-        );
-        halo_us = t_halo.elapsed().as_micros() as f32;
-    }
+    let halo_us = apply_obj_halo_from_params(&mut canvas, virtual_w, virtual_h, &params);
 
     OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
     set_last_obj_raster_stats(ObjRasterStats {
@@ -1794,57 +1719,6 @@ pub fn render_obj_to_canvas(
         params.shadow_contrast,
     );
     Some((canvas, virtual_w, virtual_h))
-}
-
-#[allow(clippy::too_many_arguments)]
-fn apply_atmosphere_halo_canvas(
-    canvas: &mut [Option<[u8; 3]>],
-    virtual_w: u16,
-    virtual_h: u16,
-    ray_color: [u8; 3],
-    haze_color: [u8; 3],
-    absorption_color: [u8; 3],
-    halo_strength: f32,
-    halo_width: f32,
-    halo_power: f32,
-    rayleigh_amount: f32,
-    haze_amount: f32,
-    absorption_amount: f32,
-    forward_scatter: f32,
-    haze_night_leak: f32,
-    night_glow: f32,
-    night_glow_color: [u8; 3],
-    light_intensity: f32,
-    light_dir: [f32; 3],
-    view_right: [f32; 3],
-    view_up: [f32; 3],
-    temporal_key: u64,
-) {
-    apply_halo_pass(
-        canvas,
-        virtual_w,
-        virtual_h,
-        HaloPassParams {
-            ray_color,
-            haze_color,
-            absorption_color,
-            halo_strength,
-            halo_width,
-            halo_power,
-            rayleigh_amount,
-            haze_amount,
-            absorption_amount,
-            forward_scatter,
-            haze_night_leak,
-            night_glow,
-            night_glow_color,
-            light_intensity,
-            light_dir,
-            view_right,
-            view_up,
-            temporal_key,
-        },
-    );
 }
 
 /// Convert an RGB canvas (from `render_obj_to_canvas`) to RGBA with alpha=255 for every painted pixel.
@@ -2350,7 +2224,8 @@ pub fn try_blit_prerendered(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_atmosphere_halo_canvas, grade_rgb, obj_sprite_dimensions};
+    use super::{grade_rgb, obj_sprite_dimensions};
+    use crate::effects::passes::halo::{apply_halo_pass, HaloPassParams};
     use engine_core::scene::{SpriteSizePreset, TonemapOperator};
 
     #[test]
@@ -2371,28 +2246,30 @@ mod tests {
             }
         }
 
-        apply_atmosphere_halo_canvas(
+        apply_halo_pass(
             &mut canvas,
             w,
             h,
-            [124, 200, 255],
-            [236, 246, 255],
-            [255, 214, 156],
-            0.75,
-            0.22,
-            2.2,
-            0.7,
-            0.4,
-            0.2,
-            0.8,
-            0.0,
-            0.0,
-            [90, 130, 255],
-            1.0,
-            [1.0, 0.2, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            0,
+            HaloPassParams {
+                ray_color: [124, 200, 255],
+                haze_color: [236, 246, 255],
+                absorption_color: [255, 214, 156],
+                halo_strength: 0.75,
+                halo_width: 0.22,
+                halo_power: 2.2,
+                rayleigh_amount: 0.7,
+                haze_amount: 0.4,
+                absorption_amount: 0.2,
+                forward_scatter: 0.8,
+                haze_night_leak: 0.0,
+                night_glow: 0.0,
+                night_glow_color: [90, 130, 255],
+                light_intensity: 1.0,
+                light_dir: [1.0, 0.2, 0.0],
+                view_right: [1.0, 0.0, 0.0],
+                view_up: [0.0, 1.0, 0.0],
+                temporal_key: 0,
+            },
         );
 
         let outside_pixels = (0..h as i32)
