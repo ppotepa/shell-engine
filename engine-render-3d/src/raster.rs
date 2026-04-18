@@ -15,8 +15,8 @@ use engine_core::scene::TonemapOperator;
 use rayon::prelude::*;
 
 use crate::api::Render3dPipeline;
-use crate::effects::passes::halo::apply_obj_halo_from_params;
 use crate::effects::passes::planet_params::{build_biome_params, build_terrain_extra_params};
+use crate::effects::passes::postprocess::apply_rgb_post_passes;
 use crate::effects::passes::surface::{
     rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba,
 };
@@ -1693,7 +1693,7 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
-    let halo_us = apply_obj_halo_from_params(&mut canvas, virtual_w, virtual_h, &params);
+    let post_pass_metrics = apply_rgb_post_passes(&mut canvas, virtual_w, virtual_h, &params);
 
     OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
     set_last_obj_raster_stats(ObjRasterStats {
@@ -1704,7 +1704,7 @@ pub fn render_obj_to_canvas(
     accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
         rgb_us: t_render.elapsed().as_micros() as f32,
         rgba_us: 0.0,
-        halo_us,
+        halo_us: post_pass_metrics.halo_us,
         rgb_calls: 1,
         rgba_calls: 0,
         triangles_processed,
