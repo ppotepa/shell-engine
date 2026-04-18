@@ -17,9 +17,6 @@ use rayon::prelude::*;
 use crate::api::Render3dPipeline;
 use crate::effects::passes::planet_params::{build_biome_params, build_terrain_extra_params};
 use crate::effects::passes::postprocess::apply_rgb_post_passes;
-use crate::effects::passes::surface::{
-    rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba,
-};
 use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
 use crate::geom::math::{dot3, normalize3};
 use crate::geom::raster::edge;
@@ -28,13 +25,15 @@ use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassi
 use crate::pipeline::stages::project::{
     project_vertices_into, ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
+use crate::pipeline::stages::raster_exec::{
+    execute_flat_rgb_faces, execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
+    execute_gouraud_rgba_faces_parallel_strips, GouraudRgbRasterContext, GouraudRgbaRasterContext,
+};
 use crate::pipeline::stages::shade::{
     prepare_flat_faces_into, prepare_gouraud_faces_into, FlatShadingStageContext,
 };
 use crate::prerender::ObjPrerenderedFrames;
-use crate::shading::{
-    color_to_rgb, flicker_multiplier,
-};
+use crate::shading::{color_to_rgb, flicker_multiplier};
 use crate::ObjRenderParams;
 use engine_core::scene::SpriteSizePreset;
 
@@ -765,19 +764,13 @@ fn render_mesh_projected(
             );
 
             let count = shaded_gouraud.len();
-            for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
-                rasterize_triangle_gouraud(
-                    canvas,
-                    depth_buf,
+            execute_gouraud_rgb_faces(
+                canvas,
+                depth_buf,
+                &shaded_gouraud,
+                GouraudRgbRasterContext {
                     virtual_w,
                     virtual_h,
-                    *v0,
-                    *v1,
-                    *v2,
-                    *base_color,
-                    *s0,
-                    *s1,
-                    *s2,
                     shadow_colour,
                     midtone_colour,
                     highlight_colour,
@@ -785,18 +778,18 @@ fn render_mesh_projected(
                     cel_levels,
                     latitude_bands,
                     latitude_band_depth,
-                    params.terrain_color,
-                    params.terrain_threshold,
-                    params.marble_depth,
-                    params.terrain_relief,
-                    params.below_threshold_transparent,
-                    biome_params,
-                    planet_terrain_extra,
-                    clipped_viewport.min_y,
-                    clipped_viewport.max_y,
-                    0,
-                );
-            }
+                    terrain_color: params.terrain_color,
+                    terrain_threshold: params.terrain_threshold,
+                    marble_depth: params.marble_depth,
+                    terrain_relief: params.terrain_relief,
+                    below_threshold_transparent: params.below_threshold_transparent,
+                    biome: biome_params,
+                    terrain_extra: planet_terrain_extra,
+                },
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
+                0,
+            );
             count
         } else {
             let mut shaded_faces = Vec::with_capacity(face_limit);
@@ -833,20 +826,15 @@ fn render_mesh_projected(
             );
 
             let count = shaded_faces.len();
-            for (v0, v1, v2, shaded_color) in &shaded_faces {
-                rasterize_triangle(
-                    canvas,
-                    depth_buf,
-                    virtual_w,
-                    virtual_h,
-                    *v0,
-                    *v1,
-                    *v2,
-                    *shaded_color,
-                    clipped_viewport.min_y,
-                    clipped_viewport.max_y,
-                );
-            }
+            execute_flat_rgb_faces(
+                canvas,
+                depth_buf,
+                &shaded_faces,
+                virtual_w,
+                virtual_h,
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
+            );
             count
         };
 
@@ -1342,46 +1330,31 @@ pub fn render_obj_to_canvas(
                 .enumerate()
                 .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
                 .collect();
-            canvas_strips.par_iter_mut().for_each(|(strip_y0, cs, ds)| {
-                let strip_y1 = *strip_y0 + (cs.len() / row_w) as i32 - 1;
-                let clip_min = (*strip_y0).max(clipped_viewport.min_y);
-                let clip_max = strip_y1.min(clipped_viewport.max_y);
-                if clip_min > clip_max {
-                    return;
-                }
-                for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
-                    rasterize_triangle_gouraud(
-                        cs,
-                        ds,
-                        virtual_w,
-                        virtual_h,
-                        *v0,
-                        *v1,
-                        *v2,
-                        *base_color,
-                        *s0,
-                        *s1,
-                        *s2,
-                        shadow_colour,
-                        midtone_colour,
-                        highlight_colour,
-                        tone_mix,
-                        cel_levels,
-                        latitude_bands,
-                        latitude_band_depth,
-                        params.terrain_color,
-                        params.terrain_threshold,
-                        params.marble_depth,
-                        params.terrain_relief,
-                        params.below_threshold_transparent,
-                        biome_params,
-                        planet_terrain_extra,
-                        clip_min,
-                        clip_max,
-                        *strip_y0,
-                    );
-                }
-            });
+            execute_gouraud_rgb_faces_parallel_strips(
+                &mut canvas_strips,
+                &shaded_gouraud,
+                row_w,
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
+                GouraudRgbRasterContext {
+                    virtual_w,
+                    virtual_h,
+                    shadow_colour,
+                    midtone_colour,
+                    highlight_colour,
+                    tone_mix,
+                    cel_levels,
+                    latitude_bands,
+                    latitude_band_depth,
+                    terrain_color: params.terrain_color,
+                    terrain_threshold: params.terrain_threshold,
+                    marble_depth: params.marble_depth,
+                    terrain_relief: params.terrain_relief,
+                    below_threshold_transparent: params.below_threshold_transparent,
+                    biome: biome_params,
+                    terrain_extra: planet_terrain_extra,
+                },
+            );
             let count = shaded_gouraud.len();
             OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
             count
@@ -1426,20 +1399,15 @@ pub fn render_obj_to_canvas(
             );
 
             let count = shaded_faces.len();
-            for (v0, v1, v2, shaded_color) in &shaded_faces {
-                rasterize_triangle(
-                    &mut canvas,
-                    &mut depth,
-                    virtual_w,
-                    virtual_h,
-                    *v0,
-                    *v1,
-                    *v2,
-                    *shaded_color,
-                    clipped_viewport.min_y,
-                    clipped_viewport.max_y,
-                );
-            }
+            execute_flat_rgb_faces(
+                &mut canvas,
+                &mut depth,
+                &shaded_faces,
+                virtual_w,
+                virtual_h,
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
+            );
             OBJ_SHADED_FLAT.with(|g| *g.borrow_mut() = shaded_faces);
             count
         };
@@ -1690,47 +1658,32 @@ pub fn render_obj_to_rgba_canvas(
         .enumerate()
         .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
         .collect();
-    canvas_strips.par_iter_mut().for_each(|(strip_y0, cs, ds)| {
-        let strip_y1 = *strip_y0 + (cs.len() / row_w) as i32 - 1;
-        let clip_min = (*strip_y0).max(clipped_viewport.min_y);
-        let clip_max = strip_y1.min(clipped_viewport.max_y);
-        if clip_min > clip_max {
-            return;
-        }
-        for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
-            rasterize_triangle_gouraud_rgba(
-                cs,
-                ds,
-                virtual_w,
-                virtual_h,
-                *v0,
-                *v1,
-                *v2,
-                *base_color,
-                *s0,
-                *s1,
-                *s2,
-                cel_levels,
-                params.terrain_color,
-                params.terrain_threshold,
-                params.terrain_noise_scale,
-                params.terrain_noise_octaves,
-                params.below_threshold_transparent,
-                params.cloud_alpha_softness,
-                biome_params,
-                clip_min,
-                clip_max,
-                *strip_y0,
-                params.marble_depth,
-                params.shadow_colour,
-                params.midtone_colour,
-                params.highlight_colour,
-                params.tone_mix,
-                params.latitude_bands,
-                params.latitude_band_depth,
-            );
-        }
-    });
+    execute_gouraud_rgba_faces_parallel_strips(
+        &mut canvas_strips,
+        &shaded_gouraud,
+        row_w,
+        clipped_viewport.min_y,
+        clipped_viewport.max_y,
+        GouraudRgbaRasterContext {
+            virtual_w,
+            virtual_h,
+            cel_levels,
+            terrain_color: params.terrain_color,
+            terrain_threshold: params.terrain_threshold,
+            terrain_noise_scale: params.terrain_noise_scale,
+            terrain_noise_octaves: params.terrain_noise_octaves,
+            below_threshold_transparent: params.below_threshold_transparent,
+            cloud_alpha_softness: params.cloud_alpha_softness,
+            biome: biome_params,
+            marble_depth: params.marble_depth,
+            shadow_colour: params.shadow_colour,
+            midtone_colour: params.midtone_colour,
+            highlight_colour: params.highlight_colour,
+            tone_mix: params.tone_mix,
+            latitude_bands: params.latitude_bands,
+            latitude_band_depth: params.latitude_band_depth,
+        },
+    );
 
     let faces_drawn_count = shaded_gouraud.len() as u32;
     OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
