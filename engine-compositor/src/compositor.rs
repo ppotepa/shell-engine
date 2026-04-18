@@ -4,13 +4,19 @@ use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLa
 #[cfg(feature = "render-3d")]
 use crate::prepared_frame::layer_frames_from_prepared;
 use crate::{prepare_layer_frames, CompositeParams};
-use engine_core::buffer::{Buffer, PixelCanvas};
+use engine_core::buffer::Buffer;
+#[cfg(not(feature = "render-3d"))]
+use engine_core::buffer::PixelCanvas;
+#[cfg(test)]
 use engine_core::color::Color;
 use engine_core::effects::Region;
+#[cfg(not(feature = "render-3d"))]
 use engine_core::scene::ResolvedViewProfile;
 use engine_effects::apply_effect;
 use engine_pipeline::LayerCompositor;
 use engine_render_2d::Render2dPipeline;
+#[cfg(feature = "render-3d")]
+use engine_render_3d::scene::render_space_environment as render_scene_environment;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LayerPassKind {
@@ -59,7 +65,7 @@ fn composite_scene(
         buffer.fill(params.bg);
     }
     if pass.renders_scene_environment() {
-        render_space_environment(buffer, params.prepared.resolved_view_profile);
+        render_scene_environment(buffer, params.prepared.resolved_view_profile);
     }
     let scene_state = params
         .prepared
@@ -109,10 +115,11 @@ fn composite_scene(
     .filter(|prepared| pass.includes_prepared(prepared))
     .collect();
     #[cfg(not(feature = "render-3d"))]
-    let prepared_layers: Vec<_> = prepare_layer_frames(&params.frame, params.prepared.current_stage)
-        .into_iter()
-        .filter(|prepared| pass.includes_prepared(prepared))
-        .collect();
+    let prepared_layers: Vec<_> =
+        prepare_layer_frames(&params.frame, params.prepared.current_stage)
+            .into_iter()
+            .filter(|prepared| pass.includes_prepared(prepared))
+            .collect();
 
     let mut layer_inputs = LayerCompositeInputs {
         prepared_layers: &prepared_layers,
@@ -168,11 +175,13 @@ fn composite_scene(
     object_regions
 }
 
-fn render_space_environment(buffer: &mut Buffer, view: &ResolvedViewProfile) {
+#[cfg(not(feature = "render-3d"))]
+fn render_scene_environment(buffer: &mut Buffer, view: &ResolvedViewProfile) {
     render_starfield(buffer, view);
     render_primary_star_glare(buffer, view);
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn render_starfield(buffer: &mut Buffer, view: &ResolvedViewProfile) {
     let env = &view.environment;
     let density = env.starfield_density.unwrap_or(0.0).clamp(0.0, 1.0);
@@ -223,6 +232,7 @@ fn render_starfield(buffer: &mut Buffer, view: &ResolvedViewProfile) {
     }
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn render_primary_star_glare(buffer: &mut Buffer, view: &ResolvedViewProfile) {
     let env = &view.environment;
     let strength = env
@@ -232,13 +242,12 @@ fn render_primary_star_glare(buffer: &mut Buffer, view: &ResolvedViewProfile) {
     if strength <= 0.0 || buffer.width == 0 || buffer.height == 0 {
         return;
     }
-    let width = env.primary_star_glare_width.unwrap_or(0.18).clamp(0.02, 1.0);
-    let (r, g, b) = parse_hex_rgb(
-        env.primary_star_color
-            .as_deref()
-            .unwrap_or("#fff4d6"),
-    )
-    .unwrap_or((255, 244, 214));
+    let width = env
+        .primary_star_glare_width
+        .unwrap_or(0.18)
+        .clamp(0.02, 1.0);
+    let (r, g, b) = parse_hex_rgb(env.primary_star_color.as_deref().unwrap_or("#fff4d6"))
+        .unwrap_or((255, 244, 214));
 
     if let Some(canvas) = &mut buffer.pixel_canvas {
         render_primary_star_glare_pixels(canvas, strength, width, r, g, b);
@@ -247,11 +256,13 @@ fn render_primary_star_glare(buffer: &mut Buffer, view: &ResolvedViewProfile) {
     render_primary_star_glare_cells(buffer, strength, width, r, g, b);
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn star_rgb(brightness: f32) -> (u8, u8, u8) {
     let value = (180.0 + 75.0 * brightness.clamp(0.0, 1.0)).round() as u8;
     (value, value, (value as f32 * 0.98).round() as u8)
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn starfield_seed(width: u16, height: u16, density: f32, brightness: f32) -> u64 {
     let mut seed = 0xcbf29ce484222325_u64;
     seed ^= width as u64;
@@ -264,15 +275,18 @@ fn starfield_seed(width: u16, height: u16, density: f32, brightness: f32) -> u64
     seed
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn next_u32(seed: &mut u64) -> u32 {
     *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
     (*seed >> 32) as u32
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn lerp_size(min: f32, max: f32, t: f32) -> f32 {
     min + (max - min) * t.clamp(0.0, 1.0)
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn parse_hex_rgb(value: &str) -> Option<(u8, u8, u8)> {
     let hex = value.trim().strip_prefix('#').unwrap_or(value.trim());
     if hex.len() != 6 {
@@ -285,17 +299,20 @@ fn parse_hex_rgb(value: &str) -> Option<(u8, u8, u8)> {
     ))
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn glare_curve(t: f32, strength: f32) -> f32 {
     let core = t.clamp(0.0, 1.0).powf(2.2);
     (core * strength * 0.7).clamp(0.0, 1.0)
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn blend_channel(base: u8, tint: u8, amount: f32) -> u8 {
     (base as f32 + tint as f32 * amount.clamp(0.0, 1.0))
         .clamp(0.0, 255.0)
         .round() as u8
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn render_primary_star_glare_pixels(
     canvas: &mut PixelCanvas,
     strength: f32,
@@ -338,6 +355,7 @@ fn render_primary_star_glare_pixels(
     canvas.dirty = true;
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn render_primary_star_glare_cells(
     buffer: &mut Buffer,
     strength: f32,
@@ -392,6 +410,7 @@ fn render_primary_star_glare_cells(
     buffer.mark_all_dirty();
 }
 
+#[cfg(not(feature = "render-3d"))]
 fn draw_star_pixels(canvas: &mut PixelCanvas, x: u16, y: u16, size: f32, r: u8, g: u8, b: u8) {
     canvas.set_pixel(x, y, r, g, b);
     if size < 1.6 {
@@ -443,7 +462,13 @@ pub fn dispatch_composite_with_render_2d_pipeline(
     layer: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
-    composite_scene(params, render_2d_pipeline, layer, LayerPassKind::All, buffer)
+    composite_scene(
+        params,
+        render_2d_pipeline,
+        layer,
+        LayerPassKind::All,
+        buffer,
+    )
 }
 
 pub fn dispatch_composite_filtered(
@@ -524,7 +549,8 @@ mod tests {
 
         let canvas = buffer.pixel_canvas.as_ref().expect("pixel canvas");
         let top_left = &canvas.data[..4];
-        let center_idx = ((canvas.height as usize / 2) * canvas.width as usize + canvas.width as usize / 2) * 4;
+        let center_idx =
+            ((canvas.height as usize / 2) * canvas.width as usize + canvas.width as usize / 2) * 4;
         let center = &canvas.data[center_idx..center_idx + 4];
         assert!(top_left[0] > center[0] || top_left[1] > center[1] || top_left[2] > center[2]);
     }

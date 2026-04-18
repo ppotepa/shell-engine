@@ -66,16 +66,14 @@ impl GuiSystem {
                     Self::update_hover(widgets, state);
                     if *button == MouseButton::Left {
                         state.drag_button = Some(MouseButton::Left);
-                        let hit = widgets
-                            .iter()
-                            .find(|w| {
-                                state
-                                    .widgets
-                                    .get(w.id())
-                                    .and_then(|ws| w.bounds(ws))
-                                    .map(|b| b.hit_test(*x, *y))
-                                    .unwrap_or(false)
-                            });
+                        let hit = widgets.iter().find(|w| {
+                            state
+                                .widgets
+                                .get(w.id())
+                                .and_then(|ws| w.bounds(ws))
+                                .map(|b| b.hit_test(*x, *y))
+                                .unwrap_or(false)
+                        });
                         if let Some(w) = hit {
                             let id = w.id().to_string();
                             state.drag_widget = Some(id.clone());

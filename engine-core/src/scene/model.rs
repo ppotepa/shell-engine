@@ -77,11 +77,7 @@ pub struct SceneView {
     pub profile: Option<String>,
     /// Optional direct lighting profile reference. Intended for composition and
     /// explicit scene control, not as a long-term replacement for `profile`.
-    #[serde(
-        default,
-        rename = "lighting-profile",
-        alias = "lighting_profile"
-    )]
+    #[serde(default, rename = "lighting-profile", alias = "lighting_profile")]
     pub lighting_profile: Option<String>,
     /// Optional direct space-environment profile reference used by the resolved
     /// 3D scene view. This models the observation environment, not any planet-
@@ -1155,7 +1151,11 @@ pub enum SceneGuiWidgetDef {
         placeholder: String,
         #[serde(default)]
         value: String,
-        #[serde(default = "default_text_input_max_length", rename = "max-length", alias = "max_length")]
+        #[serde(
+            default = "default_text_input_max_length",
+            rename = "max-length",
+            alias = "max_length"
+        )]
         max_length: usize,
         #[serde(
             default = "default_follow_layout",
@@ -1188,7 +1188,11 @@ pub enum SceneGuiWidgetDef {
         max: Option<f64>,
         #[serde(default)]
         step: Option<f64>,
-        #[serde(default = "default_text_input_max_length", rename = "max-length", alias = "max_length")]
+        #[serde(
+            default = "default_text_input_max_length",
+            rename = "max-length",
+            alias = "max_length"
+        )]
         max_length: usize,
         #[serde(
             default = "default_follow_layout",
@@ -1228,8 +1232,8 @@ impl Scene {
 #[cfg(test)]
 mod tests {
     use super::{
-        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneGuiWidgetDef,
-        SceneSpace, UiPersistence,
+        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneGuiWidgetDef, SceneSpace,
+        UiPersistence,
     };
     use crate::scene::Stage;
     use crate::spatial::{Handedness, UpAxis};

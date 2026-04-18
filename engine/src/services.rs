@@ -289,58 +289,6 @@ impl CompositorProvider for World {
     }
 }
 
-// Implement CompositorAccess for World
-impl engine_compositor::CompositorAccess for World {
-    fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.resource_any::<SceneRuntime>()
-    }
-
-    fn animator(&self) -> Option<&Animator> {
-        self.resource::<Animator>()
-    }
-
-    fn buffer_mut(&self) -> Option<&mut Buffer> {
-        // Note: mutating through const ref won't compile, so this would be an issue.
-        // In practice, the compositor system will take &mut World, not &World.
-        None
-    }
-
-    fn runtime_settings(&self) -> Option<&RuntimeSettings> {
-        self.resource::<RuntimeSettings>()
-    }
-
-    fn asset_root(&self) -> Option<&AssetRoot> {
-        self.resource::<AssetRoot>()
-    }
-
-    fn scene3d_atlas(&self) -> Option<&dyn std::any::Any> {
-        #[cfg(feature = "render-3d")]
-        {
-            self.resource_any::<engine_render_3d::prerender::Scene3DAtlas>()
-        }
-        #[cfg(not(feature = "render-3d"))]
-        {
-            None
-        }
-    }
-
-    fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {
-        #[cfg(feature = "render-3d")]
-        {
-            self.resource_any::<engine_render_3d::prerender::ObjPrerenderedFrames>()
-        }
-        #[cfg(not(feature = "render-3d"))]
-        {
-            None
-        }
-    }
-
-    fn layer_compositor(&self) -> Option<&dyn std::any::Any> {
-        // Layer compositor is a strategy, not stored in World
-        None
-    }
-}
-
 // Implement SceneRuntimeAccess for World
 impl engine_scene_runtime::SceneRuntimeAccess for World {
     fn scene_runtime(&self) -> Option<&engine_scene_runtime::SceneRuntime> {

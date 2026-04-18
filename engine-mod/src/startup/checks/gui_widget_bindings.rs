@@ -68,7 +68,11 @@ impl StartupCheck for GuiWidgetBindingsCheck {
                         if !id.is_empty() {
                             widget_ids.insert(id.as_str());
                         }
-                        for alias in [sprite.as_str(), popup_sprite.as_str(), label_sprite.as_str()] {
+                        for alias in [
+                            sprite.as_str(),
+                            popup_sprite.as_str(),
+                            label_sprite.as_str(),
+                        ] {
                             if !alias.is_empty() {
                                 widget_sprites.insert(alias);
                             }

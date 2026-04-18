@@ -3,6 +3,11 @@
 use std::any::Any;
 use std::collections::HashMap;
 
+#[cfg(feature = "render-3d")]
+use crate::render::finalize_sprite;
+use crate::sprite_renderer_2d::render_sprites;
+#[cfg(feature = "render-3d")]
+use crate::sprite_renderer_2d::{Render3dDelegate, Render3dNodeSpec};
 use crate::ObjPrerenderedFrames;
 use engine_core::effects::Region;
 use engine_core::scene::ResolvedViewProfile;
@@ -11,16 +16,12 @@ use engine_core::scene_runtime_types::{
 };
 use engine_core::spatial::SpatialContext;
 use engine_render_2d::{Render2dInput, Render2dPipeline};
-
 #[cfg(feature = "render-3d")]
-use crate::generated_world_render_adapter::render_generated_world_sprite as render_generated_world_sprite_adapter;
-#[cfg(feature = "render-3d")]
-use crate::obj_render_adapter::render_obj_sprite as render_obj_sprite_adapter;
-#[cfg(feature = "render-3d")]
-use crate::scene_clip_render_adapter::render_scene_clip_sprite as render_scene_clip_sprite_adapter;
-use crate::sprite_renderer_2d::render_sprites;
-#[cfg(feature = "render-3d")]
-use crate::sprite_renderer_2d::{Render3dDelegate, Render3dNodeSpec};
+use engine_render_3d::pipeline::{
+    render_generated_world_sprite_to_buffer, render_obj_sprite_to_buffer,
+    render_scene_clip_sprite_to_buffer, resolve_view_lighting, GeneratedWorldSpriteRenderRuntime,
+    ObjSpriteRenderRuntime, SceneClipRenderRuntime, SpriteRenderArea,
+};
 
 /// Provides access to compositor-needed resources from World.
 pub trait CompositorProvider {
@@ -159,35 +160,83 @@ impl Render3dDelegate for DefaultCompositorRender3dDelegate {
         object_regions: &mut HashMap<String, Region>,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
-        appear_at: u64,
+        _appear_at: u64,
         sprite_elapsed: u64,
         ctx: &mut crate::render::RenderCtx<'_>,
     ) {
         match spec {
             Render3dNodeSpec::Obj(obj_spec) => {
-                render_obj_sprite_adapter(
+                let stages = obj_spec.sprite.stages();
+                let camera_state = obj_spec
+                    .id
+                    .and_then(|sid| ctx.obj_camera_states.get(sid))
+                    .cloned()
+                    .unwrap_or_default();
+                let region = render_obj_sprite_to_buffer(
                     obj_spec,
-                    area,
-                    target_resolver,
-                    object_regions,
-                    object_id,
-                    object_state,
-                    appear_at,
-                    sprite_elapsed,
-                    ctx,
+                    SpriteRenderArea {
+                        origin_x: area.origin_x,
+                        origin_y: area.origin_y,
+                        width: area.width,
+                        height: area.height,
+                    },
+                    ObjSpriteRenderRuntime {
+                        sprite_elapsed_ms: sprite_elapsed,
+                        object_offset_x: object_state.offset_x,
+                        object_offset_y: object_state.offset_y,
+                        camera_state,
+                        scene_camera_3d: ctx.scene_camera_3d,
+                        view_lighting: resolve_view_lighting(ctx.resolved_view_profile),
+                        asset_root: ctx.asset_root,
+                        prerender_frames: ctx.prerender_frames,
+                    },
+                    ctx.layer_buf,
                 );
+                if let Some(region) = region {
+                    finalize_sprite(
+                        object_id,
+                        region,
+                        sprite_elapsed,
+                        stages,
+                        ctx,
+                        target_resolver,
+                        object_regions,
+                    );
+                }
             }
             Render3dNodeSpec::GeneratedWorld(world_spec) => {
-                render_generated_world_sprite_adapter(
+                let stages = world_spec.sprite.stages();
+                let region = render_generated_world_sprite_to_buffer(
                     world_spec,
-                    area,
-                    target_resolver,
-                    object_regions,
-                    object_id,
-                    object_state,
-                    sprite_elapsed,
-                    ctx,
+                    SpriteRenderArea {
+                        origin_x: area.origin_x,
+                        origin_y: area.origin_y,
+                        width: area.width,
+                        height: area.height,
+                    },
+                    GeneratedWorldSpriteRenderRuntime {
+                        sprite_elapsed_ms: sprite_elapsed,
+                        object_offset_x: object_state.offset_x,
+                        object_offset_y: object_state.offset_y,
+                        scene_camera_3d: ctx.scene_camera_3d,
+                        view_lighting: resolve_view_lighting(ctx.resolved_view_profile),
+                        spatial_context: ctx.spatial_context,
+                        celestial_catalogs: ctx.celestial_catalogs,
+                        asset_root: ctx.asset_root,
+                    },
+                    ctx.layer_buf,
                 );
+                if let Some(region) = region {
+                    finalize_sprite(
+                        object_id,
+                        region,
+                        sprite_elapsed,
+                        stages,
+                        ctx,
+                        target_resolver,
+                        object_regions,
+                    );
+                }
             }
         }
     }
@@ -196,11 +245,41 @@ impl Render3dDelegate for DefaultCompositorRender3dDelegate {
         &self,
         spec: engine_render_3d::pipeline::SceneClipSpriteSpec<'_>,
         area: engine_render_2d::RenderArea,
+        target_resolver: Option<&TargetResolver>,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
+        sprite_elapsed: u64,
         object_regions: &mut HashMap<String, Region>,
         ctx: &mut crate::render::RenderCtx<'_>,
     ) {
-        render_scene_clip_sprite_adapter(spec, area, object_id, object_state, object_regions, ctx);
+        let stages = spec.sprite.stages();
+        let region = render_scene_clip_sprite_to_buffer(
+            spec,
+            SpriteRenderArea {
+                origin_x: area.origin_x,
+                origin_y: area.origin_y,
+                width: area.width,
+                height: area.height,
+            },
+            object_state.offset_x,
+            object_state.offset_y,
+            SceneClipRenderRuntime {
+                scene_elapsed_ms: ctx.scene_elapsed_ms,
+                scene_camera_3d: ctx.scene_camera_3d,
+                asset_root: ctx.asset_root,
+            },
+            ctx.layer_buf,
+        );
+        if let Some(region) = region {
+            finalize_sprite(
+                object_id,
+                region,
+                sprite_elapsed,
+                stages,
+                ctx,
+                target_resolver,
+                object_regions,
+            );
+        }
     }
 }

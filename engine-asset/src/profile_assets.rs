@@ -18,37 +18,25 @@ pub fn hydrate_scene_view_profiles<R: AssetRepository>(
     };
 
     if let Some(view_ref) = view.profile.as_deref() {
-        view.resolved_view_profile_asset = load_profile_asset::<ViewProfile, _>(
-            repo,
-            view_ref,
-            VIEW_PROFILE_DIR,
-        )?;
+        view.resolved_view_profile_asset =
+            load_profile_asset::<ViewProfile, _>(repo, view_ref, VIEW_PROFILE_DIR)?;
     }
 
-    let lighting_ref = view
-        .lighting_profile
-        .as_deref()
-        .or_else(|| {
-            view.resolved_view_profile_asset
-                .as_ref()
-                .and_then(|profile| profile.lighting_profile.as_deref())
-        });
+    let lighting_ref = view.lighting_profile.as_deref().or_else(|| {
+        view.resolved_view_profile_asset
+            .as_ref()
+            .and_then(|profile| profile.lighting_profile.as_deref())
+    });
     if let Some(lighting_ref) = lighting_ref {
-        view.resolved_lighting_profile_asset = load_profile_asset::<LightingProfile, _>(
-            repo,
-            lighting_ref,
-            LIGHTING_PROFILE_DIR,
-        )?;
+        view.resolved_lighting_profile_asset =
+            load_profile_asset::<LightingProfile, _>(repo, lighting_ref, LIGHTING_PROFILE_DIR)?;
     }
 
-    let environment_ref = view
-        .space_environment_profile
-        .as_deref()
-        .or_else(|| {
-            view.resolved_view_profile_asset
-                .as_ref()
-                .and_then(|profile| profile.space_environment_profile.as_deref())
-        });
+    let environment_ref = view.space_environment_profile.as_deref().or_else(|| {
+        view.resolved_view_profile_asset
+            .as_ref()
+            .and_then(|profile| profile.space_environment_profile.as_deref())
+    });
     if let Some(environment_ref) = environment_ref {
         view.resolved_space_environment_profile_asset =
             load_profile_asset::<SpaceEnvironmentProfile, _>(

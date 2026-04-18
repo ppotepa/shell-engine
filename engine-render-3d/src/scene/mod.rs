@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod dirty;
+pub mod environment;
 pub mod instance;
 pub mod lights;
 pub mod lod;
@@ -9,6 +10,7 @@ pub mod viewport;
 
 pub use camera::Camera3DInstance;
 pub use dirty::DirtyState3D;
+pub use environment::render_space_environment;
 pub use instance::Scene3DInstance;
 pub use lights::Light3DInstance;
 pub use lod::{lod_hysteresis_px, select_lod_level, select_lod_level_stable};

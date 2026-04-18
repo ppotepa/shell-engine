@@ -19,8 +19,8 @@ fn to_fixed_2(v) {
 
 fn exposure_to_01(v) { clamp01((v - 0.6) / 0.8) }
 fn exposure_from_01(v) { 0.6 + clamp01(v) * 0.8 }
-fn black_to_01(v) { clamp01(v / 0.08) }
-fn black_from_01(v) { clamp01(v) * 0.08 }
+fn black_to_01(v) { clamp01(v / 0.22) }
+fn black_from_01(v) { clamp01(v) * 0.22 }
 fn gamma_to_01(v) { clamp01((v - 1.8) / 0.8) }
 fn gamma_from_01(v) { 1.8 + clamp01(v) * 0.8 }
 fn contrast_to_01(v) { clamp01((v - 0.5) / 1.0) }
@@ -29,10 +29,12 @@ fn stars_to_01(v) { clamp01(v / 1.2) }
 fn stars_from_01(v) { clamp01(v) * 1.2 }
 fn glare_to_01(v) { clamp01(v / 0.35) }
 fn glare_from_01(v) { clamp01(v) * 0.35 }
-fn nglow_to_01(v) { clamp01(v / 0.25) }
-fn nglow_from_01(v) { clamp01(v) * 0.25 }
-fn haze_to_01(v) { clamp01(v / 0.25) }
-fn haze_from_01(v) { clamp01(v) * 0.25 }
+fn sunaz_to_01(v) { clamp01(v / 360.0) }
+fn sunaz_from_01(v) { clamp01(v) * 360.0 }
+fn sunel_to_01(v) { clamp01((v + 10.0) / 95.0) }
+fn sunel_from_01(v) { -10.0 + clamp01(v) * 95.0 }
+fn sunint_to_01(v) { clamp01(v / 2.0) }
+fn sunint_from_01(v) { clamp01(v) * 2.0 }
 
 fn view_index(name) {
     if name == "orbit-cinematic" { 1 } else if name == "backlit-harsh" { 2 } else { 0 }
@@ -61,12 +63,16 @@ if local.bootstrapped == () {
     gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.0));
     gui.set_widget_value("lighting-starfield-slider", stars_to_01(0.68));
     gui.set_widget_value("lighting-star-glare-slider", glare_to_01(0.08));
-    gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.0));
-    gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.0));
+    gui.set_widget_value("lighting-sun-azimuth-slider", sunaz_to_01(210.0));
+    gui.set_widget_value("lighting-sun-elevation-slider", sunel_to_01(40.0));
+    gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.0));
     gui.set_widget_value("lighting-view-dropdown", 0.0);
     gui.set_widget_value("lighting-profile-dropdown", 0.0);
     gui.set_widget_value("lighting-environment-dropdown", 0.0);
     gui.set_widget_value("lighting-model-selector", 0.0);
+    local.sun_azimuth = 210.0;
+    local.sun_elevation = 40.0;
+    local.sun_intensity = 1.0;
 }
 
 if input.just_pressed("1") { gui.set_widget_value("lighting-model-selector", 0.0); }
@@ -100,8 +106,7 @@ if selected_view != local.active_view {
         gui.set_widget_value("lighting-contrast-slider", contrast_to_01(0.82));
         gui.set_widget_value("lighting-starfield-slider", stars_to_01(0.95));
         gui.set_widget_value("lighting-star-glare-slider", glare_to_01(0.24));
-        gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.08));
-        gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.06));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.15));
     } else if selected_view == "backlit-harsh" {
         local.active_view = "backlit-harsh";
         local.active_light = "showcase-high-contrast";
@@ -117,8 +122,7 @@ if selected_view != local.active_view {
         gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.35));
         gui.set_widget_value("lighting-starfield-slider", stars_to_01(0.72));
         gui.set_widget_value("lighting-star-glare-slider", glare_to_01(0.34));
-        gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.0));
-        gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.0));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.35));
     } else {
         local.active_view = "orbit-realistic";
         local.active_light = "space-hard-vacuum";
@@ -134,8 +138,7 @@ if selected_view != local.active_view {
         gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.0));
         gui.set_widget_value("lighting-starfield-slider", stars_to_01(0.68));
         gui.set_widget_value("lighting-star-glare-slider", glare_to_01(0.08));
-        gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.0));
-        gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.0));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.0));
     }
 }
 
@@ -156,8 +159,7 @@ if selected_light != local.active_light {
         gui.set_widget_value("lighting-contrast-slider", contrast_to_01(0.82));
         gui.set_widget_value("lighting-starfield-slider", stars_to_01(current_stars));
         gui.set_widget_value("lighting-star-glare-slider", glare_to_01(current_glare));
-        gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.08));
-        gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.06));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.15));
     } else if selected_light == "showcase-high-contrast" {
         local.active_light = "showcase-high-contrast";
         scene.set_lighting_profile("showcase-high-contrast");
@@ -167,8 +169,7 @@ if selected_light != local.active_light {
         gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.35));
         gui.set_widget_value("lighting-starfield-slider", stars_to_01(current_stars));
         gui.set_widget_value("lighting-star-glare-slider", glare_to_01(current_glare));
-        gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.0));
-        gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.0));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.35));
     } else {
         local.active_light = "space-hard-vacuum";
         scene.set_lighting_profile("space-hard-vacuum");
@@ -178,8 +179,7 @@ if selected_light != local.active_light {
         gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.0));
         gui.set_widget_value("lighting-starfield-slider", stars_to_01(current_stars));
         gui.set_widget_value("lighting-star-glare-slider", glare_to_01(current_glare));
-        gui.set_widget_value("lighting-night-glow-slider", nglow_to_01(0.0));
-        gui.set_widget_value("lighting-haze-leak-slider", haze_to_01(0.0));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.0));
     }
 }
 
@@ -213,17 +213,46 @@ let gamma = gamma_from_01(gui.slider_value("lighting-gamma-slider"));
 let contrast = contrast_from_01(gui.slider_value("lighting-contrast-slider"));
 let stars = stars_from_01(gui.slider_value("lighting-starfield-slider"));
 let glare = glare_from_01(gui.slider_value("lighting-star-glare-slider"));
-let night_glow = nglow_from_01(gui.slider_value("lighting-night-glow-slider"));
-let haze_leak = haze_from_01(gui.slider_value("lighting-haze-leak-slider"));
+let sun_azimuth = sunaz_from_01(gui.slider_value("lighting-sun-azimuth-slider"));
+let sun_elevation = sunel_from_01(gui.slider_value("lighting-sun-elevation-slider"));
+let sun_intensity = sunint_from_01(gui.slider_value("lighting-sun-intensity-slider"));
+local.sun_azimuth = sun_azimuth;
+local.sun_elevation = sun_elevation;
+local.sun_intensity = sun_intensity;
 
 scene.set_lighting_param("exposure", exposure);
 scene.set_lighting_param("black_level", black);
 scene.set_lighting_param("gamma", gamma);
 scene.set_lighting_param("shadow_contrast", contrast);
-scene.set_lighting_param("night_glow_scale", night_glow);
-scene.set_lighting_param("haze_night_leak", haze_leak);
 scene.set_space_environment_param("starfield_brightness", stars);
 scene.set_space_environment_param("primary_star_glare_strength", glare);
+
+// Keep object ambient tied to black level so slider can reach near-true black
+// on the night side when black = 0.0 and still allow artistic shadow lift.
+let ambient_world = (black * 1.0).min(0.22);
+let ambient_ref = (black * 0.8).min(0.18);
+scene.set("world-atmo", "obj.ambient", ambient_world);
+scene.set("sphere-ref", "obj.ambient", ambient_ref);
+scene.set("cube-ref", "obj.ambient", ambient_ref);
+scene.set("suzanne-ref", "obj.ambient", ambient_ref);
+
+let az_rad = sun_azimuth * 0.01745329;
+let el_rad = sun_elevation * 0.01745329;
+let sun_x = -(az_rad.cos() * el_rad.cos()) * sun_intensity;
+let sun_y = el_rad.sin() * sun_intensity;
+let sun_z = -(az_rad.sin() * el_rad.cos()) * sun_intensity;
+scene.set("world-atmo", "obj.light.x", sun_x);
+scene.set("world-atmo", "obj.light.y", sun_y);
+scene.set("world-atmo", "obj.light.z", sun_z);
+scene.set("sphere-ref", "obj.light.x", sun_x);
+scene.set("sphere-ref", "obj.light.y", sun_y);
+scene.set("sphere-ref", "obj.light.z", sun_z);
+scene.set("cube-ref", "obj.light.x", sun_x);
+scene.set("cube-ref", "obj.light.y", sun_y);
+scene.set("cube-ref", "obj.light.z", sun_z);
+scene.set("suzanne-ref", "obj.light.x", sun_x);
+scene.set("suzanne-ref", "obj.light.y", sun_y);
+scene.set("suzanne-ref", "obj.light.z", sun_z);
 
 scene.set("world-atmo", "visible", local.active_model == "planet");
 scene.set("sphere-ref", "visible", local.active_model == "sphere");
@@ -251,8 +280,9 @@ let fill_gamma = (clamp01(gui.slider_value("lighting-gamma-slider")) * TRACK_W.t
 let fill_contrast = (clamp01(gui.slider_value("lighting-contrast-slider")) * TRACK_W.to_float()).round().to_int();
 let fill_stars = (clamp01(gui.slider_value("lighting-starfield-slider")) * TRACK_W.to_float()).round().to_int();
 let fill_glare = (clamp01(gui.slider_value("lighting-star-glare-slider")) * TRACK_W.to_float()).round().to_int();
-let fill_nglow = (clamp01(gui.slider_value("lighting-night-glow-slider")) * TRACK_W.to_float()).round().to_int();
-let fill_haze = (clamp01(gui.slider_value("lighting-haze-leak-slider")) * TRACK_W.to_float()).round().to_int();
+let fill_sun_az = (clamp01(gui.slider_value("lighting-sun-azimuth-slider")) * TRACK_W.to_float()).round().to_int();
+let fill_sun_el = (clamp01(gui.slider_value("lighting-sun-elevation-slider")) * TRACK_W.to_float()).round().to_int();
+let fill_sun_int = (clamp01(gui.slider_value("lighting-sun-intensity-slider")) * TRACK_W.to_float()).round().to_int();
 
 scene.set("lighting-exposure-slider-fill", "vector.points", [[0, 0], [if fill_exposure < 1 { 1 } else { fill_exposure }, 0]]);
 scene.set("lighting-black-level-slider-fill", "vector.points", [[0, 0], [if fill_black < 1 { 1 } else { fill_black }, 0]]);
@@ -260,8 +290,9 @@ scene.set("lighting-gamma-slider-fill", "vector.points", [[0, 0], [if fill_gamma
 scene.set("lighting-contrast-slider-fill", "vector.points", [[0, 0], [if fill_contrast < 1 { 1 } else { fill_contrast }, 0]]);
 scene.set("lighting-starfield-slider-fill", "vector.points", [[0, 0], [if fill_stars < 1 { 1 } else { fill_stars }, 0]]);
 scene.set("lighting-star-glare-slider-fill", "vector.points", [[0, 0], [if fill_glare < 1 { 1 } else { fill_glare }, 0]]);
-scene.set("lighting-night-glow-slider-fill", "vector.points", [[0, 0], [if fill_nglow < 1 { 1 } else { fill_nglow }, 0]]);
-scene.set("lighting-haze-leak-slider-fill", "vector.points", [[0, 0], [if fill_haze < 1 { 1 } else { fill_haze }, 0]]);
+scene.set("lighting-sun-azimuth-slider-fill", "vector.points", [[0, 0], [if fill_sun_az < 1 { 1 } else { fill_sun_az }, 0]]);
+scene.set("lighting-sun-elevation-slider-fill", "vector.points", [[0, 0], [if fill_sun_el < 1 { 1 } else { fill_sun_el }, 0]]);
+scene.set("lighting-sun-intensity-slider-fill", "vector.points", [[0, 0], [if fill_sun_int < 1 { 1 } else { fill_sun_int }, 0]]);
 
 scene.set("lighting-exposure-slider-value", "text.content", to_fixed_2(exposure));
 scene.set("lighting-black-level-slider-value", "text.content", to_fixed_2(black));
@@ -269,9 +300,10 @@ scene.set("lighting-gamma-slider-value", "text.content", to_fixed_2(gamma));
 scene.set("lighting-contrast-slider-value", "text.content", to_fixed_2(contrast));
 scene.set("lighting-starfield-slider-value", "text.content", to_fixed_2(stars));
 scene.set("lighting-star-glare-slider-value", "text.content", to_fixed_2(glare));
-scene.set("lighting-night-glow-slider-value", "text.content", to_fixed_2(night_glow));
-scene.set("lighting-haze-leak-slider-value", "text.content", to_fixed_2(haze_leak));
+scene.set("lighting-sun-azimuth-slider-value", "text.content", `${sun_azimuth.round()}`);
+scene.set("lighting-sun-elevation-slider-value", "text.content", `${sun_elevation.round()}`);
+scene.set("lighting-sun-intensity-slider-value", "text.content", to_fixed_2(sun_intensity));
 
-scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env}`);
+scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env} | sun=${sun_azimuth.round()}/${sun_elevation.round()} i=${to_fixed_2(sun_intensity)}`);
 scene.set("hint-1", "text.content", "keys: 1/2/3/4 model | Z/X/C view | Q/W/E light | A/S/D env");
-scene.set("hint-2", "text.content", "mouse: segmented model, dropdown profiles, live slider grading");
+scene.set("hint-2", "text.content", "mouse: segmented model, dropdown profiles, live grading + directional sun");

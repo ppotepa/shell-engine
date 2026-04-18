@@ -106,7 +106,14 @@ pub fn compositor_system(world: &mut World) {
         let ui_enabled = scene.ui.enabled;
         let ui_font_scale = scene.ui.font_scale.max(0.01);
         let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
-        let (world_render_width, world_render_height, ui_render_width, ui_render_height, ui_layout_width, ui_layout_height) = world
+        let (
+            world_render_width,
+            world_render_height,
+            ui_render_width,
+            ui_render_height,
+            ui_layout_width,
+            ui_layout_height,
+        ) = world
             .runtime_settings()
             .map(|settings| {
                 crate::runtime_settings::buffer_layout_for_scene(
@@ -331,7 +338,8 @@ pub fn compositor_system(world: &mut World) {
         || ui_render_height != buf_h;
 
     let object_regions = if use_split_pass {
-        let mut world_scratch = engine_compositor::acquire_buffer(world_render_width, world_render_height);
+        let mut world_scratch =
+            engine_compositor::acquire_buffer(world_render_width, world_render_height);
         let world_buffer: &mut Buffer = world_scratch.as_mut();
         if is_pixel_backend {
             world_buffer.enable_pixel_canvas(world_render_width, world_render_height);
@@ -384,11 +392,12 @@ pub fn compositor_system(world: &mut World) {
         merge_regions(world_regions, ui_regions)
     } else {
         #[cfg(feature = "render-3d")]
-        let object_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
-            crate::scene3d_atlas::with_atlas(atlas, || {
-                engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
-            })
-        });
+        let object_regions =
+            crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
+                crate::scene3d_atlas::with_atlas(atlas, || {
+                    engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
+                })
+            });
         #[cfg(not(feature = "render-3d"))]
         let object_regions = {
             let _ = atlas;
@@ -708,7 +717,9 @@ layers:
         pipeline.prepare(&scene, &mut world);
 
         assert!(
-            !world.get::<crate::obj_prerender::ObjPrerenderStatus>().is_some(),
+            !world
+                .get::<crate::obj_prerender::ObjPrerenderStatus>()
+                .is_some(),
             "Obj prerender status must not be registered for 2D-only scene"
         );
 

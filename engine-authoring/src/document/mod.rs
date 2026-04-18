@@ -13,8 +13,8 @@ mod scene;
 mod scene_helpers;
 mod space_environment_profile;
 mod value;
-mod viewport3d;
 mod view_profile;
+mod viewport3d;
 mod world_profile;
 
 pub use atmosphere_profile::AtmosphereProfileDocument;

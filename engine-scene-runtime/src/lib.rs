@@ -50,9 +50,8 @@ use engine_core::spatial::SpatialContext;
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 pub use mutations::{
-    LightingProfileParam, Render3DMutation, SceneMutation,
-    Set2DPropsMutation, SetCamera2DMutation, SetSpritePropertyMutation,
-    SpaceEnvironmentParam,
+    LightingProfileParam, Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
+    SetSpritePropertyMutation, SpaceEnvironmentParam,
 };
 pub use render3d_state::{scene_mutation_from_render_path, Render3dRebuildDiagnostics};
 pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};
@@ -1036,7 +1035,12 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[set_path("helsinki-uni-wireframe", "world.seed", serde_json::json!(7), None)],
+            &[set_path(
+                "helsinki-uni-wireframe",
+                "world.seed",
+                serde_json::json!(7),
+                None,
+            )],
         );
 
         let diagnostics = runtime.take_render3d_rebuild_diagnostics();
@@ -1052,12 +1056,42 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                set_path("helsinki-uni-wireframe", "obj.scale", serde_json::json!(1.5), None),
-                set_path("helsinki-uni-wireframe", "obj.yaw", serde_json::json!(15), None),
-                set_path("helsinki-uni-wireframe", "obj.pitch", serde_json::json!(-10), None),
-                set_path("helsinki-uni-wireframe", "obj.roll", serde_json::json!(2), None),
-                set_path("helsinki-uni-wireframe", "obj.orbit_speed", serde_json::json!(22), None),
-                set_path("helsinki-uni-wireframe", "obj.surface_mode", serde_json::json!("wireframe"), None),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.scale",
+                    serde_json::json!(1.5),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.yaw",
+                    serde_json::json!(15),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.pitch",
+                    serde_json::json!(-10),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.roll",
+                    serde_json::json!(2),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.orbit_speed",
+                    serde_json::json!(22),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.surface_mode",
+                    serde_json::json!("wireframe"),
+                    None,
+                ),
             ],
         );
         let obj_props = runtime
@@ -1101,9 +1135,24 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                set_path("helsinki-uni-wireframe", "obj.world.x", serde_json::json!(12.5), None),
-                set_path("helsinki-uni-wireframe", "obj.world.y", serde_json::json!(-7.25), None),
-                set_path("helsinki-uni-wireframe", "obj.world.z", serde_json::json!(3.0), None),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.world.x",
+                    serde_json::json!(12.5),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.world.y",
+                    serde_json::json!(-7.25),
+                    None,
+                ),
+                set_path(
+                    "helsinki-uni-wireframe",
+                    "obj.world.z",
+                    serde_json::json!(3.0),
+                    None,
+                ),
             ],
         );
 
@@ -1138,13 +1187,48 @@ layers:
         runtime.apply_behavior_commands(
             &resolver,
             &[
-                set_path("main-planet-view", "planet.spin_deg", serde_json::json!(15), None),
-                set_path("main-planet-view", "planet.cloud_spin_deg", serde_json::json!(21), None),
-                set_path("main-planet-view", "planet.cloud2_spin_deg", serde_json::json!(33), None),
-                set_path("main-planet-view", "planet.observer_altitude_km", serde_json::json!(420), None),
-                set_path("main-planet-view", "planet.sun_dir.x", serde_json::json!(0.5), None),
-                set_path("main-planet-view", "planet.sun_dir.y", serde_json::json!(-0.4), None),
-                set_path("main-planet-view", "planet.sun_dir.z", serde_json::json!(0.2), None),
+                set_path(
+                    "main-planet-view",
+                    "planet.spin_deg",
+                    serde_json::json!(15),
+                    None,
+                ),
+                set_path(
+                    "main-planet-view",
+                    "planet.cloud_spin_deg",
+                    serde_json::json!(21),
+                    None,
+                ),
+                set_path(
+                    "main-planet-view",
+                    "planet.cloud2_spin_deg",
+                    serde_json::json!(33),
+                    None,
+                ),
+                set_path(
+                    "main-planet-view",
+                    "planet.observer_altitude_km",
+                    serde_json::json!(420),
+                    None,
+                ),
+                set_path(
+                    "main-planet-view",
+                    "planet.sun_dir.x",
+                    serde_json::json!(0.5),
+                    None,
+                ),
+                set_path(
+                    "main-planet-view",
+                    "planet.sun_dir.y",
+                    serde_json::json!(-0.4),
+                    None,
+                ),
+                set_path(
+                    "main-planet-view",
+                    "planet.sun_dir.z",
+                    serde_json::json!(0.2),
+                    None,
+                ),
             ],
         );
         let planet_props = runtime
@@ -1190,7 +1274,12 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[set_path("intro-view", "scene3d.frame", serde_json::json!("closeup"), None)],
+            &[set_path(
+                "intro-view",
+                "scene3d.frame",
+                serde_json::json!("closeup"),
+                None,
+            )],
         );
 
         let scene3d_frame = runtime
@@ -1218,7 +1307,12 @@ layers:
 
         via_property.apply_behavior_commands(
             &resolver_a,
-            &[set_path("helsinki-uni-wireframe", "obj.scale", serde_json::json!(1.5), None)],
+            &[set_path(
+                "helsinki-uni-wireframe",
+                "obj.scale",
+                serde_json::json!(1.5),
+                None,
+            )],
         );
         via_typed.apply_behavior_commands(
             &resolver_b,
@@ -1261,7 +1355,12 @@ layers:
 
         via_property.apply_behavior_commands(
             &resolver_a,
-            &[set_path("main-planet-view", "planet.spin_deg", serde_json::json!(15.0), None)],
+            &[set_path(
+                "main-planet-view",
+                "planet.spin_deg",
+                serde_json::json!(15.0),
+                None,
+            )],
         );
         via_typed.apply_behavior_commands(
             &resolver_b,
@@ -1304,7 +1403,12 @@ layers:
 
         via_property.apply_behavior_commands(
             &resolver_a,
-            &[set_path("intro-view", "scene3d.frame", serde_json::json!("closeup"), None)],
+            &[set_path(
+                "intro-view",
+                "scene3d.frame",
+                serde_json::json!("closeup"),
+                None,
+            )],
         );
         via_typed.apply_behavior_commands(
             &resolver_b,
@@ -1342,7 +1446,12 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[set_path("title", "text.content", serde_json::json!("HELLO_TYPED"), None)],
+            &[set_path(
+                "title",
+                "text.content",
+                serde_json::json!("HELLO_TYPED"),
+                None,
+            )],
         );
 
         let title_id = resolver.resolve_alias("title").expect("title id");
@@ -1362,7 +1471,12 @@ layers:
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
-            &[set_path("intro-view", "scene3d.frame", serde_json::json!(7), None)],
+            &[set_path(
+                "intro-view",
+                "scene3d.frame",
+                serde_json::json!(7),
+                None,
+            )],
         );
 
         let scene3d_frame = runtime
@@ -1629,4 +1743,3 @@ layers: []
         assert_eq!(spatial.axes.up_axis, engine_core::spatial::UpAxis::Z);
     }
 }
-

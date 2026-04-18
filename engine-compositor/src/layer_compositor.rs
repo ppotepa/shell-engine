@@ -253,7 +253,11 @@ pub fn composite_layers(
                         elapsed_ms,
                         is_pixel_backend,
                         default_font,
-                        ui_font_scale: if layer.ui { inputs.render.ui_font_scale } else { 1.0 },
+                        ui_font_scale: if layer.ui {
+                            inputs.render.ui_font_scale
+                        } else {
+                            1.0
+                        },
                         ui_layout_scale_x: if layer.ui {
                             inputs.render.ui_layout_scale_x
                         } else {
@@ -303,7 +307,11 @@ pub fn composite_layers(
                     elapsed_ms,
                     is_pixel_backend,
                     default_font,
-                    ui_font_scale: if layer.ui { inputs.render.ui_font_scale } else { 1.0 },
+                    ui_font_scale: if layer.ui {
+                        inputs.render.ui_font_scale
+                    } else {
+                        1.0
+                    },
                     ui_layout_scale_x: if layer.ui {
                         inputs.render.ui_layout_scale_x
                     } else {

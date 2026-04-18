@@ -109,9 +109,9 @@ semantics when typed scene mutations can express the same intent.
 ## OBJ / world runtime property mutations
 
 `materialization.rs` handles typed `Render3DMutation` variants for `Sprite::Obj` and `Sprite::Planet`
-sprites. Property writes are translated into typed mutations before reaching
-`materialization.rs`; the runtime no longer accepts a separate raw string-path
-mutation branch.
+sprites. Compatibility `scene.set(id, "path", value)` calls are translated at
+the API boundary into typed mutations before reaching `materialization.rs`; the
+runtime no longer accepts a separate raw string-path mutation branch.
 
 | Typed enum | Variants | Notes |
 |------------|----------|-------|

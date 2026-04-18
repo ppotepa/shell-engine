@@ -41,7 +41,7 @@ Those belong to `engine-render-2d`, `engine-render-3d`, and `engine-worldgen`.
 - `compositor` — composition entry points
 - `scene_compositor` — frame input structs and prepared layer helpers
 - `prepared_frame` — preclassified 2D/3D sprite inputs
-- `provider` / `access` — engine integration seams
+- `provider` — engine integration seams
 - `prerender` — compositor-side preparation orchestration
 - `effect_applicator` / `systems::postfx` — PostFX execution
 

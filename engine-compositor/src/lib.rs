@@ -2,28 +2,20 @@
 //!
 //! This crate provides:
 //! - PostFX: post-processing effect passes (CRT distort, bloom, burn-in, etc.)
-//! - OBJ prerender/scene3d precompute coordination
-//! - Scene compositor strategy pattern types and dispatch
+//! - Scene/frame composition orchestration
 //! - CompositorProvider trait for decoupling from engine's World type
 //! - BufferPool: reusable buffer allocation for efficient frame rendering
 
-pub mod access;
 pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
-#[cfg(feature = "render-3d")]
-mod generated_world_render_adapter;
 mod layer_compositor;
-#[cfg(feature = "render-3d")]
-mod obj_render_adapter;
 #[cfg(feature = "render-3d")]
 pub mod prepared_frame;
 #[cfg(feature = "render-3d")]
 mod prerender;
 pub mod provider;
 mod render;
-#[cfg(feature = "render-3d")]
-mod scene_clip_render_adapter;
 mod scene_compositor;
 mod sprite_renderer_2d;
 mod systems;
@@ -39,7 +31,6 @@ pub use engine_render_3d::prerender::ObjPrerenderedFrames;
 #[derive(Debug, Default)]
 pub struct ObjPrerenderedFrames;
 
-pub use access::CompositorAccess;
 pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };

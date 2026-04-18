@@ -1,97 +1,43 @@
+use super::{apply_world_lod_to_source, ObjSpriteSpec, ViewLightingParams};
+use crate::prerender::ObjPrerenderedFrames;
+use crate::raster::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered};
+use crate::scene::{select_lod_level_stable, Renderable3D};
+use crate::ObjRenderParams;
+use engine_core::assets::AssetRoot;
+use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::render_types::ScreenSpaceMetrics;
-use engine_core::scene::{CameraSource, TonemapOperator};
-use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
-use engine_render_2d::{resolve_x, resolve_y, RenderArea};
-use engine_render_3d::pipeline::ObjSpriteSpec;
-use engine_render_3d::raster::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered};
-use engine_render_3d::scene::{select_lod_level_stable, Renderable3D};
-use engine_render_3d::ObjRenderParams;
-use std::collections::HashMap;
+use engine_core::scene::{CameraSource, HorizontalAlign, VerticalAlign};
+use engine_core::scene_runtime_types::{ObjCameraState, SceneCamera3D};
 
-use super::render::{finalize_sprite, RenderCtx};
-
-fn visible_region(draw_x: i32, draw_y: i32, width: u16, height: u16, buf: &engine_core::buffer::Buffer) -> Region {
-    let x0 = draw_x.max(0);
-    let y0 = draw_y.max(0);
-    let x1 = (draw_x + width as i32).min(buf.width as i32).max(x0);
-    let y1 = (draw_y + height as i32).min(buf.height as i32).max(y0);
-    Region {
-        x: x0 as u16,
-        y: y0 as u16,
-        width: (x1 - x0) as u16,
-        height: (y1 - y0) as u16,
-    }
+#[derive(Debug, Clone, Copy)]
+pub struct SpriteRenderArea {
+    pub origin_x: i32,
+    pub origin_y: i32,
+    pub width: u16,
+    pub height: u16,
 }
 
-fn resolved_ambient_floor(ctx: &RenderCtx<'_>) -> f32 {
-    ctx.resolved_view_profile
-        .lighting
-        .black_level
-        .unwrap_or(0.06)
+#[derive(Clone)]
+pub struct ObjSpriteRenderRuntime<'a> {
+    pub sprite_elapsed_ms: u64,
+    pub object_offset_x: i32,
+    pub object_offset_y: i32,
+    pub camera_state: ObjCameraState,
+    pub scene_camera_3d: &'a SceneCamera3D,
+    pub view_lighting: ViewLightingParams,
+    pub asset_root: Option<&'a AssetRoot>,
+    pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 
-fn resolved_exposure(ctx: &RenderCtx<'_>) -> f32 {
-    ctx.resolved_view_profile
-        .lighting
-        .exposure
-        .unwrap_or(1.0)
-        .max(0.0)
-}
-
-fn resolved_gamma(ctx: &RenderCtx<'_>) -> f32 {
-    ctx.resolved_view_profile
-        .lighting
-        .gamma
-        .unwrap_or(2.2)
-        .clamp(0.1, 4.0)
-}
-
-fn resolved_tonemap(ctx: &RenderCtx<'_>) -> TonemapOperator {
-    ctx.resolved_view_profile
-        .lighting
-        .tonemap
-        .unwrap_or(TonemapOperator::Linear)
-}
-
-fn resolved_shadow_contrast(ctx: &RenderCtx<'_>) -> f32 {
-    ctx.resolved_view_profile
-        .lighting
-        .shadow_contrast
-        .unwrap_or(1.0)
-        .clamp(0.25, 4.0)
-}
-
-fn resolved_night_glow_scale(ctx: &RenderCtx<'_>) -> f32 {
-    ctx.resolved_view_profile
-        .lighting
-        .night_glow_scale
-        .unwrap_or(1.0)
-        .clamp(0.0, 2.0)
-}
-
-fn resolved_haze_night_leak(ctx: &RenderCtx<'_>) -> f32 {
-    ctx.resolved_view_profile
-        .lighting
-        .haze_night_leak
-        .unwrap_or(0.0)
-        .clamp(0.0, 1.0)
-}
-
-pub(crate) fn render_obj_sprite(
+pub fn render_obj_sprite_to_buffer(
     spec: ObjSpriteSpec<'_>,
-    area: RenderArea,
-    target_resolver: Option<&TargetResolver>,
-    object_regions: &mut HashMap<String, Region>,
-    object_id: Option<&str>,
-    object_state: &ObjectRuntimeState,
-    _appear_at: u64,
-    sprite_elapsed: u64,
-    ctx: &mut RenderCtx<'_>,
-) {
+    area: SpriteRenderArea,
+    runtime: ObjSpriteRenderRuntime<'_>,
+    target: &mut Buffer,
+) -> Option<Region> {
     let ObjSpriteSpec {
-        sprite,
         node,
         id,
         size,
@@ -197,8 +143,9 @@ pub(crate) fn render_obj_sprite(
         view_fwd_z,
         ..
     } = spec;
+
     let Renderable3D::Mesh(mesh_node) = &node.renderable else {
-        return;
+        return None;
     };
 
     let source = mesh_node.mesh_key.as_str();
@@ -227,13 +174,8 @@ pub(crate) fn render_obj_sprite(
     let effective_source = apply_world_lod_to_source(source, selected_lod);
     let base_x = area.origin_x + resolve_x(node_x, &align_x, area.width, sprite_width);
     let base_y = area.origin_y + resolve_y(node_y, &align_y, area.height, sprite_height);
-    let (anim_dx, anim_dy) = super::render::sprite_transform_offset(sprite.animations(), sprite_elapsed);
-    let draw_x = base_x
-        .saturating_add(anim_dx)
-        .saturating_add(object_state.offset_x);
-    let draw_y = base_y
-        .saturating_add(anim_dy)
-        .saturating_add(object_state.offset_y);
+    let draw_x = base_x.saturating_add(runtime.object_offset_x);
+    let draw_y = base_y.saturating_add(runtime.object_offset_y);
 
     let fg = fg_colour.map(Color::from).unwrap_or(Color::White);
     let bg = bg_colour.map(Color::from).unwrap_or(Color::Reset);
@@ -241,28 +183,20 @@ pub(crate) fn render_obj_sprite(
         .as_deref()
         .and_then(|s| s.chars().next())
         .unwrap_or('#');
-    // Avoid allocating a lowercase String by using eq_ignore_ascii_case.
     let is_wireframe = surface_mode
         .as_deref()
         .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
         .unwrap_or(false);
-    let camera_state = id
-        .as_deref()
-        .and_then(|sid| ctx.obj_camera_states.get(sid))
-        .cloned()
-        .unwrap_or_default();
 
-    // Prerender fast path: check if this sprite has a cached frame.
-    let sprite_id_opt = id.as_deref();
-    let elapsed_s = sprite_elapsed as f32 / 1000.0;
+    let elapsed_s = runtime.sprite_elapsed_ms as f32 / 1000.0;
     let live_total_yaw =
         rotation_y.unwrap_or(0.0) + node_yaw + rotate_y_deg_per_sec.unwrap_or(0.0) * elapsed_s;
     let current_pitch = node_pitch;
     let clip_min = clip_y_min.unwrap_or(0.0);
     let clip_max = clip_y_max.unwrap_or(1.0);
-    if let Some(sid) = sprite_id_opt {
+    if let (Some(frames), Some(sid)) = (runtime.prerender_frames, id.as_deref()) {
         if try_blit_prerendered(
-            ctx.prerender_frames,
+            Some(frames),
             sid,
             live_total_yaw,
             current_pitch,
@@ -270,24 +204,20 @@ pub(crate) fn render_obj_sprite(
             clip_max,
             draw_x,
             draw_y,
-            ctx.layer_buf,
+            target,
         ) {
-            let sprite_region = visible_region(draw_x, draw_y, sprite_width, sprite_height, ctx.layer_buf);
-            finalize_sprite(
-                object_id,
-                sprite_region,
-                sprite_elapsed,
-                sprite.stages(),
-                ctx,
-                target_resolver,
-                object_regions,
-            );
-            return;
+            return Some(visible_region(
+                draw_x,
+                draw_y,
+                sprite_width,
+                sprite_height,
+                target,
+            ));
         }
     }
 
     let use_scene_camera = camera_source == CameraSource::Scene;
-    let scene_camera = ctx.scene_camera_3d;
+    let scene_camera = runtime.scene_camera_3d;
     render_obj_content(
         effective_source.as_str(),
         Some(sprite_width),
@@ -335,18 +265,16 @@ pub(crate) fn render_obj_sprite(
             midtone_colour: midtone_colour.map(Color::from),
             highlight_colour: highlight_colour.map(Color::from),
             tone_mix: tone_mix.unwrap_or(0.0),
-            scene_elapsed_ms: sprite_elapsed,
-            camera_pan_x: camera_state.pan_x,
-            camera_pan_y: camera_state.pan_y,
-            camera_look_yaw: camera_state.look_yaw,
-            camera_look_pitch: camera_state.look_pitch,
+            scene_elapsed_ms: runtime.sprite_elapsed_ms,
+            camera_pan_x: runtime.camera_state.pan_x,
+            camera_pan_y: runtime.camera_state.pan_y,
+            camera_look_yaw: runtime.camera_state.look_yaw,
+            camera_look_pitch: runtime.camera_state.look_pitch,
             object_translate_x: world_x.unwrap_or(0.0),
             object_translate_y: world_y.unwrap_or(0.0),
             object_translate_z: world_z.unwrap_or(0.0),
             clip_y_min: clip_y_min.unwrap_or(0.0),
             clip_y_max: clip_y_max.unwrap_or(1.0),
-            // Cockpit camera override: when cam_world_x/y/z are set, use them; otherwise fall
-            // back to the default (0, 0, -camera_distance) position.
             camera_world_x: if use_scene_camera {
                 scene_camera.eye[0]
             } else {
@@ -409,11 +337,11 @@ pub(crate) fn render_obj_sprite(
             },
             unlit: false,
             ambient: ambient.unwrap_or(0.15),
-            ambient_floor: resolved_ambient_floor(ctx),
-            shadow_contrast: resolved_shadow_contrast(ctx),
-            exposure: resolved_exposure(ctx),
-            gamma: resolved_gamma(ctx),
-            tonemap: resolved_tonemap(ctx),
+            ambient_floor: runtime.view_lighting.ambient_floor,
+            shadow_contrast: runtime.view_lighting.shadow_contrast,
+            exposure: runtime.view_lighting.exposure,
+            gamma: runtime.view_lighting.gamma,
+            tonemap: runtime.view_lighting.tonemap,
             light_point_falloff: 0.7,
             light_point_2_falloff: 0.7,
             smooth_shading: smooth_shading.unwrap_or(false),
@@ -482,12 +410,13 @@ pub(crate) fn render_obj_sprite(
             atmo_forward_scatter: atmo_forward_scatter.unwrap_or(0.72),
             atmo_limb_boost: atmo_limb_boost.unwrap_or(1.0),
             atmo_terminator_softness: atmo_terminator_softness.unwrap_or(1.0),
-            atmo_night_glow: atmo_night_glow.unwrap_or(0.0) * resolved_night_glow_scale(ctx),
+            atmo_night_glow: atmo_night_glow.unwrap_or(0.0)
+                * runtime.view_lighting.night_glow_scale,
             atmo_night_glow_color: atmo_night_glow_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
-            atmo_haze_night_leak: resolved_haze_night_leak(ctx),
+            atmo_haze_night_leak: runtime.view_lighting.haze_night_leak,
             atmo_rim_power: 4.5,
             atmo_haze_strength: 0.0,
             atmo_haze_power: 1.8,
@@ -508,7 +437,6 @@ pub(crate) fn render_obj_sprite(
             heightmap_w: 0,
             heightmap_h: 0,
             heightmap_blend: 0.0,
-            // Opaque OBJ/world meshes rely on the depth buffer; transparent layers use dedicated RGBA paths.
             depth_sort_faces: false,
         },
         is_wireframe,
@@ -516,29 +444,50 @@ pub(crate) fn render_obj_sprite(
         draw_glyph,
         fg,
         bg,
-        ctx.asset_root,
+        runtime.asset_root,
         draw_x,
         draw_y,
-        ctx.layer_buf,
+        target,
     );
-    let sprite_region = visible_region(draw_x, draw_y, sprite_width, sprite_height, ctx.layer_buf);
-    finalize_sprite(
-        object_id,
-        sprite_region,
-        sprite_elapsed,
-        sprite.stages(),
-        ctx,
-        target_resolver,
-        object_regions,
-    );
+
+    Some(visible_region(
+        draw_x,
+        draw_y,
+        sprite_width,
+        sprite_height,
+        target,
+    ))
 }
 
-fn apply_world_lod_to_source(
-    source: &str,
-    lod_level: engine_core::render_types::LodLevel,
-) -> String {
-    if !source.starts_with("world://") {
-        return source.to_string();
+fn visible_region(draw_x: i32, draw_y: i32, width: u16, height: u16, buf: &Buffer) -> Region {
+    let x0 = draw_x.max(0);
+    let y0 = draw_y.max(0);
+    let x1 = (draw_x + width as i32).min(buf.width as i32).max(x0);
+    let y1 = (draw_y + height as i32).min(buf.height as i32).max(y0);
+    Region {
+        x: x0 as u16,
+        y: y0 as u16,
+        width: (x1 - x0) as u16,
+        height: (y1 - y0) as u16,
     }
-    engine_worldgen::apply_world_lod_to_uri(source, lod_level.0)
+}
+
+#[inline]
+fn resolve_x(offset_x: i32, align_x: &Option<HorizontalAlign>, area_w: u16, sprite_w: u16) -> i32 {
+    let origin = match align_x {
+        Some(HorizontalAlign::Left) | None => 0i32,
+        Some(HorizontalAlign::Center) => (area_w.saturating_sub(sprite_w) / 2) as i32,
+        Some(HorizontalAlign::Right) => area_w.saturating_sub(sprite_w) as i32,
+    };
+    origin.saturating_add(offset_x)
+}
+
+#[inline]
+fn resolve_y(offset_y: i32, align_y: &Option<VerticalAlign>, area_h: u16, sprite_h: u16) -> i32 {
+    let origin = match align_y {
+        Some(VerticalAlign::Top) | None => 0i32,
+        Some(VerticalAlign::Center) => (area_h.saturating_sub(sprite_h) / 2) as i32,
+        Some(VerticalAlign::Bottom) => area_h.saturating_sub(sprite_h) as i32,
+    };
+    origin.saturating_add(offset_y)
 }

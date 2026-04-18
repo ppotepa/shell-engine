@@ -382,7 +382,9 @@ fn apply_perf_hud(world: &mut World) {
                             output_dimensions.1,
                         )
                     })
-                    .unwrap_or_else(|| settings.buffer_layout(output_dimensions.0, output_dimensions.1));
+                    .unwrap_or_else(|| {
+                        settings.buffer_layout(output_dimensions.0, output_dimensions.1)
+                    });
                 Some(
                     ((layout.ui_width.max(1) as f32 / layout.world_width.max(1) as f32).round()
                         as u16)
@@ -401,7 +403,15 @@ fn apply_perf_hud(world: &mut World) {
             g: 255,
             b: 80,
         };
-        rasterize_generic(hud_text, hud_scale, green, x, 0, buffer, &TextTransform::None);
+        rasterize_generic(
+            hud_text,
+            hud_scale,
+            green,
+            x,
+            0,
+            buffer,
+            &TextTransform::None,
+        );
     });
 }
 

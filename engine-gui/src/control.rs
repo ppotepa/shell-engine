@@ -29,18 +29,9 @@ impl WidgetRect {
 
 #[derive(Debug, Clone)]
 pub enum VisualSyncAction {
-    OffsetX {
-        sprite_alias: String,
-        offset_x: i32,
-    },
-    SetVisible {
-        sprite_alias: String,
-        visible: bool,
-    },
-    SetText {
-        sprite_alias: String,
-        text: String,
-    },
+    OffsetX { sprite_alias: String, offset_x: i32 },
+    SetVisible { sprite_alias: String, visible: bool },
+    SetText { sprite_alias: String, text: String },
 }
 
 /// Instruction bundle for engine-managed widget visuals.
@@ -803,21 +794,17 @@ impl GuiControl for DropdownControl {
             return;
         }
         if state.open {
-            if let Some(idx) = self
-                .options
-                .get(0)
-                .and_then(|_| {
-                    let popup = self.popup_bounds();
-                    if popup.hit_test(x, y) {
-                        let rel_y = (y - popup.y as f32).max(0.0);
-                        let row_h = self.h.max(1) as f32;
-                        let idx = (rel_y / row_h).floor() as usize;
-                        Some(idx.min(self.options.len().saturating_sub(1)))
-                    } else {
-                        None
-                    }
-                })
-            {
+            if let Some(idx) = self.options.get(0).and_then(|_| {
+                let popup = self.popup_bounds();
+                if popup.hit_test(x, y) {
+                    let rel_y = (y - popup.y as f32).max(0.0);
+                    let row_h = self.h.max(1) as f32;
+                    let idx = (rel_y / row_h).floor() as usize;
+                    Some(idx.min(self.options.len().saturating_sub(1)))
+                } else {
+                    None
+                }
+            }) {
                 state.value = idx as f64;
                 state.selected_index = Some(idx);
                 state.changed = true;

@@ -11,6 +11,12 @@ Daily progress updates for Shell Engine development.
 - **mods/lighting-playground**: corrected world layer classification (`ui: false`) so 3D world content always stays on world pass semantics.
 - **engine-scene-runtime**: strengthened orbit safe-distance estimation (aspect-aware + sphere angular fit) to reduce edge clipping under zoom-heavy camera motion.
 
+**3D ownership cleanup: compositor as frame assembler only** ✅
+- **engine-render-3d**: took ownership of Obj / GeneratedWorld / SceneClip sprite render paths via pipeline entry points (`render_obj_sprite_to_buffer`, `render_generated_world_sprite_to_buffer`, `render_scene_clip_sprite_to_buffer`) and shared generated-world profile synthesis.
+- **engine-compositor**: removed compositor-local 3D render adapters and now delegates directly to `engine-render-3d` from provider path, with consistent `finalize_sprite` handling across all region-returning 3D calls.
+- **docs**: synced `3drefactor.md`, `engine-compositor` crate docs, and runtime docs wording to the typed-mutation boundary contract.
+- **validation**: `cargo check -p engine-render-3d -p engine-compositor -p engine`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`; `cargo run -p app -- --mod-source=mods/lighting-playground --check-scenes`.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

@@ -231,7 +231,10 @@ mod tests {
             Some(0.11)
         );
         assert_eq!(
-            runtime.resolved_view_profile().environment.starfield_brightness,
+            runtime
+                .resolved_view_profile()
+                .environment
+                .starfield_brightness,
             Some(0.7)
         );
     }
@@ -257,10 +260,7 @@ fn scene_gui_widget_to_control(
     use engine_core::scene::model::SceneGuiWidgetDef as Src;
     let ui_scale = ui_scale.max(0.01);
     let to_choice = |choice: engine_core::scene::model::SceneGuiChoiceDef| {
-        engine_gui::ChoiceOption::new(
-            choice.value.clone(),
-            choice.label.unwrap_or(choice.value),
-        )
+        engine_gui::ChoiceOption::new(choice.value.clone(), choice.label.unwrap_or(choice.value))
     };
     match def {
         Src::Slider {

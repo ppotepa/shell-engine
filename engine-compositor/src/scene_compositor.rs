@@ -3,14 +3,14 @@ use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
 use engine_core::color::Color;
-use engine_core::scene::{Effect, Layer, LayerSpace, SceneSpace};
 use engine_core::scene::ResolvedViewProfile;
+use engine_core::scene::{Effect, Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
 use engine_core::spatial::SpatialContext;
-use std::collections::HashMap;
 use engine_render_3d::pipeline::extract_render3d_sprite_spec;
+use std::collections::HashMap;
 
 /// All scene-invariant inputs to a single compositor invocation.
 ///

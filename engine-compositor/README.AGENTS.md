@@ -25,7 +25,7 @@ It should not own:
 - `compositor.rs` — top-level composition entry points
 - `scene_compositor.rs` — frame input structs and layer prep
 - `prepared_frame.rs` — prepared 2D/3D frame inputs
-- `provider.rs` / `access.rs` — engine integration seams
+- `provider.rs` — engine integration seams
 - `prerender.rs` — prerender orchestration surface
 - `systems/postfx` — PostFX execution
 

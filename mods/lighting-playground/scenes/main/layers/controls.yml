@@ -9,7 +9,7 @@
       x: 680
       y: 8
       width: 264
-      height: 524
+      height: 532
       fg: "#0b1020"
       border-colour: "#1f2940"
       border-width: 1
@@ -18,7 +18,7 @@
       shadow-y: 3
       shadow-colour: "#03050a"
     - { type: text, id: panel-title, content: "LIGHTING LAB", x: 694, y: 18, font: "generic:2", fg: "#d7e7ff" }
-    - { type: text, id: panel-subtitle, content: "Compact selectors + live scene grading", x: 694, y: 36, font: "generic:2", fg: "#7d8eaa" }
+    - { type: text, id: panel-subtitle, content: "Profile selectors + live grading + directional sun", x: 694, y: 36, font: "generic:2", fg: "#7d8eaa" }
 
     - { type: text, content: "MODEL", x: 694, y: 52, font: "generic:2", fg: "#55627e" }
     - type: panel
@@ -71,7 +71,7 @@
     - { type: text, id: lighting-environment-dropdown-option-1, content: "", x: 706, y: 313, visible: false, font: "generic:2", fg: "#9fb1cc" }
     - { type: text, id: lighting-environment-dropdown-option-2, content: "", x: 706, y: 335, visible: false, font: "generic:2", fg: "#9fb1cc" }
 
-    - { type: text, content: "ACTIVE TWEAKS", x: 694, y: 344, font: "generic:2", fg: "#55627e" }
+    - { type: text, content: "ACTIVE TWEAKS + SUN", x: 694, y: 344, font: "generic:2", fg: "#55627e" }
 
     - { type: text, id: lighting-exposure-slider-label, content: "Exposure", x: 694, y: 356, font: "generic:2", fg: "#c6d1e6" }
     - { type: vector, id: lighting-exposure-slider-track, x: 734, y: 366, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
@@ -97,26 +97,32 @@
     - { type: vector, id: lighting-contrast-slider-handle, x: 734, y: 424, points: [[0,0],[0,14]], stroke-width: 5, fg: "#ffd2b2" }
     - { type: text, id: lighting-contrast-slider-value, content: "1.00", x: 908, y: 422, font: "generic:2", fg: "#ffb37f" }
 
-    - { type: text, id: lighting-starfield-slider-label, content: "Stars", x: 694, y: 452, font: "generic:2", fg: "#c6d1e6" }
-    - { type: vector, id: lighting-starfield-slider-track, x: 734, y: 462, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
-    - { type: vector, id: lighting-starfield-slider-fill, x: 734, y: 462, points: [[0,0],[101,0]], stroke-width: 2, fg: "#9dd6ff" }
-    - { type: vector, id: lighting-starfield-slider-handle, x: 734, y: 454, points: [[0,0],[0,14]], stroke-width: 5, fg: "#d7efff" }
-    - { type: text, id: lighting-starfield-slider-value, content: "0.68", x: 908, y: 452, font: "generic:2", fg: "#9dd6ff" }
+    - { type: text, id: lighting-starfield-slider-label, content: "Stars", x: 694, y: 442, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-starfield-slider-track, x: 734, y: 452, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-starfield-slider-fill, x: 734, y: 452, points: [[0,0],[101,0]], stroke-width: 2, fg: "#9dd6ff" }
+    - { type: vector, id: lighting-starfield-slider-handle, x: 734, y: 444, points: [[0,0],[0,14]], stroke-width: 5, fg: "#d7efff" }
+    - { type: text, id: lighting-starfield-slider-value, content: "0.68", x: 908, y: 442, font: "generic:2", fg: "#9dd6ff" }
 
-    - { type: text, id: lighting-star-glare-slider-label, content: "Glare", x: 694, y: 474, font: "generic:2", fg: "#c6d1e6" }
-    - { type: vector, id: lighting-star-glare-slider-track, x: 734, y: 484, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
-    - { type: vector, id: lighting-star-glare-slider-fill, x: 734, y: 484, points: [[0,0],[107,0]], stroke-width: 2, fg: "#ffe18a" }
-    - { type: vector, id: lighting-star-glare-slider-handle, x: 734, y: 476, points: [[0,0],[0,14]], stroke-width: 5, fg: "#fff2b9" }
-    - { type: text, id: lighting-star-glare-slider-value, content: "0.08", x: 908, y: 474, font: "generic:2", fg: "#ffe18a" }
+    - { type: text, id: lighting-star-glare-slider-label, content: "Glare", x: 694, y: 462, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-star-glare-slider-track, x: 734, y: 472, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-star-glare-slider-fill, x: 734, y: 472, points: [[0,0],[107,0]], stroke-width: 2, fg: "#ffe18a" }
+    - { type: vector, id: lighting-star-glare-slider-handle, x: 734, y: 464, points: [[0,0],[0,14]], stroke-width: 5, fg: "#fff2b9" }
+    - { type: text, id: lighting-star-glare-slider-value, content: "0.08", x: 908, y: 462, font: "generic:2", fg: "#ffe18a" }
 
-    - { type: text, id: lighting-night-glow-slider-label, content: "Night Glow", x: 694, y: 496, font: "generic:2", fg: "#c6d1e6" }
-    - { type: vector, id: lighting-night-glow-slider-track, x: 734, y: 506, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
-    - { type: vector, id: lighting-night-glow-slider-fill, x: 734, y: 506, points: [[0,0],[1,0]], stroke-width: 2, fg: "#7ce7ff" }
-    - { type: vector, id: lighting-night-glow-slider-handle, x: 734, y: 498, points: [[0,0],[0,14]], stroke-width: 5, fg: "#c1f7ff" }
-    - { type: text, id: lighting-night-glow-slider-value, content: "0.00", x: 908, y: 496, font: "generic:2", fg: "#7ce7ff" }
+    - { type: text, id: lighting-sun-azimuth-slider-label, content: "Sun Azimuth", x: 694, y: 482, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-sun-azimuth-slider-track, x: 734, y: 492, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-sun-azimuth-slider-fill, x: 734, y: 492, points: [[0,0],[97,0]], stroke-width: 2, fg: "#ffd980" }
+    - { type: vector, id: lighting-sun-azimuth-slider-handle, x: 734, y: 484, points: [[0,0],[0,14]], stroke-width: 5, fg: "#ffe8ad" }
+    - { type: text, id: lighting-sun-azimuth-slider-value, content: "210", x: 908, y: 482, font: "generic:2", fg: "#ffd980" }
 
-    - { type: text, id: lighting-haze-leak-slider-label, content: "Haze Leak", x: 694, y: 518, font: "generic:2", fg: "#c6d1e6" }
-    - { type: vector, id: lighting-haze-leak-slider-track, x: 734, y: 528, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
-    - { type: vector, id: lighting-haze-leak-slider-fill, x: 734, y: 528, points: [[0,0],[1,0]], stroke-width: 2, fg: "#a0ffd0" }
-    - { type: vector, id: lighting-haze-leak-slider-handle, x: 734, y: 520, points: [[0,0],[0,14]], stroke-width: 5, fg: "#d1ffe8" }
-    - { type: text, id: lighting-haze-leak-slider-value, content: "0.00", x: 908, y: 518, font: "generic:2", fg: "#a0ffd0" }
+    - { type: text, id: lighting-sun-elevation-slider-label, content: "Sun Elevation", x: 694, y: 502, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-sun-elevation-slider-track, x: 734, y: 512, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-sun-elevation-slider-fill, x: 734, y: 512, points: [[0,0],[89,0]], stroke-width: 2, fg: "#ffa56e" }
+    - { type: vector, id: lighting-sun-elevation-slider-handle, x: 734, y: 504, points: [[0,0],[0,14]], stroke-width: 5, fg: "#ffcfb1" }
+    - { type: text, id: lighting-sun-elevation-slider-value, content: "40", x: 908, y: 502, font: "generic:2", fg: "#ffa56e" }
+
+    - { type: text, id: lighting-sun-intensity-slider-label, content: "Sun Intensity", x: 694, y: 522, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-sun-intensity-slider-track, x: 734, y: 532, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-sun-intensity-slider-fill, x: 734, y: 532, points: [[0,0],[93,0]], stroke-width: 2, fg: "#ffcf8a" }
+    - { type: vector, id: lighting-sun-intensity-slider-handle, x: 734, y: 524, points: [[0,0],[0,14]], stroke-width: 5, fg: "#ffe5bb" }
+    - { type: text, id: lighting-sun-intensity-slider-value, content: "1.00", x: 908, y: 522, font: "generic:2", fg: "#ffcf8a" }

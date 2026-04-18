@@ -14,7 +14,7 @@
       height: 540
       scale: 1.0
       rotate-y-deg-per-sec: 2.5
-      ambient: 0.1
+      ambient: 0.0
       smooth-shading: true
       prerender: false
       camera-distance: 3.0
@@ -70,7 +70,7 @@
       width: 960
       height: 540
       scale: 1.02
-      ambient: 0.04
+      ambient: 0.0
       surface-mode: material
       smooth-shading: true
       prerender: false
@@ -97,7 +97,7 @@
       width: 960
       height: 540
       scale: 1.18
-      ambient: 0.03
+      ambient: 0.0
       surface-mode: material
       smooth-shading: true
       prerender: false
@@ -124,7 +124,7 @@
       width: 960
       height: 540
       scale: 1.55
-      ambient: 0.04
+      ambient: 0.0
       surface-mode: material
       prerender: false
       camera-distance: 3.0

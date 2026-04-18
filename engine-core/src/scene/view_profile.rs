@@ -244,7 +244,10 @@ fn default_environment_profile() -> SpaceEnvironmentProfile {
     builtin_space_environment_profile("deep-space-sparse").unwrap_or_default()
 }
 
-pub fn merge_lighting_profile(mut base: LightingProfile, other: &LightingProfile) -> LightingProfile {
+pub fn merge_lighting_profile(
+    mut base: LightingProfile,
+    other: &LightingProfile,
+) -> LightingProfile {
     base.id = other.id.clone();
     if other.ambient_intensity.is_some() {
         base.ambient_intensity = other.ambient_intensity;
@@ -371,8 +374,9 @@ fn normalize_space_environment_profile(profile: &mut SpaceEnvironmentProfile) {
     if let (Some(min), Some(max)) = (profile.starfield_size_min, profile.starfield_size_max) {
         profile.starfield_size_max = Some(max.max(min));
     }
-    profile.primary_star_glare_strength =
-        profile.primary_star_glare_strength.map(|v| v.clamp(0.0, 1.5));
+    profile.primary_star_glare_strength = profile
+        .primary_star_glare_strength
+        .map(|v| v.clamp(0.0, 1.5));
     profile.primary_star_glare_width = profile.primary_star_glare_width.map(|v| v.clamp(0.02, 1.0));
     profile.nebula_strength = profile.nebula_strength.map(|v| v.clamp(0.0, 1.0));
     profile.dust_band_strength = profile.dust_band_strength.map(|v| v.clamp(0.0, 1.0));
@@ -383,8 +387,9 @@ fn normalize_view_overrides(overrides: &mut ViewProfileOverrides) {
     overrides.black_level = overrides.black_level.map(|v| v.clamp(0.0, 1.0));
     overrides.background_floor = overrides.background_floor.map(|v| v.clamp(0.0, 1.0));
     overrides.starfield_brightness = overrides.starfield_brightness.map(|v| v.clamp(0.0, 1.5));
-    overrides.primary_star_glare_strength =
-        overrides.primary_star_glare_strength.map(|v| v.clamp(0.0, 1.5));
+    overrides.primary_star_glare_strength = overrides
+        .primary_star_glare_strength
+        .map(|v| v.clamp(0.0, 1.5));
 }
 
 pub fn resolve_scene_view_profile(scene: &Scene) -> ResolvedViewProfile {

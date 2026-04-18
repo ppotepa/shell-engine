@@ -185,10 +185,12 @@ pub fn scene_mutation_from_render_path(
 
     if path == "scene3d.frame" {
         if let MaterialValue::Text(frame) = mat_value {
-            return Some(SceneMutation::SetRender3D(Render3DMutation::SetScene3DFrame {
-                target: target.to_string(),
-                frame,
-            }));
+            return Some(SceneMutation::SetRender3D(
+                Render3DMutation::SetScene3DFrame {
+                    target: target.to_string(),
+                    frame,
+                },
+            ));
         }
         return None;
     }
@@ -388,9 +390,16 @@ mod tests {
             &MaterialValue::Text("#010203".to_string()),
         ));
 
-        assert_eq!(runtime.resolved_view_profile().lighting.exposure, Some(0.81));
         assert_eq!(
-            runtime.resolved_view_profile().environment.background_color.as_deref(),
+            runtime.resolved_view_profile().lighting.exposure,
+            Some(0.81)
+        );
+        assert_eq!(
+            runtime
+                .resolved_view_profile()
+                .environment
+                .background_color
+                .as_deref(),
             Some("#010203")
         );
     }

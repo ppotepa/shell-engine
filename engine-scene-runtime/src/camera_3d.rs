@@ -731,7 +731,8 @@ fn set_obj_orbit_camera_fields_recursive(
                     }
                 }
                 if let Some(next_distance) = camera_distance {
-                    let clamped = next_distance.clamp(safe_min_distance, OBJ_ORBIT_DISTANCE_HARD_MAX);
+                    let clamped =
+                        next_distance.clamp(safe_min_distance, OBJ_ORBIT_DISTANCE_HARD_MAX);
                     if current_distance
                         .map_or(true, |current| (current - clamped).abs() > f32::EPSILON)
                     {
@@ -927,11 +928,7 @@ fn estimate_obj_orbit_safe_distance(
         || atmo_rayleigh_amount > 0.001
         || atmo_haze_amount > 0.001;
     let atmo_height = atmo_height.unwrap_or(0.0).clamp(0.0, 1.0);
-    let atmo_shell = if atmo_enabled {
-        atmo_height
-    } else {
-        0.0
-    };
+    let atmo_shell = if atmo_enabled { atmo_height } else { 0.0 };
     let authored_halo_shell = if atmo_halo_strength.unwrap_or(0.0) > 0.01 {
         atmo_halo_width.unwrap_or(0.0).clamp(0.0, 1.0)
     } else {
@@ -953,8 +950,11 @@ fn estimate_obj_orbit_safe_distance(
     let halo_shell = authored_halo_shell.max(derived_halo_shell);
     // Worldgen displacement scales to ~[-disp, +disp] on sphere radius, so keep
     // a conservative radial envelope for safe zoom limits.
-    let displacement_shell =
-        world_gen_displacement_scale.unwrap_or(0.0).abs().clamp(0.0, 1.0) * 0.9;
+    let displacement_shell = world_gen_displacement_scale
+        .unwrap_or(0.0)
+        .abs()
+        .clamp(0.0, 1.0)
+        * 0.9;
     let effective_radius = base_radius * (1.0 + atmo_shell + halo_shell + displacement_shell);
 
     let fov_rad = fov_degrees.unwrap_or(60.0).clamp(10.0, 170.0).to_radians();

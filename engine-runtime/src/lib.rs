@@ -242,8 +242,14 @@ impl RuntimeSettings {
     }
 
     pub fn resolved_ui_render_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
-        let (world_width, world_height) = self.resolved_world_render_size(output_width, output_height);
-        self.resolve_ui_render_size_from_world(world_width, world_height, output_width, output_height)
+        let (world_width, world_height) =
+            self.resolved_world_render_size(output_width, output_height);
+        self.resolve_ui_render_size_from_world(
+            world_width,
+            world_height,
+            output_width,
+            output_height,
+        )
     }
 
     pub fn resolved_ui_layout_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
@@ -260,8 +266,12 @@ impl RuntimeSettings {
         let output_height = output_height.max(1);
         let (world_width, world_height) =
             self.resolved_world_render_size(output_width, output_height);
-        let (ui_width, ui_height) =
-            self.resolve_ui_render_size_from_world(world_width, world_height, output_width, output_height);
+        let (ui_width, ui_height) = self.resolve_ui_render_size_from_world(
+            world_width,
+            world_height,
+            output_width,
+            output_height,
+        );
         let (ui_layout_width, ui_layout_height) =
             self.resolve_ui_layout_size_from_ui(ui_width, ui_height, output_width, output_height);
         BufferLayout {

@@ -133,7 +133,9 @@ impl SceneRuntime {
                     sprite_alias,
                     offset_x,
                 } => {
-                    let object_id = resolver.resolve_alias(&sprite_alias).unwrap_or(&sprite_alias);
+                    let object_id = resolver
+                        .resolve_alias(&sprite_alias)
+                        .unwrap_or(&sprite_alias);
                     if let Some(obj_state) = self.object_states.get_mut(object_id) {
                         obj_state.offset_x = offset_x;
                     }
@@ -142,7 +144,9 @@ impl SceneRuntime {
                     sprite_alias,
                     visible,
                 } => {
-                    let object_id = resolver.resolve_alias(&sprite_alias).unwrap_or(&sprite_alias);
+                    let object_id = resolver
+                        .resolve_alias(&sprite_alias)
+                        .unwrap_or(&sprite_alias);
                     if let Some(obj_state) = self.object_states.get_mut(object_id) {
                         obj_state.visible = visible;
                     }

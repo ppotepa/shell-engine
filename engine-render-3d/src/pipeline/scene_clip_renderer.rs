@@ -1,128 +1,141 @@
-use engine_core::effects::Region;
-use engine_core::scene_runtime_types::ObjectRuntimeState;
-use engine_render::rasterizer::blit;
-use engine_render_2d::RenderArea;
-use engine_render_3d::pipeline::SceneClipSpriteSpec;
-use engine_render_3d::prerender::{
+use super::{SceneClipSpriteSpec, SpriteRenderArea};
+use crate::prerender::{
     render_scene3d_frame_at_with, render_scene3d_work_item, Scene3DAtlas, Scene3DRuntimeStore,
 };
-use engine_render_3d::scene::Renderable3D;
-use std::collections::HashMap;
+use crate::scene::Renderable3D;
+use engine_core::assets::AssetRoot;
+use engine_core::buffer::Buffer;
+use engine_core::effects::Region;
+use engine_core::scene_runtime_types::SceneCamera3D;
 
-use super::render::RenderCtx;
+#[derive(Debug, Clone, Copy)]
+pub struct SceneClipRenderRuntime<'a> {
+    pub scene_elapsed_ms: u64,
+    pub scene_camera_3d: &'a SceneCamera3D,
+    pub asset_root: Option<&'a AssetRoot>,
+}
 
-pub(crate) fn render_scene_clip_sprite(
+pub fn render_scene_clip_sprite_to_buffer(
     spec: SceneClipSpriteSpec<'_>,
-    area: RenderArea,
-    object_id: Option<&str>,
-    object_state: &ObjectRuntimeState,
-    object_regions: &mut HashMap<String, Region>,
-    ctx: &mut RenderCtx<'_>,
-) {
+    area: SpriteRenderArea,
+    offset_x: i32,
+    offset_y: i32,
+    runtime: SceneClipRenderRuntime<'_>,
+    target: &mut Buffer,
+) -> Option<Region> {
     let stretch_to_area = spec.stretch_to_area;
     let node = spec.node;
     let Renderable3D::SceneClip(scene_clip) = node.renderable else {
-        return;
+        return None;
     };
 
     let draw_x = area
         .origin_x
         .saturating_add(node.transform.translation[0].round() as i32)
-        .saturating_add(object_state.offset_x)
+        .saturating_add(offset_x)
         .max(0) as u16;
     let draw_y = area
         .origin_y
         .saturating_add(node.transform.translation[1].round() as i32)
-        .saturating_add(object_state.offset_y)
+        .saturating_add(offset_y)
         .max(0) as u16;
 
     let rendered_realtime = if let (Some(entry), Some(asset_root)) = (
         Scene3DRuntimeStore::current_get(&scene_clip.source),
-        ctx.asset_root,
+        runtime.asset_root,
     ) {
         if entry.def.frames.contains_key(scene_clip.frame.as_str()) {
             let buf = render_scene3d_frame_at_with(
                 entry,
                 &scene_clip.frame,
-                ctx.scene_elapsed_ms,
+                runtime.scene_elapsed_ms,
                 asset_root,
-                scene_clip.use_scene_camera.then_some(ctx.scene_camera_3d),
+                scene_clip
+                    .use_scene_camera
+                    .then_some(runtime.scene_camera_3d),
                 render_scene3d_work_item,
             );
             if let Some(buf) = buf {
-                if stretch_to_area {
-                    blit_scaled_nearest(
-                        &buf,
-                        ctx.layer_buf,
-                        draw_x,
-                        draw_y,
-                        area.width.max(1),
-                        area.height.max(1),
-                    );
-                } else {
-                    blit(&buf, ctx.layer_buf, draw_x, draw_y);
-                }
-                if let Some(id) = object_id {
-                    object_regions.insert(
-                        id.to_string(),
-                        engine_core::effects::Region {
-                            x: draw_x,
-                            y: draw_y,
-                            width: if stretch_to_area {
-                                area.width.max(1)
-                            } else {
-                                buf.width
-                            },
-                            height: if stretch_to_area {
-                                area.height.max(1)
-                            } else {
-                                buf.height
-                            },
-                        },
-                    );
-                }
-                true
+                blit_scene_clip_buffer(&buf, target, draw_x, draw_y, stretch_to_area, area);
+                Some(rendered_region(draw_x, draw_y, stretch_to_area, area, &buf))
             } else {
-                false
+                None
             }
         } else {
-            false
+            None
         }
     } else {
-        false
+        None
     };
+    if rendered_realtime.is_some() {
+        return rendered_realtime;
+    }
 
-    if !rendered_realtime && !scene_clip.use_scene_camera {
+    if !scene_clip.use_scene_camera {
         if let Some(buf) = Scene3DAtlas::current_get(&scene_clip.source, &scene_clip.frame) {
-            if stretch_to_area {
-                blit_scaled_nearest(
-                    &buf,
-                    ctx.layer_buf,
-                    draw_x,
-                    draw_y,
-                    area.width.max(1),
-                    area.height.max(1),
-                );
-            } else {
-                blit(&buf, ctx.layer_buf, draw_x, draw_y);
-            }
-            if let Some(id) = object_id {
-                object_regions.insert(
-                    id.to_string(),
-                    engine_core::effects::Region {
-                        x: draw_x,
-                        y: draw_y,
-                        width: if stretch_to_area {
-                            area.width.max(1)
-                        } else {
-                            buf.width
-                        },
-                        height: if stretch_to_area {
-                            area.height.max(1)
-                        } else {
-                            buf.height
-                        },
-                    },
+            blit_scene_clip_buffer(&buf, target, draw_x, draw_y, stretch_to_area, area);
+            return Some(rendered_region(draw_x, draw_y, stretch_to_area, area, &buf));
+        }
+    }
+
+    None
+}
+
+fn rendered_region(
+    draw_x: u16,
+    draw_y: u16,
+    stretch_to_area: bool,
+    area: SpriteRenderArea,
+    source: &Buffer,
+) -> Region {
+    Region {
+        x: draw_x,
+        y: draw_y,
+        width: if stretch_to_area {
+            area.width.max(1)
+        } else {
+            source.width
+        },
+        height: if stretch_to_area {
+            area.height.max(1)
+        } else {
+            source.height
+        },
+    }
+}
+
+fn blit_scene_clip_buffer(
+    source: &Buffer,
+    target: &mut Buffer,
+    draw_x: u16,
+    draw_y: u16,
+    stretch_to_area: bool,
+    area: SpriteRenderArea,
+) {
+    if stretch_to_area {
+        blit_scaled_nearest(
+            source,
+            target,
+            draw_x,
+            draw_y,
+            area.width.max(1),
+            area.height.max(1),
+        );
+        return;
+    }
+    blit_unscaled(source, target, draw_x, draw_y);
+}
+
+fn blit_unscaled(source: &Buffer, target: &mut Buffer, draw_x: u16, draw_y: u16) {
+    for sy in 0..source.height {
+        for sx in 0..source.width {
+            if let Some(cell) = source.get(sx, sy) {
+                target.set(
+                    draw_x.saturating_add(sx),
+                    draw_y.saturating_add(sy),
+                    cell.symbol,
+                    cell.fg,
+                    cell.bg,
                 );
             }
         }
@@ -130,8 +143,8 @@ pub(crate) fn render_scene_clip_sprite(
 }
 
 fn blit_scaled_nearest(
-    src: &engine_core::buffer::Buffer,
-    dst: &mut engine_core::buffer::Buffer,
+    src: &Buffer,
+    dst: &mut Buffer,
     dst_x: u16,
     dst_y: u16,
     dst_w: u16,

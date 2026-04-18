@@ -7,8 +7,10 @@ license.workspace = true
 
 [dependencies]
 engine-asset = { path = "../engine-asset" }
+engine-celestial = { path = "../engine-celestial" }
 engine-core = { workspace = true }
 engine-3d = { path = "../engine-3d" }
+engine-worldgen = { path = "../engine-worldgen" }
 rayon = { workspace = true }
 
 [dev-dependencies]

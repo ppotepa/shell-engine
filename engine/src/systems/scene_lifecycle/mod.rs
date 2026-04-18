@@ -44,7 +44,9 @@ impl SceneLifecycleManager {
                         continue;
                     };
                     if let Some(scene) = world.scene_runtime().map(|runtime| runtime.scene()) {
-                        crate::runtime_settings::buffer_layout_for_scene(settings, scene, *width, *height)
+                        crate::runtime_settings::buffer_layout_for_scene(
+                            settings, scene, *width, *height,
+                        )
                     } else {
                         settings.buffer_layout(*width, *height)
                     }
@@ -283,24 +285,24 @@ impl SceneLifecycleManager {
     }
 
     fn apply_virtual_size_override(world: &mut World, scene: &scene::Scene) {
-    let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
-    let new_layout = {
-        let Some(settings) = world.runtime_settings() else {
-            return;
+        let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
+        let new_layout = {
+            let Some(settings) = world.runtime_settings() else {
+                return;
+            };
+            crate::runtime_settings::buffer_layout_for_scene(
+                settings,
+                scene,
+                output_dimensions.0,
+                output_dimensions.1,
+            )
         };
-        crate::runtime_settings::buffer_layout_for_scene(
-            settings,
-            scene,
-            output_dimensions.0,
-            output_dimensions.1,
-        )
-    };
-    if let Some(buffer) = world.buffer_mut() {
-        if buffer.width != new_layout.ui_width || buffer.height != new_layout.ui_height {
-            buffer.resize(new_layout.ui_width, new_layout.ui_height);
+        if let Some(buffer) = world.buffer_mut() {
+            if buffer.width != new_layout.ui_width || buffer.height != new_layout.ui_height {
+                buffer.resize(new_layout.ui_width, new_layout.ui_height);
+            }
         }
     }
-}
 }
 
 fn is_focus_navigation_key(key: &KeyEvent) -> bool {

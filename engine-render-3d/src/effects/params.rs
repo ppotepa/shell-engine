@@ -35,6 +35,7 @@ pub struct PlanetBiomeParams {
     pub night_light_threshold: f32,
     pub night_light_intensity: f32,
     pub sun_dir: [f32; 3],
+    pub sun_intensity: f32,
     pub view_dir: [f32; 3],
     pub camera_pos: [f32; 3],
 }

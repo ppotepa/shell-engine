@@ -87,7 +87,10 @@ impl ScriptGuiApi {
     }
 
     fn submitted(&mut self, id: &str) -> bool {
-        self.state.as_ref().map(|s| s.submitted(id)).unwrap_or(false)
+        self.state
+            .as_ref()
+            .map(|s| s.submitted(id))
+            .unwrap_or(false)
     }
 
     fn number_value(&mut self, id: &str) -> rhai::FLOAT {

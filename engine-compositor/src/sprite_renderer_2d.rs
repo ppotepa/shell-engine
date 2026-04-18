@@ -141,8 +141,10 @@ pub(crate) trait Render3dDelegate {
         &self,
         spec: SceneClipSpriteSpec<'_>,
         area: RenderArea,
+        target_resolver: Option<&TargetResolver>,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
+        sprite_elapsed: u64,
         object_regions: &mut HashMap<String, Region>,
         ctx: &mut RenderCtx<'_>,
     );
@@ -311,8 +313,10 @@ fn render_sprite(
                 render_3d.render_scene_clip_sprite(
                     spec,
                     area,
+                    target_resolver,
                     object_id,
                     &object_state,
+                    sprite_elapsed,
                     object_regions,
                     ctx,
                 );

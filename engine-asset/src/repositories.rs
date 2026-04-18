@@ -132,9 +132,11 @@ impl SceneRepository for FsSceneRepository {
         let (full_path, content) = self.load_scene_content(scene_path)?;
         let scene_source_path = format!("/{}", relative_to_mod(&self.mod_source, &full_path));
 
-        let mut scene = compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
-            fs::read_to_string(self.scene_abs_path(asset_path)).ok()
-        })
+        let mut scene = compile_scene_document_with_loader_and_source(
+            &content,
+            &scene_source_path,
+            |asset_path| fs::read_to_string(self.scene_abs_path(asset_path)).ok(),
+        )
         .map_err(|source| EngineError::InvalidModYaml {
             path: full_path,
             source,
@@ -291,15 +293,18 @@ impl SceneRepository for ZipSceneRepository {
         };
 
         let scene_source_path = format!("/{normalized}");
-        let mut scene =
-            compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
-            let normalized_asset = Self::normalized(asset_path);
-            let mut nested_archive = self.open_archive().ok()?;
-            let mut file = nested_archive.by_name(normalized_asset).ok()?;
-            let mut raw = String::new();
-            file.read_to_string(&mut raw).ok()?;
-            Some(raw)
-        })
+        let mut scene = compile_scene_document_with_loader_and_source(
+            &content,
+            &scene_source_path,
+            |asset_path| {
+                let normalized_asset = Self::normalized(asset_path);
+                let mut nested_archive = self.open_archive().ok()?;
+                let mut file = nested_archive.by_name(normalized_asset).ok()?;
+                let mut raw = String::new();
+                file.read_to_string(&mut raw).ok()?;
+                Some(raw)
+            },
+        )
         .map_err(|source| EngineError::InvalidModYaml {
             path: self.mod_source.clone(),
             source,

@@ -103,7 +103,7 @@ gui:
       sprite: lighting-exposure-slider-track
       handle: lighting-exposure-slider-handle
       x: 734
-      y: 330
+      y: 358
       w: 168
       h: 14
       hit-padding: 4
@@ -115,7 +115,7 @@ gui:
       sprite: lighting-black-level-slider-track
       handle: lighting-black-level-slider-handle
       x: 734
-      y: 352
+      y: 380
       w: 168
       h: 14
       hit-padding: 4
@@ -127,7 +127,7 @@ gui:
       sprite: lighting-gamma-slider-track
       handle: lighting-gamma-slider-handle
       x: 734
-      y: 374
+      y: 402
       w: 168
       h: 14
       hit-padding: 4
@@ -139,7 +139,7 @@ gui:
       sprite: lighting-contrast-slider-track
       handle: lighting-contrast-slider-handle
       x: 734
-      y: 396
+      y: 424
       w: 168
       h: 14
       hit-padding: 4
@@ -151,7 +151,7 @@ gui:
       sprite: lighting-starfield-slider-track
       handle: lighting-starfield-slider-handle
       x: 734
-      y: 426
+      y: 444
       w: 168
       h: 14
       hit-padding: 4
@@ -163,7 +163,7 @@ gui:
       sprite: lighting-star-glare-slider-track
       handle: lighting-star-glare-slider-handle
       x: 734
-      y: 448
+      y: 464
       w: 168
       h: 14
       hit-padding: 4
@@ -171,29 +171,41 @@ gui:
       max: 1
       value: 0.22
     - type: slider
-      id: lighting-night-glow-slider
-      sprite: lighting-night-glow-slider-track
-      handle: lighting-night-glow-slider-handle
+      id: lighting-sun-azimuth-slider
+      sprite: lighting-sun-azimuth-slider-track
+      handle: lighting-sun-azimuth-slider-handle
       x: 734
-      y: 470
+      y: 484
       w: 168
       h: 14
       hit-padding: 4
       min: 0
       max: 1
-      value: 0
+      value: 0.58
     - type: slider
-      id: lighting-haze-leak-slider
-      sprite: lighting-haze-leak-slider-track
-      handle: lighting-haze-leak-slider-handle
+      id: lighting-sun-elevation-slider
+      sprite: lighting-sun-elevation-slider-track
+      handle: lighting-sun-elevation-slider-handle
       x: 734
-      y: 492
+      y: 504
       w: 168
       h: 14
       hit-padding: 4
       min: 0
       max: 1
-      value: 0
+      value: 0.53
+    - type: slider
+      id: lighting-sun-intensity-slider
+      sprite: lighting-sun-intensity-slider-track
+      handle: lighting-sun-intensity-slider-handle
+      x: 734
+      y: 524
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0.5
 stages:
   on_enter:
     steps:

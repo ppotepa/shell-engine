@@ -815,6 +815,11 @@ fn build_biome_params(
     if !has_biome {
         return None;
     }
+    let sun_intensity = (params.light_direction_x * params.light_direction_x
+        + params.light_direction_y * params.light_direction_y
+        + params.light_direction_z * params.light_direction_z)
+        .sqrt()
+        .clamp(0.0, 4.0);
     Some(PlanetBiomeParams {
         polar_ice_color: params.polar_ice_color,
         polar_ice_start: params.polar_ice_start,
@@ -850,6 +855,7 @@ fn build_biome_params(
         night_light_threshold: params.night_light_threshold,
         night_light_intensity: params.night_light_intensity,
         sun_dir: light_dir_norm,
+        sun_intensity,
         view_dir,
         camera_pos: [
             params.camera_world_x,
@@ -2242,6 +2248,25 @@ pub fn render_obj_to_canvas(
         let halo_power = (2.4 - params.atmo_forward_scatter.clamp(0.0, 1.0) * 1.1
             + (1.0 - params.atmo_haze_amount.clamp(0.0, 1.0)) * 0.35)
             .clamp(0.55, 4.0);
+        let light_vec = [
+            params.light_direction_x,
+            params.light_direction_y,
+            params.light_direction_z,
+        ];
+        let light_mag = (light_vec[0] * light_vec[0]
+            + light_vec[1] * light_vec[1]
+            + light_vec[2] * light_vec[2])
+            .sqrt()
+            .clamp(0.0, 4.0);
+        let light_dir = if light_mag > 1e-5 {
+            [
+                light_vec[0] / light_mag,
+                light_vec[1] / light_mag,
+                light_vec[2] / light_mag,
+            ]
+        } else {
+            [0.0, -1.0, 0.0]
+        };
         let t_halo = Instant::now();
         apply_atmosphere_halo_canvas(
             &mut canvas,
@@ -2257,11 +2282,11 @@ pub fn render_obj_to_canvas(
             params.atmo_haze_amount,
             params.atmo_absorption_amount,
             params.atmo_forward_scatter,
-            normalize3([
-                params.light_direction_x,
-                params.light_direction_y,
-                params.light_direction_z,
-            ]),
+            params.atmo_haze_night_leak,
+            params.atmo_night_glow,
+            params.atmo_night_glow_color.unwrap_or([90, 130, 255]),
+            light_mag,
+            light_dir,
             [
                 params.view_right_x,
                 params.view_right_y,
@@ -2313,6 +2338,10 @@ fn apply_atmosphere_halo_canvas(
     haze_amount: f32,
     absorption_amount: f32,
     forward_scatter: f32,
+    haze_night_leak: f32,
+    night_glow: f32,
+    night_glow_color: [u8; 3],
+    light_intensity: f32,
     light_dir: [f32; 3],
     view_right: [f32; 3],
     view_up: [f32; 3],
@@ -2393,6 +2422,10 @@ fn apply_atmosphere_halo_canvas(
     let rayleigh_amount = rayleigh_amount.clamp(0.0, 1.0);
     let absorption_amount = absorption_amount.clamp(0.0, 1.0);
     let forward_scatter = forward_scatter.clamp(0.0, 1.0);
+    let haze_night_leak = haze_night_leak.clamp(0.0, 1.0);
+    let night_glow = night_glow.clamp(0.0, 1.0);
+    let light_intensity = light_intensity.clamp(0.0, 4.0);
+    let day_gain = light_intensity.clamp(0.0, 1.6);
 
     const CORE_LUT_SIZE: usize = 256;
     const TWILIGHT_LUT_SIZE: usize = 512;
@@ -2509,29 +2542,48 @@ fn apply_atmosphere_halo_canvas(
             let skirt = skirt_lut[dist_idx];
             let core_idx = ((dist01 * (CORE_LUT_SIZE - 1) as f32) as usize).min(CORE_LUT_SIZE - 1);
             let core_ring = core_lut[core_idx];
-            let wide_scatter = skirt * (0.18 + 0.52 * day);
-            let forward_lobe =
-                skirt.powf(0.52) * smoothstep(0.10, 1.0, sun_alignment).powf(1.8) * forward_scatter;
+            let night = (1.0 - day).clamp(0.0, 1.0);
+            let lit_visibility = (day * day_gain)
+                .clamp(0.0, 1.0)
+                .max(night * haze_night_leak);
+            let shadowed_visibility = lit_visibility.powf(1.12);
+            let wide_scatter = skirt * (0.04 + 0.96 * shadowed_visibility);
+            let forward_lobe = skirt.powf(0.52)
+                * smoothstep(0.10, 1.0, sun_alignment).powf(1.8)
+                * forward_scatter
+                * day_gain.min(1.0);
             let twilight_t = ((sun_alignment + 1.0) * 0.5).clamp(0.0, 1.0);
             let twilight_idx =
                 ((twilight_t * (TWILIGHT_LUT_SIZE - 1) as f32) as usize).min(TWILIGHT_LUT_SIZE - 1);
             let twilight_arc = twilight_lut[twilight_idx];
             let haze_alpha = (halo_strength
                 * (0.12 + 0.88 * haze_amount)
-                * (core_ring * (0.55 + 0.35 * day + 0.45 * forward_lobe) + wide_scatter * 0.18))
+                * (0.06 + 0.94 * lit_visibility)
+                * (core_ring * (0.22 + 0.78 * shadowed_visibility + 0.35 * forward_lobe)
+                    + wide_scatter * 0.14))
                 .clamp(0.0, 0.97);
             let ray_alpha = (halo_strength
                 * (0.10 + 0.90 * rayleigh_amount)
                 * (wide_scatter + forward_lobe)
-                * (0.35 + 0.85 * day))
+                * (0.05 + 0.95 * shadowed_visibility))
                 .clamp(0.0, 0.95);
             let sunset_alpha = (halo_strength
                 * absorption_amount
                 * twilight_arc
                 * (0.10 + 0.90 * skirt)
-                * (0.16 + 0.40 * day + 0.20 * forward_lobe))
+                * (0.08 + 0.92 * day + 0.12 * forward_lobe))
                 .clamp(0.0, 0.78);
-            if haze_alpha <= 0.01 && ray_alpha <= 0.01 && sunset_alpha <= 0.01 {
+            let night_glow_alpha = (halo_strength
+                * night_glow
+                * night
+                * (0.08 + 0.64 * skirt)
+                * (0.08 + 0.52 * haze_amount))
+                .clamp(0.0, 0.45);
+            if haze_alpha <= 0.01
+                && ray_alpha <= 0.01
+                && sunset_alpha <= 0.01
+                && night_glow_alpha <= 0.01
+            {
                 continue;
             }
 
@@ -2544,6 +2596,9 @@ fn apply_atmosphere_halo_canvas(
             }
             if sunset_alpha > 0.0 {
                 out = mix_rgb(out, sunset_tint, sunset_alpha);
+            }
+            if night_glow_alpha > 0.0 {
+                out = mix_rgb(out, night_glow_color, night_glow_alpha);
             }
             canvas[y * w + x] = Some(out);
         }
@@ -3105,6 +3160,10 @@ mod tests {
             0.4,
             0.2,
             0.8,
+            0.0,
+            0.0,
+            [90, 130, 255],
+            1.0,
             [1.0, 0.2, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],

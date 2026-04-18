@@ -192,15 +192,13 @@ pub fn scene_mutation_request_from_set_path(
                 text: None,
             })
         }
-        _ if is_render3d_set_path(path) => {
-            Some(crate::scene::SceneMutationRequest::SetRender3d(
-                crate::scene::Render3dMutationRequest::SetWorldParam {
-                    target: target.to_string(),
-                    name: path.to_string(),
-                    value: value.clone(),
-                },
-            ))
-        }
+        _ if is_render3d_set_path(path) => Some(crate::scene::SceneMutationRequest::SetRender3d(
+            crate::scene::Render3dMutationRequest::SetWorldParam {
+                target: target.to_string(),
+                name: path.to_string(),
+                value: value.clone(),
+            },
+        )),
         _ => None,
     }
 }
@@ -247,13 +245,9 @@ mod tests {
 
     #[test]
     fn maps_text_content_set_property_to_typed_2d_request() {
-        let request = scene_mutation_request_from_set_path(
-            "hud",
-            "text.content",
-            &"HELLO".into(),
-            None,
-        )
-        .expect("typed request");
+        let request =
+            scene_mutation_request_from_set_path("hud", "text.content", &"HELLO".into(), None)
+                .expect("typed request");
 
         assert_eq!(
             request,
