@@ -1,6 +1,10 @@
-# Refactor Handoff (Leftover Work)
+# Remaining Follow-up
 
-Scope: what is still open after current batch.
+Scope: remaining work after the current refactor closure pass.
+
+Context:
+- `3drefactor.md` is now closed as complete.
+- Items below are follow-up product/performance/visual work, not unfinished core refactor ownership cleanup.
 
 ## 1) 2D-only Leakage Validation (DoD [x] done)
 
@@ -29,7 +33,7 @@ Next follow-up:
   - decide whether unsupported `scene.set(...)` paths should remain silent no-op,
   - or emit script diagnostics at API boundary.
 
-## 3) Docs and Status Consistency (DoD [x] mostly done)
+## 3) Docs and Status Consistency (DoD [x] done)
 
 - Keep these aligned after further edits:
   - `3drefactor.md`,
@@ -37,8 +41,8 @@ Next follow-up:
   - `engine-api/README.md`,
   - `AUTHORING.md`,
   - `CHANGELOG.md`.
-- Current update completed:
-  - `3drefactor.md` reflects that runtime mutation flow is fully typed.
+- Current state:
+  - runtime mutation flow docs are aligned with the typed-only implementation path.
 
 ## 4) Performance Cleanup Passes (DoD [ ] partially done)
 

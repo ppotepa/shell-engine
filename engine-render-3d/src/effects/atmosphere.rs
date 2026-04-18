@@ -20,6 +20,7 @@ pub struct AtmosphereParams {
     pub terminator_softness: f32,
     pub night_glow: f32,
     pub night_glow_color: [u8; 3],
+    pub haze_night_leak: f32,
 }
 
 /// Apply atmosphere rim + haze to an RGB pixel.
@@ -60,6 +61,8 @@ pub fn apply_atmosphere_overlay_rgb(
     let view_airmass = ((1.0 / (mu_view * 0.86 + 0.14)) - 0.78).clamp(0.0, 4.5);
     let optical_depth = density * profile_height_boost * (0.18 + view_airmass);
     let optical = (1.0 - (-optical_depth).exp()).clamp(0.0, 1.0);
+    let haze_night_leak = params.haze_night_leak.clamp(0.0, 1.0);
+    let haze_visibility = day.max(night * haze_night_leak);
     let absorption_profile = gaussian(
         edge,
         params.absorption_height.clamp(0.0, 1.0),
@@ -87,7 +90,7 @@ pub fn apply_atmosphere_overlay_rgb(
         .clamp(0.0, 0.78);
     let disk_haze_alpha = (optical
         * (0.08 + 0.74 * params.haze_amount.clamp(0.0, 1.0))
-        * (0.22 + 0.78 * day)
+        * (0.16 + 0.84 * haze_visibility)
         * (0.18 + 0.82 * horizon.powf(0.82)))
     .clamp(0.0, 0.88);
     let disk_ray_alpha = (optical
@@ -197,6 +200,7 @@ pub fn apply_atmosphere_overlay_barycentric(
             terminator_softness: biome.atmo_terminator_softness,
             night_glow: biome.atmo_night_glow,
             night_glow_color: biome.atmo_night_glow_color.unwrap_or([90, 130, 255]),
+            haze_night_leak: biome.atmo_haze_night_leak,
         },
         normal,
         biome.sun_dir,
@@ -206,7 +210,7 @@ pub fn apply_atmosphere_overlay_barycentric(
 
 #[cfg(test)]
 mod tests {
-    use super::apply_atmosphere_overlay_barycentric;
+    use super::{apply_atmosphere_overlay_barycentric, apply_atmosphere_overlay_rgb, AtmosphereParams};
     use crate::effects::params::PlanetBiomeParams;
     use crate::geom::types::ProjectedVertex;
 
@@ -237,6 +241,7 @@ mod tests {
             atmo_terminator_softness: 1.0,
             atmo_night_glow: 0.0,
             atmo_night_glow_color: None,
+            atmo_haze_night_leak: 0.0,
             atmo_rim_power: 2.5,
             atmo_haze_strength: 0.4,
             atmo_haze_power: 1.4,
@@ -272,6 +277,68 @@ mod tests {
             0.0,
         );
         assert_ne!(pixel, [10, 20, 30]);
+    }
+
+    #[test]
+    fn haze_night_leak_can_lift_night_side_haze() {
+        let base = [4, 8, 12];
+        let no_leak = apply_atmosphere_overlay_rgb(
+            base,
+            AtmosphereParams {
+                height: 0.12,
+                density: 0.85,
+                rayleigh_amount: 0.0,
+                rayleigh_color: [124, 200, 255],
+                rayleigh_falloff: 0.32,
+                haze_amount: 0.55,
+                haze_color: [220, 225, 235],
+                haze_falloff: 0.18,
+                absorption_amount: 0.0,
+                absorption_color: [255, 170, 110],
+                absorption_height: 0.55,
+                absorption_width: 0.18,
+                forward_scatter: 0.72,
+                limb_boost: 1.0,
+                terminator_softness: 1.0,
+                night_glow: 0.0,
+                night_glow_color: [90, 130, 255],
+                haze_night_leak: 0.0,
+            },
+            [1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        );
+        let with_leak = apply_atmosphere_overlay_rgb(
+            base,
+            AtmosphereParams {
+                haze_night_leak: 0.8,
+                ..AtmosphereParams {
+                    height: 0.12,
+                    density: 0.85,
+                    rayleigh_amount: 0.0,
+                    rayleigh_color: [124, 200, 255],
+                    rayleigh_falloff: 0.32,
+                    haze_amount: 0.55,
+                    haze_color: [220, 225, 235],
+                    haze_falloff: 0.18,
+                    absorption_amount: 0.0,
+                    absorption_color: [255, 170, 110],
+                    absorption_height: 0.55,
+                    absorption_width: 0.18,
+                    forward_scatter: 0.72,
+                    limb_boost: 1.0,
+                    terminator_softness: 1.0,
+                    night_glow: 0.0,
+                    night_glow_color: [90, 130, 255],
+                    haze_night_leak: 0.0,
+                }
+            },
+            [1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        );
+
+        assert!(with_leak[0] > no_leak[0] || with_leak[1] > no_leak[1] || with_leak[2] > no_leak[2]);
     }
 }
 

@@ -1,0 +1,13 @@
+id: space-cinematic-soft
+ambient_intensity: 0.08
+key_light_intensity: 1.0
+fill_light_intensity: 0.18
+rim_light_intensity: 0.22
+black_level: 0.03
+shadow_contrast: 0.82
+exposure: 1.05
+tonemap: reinhard
+gamma: 2.2
+night_glow_scale: 0.08
+haze_night_leak: 0.06
+specular_floor: 0.03

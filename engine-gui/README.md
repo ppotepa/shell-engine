@@ -10,8 +10,9 @@ state lives in `GuiRuntimeState` so callers decide lifetime and ownership.
 
 **Responsibilities:**
 
-- Define the `GuiControl` trait and concrete control types (`SliderControl`,
-  `ButtonControl`, `ToggleControl`, `PanelControl`).
+  - Define the `GuiControl` trait and concrete control types (`SliderControl`,
+    `ButtonControl`, `ToggleControl`, `PanelControl`, `RadioGroupControl`,
+    `DropdownControl`, `TextInputControl`, `NumberInputControl`).
 - Track per-widget runtime state (`GuiRuntimeState`, `GuiWidgetState`).
 - Process `engine_events::InputEvent` slices and update hit-test state, hover,
   pressed, clicked, and value fields (`GuiSystem`).
@@ -31,8 +32,12 @@ state lives in `GuiRuntimeState` so callers decide lifetime and ownership.
 | `ButtonControl` | `control.rs` | Button: click detection |
 | `ToggleControl` | `control.rs` | Toggle: on/off state flip |
 | `PanelControl` | `control.rs` | Panel: passive container, hover only |
+| `RadioGroupControl` | `control.rs` | Single-choice segmented control |
+  | `DropdownControl` | `control.rs` | Compact popup selector with open/close state |
+  | `TextInputControl` | `control.rs` | Focusable single-line text entry |
+  | `NumberInputControl` | `control.rs` | Numeric text entry with optional clamp |
 | `WidgetRect` | `control.rs` | Hit-test bounds helper |
-| `VisualSync` | `control.rs` | Engine-level sprite positioning data (sprite alias + offset_x) |
+| `VisualSync` / `VisualSyncAction` | `control.rs` | Engine-level visual sync actions (offset, visibility, text) |
 | `GuiRuntimeState` | `state.rs` | Mutable per-frame widget state (values, hover, pressed, clicked) |
 | `GuiWidgetState` | `state.rs` | Per-widget flag/value bag |
 | `GuiSystem` | `system.rs` | Stateless update system — call `update(widgets, state, events)` once per frame |
@@ -45,11 +50,11 @@ Each widget type implements `GuiControl`:
 ```rust
 pub trait GuiControl: Send + Sync {
     fn id(&self) -> &str;
-    fn bounds(&self) -> WidgetRect;
-    fn initial_value(&self) -> f64;
-    fn on_mouse_down(&self, x: f32, y: f32, state: &mut GuiWidgetState) -> bool;
-    fn on_drag(&self, x: f32, y: f32, state: &mut GuiWidgetState) -> bool;
-    fn on_mouse_up(&self, x: f32, y: f32, state: &mut GuiWidgetState) -> bool;
+    fn bounds(&self, state: &GuiWidgetState) -> Option<WidgetRect>;
+    fn initial_state(&self) -> GuiWidgetState;
+    fn on_mouse_down(&self, state: &mut GuiWidgetState, x: f32, y: f32);
+    fn on_drag(&self, state: &mut GuiWidgetState, x: f32, y: f32);
+    fn on_mouse_up(&self, state: &mut GuiWidgetState, x: f32, y: f32, still_hovered: bool);
     fn visual_sync(&self, state: &GuiWidgetState) -> Option<VisualSync>;
 }
 ```
@@ -58,9 +63,14 @@ pub trait GuiControl: Send + Sync {
 no match-on-variant branching. Adding a new widget type only requires
 implementing the trait.
 
-`visual_sync()` returns positioning data that the engine applies to scene sprites
-automatically (e.g., slider handle `offset_x`). This replaces manual Rhai-side
-`scene.set("handle", "position.x", ...)` calls.
+`visual_sync()` returns engine-managed visual actions that can update widget
+sprites without Rhai glue. Current built-in sync paths cover:
+- slider handle `offset_x`
+- radio-group selected-marker visibility
+- dropdown popup visibility
+- dropdown trigger label text
+- dropdown popup placement above or below the trigger
+- text input / number input text mirroring into authored label sprites
 
 ## Input contract
 
@@ -95,6 +105,7 @@ sprite offsets (e.g., slider handle positioning) automatically.
 
 Rhai scripts read widget state through `ScriptGuiApi`:
 - `gui.slider_value(id)`, `gui.toggle_on(id)`, `gui.button_clicked(id)`
+- `gui.selected_index(id)`, `gui.widget_open(id)`
 - `gui.has_change()`, `gui.changed_widget()`
 - `gui.widget_hovered(id)`, `gui.widget_pressed(id)`
 - `gui.set_widget_value(id, val)` — programmatic value change

@@ -16,6 +16,7 @@ use engine_authoring::repository::{
 use engine_core::scene::Scene;
 use engine_error::EngineError;
 
+use crate::profile_assets::hydrate_scene_view_profiles;
 use crate::scene_compiler::compile_scene_document_with_loader_and_source;
 
 /// Loads authored scenes from a mod source after any package-level assembly.
@@ -131,13 +132,15 @@ impl SceneRepository for FsSceneRepository {
         let (full_path, content) = self.load_scene_content(scene_path)?;
         let scene_source_path = format!("/{}", relative_to_mod(&self.mod_source, &full_path));
 
-        compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
+        let mut scene = compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
             fs::read_to_string(self.scene_abs_path(asset_path)).ok()
         })
         .map_err(|source| EngineError::InvalidModYaml {
             path: full_path,
             source,
-        })
+        })?;
+        hydrate_scene_view_profiles(self, &mut scene)?;
+        Ok(scene)
     }
 
     fn discover_scene_paths(&self) -> Result<Vec<String>, EngineError> {
@@ -288,7 +291,8 @@ impl SceneRepository for ZipSceneRepository {
         };
 
         let scene_source_path = format!("/{normalized}");
-        compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
+        let mut scene =
+            compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
             let normalized_asset = Self::normalized(asset_path);
             let mut nested_archive = self.open_archive().ok()?;
             let mut file = nested_archive.by_name(normalized_asset).ok()?;
@@ -299,7 +303,9 @@ impl SceneRepository for ZipSceneRepository {
         .map_err(|source| EngineError::InvalidModYaml {
             path: self.mod_source.clone(),
             source,
-        })
+        })?;
+        hydrate_scene_view_profiles(self, &mut scene)?;
+        Ok(scene)
     }
 
     fn discover_scene_paths(&self) -> Result<Vec<String>, EngineError> {

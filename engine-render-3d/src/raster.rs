@@ -11,6 +11,7 @@ use engine_asset::{load_render_mesh, ObjFace, ObjMesh};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
+use engine_core::scene::TonemapOperator;
 use rayon::prelude::*;
 
 use crate::api::Render3dPipeline;
@@ -158,6 +159,94 @@ pub(crate) fn rgb_to_color(rgb: [u8; 3]) -> Color {
         r: rgb[0],
         g: rgb[1],
         b: rgb[2],
+    }
+}
+
+#[inline]
+fn tonemap_channel(value: f32, tonemap: TonemapOperator) -> f32 {
+    match tonemap {
+        TonemapOperator::Linear => value,
+        TonemapOperator::Reinhard => value / (1.0 + value),
+        TonemapOperator::AcesApprox => {
+            let a = 2.51;
+            let b = 0.03;
+            let c = 2.43;
+            let d = 0.59;
+            let e = 0.14;
+            ((value * (a * value + b)) / (value * (c * value + d) + e)).clamp(0.0, 1.0)
+        }
+    }
+}
+
+#[inline]
+fn grade_rgb(
+    rgb: [u8; 3],
+    exposure: f32,
+    gamma: f32,
+    tonemap: TonemapOperator,
+    shadow_contrast: f32,
+) -> [u8; 3] {
+    let inv_gamma = (1.0 / gamma.max(0.1)).clamp(0.05, 10.0);
+    let exposure = exposure.max(0.0);
+    let shadow_contrast = shadow_contrast.clamp(0.25, 4.0);
+    let map = |channel: u8| -> u8 {
+        let linear = (channel as f32 / 255.0) * exposure;
+        let mapped = tonemap_channel(linear, tonemap).clamp(0.0, 1.0);
+        let contrasted = mapped.powf(shadow_contrast).clamp(0.0, 1.0);
+        let corrected = contrasted.powf(inv_gamma).clamp(0.0, 1.0);
+        (corrected * 255.0).round() as u8
+    };
+    [map(rgb[0]), map(rgb[1]), map(rgb[2])]
+}
+
+fn apply_canvas_grading(
+    canvas: &mut [Option<[u8; 3]>],
+    exposure: f32,
+    gamma: f32,
+    tonemap: TonemapOperator,
+    shadow_contrast: f32,
+) {
+    if (exposure - 1.0).abs() < f32::EPSILON
+        && (gamma - 2.2).abs() < f32::EPSILON
+        && matches!(tonemap, TonemapOperator::Linear)
+        && (shadow_contrast - 1.0).abs() < f32::EPSILON
+    {
+        return;
+    }
+    for pixel in canvas.iter_mut() {
+        if let Some(rgb) = pixel.as_mut() {
+            *rgb = grade_rgb(*rgb, exposure, gamma, tonemap, shadow_contrast);
+        }
+    }
+}
+
+fn apply_rgba_canvas_grading(
+    canvas: &mut [Option<[u8; 4]>],
+    exposure: f32,
+    gamma: f32,
+    tonemap: TonemapOperator,
+    shadow_contrast: f32,
+) {
+    if (exposure - 1.0).abs() < f32::EPSILON
+        && (gamma - 2.2).abs() < f32::EPSILON
+        && matches!(tonemap, TonemapOperator::Linear)
+        && (shadow_contrast - 1.0).abs() < f32::EPSILON
+    {
+        return;
+    }
+    for pixel in canvas.iter_mut() {
+        if let Some(rgba) = pixel.as_mut() {
+            let graded = grade_rgb(
+                [rgba[0], rgba[1], rgba[2]],
+                exposure,
+                gamma,
+                tonemap,
+                shadow_contrast,
+            );
+            rgba[0] = graded[0];
+            rgba[1] = graded[1];
+            rgba[2] = graded[2];
+        }
     }
 }
 
@@ -740,6 +829,7 @@ fn build_biome_params(
         atmo_terminator_softness: params.atmo_terminator_softness,
         atmo_night_glow: params.atmo_night_glow,
         atmo_night_glow_color: params.atmo_night_glow_color,
+        atmo_haze_night_leak: params.atmo_haze_night_leak,
         atmo_rim_power: params.atmo_rim_power,
         atmo_haze_strength: params.atmo_haze_strength,
         atmo_haze_power: params.atmo_haze_power,
@@ -2176,6 +2266,13 @@ pub fn render_obj_to_canvas(
         faces_drawn,
         viewport_area_px: virtual_w as u32 * virtual_h as u32,
     });
+    apply_canvas_grading(
+        &mut canvas,
+        params.exposure,
+        params.gamma,
+        params.tonemap,
+        params.shadow_contrast,
+    );
     Some((canvas, virtual_w, virtual_h))
 }
 
@@ -2764,6 +2861,13 @@ pub fn render_obj_to_rgba_canvas(
         faces_drawn: faces_drawn_count,
         viewport_area_px: virtual_w as u32 * virtual_h as u32,
     });
+    apply_rgba_canvas_grading(
+        &mut canvas,
+        params.exposure,
+        params.gamma,
+        params.tonemap,
+        params.shadow_contrast,
+    );
     Some((canvas, virtual_w, virtual_h))
 }
 
@@ -2944,8 +3048,8 @@ pub fn try_blit_prerendered(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_atmosphere_halo_canvas, obj_sprite_dimensions};
-    use engine_core::scene::SpriteSizePreset;
+    use super::{apply_atmosphere_halo_canvas, grade_rgb, obj_sprite_dimensions};
+    use engine_core::scene::{SpriteSizePreset, TonemapOperator};
 
     #[test]
     fn atmosphere_halo_paints_pixels_outside_the_planet_silhouette() {
@@ -3014,5 +3118,23 @@ mod tests {
             obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Large)),
             (96, 36)
         );
+    }
+
+    #[test]
+    fn grading_changes_rgb_when_exposure_or_tonemap_is_applied() {
+        let source = [180, 120, 60];
+        let linear = grade_rgb(source, 1.0, 2.2, TonemapOperator::Linear, 1.0);
+        let graded = grade_rgb(source, 1.35, 2.0, TonemapOperator::Reinhard, 1.0);
+
+        assert_ne!(linear, graded);
+        assert!(graded[0] >= graded[2]);
+    }
+
+    #[test]
+    fn grading_changes_rgb_when_shadow_contrast_is_applied() {
+        let neutral = grade_rgb([128, 128, 128], 1.0, 2.2, TonemapOperator::Linear, 1.0);
+        let contrasted = grade_rgb([128, 128, 128], 1.0, 2.2, TonemapOperator::Linear, 1.8);
+
+        assert!(contrasted[0] < neutral[0]);
     }
 }

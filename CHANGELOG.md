@@ -2,7 +2,22 @@
 
 Daily progress updates for Shell Engine development.
 
+## 18-04-2026
+
+**Dual-resolution UI/world render path** ✅
+- **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.ui_render_scale` runtime setting.
+- **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
+- **engine / renderer**: FPS HUD generic-font scale now follows `ui_render_scale` to keep overlays readable on denser UI targets.
+- **schemas/docs/mods**: added `ui_render_scale` to `schemas/mod.schema.yaml`, documented contract in `AUTHORING.md`, and enabled scale in active mods (`planet-generator`, `lighting-playground`, `gui-playground`).
+- **validation**: `cargo check -p engine-runtime -p engine`, `cargo check -p engine-compositor -p engine`, `cargo check -p app`, targeted engine tests, and `--check-scenes` for gui/planet mods.
+
 ## 17-04-2026
+
+**3D view-profile foundation** ✅
+- **engine-core**: added scene-level `view` contract with reusable `profile`, `lighting-profile`, and `space-environment-profile` references plus typed `LightingProfile` / `SpaceEnvironmentProfile` / `ViewProfile` models as the first foundation for hierarchical 3D scene look selection.
+- **engine-authoring**: added authored document stubs for `lighting-profile`, `space-environment-profile`, and `view-profile` so the authoring layer has explicit reusable profile types.
+- **engine-scene-runtime / engine-api / engine / engine-compositor / engine-asset / engine-render-3d**: runtime now stores a resolved scene view profile, compositor/render adapters receive that resolved contract instead of a raw ambient-float seam, scene background can now fall back to `space-environment-profile.background_color`, compositor now renders deterministic scene-level `starfield` and `primary_star_glare` passes from `space-environment-profile`, typed API/runtime mutations support switching `view-profile`, `lighting-profile`, and `space-environment-profile` without new string-path branches, scene repositories now hydrate asset-backed profiles from conventional mod paths or explicit YAML paths, `engine-render-3d` now consumes scene-level `exposure` / `gamma` / `tonemap` / `shadow_contrast` as 3D grading on rendered output, scene-level `SetLightingParam` / `SetSpaceEnvironmentParam` overrides now apply as dedicated runtime overlays after view-profile resolution, and `lighting-profile.night_glow_scale` / `lighting-profile.haze_night_leak` now drive reusable night-side atmosphere behavior without mod-specific logic.
+- **schemas/docs/tests**: extended `schemas/scene.schema.yaml`, added profile asset schema stubs, updated `AUTHORING.md`, rewrote `lightning.impl.md` around the new `view-profile -> lighting/environment` composition model, and added initial resolution/runtime/background/asset-hydration/grading tests plus deterministic compositor regression hashes for built-in scene view presets.
 
 **App launch & compositor stability** ✅
 - **app**: startup pixel scale no longer defaults to a fixed `8` multiplier; it now auto-resolves from `display.render_size` when CLI scale is unset, preventing oversized benchmark/dev windows on multi-monitor setups.
@@ -26,7 +41,7 @@ Daily progress updates for Shell Engine development.
 **3D ownership split closed + docs sync** ✅
 - **engine-render-3d**: now owns the moved raster path, Scene3D prerender work-item flow, generated-world rendering internals, and the final 3D-side seams consumed by compositor
 - **engine-compositor**: reduced to frame assembly, prepared-frame orchestration, PostFX, and adapter-level delegation into `engine-render-2d` / `engine-render-3d`
-- **engine-api / engine-scene-runtime / engine-behavior**: typed-first scene mutation flow consolidated; spawn/despawn command variants removed; raw `SetProperty` left only as a narrow documented fallback
+- **engine-api / engine-scene-runtime / engine-behavior**: typed-first scene mutation flow consolidated end-to-end; spawn/despawn command variants removed; supported `scene.set(...)` paths are translated at the API edge and unsupported paths no longer enqueue runtime mutation work
 - **spatial/docs**: added `UNITS.md` (engine unit model: `screen_px`, `virtual_px`, `wu`, `m/km`) and synced root documentation to current architecture
 - **planet perf**: generated-world cloud/atmosphere optimization pass closed (cloud cadence/reuse, reduced cloud mesh sources, one-heavy-cloud-refresh-per-frame guard, startup surface LOD ramp)
 - **benchmarks**: added cloud-heavy scenario `mods/asteroids/scenes/bench-cloud/scene.yml`; stabilized run reached ~23.8 FPS class with compositor ~36ms avg on 10s bench

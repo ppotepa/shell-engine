@@ -14,6 +14,9 @@ by combining:
 - PostFX and dirty-region propagation.
 
 This crate should stay focused on composition and delegation.
+Scene-level environment passes such as starfield/background glare are allowed
+here only as generic frame-assembly concerns, not as object- or mod-specific
+3D rendering logic.
 
 ## What it owns
 

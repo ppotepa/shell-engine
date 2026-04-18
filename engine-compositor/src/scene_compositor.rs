@@ -4,6 +4,7 @@ use engine_celestial::CelestialCatalogs;
 use engine_core::assets::AssetRoot;
 use engine_core::color::Color;
 use engine_core::scene::{Effect, Layer, LayerSpace, SceneSpace};
+use engine_core::scene::ResolvedViewProfile;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -61,6 +62,8 @@ pub struct PreparedCameraInputs<'a> {
 /// Per-frame runtime and render state prepared by engine before compositor dispatch.
 pub struct PreparedCompositeInputs<'a> {
     pub camera: PreparedCameraInputs<'a>,
+    pub resolved_view_profile: &'a ResolvedViewProfile,
+    pub ui_font_scale: f32,
     pub target_resolver: &'a TargetResolver,
     pub object_states: &'a HashMap<String, ObjectRuntimeState>,
     pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
@@ -74,7 +77,6 @@ pub struct PreparedCompositeInputs<'a> {
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
-    pub ambient_floor: f32,
 }
 
 /// Prepare per-layer timing flags used by compositor assembly decisions.

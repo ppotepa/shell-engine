@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use engine_core::assets::AssetRoot;
 use engine_core::color::Color;
+use engine_core::scene::TonemapOperator;
 use engine_core::logging;
 use engine_core::scene::{Layer, SpriteSizePreset};
 use rayon::prelude::*;
@@ -463,6 +464,10 @@ fn build_static_obj_prerender_params(spec: &ObjSpriteSpec<'_>) -> ObjRenderParam
         unlit: false,
         ambient: 0.0,
         ambient_floor: 0.06,
+        shadow_contrast: 1.0,
+        exposure: 1.0,
+        gamma: 2.2,
+        tonemap: TonemapOperator::Linear,
         light_point_falloff: 0.7,
         light_point_2_falloff: 0.7,
         smooth_shading: spec.smooth_shading.unwrap_or(false),
@@ -514,6 +519,7 @@ fn build_static_obj_prerender_params(spec: &ObjSpriteSpec<'_>) -> ObjRenderParam
         atmo_terminator_softness: 1.0,
         atmo_night_glow: 0.0,
         atmo_night_glow_color: None,
+        atmo_haze_night_leak: 0.0,
         atmo_rim_power: 4.5,
         atmo_haze_strength: 0.0,
         atmo_haze_power: 1.8,

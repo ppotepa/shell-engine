@@ -10,7 +10,9 @@ use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_animation::SceneStage;
+use engine_core::buffer::Buffer;
 use engine_core::color::Color;
+use engine_core::scene::ResolvedViewProfile;
 
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
@@ -53,7 +55,9 @@ pub fn compositor_system(world: &mut World) {
 
     let (
         bg,
+        resolved_view_profile,
         ui_enabled,
+        ui_font_scale,
         target_resolver,
         object_states,
         obj_camera_states,
@@ -69,7 +73,8 @@ pub fn compositor_system(world: &mut World) {
         camera_y,
         camera_zoom,
         spatial_context,
-        ambient_floor,
+        world_render_width,
+        world_render_height,
     ) = {
         // Get both Arc snapshots first (requires &mut)
         let (object_states, obj_camera_states) = world
@@ -89,12 +94,26 @@ pub fn compositor_system(world: &mut World) {
         let elapsed = animator.map(|a| a.elapsed_ms).unwrap_or(0);
         let scene_elapsed = animator.map(|a| a.scene_elapsed_ms).unwrap_or(0);
 
-        let bg = scene
-            .bg_colour
-            .as_ref()
-            .map(Color::from)
-            .unwrap_or(TRUE_BLACK);
+        let resolved_view_profile = world
+            .scene_runtime()
+            .map(|rt| rt.resolved_view_profile().clone())
+            .unwrap_or_default();
+        let bg = resolve_scene_background(scene, &resolved_view_profile);
         let ui_enabled = scene.ui.enabled;
+        let ui_font_scale = scene.ui.font_scale.max(0.01);
+        let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
+        let (world_render_width, world_render_height) = world
+            .runtime_settings()
+            .map(|settings| {
+                crate::runtime_settings::buffer_layout_for_scene(
+                    settings,
+                    scene,
+                    output_dimensions.0,
+                    output_dimensions.1,
+                )
+            })
+            .map(|layout| (layout.world_width, layout.world_height))
+            .unwrap_or(output_dimensions);
 
         let current_step = match &stage {
             SceneStage::OnEnter => scene.stages.on_enter.steps.get(step),
@@ -130,20 +149,11 @@ pub fn compositor_system(world: &mut World) {
             .scene_runtime()
             .map(|rt| rt.scene_camera_3d())
             .unwrap_or_default();
-        let ambient_floor = world
-            .scene_runtime()
-            .map(|rt| {
-                rt.scene()
-                    .lighting
-                    .as_ref()
-                    .and_then(|lighting| lighting.ambient_floor)
-                    .unwrap_or(0.06)
-            })
-            .unwrap_or(0.06);
-
         (
             bg,
+            resolved_view_profile,
             ui_enabled,
+            ui_font_scale,
             target_resolver,
             object_states,
             obj_camera_states,
@@ -159,7 +169,8 @@ pub fn compositor_system(world: &mut World) {
             camera_y,
             camera_zoom,
             spatial_context,
-            ambient_floor,
+            world_render_width,
+            world_render_height,
         )
     };
 
@@ -270,6 +281,8 @@ pub fn compositor_system(world: &mut World) {
                 camera_zoom,
                 spatial_context,
             },
+            resolved_view_profile: &resolved_view_profile,
+            ui_font_scale,
             target_resolver: target_resolver.as_ref(),
             object_states: &object_states,
             obj_camera_states: &obj_camera_states,
@@ -283,20 +296,76 @@ pub fn compositor_system(world: &mut World) {
             is_pixel_backend,
             default_font: default_font.as_deref(),
             prerender_frames,
-            ambient_floor,
         },
     };
     engine_render_2d::clear_vector_primitives();
-    #[cfg(feature = "render-3d")]
-    let object_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
-        crate::scene3d_atlas::with_atlas(atlas, || {
+    let use_split_pass = world_render_width != buf_w || world_render_height != buf_h;
+
+    let object_regions = if use_split_pass {
+        let mut world_scratch = engine_compositor::acquire_buffer(world_render_width, world_render_height);
+        let world_buffer: &mut Buffer = world_scratch.as_mut();
+        if is_pixel_backend {
+            world_buffer.enable_pixel_canvas(world_render_width, world_render_height);
+        }
+        #[cfg(feature = "render-3d")]
+        let world_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
+            crate::scene3d_atlas::with_atlas(atlas, || {
+                engine_compositor::dispatch_composite_filtered(
+                    &params,
+                    layer_strategy,
+                    engine_compositor::LayerPassKind::WorldOnly,
+                    world_buffer,
+                )
+            })
+        });
+        #[cfg(not(feature = "render-3d"))]
+        let world_regions = {
+            let _ = atlas;
+            engine_compositor::dispatch_composite_filtered(
+                &params,
+                layer_strategy,
+                engine_compositor::LayerPassKind::WorldOnly,
+                world_buffer,
+            )
+        };
+
+        upscale_world_into_final(world_buffer, buffer);
+
+        #[cfg(feature = "render-3d")]
+        let ui_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
+            crate::scene3d_atlas::with_atlas(atlas, || {
+                engine_compositor::dispatch_composite_filtered(
+                    &params,
+                    layer_strategy,
+                    engine_compositor::LayerPassKind::UiOnly,
+                    buffer,
+                )
+            })
+        });
+        #[cfg(not(feature = "render-3d"))]
+        let ui_regions = {
+            let _ = atlas;
+            engine_compositor::dispatch_composite_filtered(
+                &params,
+                layer_strategy,
+                engine_compositor::LayerPassKind::UiOnly,
+                buffer,
+            )
+        };
+        merge_regions(world_regions, ui_regions)
+    } else {
+        #[cfg(feature = "render-3d")]
+        let object_regions = crate::scene3d_runtime_store::with_runtime_store(runtime_store, || {
+            crate::scene3d_atlas::with_atlas(atlas, || {
+                engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
+            })
+        });
+        #[cfg(not(feature = "render-3d"))]
+        let object_regions = {
+            let _ = atlas;
             engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
-        })
-    });
-    #[cfg(not(feature = "render-3d"))]
-    let object_regions = {
-        let _ = atlas;
-        engine_compositor::dispatch_composite(&params, layer_strategy, buffer)
+        };
+        object_regions
     };
 
     // Apply script-triggered runtime effects on top of the composited frame.
@@ -343,6 +412,75 @@ pub fn compositor_system(world: &mut World) {
     }
 }
 
+fn merge_regions(
+    mut base: std::collections::HashMap<String, engine_core::effects::Region>,
+    overlay: std::collections::HashMap<String, engine_core::effects::Region>,
+) -> std::collections::HashMap<String, engine_core::effects::Region> {
+    for (key, value) in overlay {
+        base.insert(key, value);
+    }
+    base
+}
+
+fn upscale_world_into_final(world_buffer: &Buffer, final_buffer: &mut Buffer) {
+    final_buffer.fill(TRUE_BLACK);
+    let src_w = world_buffer.width.max(1) as u32;
+    let src_h = world_buffer.height.max(1) as u32;
+    let dst_w = final_buffer.width.max(1) as u32;
+    let dst_h = final_buffer.height.max(1) as u32;
+
+    for dy in 0..dst_h {
+        let sy = ((dy * src_h) / dst_h).min(src_h - 1) as u16;
+        for dx in 0..dst_w {
+            let sx = ((dx * src_w) / dst_w).min(src_w - 1) as u16;
+            if let Some(cell) = world_buffer.get(sx, sy) {
+                final_buffer.set(dx as u16, dy as u16, cell.symbol, cell.fg, cell.bg);
+            }
+        }
+    }
+
+    let (src_pc, dst_pc) = match (&world_buffer.pixel_canvas, &mut final_buffer.pixel_canvas) {
+        (Some(src), Some(dst)) => (src, dst),
+        _ => return,
+    };
+    if src_pc.width == 0 || src_pc.height == 0 || dst_pc.width == 0 || dst_pc.height == 0 {
+        return;
+    }
+    let src_pw = src_pc.width as u32;
+    let src_ph = src_pc.height as u32;
+    let dst_pw = dst_pc.width as u32;
+    let dst_ph = dst_pc.height as u32;
+    let src_stride = src_pc.width as usize * 4;
+    let dst_stride = dst_pc.width as usize * 4;
+    for py in 0..dst_ph {
+        let sy = ((py * src_ph) / dst_ph).min(src_ph - 1) as usize;
+        for px in 0..dst_pw {
+            let sx = ((px * src_pw) / dst_pw).min(src_pw - 1) as usize;
+            let src_i = sy * src_stride + sx * 4;
+            let dst_i = py as usize * dst_stride + px as usize * 4;
+            dst_pc.data[dst_i..dst_i + 4].copy_from_slice(&src_pc.data[src_i..src_i + 4]);
+        }
+    }
+    dst_pc.dirty = true;
+}
+
+fn resolve_scene_background(
+    scene: &engine_core::scene::Scene,
+    resolved_view_profile: &ResolvedViewProfile,
+) -> Color {
+    if let Some(bg) = scene.bg_colour.as_ref() {
+        return Color::from(bg);
+    }
+
+    resolved_view_profile
+        .environment
+        .background_color
+        .as_deref()
+        .and_then(engine_core::scene::color::parse_colour_str)
+        .map(|value| Color::from(&value))
+        .unwrap_or(TRUE_BLACK)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::scene_pipeline::ScenePipeline;
@@ -357,8 +495,10 @@ mod tests {
     use crate::scene_runtime::SceneRuntime;
     use crate::world::World;
     use engine_animation::{Animator, SceneStage};
+    use engine_core::scene::resolve_scene_view_profile;
 
     use super::compositor_system;
+    use super::resolve_scene_background;
     #[test]
     fn higher_z_layer_renders_above_background_layer_effects() {
         let scene: Scene = serde_yaml::from_str(
@@ -588,6 +728,85 @@ layers:
 
         let buffer = world.get::<Buffer>().expect("buffer");
         assert_eq!(buffer.get(0, 0).expect("glyph").symbol, 'H');
+    }
+
+    #[test]
+    fn scene_background_falls_back_to_view_environment_color() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: orbit
+title: Orbit
+view:
+  profile: orbit-realistic
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        let resolved = resolve_scene_view_profile(&scene);
+        let bg = resolve_scene_background(&scene, &resolved);
+
+        assert_eq!(bg, Color::Rgb { r: 0, g: 0, b: 8 });
+    }
+
+    fn render_scene_hash(scene_yaml: &str, width: u16, height: u16) -> u64 {
+        let scene: Scene = serde_yaml::from_str(scene_yaml).expect("scene should parse");
+        let mut world = World::new();
+        world.register(Buffer::new(width, height));
+        world.register(RuntimeSettings::default());
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 1,
+            stage_elapsed_ms: 1,
+            scene_elapsed_ms: 1,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        compositor_system(&mut world);
+        world.get::<Buffer>().expect("buffer").back_hash()
+    }
+
+    #[test]
+    fn built_in_view_profiles_produce_stable_environment_hashes() {
+        let orbit_realistic = render_scene_hash(
+            r#"
+id: orbit-realistic-test
+title: Orbit Realistic
+view:
+  profile: orbit-realistic
+layers: []
+"#,
+            64,
+            36,
+        );
+        let orbit_cinematic = render_scene_hash(
+            r#"
+id: orbit-cinematic-test
+title: Orbit Cinematic
+view:
+  profile: orbit-cinematic
+layers: []
+"#,
+            64,
+            36,
+        );
+        let deep_space_harsh = render_scene_hash(
+            r#"
+id: deep-space-harsh-test
+title: Deep Space Harsh
+view:
+  profile: deep-space-harsh
+layers: []
+"#,
+            64,
+            36,
+        );
+        assert_eq!(orbit_realistic, 1504792110987001759);
+        assert_eq!(orbit_cinematic, 16388289090597487831);
+        assert_eq!(deep_space_harsh, 13086957773771883252);
     }
 
     #[test]

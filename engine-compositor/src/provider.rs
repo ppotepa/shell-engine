@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use crate::ObjPrerenderedFrames;
 use engine_core::effects::Region;
+use engine_core::scene::ResolvedViewProfile;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -50,22 +51,22 @@ impl<'a> ResolvedRender2dPipeline<'a> {
 
 pub(crate) fn resolve_render_2d_pipeline<'a>(
     pipeline: Option<&'a dyn Render2dPipeline>,
+    resolved_view_profile: &'a ResolvedViewProfile,
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
     spatial_context: SpatialContext,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
     prerender_frames: Option<&'a ObjPrerenderedFrames>,
-    ambient_floor: f32,
 ) -> ResolvedRender2dPipeline<'a> {
     match pipeline {
         Some(pipeline) => ResolvedRender2dPipeline::Provided(pipeline),
         None => ResolvedRender2dPipeline::Default(DefaultCompositorRenderPipelines::new(
+            resolved_view_profile,
             obj_camera_states,
             scene_camera_3d,
             spatial_context,
             celestial_catalogs,
             prerender_frames,
-            ambient_floor,
         )),
     }
 }
@@ -76,22 +77,22 @@ pub struct DefaultCompositorRenderPipelines<'a> {
 
 impl<'a> DefaultCompositorRenderPipelines<'a> {
     pub fn new(
+        resolved_view_profile: &'a ResolvedViewProfile,
         obj_camera_states: &'a HashMap<String, ObjCameraState>,
         scene_camera_3d: &'a SceneCamera3D,
         spatial_context: SpatialContext,
         celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
         prerender_frames: Option<&'a ObjPrerenderedFrames>,
-        ambient_floor: f32,
     ) -> Self {
         #[cfg(feature = "render-3d")]
         let render_3d = DefaultCompositorRender3dDelegate;
         let render_2d = DefaultCompositorRender2dPipeline {
+            resolved_view_profile,
             obj_camera_states,
             scene_camera_3d,
             spatial_context,
             celestial_catalogs,
             prerender_frames,
-            ambient_floor,
             #[cfg(feature = "render-3d")]
             render_3d,
         };
@@ -100,12 +101,12 @@ impl<'a> DefaultCompositorRenderPipelines<'a> {
 }
 
 pub struct DefaultCompositorRender2dPipeline<'a> {
+    resolved_view_profile: &'a ResolvedViewProfile,
     obj_camera_states: &'a HashMap<String, ObjCameraState>,
     scene_camera_3d: &'a SceneCamera3D,
     spatial_context: SpatialContext,
     celestial_catalogs: Option<&'a engine_celestial::CelestialCatalogs>,
     prerender_frames: Option<&'a ObjPrerenderedFrames>,
-    ambient_floor: f32,
     #[cfg(feature = "render-3d")]
     render_3d: DefaultCompositorRender3dDelegate,
 }
@@ -133,7 +134,8 @@ impl Render2dPipeline for DefaultCompositorRender2dPipeline<'_> {
             self.celestial_catalogs,
             input.is_pixel_backend,
             input.default_font,
-            self.ambient_floor,
+            input.ui_font_scale,
+            self.resolved_view_profile,
             #[cfg(feature = "render-3d")]
             &self.render_3d,
             self.prerender_frames,

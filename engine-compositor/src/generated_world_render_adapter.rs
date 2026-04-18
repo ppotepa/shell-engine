@@ -3,6 +3,7 @@ use engine_celestial::BodyDef;
 use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::render_types::ScreenSpaceMetrics;
+use engine_core::scene::TonemapOperator;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use engine_core::spatial::SpatialContext;
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
@@ -20,6 +21,60 @@ use std::collections::HashMap;
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
 
 const DEFAULT_WORLD_CLOUD_COLOR: &str = "#eaf2f8";
+
+fn resolved_ambient_floor(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .black_level
+        .unwrap_or(0.06)
+}
+
+fn resolved_exposure(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .exposure
+        .unwrap_or(1.0)
+        .max(0.0)
+}
+
+fn resolved_gamma(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .gamma
+        .unwrap_or(2.2)
+        .clamp(0.1, 4.0)
+}
+
+fn resolved_tonemap(ctx: &RenderCtx<'_>) -> TonemapOperator {
+    ctx.resolved_view_profile
+        .lighting
+        .tonemap
+        .unwrap_or(TonemapOperator::Linear)
+}
+
+fn resolved_shadow_contrast(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .shadow_contrast
+        .unwrap_or(1.0)
+        .clamp(0.25, 4.0)
+}
+
+fn resolved_night_glow_scale(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .night_glow_scale
+        .unwrap_or(1.0)
+        .clamp(0.0, 2.0)
+}
+
+fn resolved_haze_night_leak(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .haze_night_leak
+        .unwrap_or(0.0)
+        .clamp(0.0, 1.0)
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn render_generated_world_sprite(
@@ -67,7 +122,13 @@ pub(crate) fn render_generated_world_sprite(
         node.transform.scale[0],
         observer_altitude_km.unwrap_or(0.0),
         ctx.spatial_context,
-        ctx.ambient_floor,
+        resolved_ambient_floor(ctx),
+        resolved_shadow_contrast(ctx),
+        resolved_exposure(ctx),
+        resolved_gamma(ctx),
+        resolved_tonemap(ctx),
+        resolved_night_glow_scale(ctx),
+        resolved_haze_night_leak(ctx),
     );
 
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
@@ -166,6 +227,12 @@ fn build_generated_world_profile(
     observer_altitude_km: f32,
     spatial_context: SpatialContext,
     ambient_floor: f32,
+    shadow_contrast: f32,
+    exposure: f32,
+    gamma: f32,
+    tonemap: TonemapOperator,
+    night_glow_scale: f32,
+    haze_night_leak: f32,
 ) -> GeneratedWorldRenderProfile {
     let sun_dir = [
         planet.sun_dir_x as f32,
@@ -180,6 +247,12 @@ fn build_generated_world_profile(
     GeneratedWorldRenderProfile {
         ambient: planet.ambient as f32,
         ambient_floor,
+        shadow_contrast,
+        exposure,
+        gamma,
+        tonemap,
+        night_glow_scale,
+        haze_night_leak,
         latitude_bands: planet.latitude_bands,
         latitude_band_depth: planet.latitude_band_depth as f32,
         terrain_displacement: planet.terrain_displacement as f32,

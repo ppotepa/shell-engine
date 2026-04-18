@@ -62,6 +62,17 @@ camera (`eye`, `look_at`, `up`, `fov`, `near_clip`). `2d` layers consume the
 2D camera, `screen` layers stay fixed, and OBJ / Scene3D sprites can opt into
 the shared 3D camera with `camera-source: scene`.
 
+Scene 3D presentation also has an explicit reusable scene-view model:
+
+- scene-level `view` contract,
+- `lighting-profile`,
+- `space-environment-profile`,
+- `view-profile` as a shallow composition layer over the two lower profiles.
+
+This is intentionally scene-level rather than object-level. Planets, asteroids,
+ships, and other 3D nodes remain producers of geometry/material/atmosphere
+metadata; they do not define the surrounding observation environment.
+
 ## 2. Crate Dependency Graph
 
 ```
@@ -187,6 +198,23 @@ clip ids such as `orbit` are instead evaluated against the current
 `elapsed_ms` and rendered on demand from the runtime store, which keeps clip
 tweens, orbit motion, and vertical reveal masks (`clip_y_min/max`) live without
 forcing authors to reference generated `clip-0..N` frame names.
+
+### Scene-Level Lighting / Environment Path
+
+The reusable 3D scene look flow is:
+
+1. authored `scene.view` selects one or more profile refs,
+2. `engine-asset` hydrates asset-backed profile YAML from mod-local paths,
+3. `engine-scene-runtime` resolves one effective `ResolvedViewProfile`,
+4. typed runtime overrides may adjust lighting/environment params,
+5. `engine-compositor` consumes generic environment fields such as background,
+   starfield, and primary-star glare,
+6. `engine-render-3d` consumes grading and atmosphere-facing fields such as
+   `exposure`, `gamma`, `tonemap`, `shadow_contrast`, `night_glow_scale`, and
+   `haze_night_leak`.
+
+This keeps the renderer reusable and avoids object- or mod-specific scene-look
+branches.
 
 ## 6. Buffer Architecture
 

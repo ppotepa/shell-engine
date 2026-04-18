@@ -9,17 +9,17 @@
       align-x: right
       align-y: top
       x: -8
-      y: 304
+      y: 306
       width: 224
-      height: 22
+      height: 24
       padding: 2
       border-width: 1
-      corner-radius: 2
+      corner-radius: 4
       fg: "#2a9440"
-      bg: "#020810"
+      bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 2
-      shadow-y: 2
+      shadow-x: 3
+      shadow-y: 3
       shadow-colour: "#000000"
       children:
         - type: grid
@@ -27,5 +27,6 @@
           rows: ["1fr"]
           gap-x: 4
           children:
-            - { type: text, id: btn-randomize, content: "[R] RANDOMIZE", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#ffc030" }
-            - { type: text, id: btn-reset,     content: "[DEL] RESET",   grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "#4080ff" }
+            - { type: text, id: planet-randomize-button-label, content: "[R] RANDOMIZE", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#ffc030" }
+            - { type: text, id: planet-reset-button-label,     content: "[DEL] RESET",   grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#4080ff" }
+

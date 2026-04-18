@@ -11,6 +11,7 @@ pub mod image_assets;
 pub mod material_repository;
 pub mod mesh_assets;
 pub mod mesh_repository;
+pub mod profile_assets;
 pub mod repositories;
 pub mod scene_compiler;
 
@@ -35,6 +36,7 @@ pub use {
         mesh_to_obj_mesh, ObjFace, ObjMesh,
     },
     mesh_repository::MeshRepository,
+    profile_assets::hydrate_scene_view_profiles,
 };
 
 pub mod source_loader;

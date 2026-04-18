@@ -5,32 +5,55 @@
   space: screen
   sprites:
     - type: panel
-      id: hud-presets-box
+      id: preset-trigger-box
       align-x: right
       align-y: top
       x: -8
-      y: 328
+      y: 334
       width: 224
-      height: 22
+      height: 24
       padding: 2
       border-width: 1
-      corner-radius: 2
+      corner-radius: 4
       fg: "#507050"
-      bg: "#020810"
+      bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 2
-      shadow-y: 2
+      shadow-x: 3
+      shadow-y: 3
       shadow-colour: "#000000"
       children:
+        - { type: text, id: preset-prefix-label, content: "PRESET", x: 12, y: 8, font: "generic:2", fg: "#507050" }
+        - { type: text, id: preset-current-label, content: "EARTH", x: 112, y: 8, at: cc, font: "generic:2", fg: "#8cc08c" }
+        - { type: text, id: preset-arrow-label, content: "v", x: 206, y: 8, font: "generic:2", fg: "#507050" }
+    - type: panel
+      id: preset-popup
+      align-x: right
+      align-y: top
+      x: -8
+      y: 204
+      width: 224
+      height: 128
+      padding: 4
+      border-width: 1
+      corner-radius: 4
+      fg: "#507050"
+      bg: "#041018"
+      border-colour: "#1a5c28"
+      shadow-x: 3
+      shadow-y: 3
+      shadow-colour: "#000000"
+      visible: false
+      children:
         - type: grid
-          columns: ["1fr","1fr","1fr","1fr","1fr","1fr","1fr"]
-          rows: ["1fr"]
-          gap-x: 2
+          columns: ["1fr"]
+          rows: ["1fr","1fr","1fr","1fr","1fr","1fr","1fr"]
+          gap-y: 1
           children:
-            - { type: text, id: preset-earth,       content: "EARTH",       grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
-            - { type: text, id: preset-mars,        content: "MARS",        grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
-            - { type: text, id: preset-ocean,       content: "OCEAN",       grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
-            - { type: text, id: preset-desert,      content: "DESERT",      grid-col: 4, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
-            - { type: text, id: preset-ice,         content: "ICE",         grid-col: 5, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
-            - { type: text, id: preset-volcanic,    content: "VOLCANIC",    grid-col: 6, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
-            - { type: text, id: preset-archipelago, content: "ARCHIPELAGO", grid-col: 7, grid-row: 1, at: cc, font: "generic:1", fg: "#507050" }
+            - { type: text, content: "F1  EARTH",        grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "F2  MARS",         grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "F3  OCEAN",        grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "F4  DESERT",       grid-col: 1, grid-row: 4, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "F5  ICE",          grid-col: 1, grid-row: 5, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "F6  VOLCANIC",     grid-col: 1, grid-row: 6, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "F7  ARCHIPELAGO",  grid-col: 1, grid-row: 7, at: cl, font: "generic:2", fg: "#8cc08c" }
+

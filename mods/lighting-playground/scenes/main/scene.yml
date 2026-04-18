@@ -1,0 +1,192 @@
+# yaml-language-server: $schema=../../../schemas/scene.yaml
+id: lighting-playground-main
+title: Lighting Playground
+bg: "#000008"
+render-size: 960x540
+space: 3d
+ui:
+  scale: 1.04
+  font-scale: 1.12
+view:
+  profile: orbit-realistic
+layers:
+  - ref: world
+  - ref: controls
+  - ref: labels
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./main.rhai
+input:
+  orbit-camera:
+    target: world-atmo
+    yaw: 28.0
+    pitch: 18.0
+    distance: 2.9
+    pitch-min: -85.0
+    pitch-max: 85.0
+    distance-min: 1.2
+    distance-max: 6.0
+    distance-step: 0.2
+    drag-sensitivity: 0.14
+gui:
+  widgets:
+    - type: segmented-control
+      id: lighting-model-selector
+      sprite: lighting-model-selector-box
+      x: 694
+      y: 64
+      w: 238
+      h: 24
+      selected: 0
+      options:
+        - { value: planet, label: PLANET }
+        - { value: sphere, label: SPHERE }
+        - { value: cube, label: CUBE }
+        - { value: suzanne, label: SUZANNE }
+    - type: dropdown
+      id: lighting-view-dropdown
+      sprite: lighting-view-dropdown-box
+      x: 694
+      y: 124
+      w: 238
+      h: 22
+      selected: 0
+      label-sprite: lighting-view-dropdown-label
+      popup-sprite: lighting-view-dropdown-popup
+      options:
+        - { value: orbit-realistic, label: ORBIT REALISTIC }
+        - { value: orbit-cinematic, label: ORBIT CINEMATIC }
+        - { value: backlit-harsh, label: BACKLIT HARSH }
+    - type: dropdown
+      id: lighting-profile-dropdown
+      sprite: lighting-profile-dropdown-box
+      x: 694
+      y: 194
+      w: 238
+      h: 22
+      selected: 0
+      label-sprite: lighting-profile-dropdown-label
+      popup-sprite: lighting-profile-dropdown-popup
+      options:
+        - { value: hard-vacuum, label: HARD VACUUM }
+        - { value: cinematic-soft, label: CINEMATIC SOFT }
+        - { value: high-contrast, label: HIGH CONTRAST }
+    - type: dropdown
+      id: lighting-environment-dropdown
+      sprite: lighting-environment-dropdown-box
+      x: 694
+      y: 264
+      w: 238
+      h: 22
+      selected: 0
+      label-sprite: lighting-environment-dropdown-label
+      popup-sprite: lighting-environment-dropdown-popup
+      options:
+        - { value: deep-space-sparse, label: DEEP SPACE SPARSE }
+        - { value: deep-space-rich, label: DEEP SPACE RICH }
+        - { value: orbit-bright-star, label: ORBIT BRIGHT STAR }
+    - type: slider
+      id: lighting-exposure-slider
+      sprite: lighting-exposure-slider-track
+      handle: lighting-exposure-slider-handle
+      x: 734
+      y: 330
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0.4
+    - type: slider
+      id: lighting-black-level-slider
+      sprite: lighting-black-level-slider-track
+      handle: lighting-black-level-slider-handle
+      x: 734
+      y: 352
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: lighting-gamma-slider
+      sprite: lighting-gamma-slider-track
+      handle: lighting-gamma-slider-handle
+      x: 734
+      y: 374
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0.5
+    - type: slider
+      id: lighting-contrast-slider
+      sprite: lighting-contrast-slider-track
+      handle: lighting-contrast-slider-handle
+      x: 734
+      y: 396
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0.5
+    - type: slider
+      id: lighting-starfield-slider
+      sprite: lighting-starfield-slider-track
+      handle: lighting-starfield-slider-handle
+      x: 734
+      y: 426
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0.6
+    - type: slider
+      id: lighting-star-glare-slider
+      sprite: lighting-star-glare-slider-track
+      handle: lighting-star-glare-slider-handle
+      x: 734
+      y: 448
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0.22
+    - type: slider
+      id: lighting-night-glow-slider
+      sprite: lighting-night-glow-slider-track
+      handle: lighting-night-glow-slider-handle
+      x: 734
+      y: 470
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0
+    - type: slider
+      id: lighting-haze-leak-slider
+      sprite: lighting-haze-leak-slider-track
+      handle: lighting-haze-leak-slider-handle
+      x: 734
+      y: 492
+      w: 168
+      h: 14
+      hit-padding: 4
+      min: 0
+      max: 1
+      value: 0
+stages:
+  on_enter:
+    steps:
+      - { duration: 1 }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 16ms

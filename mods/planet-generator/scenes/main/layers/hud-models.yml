@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: hud-models
+  z_index: 11
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: hud-models-box
+      align-x: right
+      align-y: top
+      x: -8
+      y: 34
+      width: 224
+      height: 24
+      padding: 2
+      border-width: 1
+      corner-radius: 4
+      fg: "#2a9440"
+      bg: "#041018"
+      border-colour: "#1a5c28"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
+      children:
+        - type: grid
+          columns: ["1fr", "1fr", "1fr", "1fr"]
+          rows: ["1fr"]
+          gap-x: 2
+          children:
+            - { type: text, id: model-label-planet,   content: "PLANET",  grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: model-label-sphere,   content: "SPHERE",  grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: model-label-cube,     content: "CUBE",    grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: model-label-suzanne,  content: "SUZANNE", grid-col: 4, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+

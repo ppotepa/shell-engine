@@ -6,6 +6,6 @@ display:
   min_colours: 16
   min_width: 640
   min_height: 360
-  default_font: "generic:1"
+  default_font: "generic:2"
   render_size: 640x360
   presentation_policy: fit

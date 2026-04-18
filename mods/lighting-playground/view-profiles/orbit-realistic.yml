@@ -1,0 +1,9 @@
+id: orbit-realistic
+lighting_profile: space-hard-vacuum
+space_environment_profile: deep-space-sparse
+overrides:
+  exposure: 0.92
+  black_level: 0.0
+  background_floor: 0.0
+  starfield_brightness: 0.68
+  primary_star_glare_strength: 0.08

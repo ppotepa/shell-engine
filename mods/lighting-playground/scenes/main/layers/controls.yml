@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../../../schemas/layers.yaml
+- name: controls
+  z_index: 40
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: control-panel
+      x: 680
+      y: 8
+      width: 264
+      height: 524
+      fg: "#0b1020"
+      border-colour: "#1f2940"
+      border-width: 1
+      corner-radius: 5
+      shadow-x: 3
+      shadow-y: 3
+      shadow-colour: "#03050a"
+    - { type: text, id: panel-title, content: "LIGHTING LAB", x: 694, y: 18, font: "generic:2", fg: "#d7e7ff" }
+    - { type: text, id: panel-subtitle, content: "Compact selectors + live scene grading", x: 694, y: 36, font: "generic:2", fg: "#7d8eaa" }
+
+    - { type: text, content: "MODEL", x: 694, y: 52, font: "generic:2", fg: "#55627e" }
+    - type: panel
+      id: lighting-model-selector-box
+      x: 694
+      y: 64
+      width: 238
+      height: 24
+      padding: 2
+      border-width: 1
+      corner-radius: 3
+      fg: "#0d1625"
+      bg: "#0d1625"
+      border-colour: "#48617f"
+      children:
+        - type: grid
+          columns: ["1fr", "1fr", "1fr", "1fr"]
+          rows: ["1fr"]
+          gap-x: 2
+          children:
+            - { type: text, id: model-label-planet,  content: "PLANET",  grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#dbe4f6" }
+            - { type: text, id: model-label-sphere,  content: "SPHERE",  grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#71819a" }
+            - { type: text, id: model-label-cube,    content: "CUBE",    grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#71819a" }
+            - { type: text, id: model-label-suzanne, content: "SUZANNE", grid-col: 4, grid-row: 1, at: cc, font: "generic:2", fg: "#71819a" }
+
+    - { type: text, content: "VIEW PROFILE", x: 694, y: 112, font: "generic:2", fg: "#55627e" }
+    - { type: panel, id: lighting-view-dropdown-box, x: 694, y: 124, width: 238, height: 22, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#0d1625", border-colour: "#48617f" }
+    - { type: text, id: lighting-view-dropdown-label, content: "ORBIT REALISTIC", x: 706, y: 129, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: lighting-view-dropdown-arrow, content: "v", x: 918, y: 129, font: "generic:2", fg: "#8aa2c4" }
+    - { type: panel, id: lighting-view-dropdown-popup, x: 694, y: 146, width: 238, height: 52, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
+    - { type: text, id: lighting-view-dropdown-option-0, content: "> ORBIT REALISTIC", x: 706, y: 151, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: lighting-view-dropdown-option-1, content: "  ORBIT CINEMATIC", x: 706, y: 167, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: lighting-view-dropdown-option-2, content: "  BACKLIT HARSH", x: 706, y: 183, visible: false, font: "generic:2", fg: "#9fb1cc" }
+
+    - { type: text, content: "LIGHTING PROFILE", x: 694, y: 182, font: "generic:2", fg: "#55627e" }
+    - { type: panel, id: lighting-profile-dropdown-box, x: 694, y: 194, width: 238, height: 22, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#0d1625", border-colour: "#48617f" }
+    - { type: text, id: lighting-profile-dropdown-label, content: "HARD VACUUM", x: 706, y: 199, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: lighting-profile-dropdown-arrow, content: "v", x: 918, y: 199, font: "generic:2", fg: "#8aa2c4" }
+    - { type: panel, id: lighting-profile-dropdown-popup, x: 694, y: 216, width: 238, height: 52, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
+    - { type: text, id: lighting-profile-dropdown-option-0, content: "> HARD VACUUM", x: 706, y: 221, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: lighting-profile-dropdown-option-1, content: "  CINEMATIC SOFT", x: 706, y: 237, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: lighting-profile-dropdown-option-2, content: "  HIGH CONTRAST", x: 706, y: 253, visible: false, font: "generic:2", fg: "#9fb1cc" }
+
+    - { type: text, content: "ENVIRONMENT PROFILE", x: 694, y: 252, font: "generic:2", fg: "#55627e" }
+    - { type: panel, id: lighting-environment-dropdown-box, x: 694, y: 264, width: 238, height: 22, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#0d1625", border-colour: "#48617f" }
+    - { type: text, id: lighting-environment-dropdown-label, content: "DEEP SPACE SPARSE", x: 706, y: 269, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: lighting-environment-dropdown-arrow, content: "v", x: 918, y: 269, font: "generic:2", fg: "#8aa2c4" }
+    - { type: panel, id: lighting-environment-dropdown-popup, x: 694, y: 286, width: 238, height: 52, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
+    - { type: text, id: lighting-environment-dropdown-option-0, content: "> DEEP SPACE SPARSE", x: 706, y: 291, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: lighting-environment-dropdown-option-1, content: "  DEEP SPACE RICH", x: 706, y: 307, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: lighting-environment-dropdown-option-2, content: "  ORBIT BRIGHT STAR", x: 706, y: 323, visible: false, font: "generic:2", fg: "#9fb1cc" }
+
+    - { type: text, content: "ACTIVE TWEAKS", x: 694, y: 344, font: "generic:2", fg: "#55627e" }
+
+    - { type: text, id: lighting-exposure-slider-label, content: "Exposure", x: 694, y: 356, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-exposure-slider-track, x: 734, y: 366, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-exposure-slider-fill, x: 734, y: 366, points: [[0,0],[67,0]], stroke-width: 2, fg: "#8ac5ff" }
+    - { type: vector, id: lighting-exposure-slider-handle, x: 734, y: 358, points: [[0,0],[0,14]], stroke-width: 5, fg: "#b7d8ff" }
+    - { type: text, id: lighting-exposure-slider-value, content: "0.92", x: 908, y: 356, font: "generic:2", fg: "#8ac5ff" }
+
+    - { type: text, id: lighting-black-level-slider-label, content: "Black", x: 694, y: 378, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-black-level-slider-track, x: 734, y: 388, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-black-level-slider-fill, x: 734, y: 388, points: [[0,0],[1,0]], stroke-width: 2, fg: "#9da6b8" }
+    - { type: vector, id: lighting-black-level-slider-handle, x: 734, y: 380, points: [[0,0],[0,14]], stroke-width: 5, fg: "#d9deea" }
+    - { type: text, id: lighting-black-level-slider-value, content: "0.00", x: 908, y: 378, font: "generic:2", fg: "#b8bfce" }
+
+    - { type: text, id: lighting-gamma-slider-label, content: "Gamma", x: 694, y: 400, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-gamma-slider-track, x: 734, y: 410, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-gamma-slider-fill, x: 734, y: 410, points: [[0,0],[84,0]], stroke-width: 2, fg: "#c4a4ff" }
+    - { type: vector, id: lighting-gamma-slider-handle, x: 734, y: 402, points: [[0,0],[0,14]], stroke-width: 5, fg: "#dbc9ff" }
+    - { type: text, id: lighting-gamma-slider-value, content: "2.20", x: 908, y: 400, font: "generic:2", fg: "#c4a4ff" }
+
+    - { type: text, id: lighting-contrast-slider-label, content: "Contrast", x: 694, y: 422, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-contrast-slider-track, x: 734, y: 432, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-contrast-slider-fill, x: 734, y: 432, points: [[0,0],[84,0]], stroke-width: 2, fg: "#ffb37f" }
+    - { type: vector, id: lighting-contrast-slider-handle, x: 734, y: 424, points: [[0,0],[0,14]], stroke-width: 5, fg: "#ffd2b2" }
+    - { type: text, id: lighting-contrast-slider-value, content: "1.00", x: 908, y: 422, font: "generic:2", fg: "#ffb37f" }
+
+    - { type: text, id: lighting-starfield-slider-label, content: "Stars", x: 694, y: 452, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-starfield-slider-track, x: 734, y: 462, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-starfield-slider-fill, x: 734, y: 462, points: [[0,0],[101,0]], stroke-width: 2, fg: "#9dd6ff" }
+    - { type: vector, id: lighting-starfield-slider-handle, x: 734, y: 454, points: [[0,0],[0,14]], stroke-width: 5, fg: "#d7efff" }
+    - { type: text, id: lighting-starfield-slider-value, content: "0.68", x: 908, y: 452, font: "generic:2", fg: "#9dd6ff" }
+
+    - { type: text, id: lighting-star-glare-slider-label, content: "Glare", x: 694, y: 474, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-star-glare-slider-track, x: 734, y: 484, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-star-glare-slider-fill, x: 734, y: 484, points: [[0,0],[107,0]], stroke-width: 2, fg: "#ffe18a" }
+    - { type: vector, id: lighting-star-glare-slider-handle, x: 734, y: 476, points: [[0,0],[0,14]], stroke-width: 5, fg: "#fff2b9" }
+    - { type: text, id: lighting-star-glare-slider-value, content: "0.08", x: 908, y: 474, font: "generic:2", fg: "#ffe18a" }
+
+    - { type: text, id: lighting-night-glow-slider-label, content: "Night Glow", x: 694, y: 496, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-night-glow-slider-track, x: 734, y: 506, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-night-glow-slider-fill, x: 734, y: 506, points: [[0,0],[1,0]], stroke-width: 2, fg: "#7ce7ff" }
+    - { type: vector, id: lighting-night-glow-slider-handle, x: 734, y: 498, points: [[0,0],[0,14]], stroke-width: 5, fg: "#c1f7ff" }
+    - { type: text, id: lighting-night-glow-slider-value, content: "0.00", x: 908, y: 496, font: "generic:2", fg: "#7ce7ff" }
+
+    - { type: text, id: lighting-haze-leak-slider-label, content: "Haze Leak", x: 694, y: 518, font: "generic:2", fg: "#c6d1e6" }
+    - { type: vector, id: lighting-haze-leak-slider-track, x: 734, y: 528, points: [[0,0],[168,0]], stroke-width: 2, fg: "#2d3448" }
+    - { type: vector, id: lighting-haze-leak-slider-fill, x: 734, y: 528, points: [[0,0],[1,0]], stroke-width: 2, fg: "#a0ffd0" }
+    - { type: vector, id: lighting-haze-leak-slider-handle, x: 734, y: 520, points: [[0,0],[0,14]], stroke-width: 5, fg: "#d1ffe8" }
+    - { type: text, id: lighting-haze-leak-slider-value, content: "0.00", x: 908, y: 518, font: "generic:2", fg: "#a0ffd0" }

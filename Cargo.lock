@@ -648,6 +648,7 @@ dependencies = [
  "engine-mesh",
  "engine-worldgen",
  "image",
+ "serde",
  "serde_yaml",
  "tempfile",
  "zip",

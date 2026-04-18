@@ -1,0 +1,9 @@
+id: orbit-cinematic
+lighting_profile: space-cinematic-soft
+space_environment_profile: deep-space-rich
+overrides:
+  exposure: 1.08
+  black_level: 0.025
+  background_floor: 0.0
+  starfield_brightness: 0.95
+  primary_star_glare_strength: 0.24

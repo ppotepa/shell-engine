@@ -12,14 +12,14 @@
       x: -8
       y: 32
       width: 224
-      height: 264
-      padding: 8
+      height: 270
+      padding: 10
       border-width: 1
-      corner-radius: 2
+      corner-radius: 6
       fg: "#2a9440"
-      bg: "#020810"
+      bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 2
-      shadow-y: 2
+      shadow-x: 3
+      shadow-y: 3
       shadow-colour: "#000000"
       visible: true

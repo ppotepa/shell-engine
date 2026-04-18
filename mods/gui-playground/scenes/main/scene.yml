@@ -3,6 +3,9 @@ id: gui-playground-main
 title: GUI Playground
 bg: "#080810"
 render-size: 640x360
+ui:
+  scale: 1.08
+  font-scale: 1.22
 layers:
   - ref: bg
   - ref: controls
@@ -15,80 +18,121 @@ gui:
   widgets:
     # ── Sliders ──────────────────────────────────────────────────────────────
     - type: slider
-      id: slider-r
-      sprite: slider-r-track
-      handle: slider-r-handle
-      x: 50
-      y: 48
-      w: 190
-      h: 16
+      id: color-red-slider
+      sprite: color-red-slider-track
+      handle: color-red-slider-handle
+      x: 52
+      y: 80
+      w: 164
+      h: 14
       hit-padding: 4
       min: 0
       max: 255
       value: 128
     - type: slider
-      id: slider-g
-      sprite: slider-g-track
-      handle: slider-g-handle
-      x: 50
-      y: 72
-      w: 190
-      h: 16
+      id: color-green-slider
+      sprite: color-green-slider-track
+      handle: color-green-slider-handle
+      x: 52
+      y: 98
+      w: 164
+      h: 14
       hit-padding: 4
       min: 0
       max: 255
       value: 128
     - type: slider
-      id: slider-b
-      sprite: slider-b-track
-      handle: slider-b-handle
-      x: 50
-      y: 96
-      w: 190
-      h: 16
+      id: color-blue-slider
+      sprite: color-blue-slider-track
+      handle: color-blue-slider-handle
+      x: 52
+      y: 116
+      w: 164
+      h: 14
       hit-padding: 4
       min: 0
       max: 255
       value: 128
     # ── Toggles ──────────────────────────────────────────────────────────────
     - type: toggle
-      id: toggle-hex
-      sprite: toggle-hex-label
-      x: 16
-      y: 140
-      w: 254
+      id: display-hex-toggle
+      sprite: display-hex-toggle-label
+      x: 28
+      y: 174
+      w: 108
       h: 16
       on: true
     - type: toggle
-      id: toggle-swatch
-      sprite: toggle-swatch-label
-      x: 16
-      y: 160
-      w: 254
+      id: display-swatch-toggle
+      sprite: display-swatch-toggle-label
+      x: 28
+      y: 190
+      w: 120
       h: 16
       on: true
     - type: toggle
-      id: toggle-invert
-      sprite: toggle-invert-label
-      x: 16
-      y: 180
-      w: 254
+      id: display-invert-toggle
+      sprite: display-invert-toggle-label
+      x: 28
+      y: 206
+      w: 126
       h: 16
     # ── Buttons ──────────────────────────────────────────────────────────────
     - type: button
-      id: btn-reset
-      sprite: btn-reset-label
-      x: 16
-      y: 216
-      w: 125
-      h: 20
+      id: playground-reset-button
+      sprite: playground-reset-button-label
+      x: 156
+      y: 174
+      w: 84
+      h: 16
     - type: button
-      id: btn-randomize
-      sprite: btn-randomize-label
-      x: 146
-      y: 216
-      w: 125
-      h: 20
+      id: playground-randomize-button
+      sprite: playground-randomize-button-label
+      x: 156
+      y: 190
+      w: 96
+      h: 16
+    # ── Inputs ───────────────────────────────────────────────────────────────
+    - type: text-input
+      id: planet-name-input
+      sprite: planet-name-input-box
+      text-sprite: planet-name-input-text
+      x: 78
+      y: 270
+      w: 172
+      h: 16
+      placeholder: "Planet label"
+      value: "Kepler-442b"
+      max-length: 24
+    - type: number-input
+      id: planet-density-input
+      sprite: planet-density-input-box
+      text-sprite: planet-density-input-text
+      x: 78
+      y: 292
+      w: 172
+      h: 16
+      placeholder: "1.0"
+      value: "1.5"
+      min: 0.0
+      max: 10.0
+      step: 0.5
+      max-length: 8
+    - type: dropdown
+      id: view-mode-dropdown
+      sprite: view-mode-dropdown-box
+      label-sprite: view-mode-dropdown-label
+      popup-sprite: view-mode-dropdown-popup
+      popup-above: true
+      x: 78
+      y: 314
+      w: 172
+      h: 16
+      selected: 0
+      options:
+        - { value: surface, label: Surface }
+        - { value: orbit, label: Orbit }
+        - { value: debug, label: Debug }
 stages:
   on_enter:
     steps:

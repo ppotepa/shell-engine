@@ -30,5 +30,5 @@
   z_index: 10
   sprites:
     - { type: text, content: "HEIGHTMAP TERRAIN", at: ct, y: 8, font: "Orbitron:ascii", fg: "#44cc88" }
-    - { type: text, id: orbit-hint, content: "[ ORBIT ]  DRAG=rotate  +/-=zoom  Ctrl+F=exit", at: cb, y: -22, font: "generic:1", fg: "#88ddaa", visible: false }
-    - { type: text, content: "[ ESC ] BACK", at: cb, y: -8, font: "generic:1", fg: "#2a6e55", behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
+    - { type: text, id: orbit-hint, content: "[ ORBIT ]  DRAG=rotate  +/-=zoom  Ctrl+F=exit", at: cb, y: -22, font: "generic:2", fg: "#88ddaa", visible: false }
+    - { type: text, content: "[ ESC ] BACK", at: cb, y: -8, font: "generic:2", fg: "#2a6e55", behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }

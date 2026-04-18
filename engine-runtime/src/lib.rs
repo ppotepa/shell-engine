@@ -64,6 +64,8 @@ impl RenderSize {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BufferLayout {
+    pub world_width: u16,
+    pub world_height: u16,
     pub render_width: u16,
     pub render_height: u16,
     pub output_width: u16,
@@ -73,6 +75,11 @@ pub struct BufferLayout {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeSettings {
     pub render_size: RenderSize,
+    /// Integer presentation multiplier for the final UI/output target.
+    ///
+    /// `1` keeps the final framebuffer at world render size.
+    /// Higher values reserve a denser presentation target for sharper HUD/UI work.
+    pub ui_render_scale: u16,
     pub presentation_policy: PresentationPolicy,
     /// Optional mod-level default text font used when sprite `font` is set to
     /// `default`. Supports both generic specs and named bitmap fonts.
@@ -96,6 +103,7 @@ impl Default for RuntimeSettings {
     fn default() -> Self {
         Self {
             render_size: RenderSize::default(),
+            ui_render_scale: 1,
             presentation_policy: PresentationPolicy::Fit,
             default_font: None,
             is_pixel_backend: false,
@@ -122,6 +130,14 @@ impl RuntimeSettings {
                 .and_then(parse_render_size);
             if let Some(size) = size {
                 settings.render_size = size;
+            }
+
+            if let Some(scale) = block
+                .get("ui_render_scale")
+                .or_else(|| block.get("ui-render-scale"))
+                .and_then(parse_ui_render_scale)
+            {
+                settings.ui_render_scale = scale;
             }
 
             let policy = block
@@ -171,18 +187,43 @@ impl RuntimeSettings {
             settings.default_font = Some(default_font);
         }
 
+        if let Some(scale) = env::var("SHELL_ENGINE_UI_RENDER_SCALE")
+            .ok()
+            .as_deref()
+            .map(|raw| serde_yaml::Value::String(raw.to_string()))
+            .and_then(|value| parse_ui_render_scale(&value))
+        {
+            settings.ui_render_scale = scale;
+        }
+
         settings
     }
 
-    pub fn resolved_render_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
+    pub fn resolved_world_render_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
         self.render_size.resolve(output_width, output_height)
+    }
+
+    pub fn apply_ui_render_scale(&self, width: u16, height: u16) -> (u16, u16) {
+        let scale = u32::from(self.ui_render_scale.max(1));
+        let scaled_width = (u32::from(width).saturating_mul(scale)).clamp(1, u16::MAX as u32);
+        let scaled_height = (u32::from(height).saturating_mul(scale)).clamp(1, u16::MAX as u32);
+        (scaled_width as u16, scaled_height as u16)
+    }
+
+    pub fn resolved_render_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
+        let (world_width, world_height) = self.resolved_world_render_size(output_width, output_height);
+        self.apply_ui_render_scale(world_width, world_height)
     }
 
     pub fn buffer_layout(&self, output_width: u16, output_height: u16) -> BufferLayout {
         let output_width = output_width.max(1);
         let output_height = output_height.max(1);
-        let (render_width, render_height) = self.resolved_render_size(output_width, output_height);
+        let (world_width, world_height) =
+            self.resolved_world_render_size(output_width, output_height);
+        let (render_width, render_height) = self.apply_ui_render_scale(world_width, world_height);
         BufferLayout {
+            world_width,
+            world_height,
             render_width,
             render_height,
             output_width,
@@ -195,6 +236,12 @@ impl RuntimeSettings {
     }
 
     pub fn fixed_render_size(&self) -> Option<(u16, u16)> {
+        self.render_size
+            .fixed()
+            .map(|(width, height)| self.apply_ui_render_scale(width, height))
+    }
+
+    pub fn fixed_world_render_size(&self) -> Option<(u16, u16)> {
         self.render_size.fixed()
     }
 }
@@ -285,6 +332,15 @@ fn parse_presentation_policy(raw: &str) -> Option<PresentationPolicy> {
     }
 }
 
+fn parse_ui_render_scale(value: &Value) -> Option<u16> {
+    let raw = match value {
+        Value::Number(number) => number.as_u64()?,
+        Value::String(text) => text.trim().parse::<u64>().ok()?,
+        _ => return None,
+    };
+    Some(raw.clamp(1, u16::MAX as u64) as u16)
+}
+
 pub fn parse_render_size(raw: &str) -> Option<RenderSize> {
     let normalized = raw.trim().to_ascii_lowercase();
     if matches!(
@@ -333,7 +389,7 @@ mod tests {
     #[test]
     fn parses_runtime_settings_from_manifest_display_block() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "display:\n  use-virtual-buffer: true\n  render-size: \"320x200\"\n  presentation-policy: strict\n",
+            "display:\n  use-virtual-buffer: true\n  render-size: \"320x200\"\n  ui-render-scale: 2\n  presentation-policy: strict\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
@@ -344,6 +400,7 @@ mod tests {
                 height: 200
             }
         );
+        assert_eq!(settings.ui_render_scale, 2);
         assert_eq!(settings.presentation_policy, PresentationPolicy::Strict);
         assert_eq!(settings.default_font, None);
     }
@@ -415,6 +472,7 @@ mod tests {
                 width: 120,
                 height: 30,
             },
+            ui_render_scale: 2,
             presentation_policy: PresentationPolicy::Stretch,
             default_font: None,
             is_pixel_backend: false,
@@ -423,12 +481,22 @@ mod tests {
         assert_eq!(
             settings.buffer_layout(80, 24),
             BufferLayout {
-                render_width: 120,
-                render_height: 30,
+                world_width: 120,
+                world_height: 30,
+                render_width: 240,
+                render_height: 60,
                 output_width: 80,
                 output_height: 24,
             }
         );
+    }
+
+    #[test]
+    fn ui_render_scale_defaults_to_one() {
+        let settings = RuntimeSettings::default();
+        assert_eq!(settings.ui_render_scale, 1);
+        assert_eq!(settings.resolved_world_render_size(120, 40), (320, 240));
+        assert_eq!(settings.resolved_render_size(120, 40), (320, 240));
     }
 
     #[test]

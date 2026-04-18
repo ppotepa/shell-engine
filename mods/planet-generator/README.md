@@ -1,6 +1,6 @@
 ﻿# Planet Generator Mod
 
-Procedural planet viewer with a multi-tab parameter UI.
+Procedural planet viewer with a compact modernized multi-tab tool panel and separated live value readouts.
 
 ## Running
 
@@ -12,9 +12,11 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 
 | Key / Input | Action |
 |-------------|--------|
-| `1` / `2` / `3` / `4` (or mouse click) | Switch tab: Continents / Mountains / Climate / Visual |
+| `1` / `2` / `3` / `4` (or mouse click) | Switch model: Planet / Sphere / Cube / Suzanne |
+| `Q` / `W` / `E` / `Y` / `U` (or mouse click) | Switch tab: Continents / Mountains / Climate / Visual / Atmosphere |
 | Slider drag | Adjust parameter value with mouse |
 | `F1`–`F7` | Load preset: Earth / Mars / Ocean / Desert / Ice / Volcanic / Archipelago |
+| Preset dropdown | Open compact preset list and select with mouse |
 | `R` | Randomize all parameters |
 | `Delete` | Reset to Earth defaults |
 | `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
@@ -23,12 +25,12 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 
 - `scenes/main/scene.yml` — single scene, orbit-camera + free-look-camera (surface mode enabled)
 - `scenes/main/layers/planet.yml` — OBJ planet mesh (`world://32`)
-- `scenes/main/layers/hud-tabs.yml` — tab bar (top-right)
+- `scenes/main/layers/hud-tabs.yml` — tab bar (top-right, authored as `type: tabs`)
+- `scenes/main/layers/hud-models.yml` — model selector row (Planet/Sphere/Cube/Suzanne, authored as `type: segmented-control`)
 - `scenes/main/layers/hud-panel.yml` — parameter panel background
-- `scenes/main/layers/hud-sliders.yml` — flat absolute-positioned slider layer (7 multiplexed widgets)
-- `scenes/main/layers/hud-tabs.yml` — tab bar (top-right)
+- `scenes/main/layers/hud-sliders.yml` — compact slider layer with active-tab header, summary, and right-aligned live values
 - `scenes/main/layers/hud-actions.yml` — Randomize / Reset buttons
-- `scenes/main/layers/hud-presets.yml` — preset name strip (bottom-right)
+- `scenes/main/layers/hud-presets.yml` — compact preset dropdown + popup list
 - `scenes/main/layers/hud-stats.yml` — live stats strip (bottom-left)
 - `scenes/main/main.rhai` — tab switching, mouse-drag slider input, preset loading, world param push with debounce
 

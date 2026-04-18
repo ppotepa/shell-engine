@@ -1,40 +1,76 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
-# ── Output / feedback (right column) ─────────────────────────────────────────
 - name: output
   z_index: 2
   ui: true
   space: screen
   sprites:
-    # ── Color output ─────────────────────────────────────────────────────────
-    - { type: text, content: "─── OUTPUT ─────────────────────────", x: 292, y: 10, font: "generic:1", fg: "#505070" }
+    - { type: text, content: "LIVE OUTPUT", x: 304, y: 14, font: "generic:2", fg: "#d7ecff" }
+    - { type: text, content: "State mirrors, mixed color and submit log", x: 304, y: 34, font: "generic:2", fg: "#7d8daa" }
 
-    # Color swatch (text block chars — panels don't support dynamic color)
-    - { type: text, id: swatch-0, content: "██████████████████████", x: 300, y: 28, font: "generic:1", fg: "#808080" }
-    - { type: text, id: swatch-1, content: "██████████████████████", x: 300, y: 38, font: "generic:1", fg: "#808080" }
-    - { type: text, id: swatch-2, content: "██████████████████████", x: 300, y: 48, font: "generic:1", fg: "#808080" }
-    - { type: text, id: swatch-3, content: "██████████████████████", x: 300, y: 58, font: "generic:1", fg: "#808080" }
-    - { type: text, id: swatch-4, content: "██████████████████████", x: 300, y: 68, font: "generic:1", fg: "#808080" }
+    - type: panel
+      id: output-color-card
+      x: 302
+      y: 54
+      width: 322
+      height: 82
+      padding: 0
+      border-width: 1
+      corner-radius: 3
+      fg: "#18283e"
+      bg: "#0f1727"
+      border-colour: "#2a3f5e"
+    - { type: text, content: "MIX RESULT", x: 316, y: 62, font: "generic:2", fg: "#91a8cd" }
+    - { type: text, id: swatch-0, content: "██████████████████", x: 316, y: 82, font: "generic:2", fg: "#808080" }
+    - { type: text, id: swatch-1, content: "██████████████████", x: 316, y: 92, font: "generic:2", fg: "#808080" }
+    - { type: text, id: swatch-2, content: "██████████████████", x: 316, y: 102, font: "generic:2", fg: "#808080" }
+    - { type: text, id: swatch-3, content: "██████████████████", x: 316, y: 112, font: "generic:2", fg: "#808080" }
+    - { type: text, id: swatch-4, content: "██████████████████", x: 316, y: 122, font: "generic:2", fg: "#808080" }
+    - { type: text, id: hex-readout, content: "HEX: #808080", x: 466, y: 86, font: "generic:2", fg: "#c0c0e0" }
+    - { type: text, id: rgb-readout, content: "RGB: 128, 128, 128", x: 466, y: 104, font: "generic:2", fg: "#c0c0e0" }
 
-    - { type: text, id: hex-readout, content: "HEX: #808080", x: 430, y: 34, font: "generic:1", fg: "#c0c0e0" }
-    - { type: text, id: rgb-readout, content: "RGB: 128, 128, 128", x: 430, y: 52, font: "generic:1", fg: "#c0c0e0" }
+    - type: panel
+      id: output-state-card
+      x: 302
+      y: 146
+      width: 322
+      height: 96
+      padding: 0
+      border-width: 1
+      corner-radius: 3
+      fg: "#18283e"
+      bg: "#0f1727"
+      border-colour: "#2a3f5e"
+    - { type: text, content: "STATE", x: 316, y: 154, font: "generic:2", fg: "#91a8cd" }
+    - { type: text, id: state-hover,   content: "Hover   : ---",              x: 316, y: 174, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-pressed, content: "Pressed : ---",              x: 316, y: 188, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-mouse,   content: "Mouse   : 0, 0",             x: 316, y: 202, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-changed, content: "Changed : ---",              x: 316, y: 216, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-lmb,     content: "LMB     : up",               x: 470, y: 174, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-name,    content: "Name    : Kepler-442b",      x: 470, y: 188, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-density, content: "Density : 1.5 (1.5)",        x: 470, y: 202, font: "generic:2", fg: "#808090" }
+    - { type: text, id: state-mode,    content: "Mode    : Surface",          x: 470, y: 216, font: "generic:2", fg: "#808090" }
 
-    # ── State readout ────────────────────────────────────────────────────────
-    - { type: text, content: "─── STATE ──────────────────────────", x: 292, y: 88, font: "generic:1", fg: "#505070" }
+    - type: panel
+      id: output-log-card
+      x: 302
+      y: 252
+      width: 322
+      height: 92
+      padding: 0
+      border-width: 1
+      corner-radius: 3
+      fg: "#18283e"
+      bg: "#0f1727"
+      border-colour: "#2a3f5e"
+    - { type: text, content: "EVENT LOG", x: 316, y: 260, font: "generic:2", fg: "#91a8cd" }
+    - { type: text, id: click-counter, content: "Clicks: 0   Last: ---", x: 430, y: 260, font: "generic:2", fg: "#7385a5" }
+    - { type: text, id: log-0, content: "---", x: 316, y: 280, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-1, content: "---", x: 316, y: 290, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-2, content: "---", x: 316, y: 300, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-3, content: "---", x: 316, y: 310, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-4, content: "---", x: 316, y: 320, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-5, content: "---", x: 470, y: 280, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-6, content: "---", x: 470, y: 290, font: "generic:2", fg: "#505060" }
+    - { type: text, id: log-7, content: "---", x: 470, y: 300, font: "generic:2", fg: "#505060" }
 
-    - { type: text, id: state-hover,   content: "Hover:   ---",   x: 300, y: 106, font: "generic:1", fg: "#808090" }
-    - { type: text, id: state-pressed, content: "Pressed: ---",   x: 300, y: 122, font: "generic:1", fg: "#808090" }
-    - { type: text, id: state-mouse,   content: "Mouse:   0, 0",  x: 300, y: 138, font: "generic:1", fg: "#808090" }
-    - { type: text, id: state-changed, content: "Changed: ---",   x: 300, y: 154, font: "generic:1", fg: "#808090" }
-    - { type: text, id: state-lmb,     content: "LMB:     up",    x: 300, y: 170, font: "generic:1", fg: "#808090" }
-
-    # ── Event log ────────────────────────────────────────────────────────────
-    - { type: text, content: "─── EVENT LOG ──────────────────────", x: 292, y: 192, font: "generic:1", fg: "#505070" }
-
-    - { type: text, id: log-0, content: "---", x: 300, y: 210, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-1, content: "---", x: 300, y: 224, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-2, content: "---", x: 300, y: 238, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-3, content: "---", x: 300, y: 252, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-4, content: "---", x: 300, y: 266, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-5, content: "---", x: 300, y: 280, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-6, content: "---", x: 300, y: 294, font: "generic:1", fg: "#505060" }
-    - { type: text, id: log-7, content: "---", x: 300, y: 308, font: "generic:1", fg: "#505060" }
+    - { type: text, content: "Use mouse for sliders, toggles and dropdown. Type into fields and press Enter to submit.", x: 304, y: 350, font: "generic:2", fg: "#38475e" }

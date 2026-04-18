@@ -1337,7 +1337,7 @@ layers:
     }
 
     #[test]
-    fn non_render_set_property_still_uses_property_path_fallback() {
+    fn non_render_set_property_updates_state_through_typed_path_mapping() {
         let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
@@ -1357,7 +1357,7 @@ layers:
     }
 
     #[test]
-    fn render3d_set_property_with_invalid_value_does_not_use_non_render_fallback() {
+    fn render3d_set_property_with_invalid_value_does_not_apply_other_path_mapping() {
         let mut runtime = SceneRuntime::new(scene3d_scene(""));
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(

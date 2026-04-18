@@ -9,18 +9,23 @@
       align-x: left
       align-y: top
       x: 8
-      y: 350
-      width: 300
-      height: 12
-      padding: 0
-      border-width: 0
-      fg: "#507060"
-      bg: "#000008"
+      y: 334
+      width: 326
+      height: 24
+      padding: 3
+      border-width: 1
+      corner-radius: 4
+      fg: "#1a5c28"
+      bg: "#041018"
+      border-colour: "#102018"
+      shadow-x: 2
+      shadow-y: 2
+      shadow-colour: "#000000"
       children:
         - type: grid
           columns: ["1fr", "auto"]
           rows: ["1fr"]
           gap-x: 8
           children:
-            - { type: text, id: stats-biomes, content: "OCEAN 55%  FOREST 12%  DESERT 8%  SNOW 7%", grid-col: 1, grid-row: 1, at: cl, font: "generic:1", fg: "#507060" }
-            - { type: text, id: stats-seed,   content: "SEED: 0",                                   grid-col: 2, grid-row: 1, at: cr, font: "generic:1", fg: "#304040" }
+            - { type: text, id: stats-biomes, content: "OCEAN 55%  FOREST 12%  DESERT 8%  SNOW 7%", grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
+            - { type: text, id: stats-seed,   content: "SEED: 0",                                   grid-col: 2, grid-row: 1, at: cr, font: "generic:2", fg: "#304040" }

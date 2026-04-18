@@ -13,6 +13,8 @@ compositor assembly:
 - Scene3D prerender/runtime-store logic,
 - software raster helpers,
 - shading, atmosphere, terrain, and biome effect kernels.
+- consumption of resolved scene-level lighting/environment profiles without
+  mod-specific knowledge of planets or particular scenes.
 
 The compositor should delegate to this crate instead of reimplementing 3D
 internals.

@@ -15,6 +15,17 @@ Most domain logic now lives in focused crates:
 This directory should mostly contain orchestration, provider impls, and systems
 that still need engine-only world access.
 
+The same rule applies to the scene-view lighting/environment stack:
+
+- profile types live in `engine-core`,
+- profile hydration lives in `engine-asset`,
+- resolved runtime state lives in `engine-scene-runtime`,
+- generic environment assembly lives in `engine-compositor`,
+- 3D grading and atmosphere consumption live in `engine-render-3d`.
+
+`engine/` should only bridge `World` resources into those subsystems. It should
+not grow mod-aware lighting logic or planet-specific render behavior.
+
 ## Per-frame system order
 
 | System | Timing field | Purpose |
@@ -64,6 +75,12 @@ This directory still owns the pieces that require engine-specific world access:
 - hot reload
 - renderer thread integration and frame tickets
 - provider implementations that bridge `World` to subsystem crates
+
+For reusable scene-view profiles specifically, keep engine-owned work limited to:
+
+- scene activation and reset flow,
+- scoped registration of `SceneRuntime`,
+- provider seams that pass resolved scene-view data into compositor/render code.
 
 ## Key invariants
 

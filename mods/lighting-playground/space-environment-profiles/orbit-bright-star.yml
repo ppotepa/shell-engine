@@ -1,0 +1,12 @@
+id: orbit-bright-star
+background_color: "#02030b"
+background_floor: 0.0
+starfield_density: 0.24
+starfield_brightness: 0.78
+starfield_size_min: 0.7
+starfield_size_max: 1.4
+primary_star_color: "#fff0c4"
+primary_star_glare_strength: 0.32
+primary_star_glare_width: 0.34
+nebula_strength: 0.0
+dust_band_strength: 0.0

@@ -5,7 +5,7 @@ use crate::ObjRenderParams;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
-use engine_core::scene::{CameraSource, SpriteSizePreset};
+use engine_core::scene::{CameraSource, SpriteSizePreset, TonemapOperator};
 use engine_core::scene_runtime_types::SceneCamera3D;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -95,6 +95,12 @@ pub fn take_generated_world_pass_metrics() -> GeneratedWorldPassMetrics {
 pub struct GeneratedWorldRenderProfile {
     pub ambient: f32,
     pub ambient_floor: f32,
+    pub shadow_contrast: f32,
+    pub exposure: f32,
+    pub gamma: f32,
+    pub tonemap: TonemapOperator,
+    pub night_glow_scale: f32,
+    pub haze_night_leak: f32,
     pub latitude_bands: u8,
     pub latitude_band_depth: f32,
     pub terrain_displacement: f32,
@@ -468,6 +474,10 @@ pub fn render_generated_world_sprite_with(
         scene_camera_3d,
         sun_dir,
         profile.ambient_floor,
+        profile.shadow_contrast,
+        profile.exposure,
+        profile.gamma,
+        profile.tonemap,
     );
     surface_params.ambient = profile.ambient;
     surface_params.ambient_floor = profile.ambient_floor;
@@ -505,8 +515,11 @@ pub fn render_generated_world_sprite_with(
     surface_params.atmo_forward_scatter = 0.72;
     surface_params.atmo_limb_boost = 1.35;
     surface_params.atmo_terminator_softness = 1.05;
-    surface_params.atmo_night_glow = 0.0;
+    surface_params.atmo_night_glow =
+        (profile.atmo_strength * 0.08 * profile.atmo_visibility * profile.night_glow_scale)
+            .clamp(0.0, 1.0);
     surface_params.atmo_night_glow_color = None;
+    surface_params.atmo_haze_night_leak = profile.haze_night_leak;
     surface_params.atmo_rim_power = 4.5;
     surface_params.atmo_haze_strength = 0.0;
     surface_params.atmo_haze_power = 1.8;
@@ -590,6 +603,10 @@ pub fn render_generated_world_sprite_with(
         scene_camera_3d,
         sun_dir,
         profile.ambient_floor,
+        profile.shadow_contrast,
+        profile.exposure,
+        profile.gamma,
+        profile.tonemap,
     );
     cloud_params.ambient = profile.cloud_ambient;
     cloud_params.ambient_floor = profile.ambient_floor;
@@ -710,6 +727,10 @@ pub fn render_generated_world_sprite_with(
         scene_camera_3d,
         sun_dir,
         profile.ambient_floor,
+        profile.shadow_contrast,
+        profile.exposure,
+        profile.gamma,
+        profile.tonemap,
     );
     cloud2_params.ambient = 0.004;
     cloud2_params.ambient_floor = profile.ambient_floor;
@@ -864,6 +885,10 @@ fn build_generated_world_base_params(
     scene_camera: &SceneCamera3D,
     sun_dir: [f32; 3],
     ambient_floor: f32,
+    shadow_contrast: f32,
+    exposure: f32,
+    gamma: f32,
+    tonemap: TonemapOperator,
 ) -> ObjRenderParams {
     ObjRenderParams {
         scale,
@@ -980,6 +1005,10 @@ fn build_generated_world_base_params(
         unlit: false,
         ambient: 0.05,
         ambient_floor,
+        shadow_contrast,
+        exposure,
+        gamma,
+        tonemap,
         light_point_falloff: 0.7,
         light_point_2_falloff: 0.7,
         smooth_shading: true,
@@ -1028,6 +1057,7 @@ fn build_generated_world_base_params(
         atmo_terminator_softness: 1.0,
         atmo_night_glow: 0.0,
         atmo_night_glow_color: None,
+        atmo_haze_night_leak: 0.0,
         atmo_rim_power: 4.5,
         atmo_haze_strength: 0.0,
         atmo_haze_power: 1.8,

@@ -8,48 +8,58 @@
   ui: true
   space: screen
   sprites:
-    # ── Tab title (content updated by Rhai per active tab) ────────────────────
-    - { type: text, id: param-title, content: "CONTINENTS", x: 520, y: 48, at: cc, font: "generic:1", fg: "#2a9440" }
+    - { type: text, id: param-kicker, content: "ACTIVE TAB", x: 421, y: 46, font: "generic:2", fg: "#487860" }
+    - { type: text, id: param-title, content: "CONTINENTS", x: 421, y: 58, font: "generic:2", fg: "#aaffcc" }
+    - { type: text, id: param-summary, content: "Tune the current world profile and lighting mix.", x: 421, y: 68, font: "generic:2", fg: "#3e6a56" }
+    - { type: vector, id: param-divider, x: 421, y: 78, points: [[0,0],[181,0]], stroke-width: 1, fg: "#143224" }
 
     # ── Slot 0 ────────────────────────────────────────────────────────────────
-    - { type: text,   id: param-label-0,  content: "  SEED",    x: 421, y: 60,  font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-0,  x: 421, y: 73,  points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-0, x: 421, y: 69,  points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-0,  content: "SEED",    x: 421, y: 84,  font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-0,  content: "0",       x: 602, y: 84,  at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-0,  x: 421, y: 91,  points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-0, x: 421, y: 87,  points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 1 ────────────────────────────────────────────────────────────────
-    - { type: text,   id: param-label-1,  content: "  OCEAN",   x: 421, y: 88,  font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-1,  x: 421, y: 101, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-1, x: 421, y: 97,  points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-1,  content: "OCEAN",   x: 421, y: 110,  font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-1,  content: "55%",     x: 602, y: 110,  at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-1,  x: 421, y: 117, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-1, x: 421, y: 113, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 2 ────────────────────────────────────────────────────────────────
-    - { type: text,   id: param-label-2,  content: "  CONTINENT SZ", x: 421, y: 116, font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-2,  x: 421, y: 129, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-2, x: 421, y: 125, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-2,  content: "CONTINENT SZ", x: 421, y: 136, font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-2,  content: "2.5",         x: 602, y: 136, at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-2,  x: 421, y: 143, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-2, x: 421, y: 139, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 3 ────────────────────────────────────────────────────────────────
-    - { type: text,   id: param-label-3,  content: "  COAST CHAOS", x: 421, y: 144, font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-3,  x: 421, y: 157, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-3, x: 421, y: 153, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-3,  content: "COAST CHAOS", x: 421, y: 162, font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-3,  content: "0.6",        x: 602, y: 162, at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-3,  x: 421, y: 169, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-3, x: 421, y: 165, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 4 ────────────────────────────────────────────────────────────────
-    - { type: text,   id: param-label-4,  content: "  OCTAVES",  x: 421, y: 172, font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-4,  x: 421, y: 185, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-4, x: 421, y: 181, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-4,  content: "OCTAVES",  x: 421, y: 188, font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-4,  content: "5",       x: 602, y: 188, at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-4,  x: 421, y: 195, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-4, x: 421, y: 191, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 5 (Climate row 4 / Visual rows 5+6) ──────────────────────────────
-    - { type: text,   id: param-label-5,  content: "  --",       x: 421, y: 200, font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-5,  x: 421, y: 213, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-5, x: 421, y: 209, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-5,  content: "--",       x: 421, y: 214, font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-5,  content: "--",       x: 602, y: 214, at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-5,  x: 421, y: 221, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-5, x: 421, y: 217, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 6 (Visual only) ──────────────────────────────────────────────────
-    - { type: text,   id: param-label-6,  content: "  --",       x: 421, y: 228, font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-6,  x: 421, y: 241, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-6, x: 421, y: 237, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-6,  content: "--",       x: 421, y: 240, font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-6,  content: "--",       x: 602, y: 240, at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-6,  x: 421, y: 247, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-6, x: 421, y: 243, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Slot 7 (Visual only) ──────────────────────────────────────────────────
-    - { type: text,   id: param-label-7,  content: "  --",       x: 421, y: 256, font: "generic:1", fg: "#88bbaa" }
-    - { type: vector, id: param-track-7,  x: 421, y: 269, points: [[0,0],[180,0]], stroke-width: 3, fg: "#1a5c28" }
-    - { type: vector, id: param-handle-7, x: 421, y: 265, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
+    - { type: text,   id: param-label-7,  content: "--",       x: 421, y: 266, font: "generic:2", fg: "#9ed0ba" }
+    - { type: text,   id: param-value-7,  content: "--",       x: 602, y: 266, at: cr, font: "generic:2", fg: "#d6f4e6" }
+    - { type: vector, id: param-track-7,  x: 421, y: 273, points: [[0,0],[170,0]], stroke-width: 3, fg: "#1a5c28" }
+    - { type: vector, id: param-handle-7, x: 421, y: 269, points: [[0,0],[0,8]],  stroke-width: 3, fg: "#3aaa50" }
 
     # ── Keyboard/mouse hint ───────────────────────────────────────────────────
-    - { type: text, id: param-hint, content: "drag sliders | F1-F7 presets | 1-4 tabs", x: 520, y: 286, at: cc, font: "generic:1", fg: "#1a5c28" }
+    - { type: text, id: param-hint, content: "drag sliders | Q/W/E/Y/U tabs | 1-4 models | F1-F7 presets", x: 520, y: 291, at: cc, font: "generic:2", fg: "#2e5c46" }

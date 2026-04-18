@@ -8,6 +8,7 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_core::scene::LayerStages;
+use engine_core::scene::ResolvedViewProfile;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -35,8 +36,9 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,
+    pub(crate) ui_font_scale: f32,
     pub(crate) prerender_frames: Option<&'a ObjPrerenderedFrames>,
-    pub(crate) ambient_floor: f32,
+    pub(crate) resolved_view_profile: &'a ResolvedViewProfile,
 }
 
 /// Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.

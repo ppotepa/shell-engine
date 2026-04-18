@@ -1,0 +1,24 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/view-profile.schema.yaml"
+title: View Profile Schema
+description: Top-level reusable 3D scene view profile composed from lower-level profiles.
+type: object
+additionalProperties: false
+required:
+  - id
+properties:
+  id:
+    type: string
+    minLength: 1
+  lighting_profile:
+    type: string
+    minLength: 1
+  space_environment_profile:
+    type: string
+    minLength: 1
+  exposure_override:
+    type: number
+  black_level_override:
+    type: number
+    minimum: 0.0
+    maximum: 1.0

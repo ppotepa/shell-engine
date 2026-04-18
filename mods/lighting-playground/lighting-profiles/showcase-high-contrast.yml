@@ -1,0 +1,13 @@
+id: showcase-high-contrast
+ambient_intensity: 0.01
+key_light_intensity: 1.08
+fill_light_intensity: 0.0
+rim_light_intensity: 0.14
+black_level: 0.0
+shadow_contrast: 1.35
+exposure: 0.88
+tonemap: reinhard
+gamma: 2.18
+night_glow_scale: 0.0
+haze_night_leak: 0.0
+specular_floor: 0.0

@@ -52,6 +52,16 @@ pub enum Camera3dMutationRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Render3dMutationRequest {
+    /// Switch the active top-level scene view profile.
+    SetViewProfile { profile: String },
+    /// Switch the active lighting profile feeding the resolved scene view.
+    SetLightingProfile { profile: String },
+    /// Switch the active space-environment profile feeding the resolved scene view.
+    SetSpaceEnvironmentProfile { profile: String },
+    /// Override a single lighting-profile field on the active scene view.
+    SetLightingParam { name: String, value: JsonValue },
+    /// Override a single space-environment-profile field on the active scene view.
+    SetSpaceEnvironmentParam { name: String, value: JsonValue },
     /// Set transform values for a render node.
     SetNodeTransform {
         target: String,
@@ -144,6 +154,23 @@ mod tests {
             SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetSurfaceMode {
                 target: "planet-main".to_string(),
                 mode: "wireframe".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_render3d_view_profile_switch_from_json_shape() {
+        let raw = json!({
+            "type": "set_render3d",
+            "kind": "set_view_profile",
+            "profile": "orbit-realistic"
+        });
+        let decoded: SceneMutationRequest =
+            serde_json::from_value(raw).expect("deserialize request");
+        assert_eq!(
+            decoded,
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetViewProfile {
+                profile: "orbit-realistic".to_string(),
             })
         );
     }

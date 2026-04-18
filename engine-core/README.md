@@ -10,6 +10,8 @@ data types and low-level helpers that should not depend on engine orchestration.
 That includes:
 
 - the scene model consumed at runtime,
+- resolved scene-level `view-profile` data contracts (`LightingProfile`,
+  `SpaceEnvironmentProfile`, `ViewProfile`, `ResolvedViewProfile`),
 - buffer and cell types,
 - asset source abstractions,
 - effect and authoring metadata,

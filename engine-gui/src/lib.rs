@@ -23,11 +23,13 @@ pub use system::GuiSystem;
 
 // New trait-based API.
 pub use control::{
-    ButtonControl, GuiControl, PanelControl, SliderControl, ToggleControl, VisualSync, WidgetRect,
+    ButtonControl, ChoiceOption, DropdownControl, GuiControl, NumberInputControl, PanelControl,
+    RadioGroupControl, SliderControl, TextInputControl, ToggleControl, VisualSync,
+    VisualSyncAction, WidgetRect,
 };
 
 // Legacy enum — kept for backward compatibility during migration.
-pub use widget::GuiWidgetDef;
+pub use widget::{GuiChoiceDef, GuiWidgetDef};
 
 /// Deprecated alias kept for backward compatibility.
 #[allow(deprecated)]

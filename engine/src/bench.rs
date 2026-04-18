@@ -516,15 +516,15 @@ pub fn render_bench_results(buf: &mut crate::buffer::Buffer, results: &BenchResu
     let (sw, _) = generic_dimensions(&score_text, 3);
     rasterize_generic(&score_text, 3, gold, w.saturating_sub(sw) / 2, 16, buf, &t);
 
-    // FPS line — scale 1
+    // FPS line — scale 2
     let fps_line = format!(
         "AVG {:.0} FPS   P50 {:.1}us   P99 {:.1}us   {} FRAMES",
         results.fps.avg, results.frame.p50, results.frame.p99, results.total_frames
     );
-    let (fw, _) = generic_dimensions(&fps_line, 1);
-    rasterize_generic(&fps_line, 1, silver, w.saturating_sub(fw) / 2, 39, buf, &t);
+    let (fw, _) = generic_dimensions(&fps_line, 2);
+    rasterize_generic(&fps_line, 2, silver, w.saturating_sub(fw) / 2, 39, buf, &t);
 
-    // System breakdown — scale 1, two columns
+    // System breakdown — scale 2, two columns
     let systems: &[(&str, &MetricStats)] = &[
         ("COMP", &results.compositor),
         ("REND", &results.renderer),
@@ -540,9 +540,9 @@ pub fn render_bench_results(buf: &mut crate::buffer::Buffer, results: &BenchResu
             .map(|(n, s)| format!("{}: {:.0}us", n, s.avg))
             .collect::<Vec<_>>()
             .join("   ");
-        let (lw, _) = generic_dimensions(&line, 1);
-        rasterize_generic(&line, 1, dim, w.saturating_sub(lw) / 2, y, buf, &t);
-        y += 9;
+        let (lw, _) = generic_dimensions(&line, 2);
+        rasterize_generic(&line, 2, dim, w.saturating_sub(lw) / 2, y, buf, &t);
+        y += 15;
     }
 }
 

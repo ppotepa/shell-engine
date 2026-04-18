@@ -1,104 +1,151 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
-# ── Input controls (left column) ─────────────────────────────────────────────
 - name: controls
   z_index: 1
   ui: true
   space: screen
   sprites:
-    # ── Title ────────────────────────────────────────────────────────────────
-    - { type: text, id: title, content: "GUI PLAYGROUND", x: 16, y: 10, font: "generic:1", fg: "#80c0ff" }
+    - type: text
+      id: title
+      content: "GUI PLAYGROUND"
+      x: 18
+      y: 12
+      font: "generic:2"
+      fg: "#d7ecff"
+    - type: text
+      id: subtitle
+      content: "Widget lab: inputs, popup selectors, live state"
+      x: 18
+      y: 32
+      font: "generic:2"
+      fg: "#7d8daa"
 
-    # ── Sliders section ──────────────────────────────────────────────────────
-    - { type: text, content: "─── SLIDERS ────────────────", x: 16, y: 28, font: "generic:1", fg: "#505070" }
+    - type: panel
+      id: card-mixer
+      x: 16
+      y: 52
+      width: 258
+      height: 88
+      padding: 0
+      border-width: 1
+      corner-radius: 3
+      fg: "#18283e"
+      bg: "#0f1727"
+      border-colour: "#2a3f5e"
+    - { type: text, content: "COLOR MIXER", x: 28, y: 60, font: "generic:2", fg: "#91a8cd" }
+    - { type: text, content: "Drag channels to tint the live swatch", x: 122, y: 60, font: "generic:2", fg: "#52627d" }
 
-    # Slider R
-    - { type: text, id: slider-r-lbl, content: "R", x: 20, y: 50, font: "generic:1", fg: "#ff6060" }
-    - type: vector
-      id: slider-r-track
-      x: 50
-      y: 56
-      points: [[0, 0], [190, 0]]
-      stroke-width: 2
-      fg: "#303050"
-    - type: vector
-      id: slider-r-fill
-      x: 50
-      y: 56
-      points: [[0, 0], [95, 0]]
-      stroke-width: 2
-      fg: "#ff4040"
-    - type: vector
-      id: slider-r-handle
-      x: 50
-      y: 48
-      points: [[0, 0], [0, 16]]
-      stroke-width: 6
-      fg: "#808090"
-    - { type: text, id: slider-r-val, content: "128", x: 248, y: 50, font: "generic:1", fg: "#ff6060" }
+    - { type: text, id: color-red-slider-label, content: "R", x: 28, y: 82, font: "generic:2", fg: "#ff8080" }
+    - { type: vector, id: color-red-slider-track, x: 52, y: 88, points: [[0, 0], [164, 0]], stroke-width: 2, fg: "#2b3950" }
+    - { type: vector, id: color-red-slider-fill, x: 52, y: 88, points: [[0, 0], [82, 0]], stroke-width: 2, fg: "#ff5050" }
+    - { type: vector, id: color-red-slider-handle, x: 52, y: 80, points: [[0, 0], [0, 14]], stroke-width: 5, fg: "#b6bfcb" }
+    - { type: text, id: color-red-slider-value, content: "128", x: 224, y: 82, font: "generic:2", fg: "#ff8080" }
 
-    # Slider G
-    - { type: text, id: slider-g-lbl, content: "G", x: 20, y: 74, font: "generic:1", fg: "#60ff60" }
-    - type: vector
-      id: slider-g-track
-      x: 50
-      y: 80
-      points: [[0, 0], [190, 0]]
-      stroke-width: 2
-      fg: "#303050"
-    - type: vector
-      id: slider-g-fill
-      x: 50
-      y: 80
-      points: [[0, 0], [95, 0]]
-      stroke-width: 2
-      fg: "#40ff40"
-    - type: vector
-      id: slider-g-handle
-      x: 50
-      y: 72
-      points: [[0, 0], [0, 16]]
-      stroke-width: 6
-      fg: "#808090"
-    - { type: text, id: slider-g-val, content: "128", x: 248, y: 74, font: "generic:1", fg: "#60ff60" }
+    - { type: text, id: color-green-slider-label, content: "G", x: 28, y: 100, font: "generic:2", fg: "#80ff80" }
+    - { type: vector, id: color-green-slider-track, x: 52, y: 106, points: [[0, 0], [164, 0]], stroke-width: 2, fg: "#2b3950" }
+    - { type: vector, id: color-green-slider-fill, x: 52, y: 106, points: [[0, 0], [82, 0]], stroke-width: 2, fg: "#50ff50" }
+    - { type: vector, id: color-green-slider-handle, x: 52, y: 98, points: [[0, 0], [0, 14]], stroke-width: 5, fg: "#b6bfcb" }
+    - { type: text, id: color-green-slider-value, content: "128", x: 224, y: 100, font: "generic:2", fg: "#80ff80" }
 
-    # Slider B
-    - { type: text, id: slider-b-lbl, content: "B", x: 20, y: 98, font: "generic:1", fg: "#6060ff" }
-    - type: vector
-      id: slider-b-track
-      x: 50
-      y: 104
-      points: [[0, 0], [190, 0]]
-      stroke-width: 2
-      fg: "#303050"
-    - type: vector
-      id: slider-b-fill
-      x: 50
-      y: 104
-      points: [[0, 0], [95, 0]]
-      stroke-width: 2
-      fg: "#4040ff"
-    - type: vector
-      id: slider-b-handle
-      x: 50
-      y: 96
-      points: [[0, 0], [0, 16]]
-      stroke-width: 6
-      fg: "#808090"
-    - { type: text, id: slider-b-val, content: "128", x: 248, y: 98, font: "generic:1", fg: "#6060ff" }
+    - { type: text, id: color-blue-slider-label, content: "B", x: 28, y: 118, font: "generic:2", fg: "#8aa2ff" }
+    - { type: vector, id: color-blue-slider-track, x: 52, y: 124, points: [[0, 0], [164, 0]], stroke-width: 2, fg: "#2b3950" }
+    - { type: vector, id: color-blue-slider-fill, x: 52, y: 124, points: [[0, 0], [82, 0]], stroke-width: 2, fg: "#6a7dff" }
+    - { type: vector, id: color-blue-slider-handle, x: 52, y: 116, points: [[0, 0], [0, 14]], stroke-width: 5, fg: "#b6bfcb" }
+    - { type: text, id: color-blue-slider-value, content: "128", x: 224, y: 118, font: "generic:2", fg: "#8aa2ff" }
 
-    # ── Toggles section ──────────────────────────────────────────────────────
-    - { type: text, content: "─── TOGGLES ────────────────", x: 16, y: 120, font: "generic:1", fg: "#505070" }
+    - type: panel
+      id: card-actions
+      x: 16
+      y: 148
+      width: 258
+      height: 90
+      padding: 0
+      border-width: 1
+      corner-radius: 3
+      fg: "#18283e"
+      bg: "#0f1727"
+      border-colour: "#2a3f5e"
+    - { type: text, content: "TOGGLES + ACTIONS", x: 28, y: 156, font: "generic:2", fg: "#91a8cd" }
+    - { type: text, content: "Quick state switches + utility buttons", x: 152, y: 156, font: "generic:2", fg: "#52627d" }
+    - { type: text, id: display-hex-toggle-label, content: "[x] Show Hex", x: 28, y: 178, font: "generic:2", fg: "#9bd29b" }
+    - { type: text, id: display-swatch-toggle-label, content: "[x] Show Swatch", x: 28, y: 194, font: "generic:2", fg: "#9bd29b" }
+    - { type: text, id: display-invert-toggle-label, content: "[ ] Invert Colors", x: 28, y: 210, font: "generic:2", fg: "#778690" }
+    - { type: text, id: playground-reset-button-label, content: "[ RESET ]", x: 156, y: 178, font: "generic:2", fg: "#66a0ff" }
+    - { type: text, id: playground-randomize-button-label, content: "[ RANDOM ]", x: 156, y: 194, font: "generic:2", fg: "#ffc65a" }
 
-    - { type: text, id: toggle-hex-label, content: "[✓] Show Hex", x: 20, y: 142, font: "generic:1", fg: "#90c090" }
-    - { type: text, id: toggle-swatch-label, content: "[✓] Show Swatch", x: 20, y: 162, font: "generic:1", fg: "#90c090" }
-    - { type: text, id: toggle-invert-label, content: "[ ] Invert Colors", x: 20, y: 182, font: "generic:1", fg: "#708070" }
-
-    # ── Buttons section ──────────────────────────────────────────────────────
-    - { type: text, content: "─── BUTTONS ────────────────", x: 16, y: 202, font: "generic:1", fg: "#505070" }
-
-    - { type: text, id: btn-reset-label, content: "[ RESET ALL ]", x: 28, y: 222, font: "generic:1", fg: "#4080ff" }
-    - { type: text, id: btn-randomize-label, content: "[ RANDOMIZE ]", x: 160, y: 222, font: "generic:1", fg: "#ffc030" }
-    - { type: text, id: click-counter, content: "Clicks: 0   Last: ---", x: 20, y: 246, font: "generic:1", fg: "#606080" }
-
-    # ── Keyboard hints ───────────────────────────────────────────────────────
-    - { type: text, content: "Mouse: drag sliders, click toggles/btns", x: 16, y: 340, font: "generic:1", fg: "#303040" }
+    - type: panel
+      id: card-inputs
+      x: 16
+      y: 246
+      width: 258
+      height: 100
+      padding: 0
+      border-width: 1
+      corner-radius: 3
+      fg: "#18283e"
+      bg: "#0f1727"
+      border-colour: "#2a3f5e"
+    - { type: text, content: "INPUTS + SELECT", x: 28, y: 254, font: "generic:2", fg: "#91a8cd" }
+    - { type: text, content: "Editable fields and compact choice UI", x: 132, y: 254, font: "generic:2", fg: "#52627d" }
+    - { type: text, content: "Name", x: 28, y: 274, font: "generic:2", fg: "#8a9ab8" }
+    - type: panel
+      id: planet-name-input-box
+      x: 78
+      y: 270
+      width: 172
+      height: 16
+      padding: 0
+      border-width: 1
+      corner-radius: 2
+      fg: "#0d1625"
+      bg: "#0d1625"
+      border-colour: "#48617f"
+    - { type: text, id: planet-name-input-text, content: "Kepler-442b", x: 86, y: 274, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, content: "Density", x: 28, y: 296, font: "generic:2", fg: "#8a9ab8" }
+    - type: panel
+      id: planet-density-input-box
+      x: 78
+      y: 292
+      width: 172
+      height: 16
+      padding: 0
+      border-width: 1
+      corner-radius: 2
+      fg: "#0d1625"
+      bg: "#0d1625"
+      border-colour: "#48617f"
+    - { type: text, id: planet-density-input-text, content: "1.5", x: 86, y: 296, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, content: "Mode", x: 28, y: 318, font: "generic:2", fg: "#8a9ab8" }
+    - type: panel
+      id: view-mode-dropdown-box
+      x: 78
+      y: 314
+      width: 172
+      height: 16
+      padding: 0
+      border-width: 1
+      corner-radius: 2
+      fg: "#0d1625"
+      bg: "#0d1625"
+      border-colour: "#5a78a0"
+    - { type: text, id: view-mode-dropdown-label, content: "Surface", x: 86, y: 318, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: view-mode-dropdown-arrow, content: "v", x: 236, y: 318, font: "generic:2", fg: "#a8c4ef" }
+    - type: panel
+      id: view-mode-dropdown-popup
+      x: 78
+      y: 266
+      width: 172
+      height: 48
+      visible: false
+      padding: 0
+      border-width: 1
+      corner-radius: 2
+      fg: "#0d1625"
+      bg: "#121c2b"
+      border-colour: "#5a78a0"
+      shadow-x: 3
+      shadow-y: 3
+      shadow-colour: "#02040a"
+    - { type: text, id: view-mode-dropdown-option-0, content: "> Surface", x: 88, y: 270, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: view-mode-dropdown-option-1, content: "  Orbit",   x: 88, y: 286, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: view-mode-dropdown-option-2, content: "  Debug",   x: 88, y: 302, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, content: "Enter submits fields", x: 28, y: 334, font: "generic:2", fg: "#43536b" }

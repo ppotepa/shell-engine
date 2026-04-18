@@ -23,6 +23,7 @@ pub struct Render2dInput<'a> {
     pub elapsed_ms: u64,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+    pub ui_font_scale: f32,
 }
 
 /// Seam between composition and 2D sprite rendering.

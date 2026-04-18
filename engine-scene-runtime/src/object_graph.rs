@@ -89,6 +89,10 @@ impl SceneRuntime {
         self.scene_camera_3d
     }
 
+    pub fn resolved_view_profile(&self) -> &ResolvedViewProfile {
+        &self.resolved_view_profile
+    }
+
     pub(crate) fn set_scene_camera_3d_internal(&mut self, camera: SceneCamera3D) {
         self.scene_camera_3d = camera;
     }
@@ -272,5 +276,6 @@ impl SceneRuntime {
         let object_regions = std::sync::Arc::new(object_regions);
         self.cached_object_regions = std::sync::Arc::clone(&object_regions);
         self.object_regions = object_regions;
+        self.sync_widget_layout_bounds();
     }
 }

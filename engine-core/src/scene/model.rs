@@ -6,6 +6,7 @@
 use super::color::TermColour;
 use super::easing::Easing;
 use super::sprite::Sprite;
+use super::view_profile::{LightingProfile, SpaceEnvironmentProfile, ViewProfile};
 use crate::animations::AnimationParams;
 use crate::spatial::SpatialContext;
 use serde::Deserialize;
@@ -61,6 +62,45 @@ pub struct SceneLighting {
     /// surface visibility. `0.0` yields full black on night side for fully unlit faces.
     #[serde(default, rename = "ambient-floor", alias = "ambient_floor")]
     pub ambient_floor: Option<f32>,
+}
+
+/// Optional scene-level 3D view profile selection.
+///
+/// This is a renderer-agnostic authored contract: the scene can select one
+/// top-level view profile, or explicitly point at lower-level profile building
+/// blocks that the runtime later resolves into a single effective 3D view.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SceneView {
+    /// Preferred top-level scene view profile. This profile composes the lower
+    /// lighting/environment profiles and remains the main authoring entry-point.
+    #[serde(default, rename = "profile", alias = "view_profile")]
+    pub profile: Option<String>,
+    /// Optional direct lighting profile reference. Intended for composition and
+    /// explicit scene control, not as a long-term replacement for `profile`.
+    #[serde(
+        default,
+        rename = "lighting-profile",
+        alias = "lighting_profile"
+    )]
+    pub lighting_profile: Option<String>,
+    /// Optional direct space-environment profile reference used by the resolved
+    /// 3D scene view. This models the observation environment, not any planet-
+    /// specific object state.
+    #[serde(
+        default,
+        rename = "space-environment-profile",
+        alias = "space_environment_profile"
+    )]
+    pub space_environment_profile: Option<String>,
+    /// Optional asset-backed compiled view profile embedded during scene load.
+    #[serde(skip, default)]
+    pub resolved_view_profile_asset: Option<ViewProfile>,
+    /// Optional asset-backed compiled lighting profile embedded during scene load.
+    #[serde(skip, default)]
+    pub resolved_lighting_profile_asset: Option<LightingProfile>,
+    /// Optional asset-backed compiled space-environment profile embedded during scene load.
+    #[serde(skip, default)]
+    pub resolved_space_environment_profile_asset: Option<SpaceEnvironmentProfile>,
 }
 
 impl SceneSpatial {
@@ -497,7 +537,7 @@ fn default_ui_enabled() -> bool {
 }
 
 /// Scene-level UI runtime contract.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct SceneUi {
     #[serde(default = "default_ui_enabled")]
     pub enabled: bool,
@@ -505,8 +545,26 @@ pub struct SceneUi {
     pub persist: UiPersistence,
     #[serde(default)]
     pub theme: Option<String>,
+    /// Multiplier applied to GUI widget geometry (bounds, hitboxes, popup rows) for UI controls.
+    #[serde(default = "default_ui_scale", rename = "scale", alias = "ui_scale")]
+    pub scale: f32,
+    /// Multiplier applied to rasterized text scale for UI layers.
+    #[serde(
+        default = "default_ui_font_scale",
+        rename = "font-scale",
+        alias = "font_scale"
+    )]
+    pub font_scale: f32,
     #[serde(default, rename = "focus-order", alias = "focus_order")]
     pub focus_order: Vec<String>,
+}
+
+fn default_ui_scale() -> f32 {
+    1.0
+}
+
+fn default_ui_font_scale() -> f32 {
+    1.0
 }
 
 impl Default for SceneUi {
@@ -515,6 +573,8 @@ impl Default for SceneUi {
             enabled: true,
             persist: UiPersistence::Scene,
             theme: None,
+            scale: default_ui_scale(),
+            font_scale: default_ui_font_scale(),
             focus_order: Vec::new(),
         }
     }
@@ -805,6 +865,8 @@ pub struct Scene {
     pub celestial: SceneCelestial,
     #[serde(default)]
     pub lighting: Option<SceneLighting>,
+    #[serde(default)]
+    pub view: Option<SceneView>,
     #[serde(default, rename = "virtual-size-override")]
     pub virtual_size_override: Option<String>,
     pub bg_colour: Option<TermColour>,
@@ -880,6 +942,13 @@ pub struct SceneGui {
     pub widgets: Vec<SceneGuiWidgetDef>,
 }
 
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SceneGuiChoiceDef {
+    pub value: String,
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
 /// Author-facing GUI widget definition.  Mirrors `engine-gui::GuiWidgetDef` without
 /// pulling that crate into engine-core's dependency tree.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -908,6 +977,12 @@ pub enum SceneGuiWidgetDef {
         /// Sprite id of the slider handle/thumb — engine auto-positions it.
         #[serde(default)]
         handle: String,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
     },
     Button {
         id: String,
@@ -921,6 +996,12 @@ pub enum SceneGuiWidgetDef {
         w: i32,
         #[serde(default = "default_slider_h")]
         h: i32,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
     },
     Toggle {
         id: String,
@@ -936,6 +1017,12 @@ pub enum SceneGuiWidgetDef {
         h: i32,
         #[serde(default)]
         on: bool,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
     },
     Panel {
         id: String,
@@ -943,6 +1030,170 @@ pub enum SceneGuiWidgetDef {
         sprite: String,
         #[serde(default)]
         visible: bool,
+    },
+    RadioGroup {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default)]
+        options: Vec<SceneGuiChoiceDef>,
+        #[serde(default)]
+        selected: usize,
+        #[serde(default, rename = "selected-sprites", alias = "selected_sprites")]
+        selected_sprites: Vec<String>,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
+    },
+    SegmentedControl {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default)]
+        options: Vec<SceneGuiChoiceDef>,
+        #[serde(default)]
+        selected: usize,
+        #[serde(default, rename = "selected-sprites", alias = "selected_sprites")]
+        selected_sprites: Vec<String>,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
+    },
+    Tabs {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default)]
+        options: Vec<SceneGuiChoiceDef>,
+        #[serde(default)]
+        selected: usize,
+        #[serde(default, rename = "selected-sprites", alias = "selected_sprites")]
+        selected_sprites: Vec<String>,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
+    },
+    Dropdown {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default)]
+        options: Vec<SceneGuiChoiceDef>,
+        #[serde(default)]
+        selected: usize,
+        #[serde(default, rename = "popup-sprite", alias = "popup_sprite")]
+        popup_sprite: String,
+        #[serde(default, rename = "label-sprite", alias = "label_sprite")]
+        label_sprite: String,
+        #[serde(default, rename = "popup-above", alias = "popup_above")]
+        popup_above: bool,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
+    },
+    TextInput {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default, rename = "text-sprite", alias = "text_sprite")]
+        text_sprite: String,
+        #[serde(default)]
+        placeholder: String,
+        #[serde(default)]
+        value: String,
+        #[serde(default = "default_text_input_max_length", rename = "max-length", alias = "max_length")]
+        max_length: usize,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
+    },
+    NumberInput {
+        id: String,
+        #[serde(default)]
+        sprite: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default = "default_slider_w")]
+        w: i32,
+        #[serde(default = "default_slider_h")]
+        h: i32,
+        #[serde(default, rename = "text-sprite", alias = "text_sprite")]
+        text_sprite: String,
+        #[serde(default)]
+        placeholder: String,
+        #[serde(default)]
+        value: String,
+        #[serde(default)]
+        min: Option<f64>,
+        #[serde(default)]
+        max: Option<f64>,
+        #[serde(default)]
+        step: Option<f64>,
+        #[serde(default = "default_text_input_max_length", rename = "max-length", alias = "max_length")]
+        max_length: usize,
+        #[serde(
+            default = "default_follow_layout",
+            rename = "follow-layout",
+            alias = "follow_layout"
+        )]
+        follow_layout: bool,
     },
 }
 
@@ -956,6 +1207,14 @@ fn default_slider_max() -> f64 {
     1.0
 }
 
+fn default_follow_layout() -> bool {
+    true
+}
+
+fn default_text_input_max_length() -> usize {
+    64
+}
+
 impl Scene {
     /// Total duration of the on_enter stage in milliseconds.
     /// This is the primary cutscene/intro duration for most scenes.
@@ -967,7 +1226,8 @@ impl Scene {
 #[cfg(test)]
 mod tests {
     use super::{
-        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneSpace, UiPersistence,
+        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneGuiWidgetDef,
+        SceneSpace, UiPersistence,
     };
     use crate::scene::Stage;
     use crate::spatial::{Handedness, UpAxis};
@@ -1051,6 +1311,8 @@ layers: []
         assert!(scene.ui.enabled);
         assert_eq!(scene.ui.persist, UiPersistence::Scene);
         assert_eq!(scene.ui.theme, None);
+        assert_eq!(scene.ui.scale, 1.0);
+        assert_eq!(scene.ui.font_scale, 1.0);
     }
 
     #[test]
@@ -1125,6 +1387,189 @@ layers: []
         )
         .expect("scene should parse");
         assert_eq!(scene.ui.theme.as_deref(), Some("win98"));
+    }
+
+    #[test]
+    fn parses_scene_ui_font_scale_with_aliases() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-scale
+title: UI Scale
+ui:
+  font-scale: 1.25
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert!((scene.ui.font_scale - 1.25).abs() < f32::EPSILON);
+
+        let alias_scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-scale-alias
+title: UI Scale Alias
+ui:
+  font_scale: 1.1
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert!((alias_scene.ui.font_scale - 1.1).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn parses_scene_ui_scale_with_aliases() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-scale
+title: UI Scale
+ui:
+  scale: 1.2
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert!((scene.ui.scale - 1.2).abs() < f32::EPSILON);
+
+        let alias_scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-scale-alias
+title: UI Scale Alias
+ui:
+  ui_scale: 1.05
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert!((alias_scene.ui.scale - 1.05).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn parses_tabs_gui_widget() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: tabs-scene
+title: Tabs Scene
+layers: []
+gui:
+  widgets:
+    - type: tabs
+      id: top-tabs
+      sprite: top-tabs-track
+      x: 10
+      y: 12
+      w: 120
+      h: 18
+      selected: 1
+      options:
+        - { value: land, label: LAND }
+        - { value: climate, label: CLIMATE }
+"#,
+        )
+        .expect("scene should parse");
+        assert_eq!(scene.gui.widgets.len(), 1);
+        match &scene.gui.widgets[0] {
+            SceneGuiWidgetDef::Tabs {
+                id,
+                sprite,
+                selected,
+                options,
+                ..
+            } => {
+                assert_eq!(id, "top-tabs");
+                assert_eq!(sprite, "top-tabs-track");
+                assert_eq!(*selected, 1);
+                assert_eq!(options.len(), 2);
+            }
+            other => panic!("expected tabs widget, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_segmented_control_gui_widget() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: segmented-scene
+title: Segmented Scene
+layers: []
+gui:
+  widgets:
+    - type: segmented-control
+      id: model-picker
+      sprite: model-picker-track
+      x: 8
+      y: 12
+      w: 160
+      h: 18
+      selected: 2
+      options:
+        - { value: planet, label: PLANET }
+        - { value: sphere, label: SPHERE }
+        - { value: cube, label: CUBE }
+"#,
+        )
+        .expect("scene should parse");
+        assert_eq!(scene.gui.widgets.len(), 1);
+        match &scene.gui.widgets[0] {
+            SceneGuiWidgetDef::SegmentedControl {
+                id,
+                sprite,
+                selected,
+                options,
+                ..
+            } => {
+                assert_eq!(id, "model-picker");
+                assert_eq!(sprite, "model-picker-track");
+                assert_eq!(*selected, 2);
+                assert_eq!(options.len(), 3);
+            }
+            other => panic!("expected segmented-control widget, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_number_input_gui_widget() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: number-input-scene
+title: Number Input Scene
+layers: []
+gui:
+  widgets:
+    - type: number-input
+      id: atmo-density
+      sprite: atmo-density-box
+      text-sprite: atmo-density-text
+      placeholder: "1.0"
+      value: "2.5"
+      min: 0.0
+      max: 10.0
+      step: 0.5
+      max-length: 12
+"#,
+        )
+        .expect("scene should parse");
+        assert_eq!(scene.gui.widgets.len(), 1);
+        match &scene.gui.widgets[0] {
+            SceneGuiWidgetDef::NumberInput {
+                id,
+                text_sprite,
+                value,
+                min,
+                max,
+                step,
+                max_length,
+                ..
+            } => {
+                assert_eq!(id, "atmo-density");
+                assert_eq!(text_sprite, "atmo-density-text");
+                assert_eq!(value, "2.5");
+                assert_eq!(*min, Some(0.0));
+                assert_eq!(*max, Some(10.0));
+                assert_eq!(*step, Some(0.5));
+                assert_eq!(*max_length, 12);
+            }
+            other => panic!("expected number-input widget, got {other:?}"),
+        }
     }
 
     #[test]

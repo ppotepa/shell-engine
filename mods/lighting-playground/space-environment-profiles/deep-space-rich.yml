@@ -1,0 +1,12 @@
+id: deep-space-rich
+background_color: "#00000a"
+background_floor: 0.0
+starfield_density: 0.45
+starfield_brightness: 0.92
+starfield_size_min: 0.6
+starfield_size_max: 1.6
+primary_star_color: "#fff1cf"
+primary_star_glare_strength: 0.2
+primary_star_glare_width: 0.24
+nebula_strength: 0.04
+dust_band_strength: 0.02

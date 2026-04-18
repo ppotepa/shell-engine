@@ -21,7 +21,7 @@ behaviors:
           title.set("position.x", -2);
           phase_label = "PHASE 0";
         } else if phase == 1 {
-          title.set("text.font", "generic:1");
+          title.set("text.font", "generic:2");
           title.set("style.fg", "yellow");
           title.set("position.x", 2);
           phase_label = "PHASE 1";
@@ -31,7 +31,7 @@ behaviors:
           title.set("position.x", -1);
           phase_label = "PHASE 2";
         } else {
-          title.set("text.font", "generic:1");
+          title.set("text.font", "generic:2");
           title.set("style.fg", "magenta");
           title.set("position.x", 1);
           phase_label = "PHASE 3";

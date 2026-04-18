@@ -6,6 +6,7 @@
 //! These controls are runtime-specific and not embedded in the scene model.
 
 use super::*;
+use engine_gui::{VisualSyncAction, WidgetRect};
 
 impl SceneRuntime {
     pub fn apply_obj_viewer_key_presses(&mut self, key_presses: &[KeyEvent]) -> bool {
@@ -117,17 +118,74 @@ impl SceneRuntime {
     /// Each control's [`visual_sync`](engine_gui::GuiControl::visual_sync) decides what to sync.
     pub fn sync_widget_visuals(&mut self) {
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        let mut actions = Vec::new();
         for widget in &self.gui_widgets {
-            let value = self.gui_state.value(widget.id());
-            if let Some(sync) = widget.visual_sync(value) {
-                let object_id = resolver
-                    .resolve_alias(&sync.sprite_alias)
-                    .unwrap_or(&sync.sprite_alias);
-                if let Some(obj_state) = self.object_states.get_mut(object_id) {
-                    obj_state.offset_x = sync.offset_x;
+            let Some(state) = self.gui_state.widgets.get(widget.id()) else {
+                continue;
+            };
+            if let Some(sync) = widget.visual_sync(state) {
+                actions.extend(sync.actions);
+            }
+        }
+        for action in actions {
+            match action {
+                VisualSyncAction::OffsetX {
+                    sprite_alias,
+                    offset_x,
+                } => {
+                    let object_id = resolver.resolve_alias(&sprite_alias).unwrap_or(&sprite_alias);
+                    if let Some(obj_state) = self.object_states.get_mut(object_id) {
+                        obj_state.offset_x = offset_x;
+                    }
+                }
+                VisualSyncAction::SetVisible {
+                    sprite_alias,
+                    visible,
+                } => {
+                    let object_id = resolver.resolve_alias(&sprite_alias).unwrap_or(&sprite_alias);
+                    if let Some(obj_state) = self.object_states.get_mut(object_id) {
+                        obj_state.visible = visible;
+                    }
+                }
+                VisualSyncAction::SetText { sprite_alias, text } => {
+                    let _ = self.set_text_sprite_content(&sprite_alias, text);
                 }
             }
         }
+        self.cached_gui_state = None;
+    }
+
+    /// Updates widget bounds from latest layout-derived object regions.
+    ///
+    /// GUI widgets can be authored with static x/y/w/h, but when `follow_layout`
+    /// is enabled they move/scale together with their backing sprite.
+    pub fn sync_widget_layout_bounds(&mut self) {
+        let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        let object_regions = std::sync::Arc::clone(&self.object_regions);
+        if self.gui_widgets.is_empty() || object_regions.is_empty() {
+            return;
+        }
+
+        for widget in &mut self.gui_widgets {
+            let sprite_alias = widget.sprite();
+            if sprite_alias.is_empty() {
+                continue;
+            }
+            let object_id = resolver
+                .resolve_alias(sprite_alias)
+                .unwrap_or(sprite_alias)
+                .to_string();
+            if let Some(region) = object_regions.get(&object_id) {
+                widget.set_bounds(WidgetRect {
+                    x: i32::from(region.x),
+                    y: i32::from(region.y),
+                    w: i32::from(region.width),
+                    h: i32::from(region.height),
+                });
+            }
+        }
+
+        self.sync_widget_visuals();
     }
 
     /// Return a shared, cheaply-clonable snapshot of the current GUI state.

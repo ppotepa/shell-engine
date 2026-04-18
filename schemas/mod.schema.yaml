@@ -84,6 +84,16 @@ properties:
           (for example 180x30, 320x180, or 320x240).
           "match-output" tracks the current output size. `max-available`
           remains an alias for `match-output`.
+      ui_render_scale:
+        type: integer
+        minimum: 1
+        maximum: 8
+        description: |
+          Integer multiplier for the final presentation buffer used by UI/HUD rendering.
+          World rendering remains authored at `render_size`; the engine upscales world output
+          and composites UI at this denser target.
+          Example: `render_size: 640x360` with `ui_render_scale: 2` produces a 1280x720
+          final buffer with sharper GUI text.
       virtual_size:
         $ref: "#/properties/display/properties/render_size"
       presentation_policy:
@@ -117,6 +127,8 @@ properties:
         $ref: "#/properties/display/properties/renderer_mode"
       "^default-font$":
         $ref: "#/properties/display/properties/default_font"
+      "^ui-render-scale$":
+        $ref: "#/properties/display/properties/ui_render_scale"
 patternProperties:
   "^display$":
     $ref: "#/properties/display"

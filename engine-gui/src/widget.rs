@@ -5,6 +5,13 @@
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuiChoiceDef {
+    pub value: String,
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
 /// A logical GUI widget bound to a visual sprite in the scene.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
@@ -65,6 +72,82 @@ pub enum GuiWidgetDef {
         #[serde(default)]
         visible: bool,
     },
+    /// Single-choice segmented group.
+    RadioGroup {
+        id: String,
+        sprite: String,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        #[serde(default)]
+        options: Vec<GuiChoiceDef>,
+        #[serde(default)]
+        selected: usize,
+        #[serde(default)]
+        selected_sprites: Vec<String>,
+    },
+    /// Compact popup single-choice selector.
+    Dropdown {
+        id: String,
+        sprite: String,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        #[serde(default)]
+        options: Vec<GuiChoiceDef>,
+        #[serde(default)]
+        selected: usize,
+        #[serde(default)]
+        popup_sprite: String,
+        #[serde(default)]
+        label_sprite: String,
+        #[serde(default)]
+        popup_above: bool,
+    },
+    TextInput {
+        id: String,
+        sprite: String,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        #[serde(default)]
+        text_sprite: String,
+        #[serde(default)]
+        placeholder: String,
+        #[serde(default)]
+        value: String,
+        #[serde(default = "default_text_input_max_length")]
+        max_length: usize,
+    },
+    NumberInput {
+        id: String,
+        sprite: String,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        #[serde(default)]
+        text_sprite: String,
+        #[serde(default)]
+        placeholder: String,
+        #[serde(default)]
+        value: String,
+        #[serde(default)]
+        min: Option<f64>,
+        #[serde(default)]
+        max: Option<f64>,
+        #[serde(default)]
+        step: Option<f64>,
+        #[serde(default = "default_text_input_max_length")]
+        max_length: usize,
+    },
+}
+
+fn default_text_input_max_length() -> usize {
+    64
 }
 
 impl GuiWidgetDef {
@@ -74,6 +157,10 @@ impl GuiWidgetDef {
             Self::Button { id, .. } => id,
             Self::Toggle { id, .. } => id,
             Self::Panel { id, .. } => id,
+            Self::RadioGroup { id, .. } => id,
+            Self::Dropdown { id, .. } => id,
+            Self::TextInput { id, .. } => id,
+            Self::NumberInput { id, .. } => id,
         }
     }
 
@@ -95,6 +182,10 @@ impl GuiWidgetDef {
             Self::Button { x, y, w, h, .. } => Some((*x, *y, *w, *h)),
             Self::Toggle { x, y, w, h, .. } => Some((*x, *y, *w, *h)),
             Self::Panel { .. } => None,
+            Self::RadioGroup { x, y, w, h, .. } => Some((*x, *y, *w, *h)),
+            Self::Dropdown { x, y, w, h, .. } => Some((*x, *y, *w, *h)),
+            Self::TextInput { x, y, w, h, .. } => Some((*x, *y, *w, *h)),
+            Self::NumberInput { x, y, w, h, .. } => Some((*x, *y, *w, *h)),
         }
     }
 
@@ -108,6 +199,8 @@ impl GuiWidgetDef {
                     0.0
                 }
             }
+            Self::RadioGroup { selected, .. } | Self::Dropdown { selected, .. } => *selected as f64,
+            Self::TextInput { .. } | Self::NumberInput { .. } => 0.0,
             _ => 0.0,
         }
     }

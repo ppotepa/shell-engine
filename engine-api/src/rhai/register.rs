@@ -115,7 +115,7 @@ pub fn register_geometry_api(engine: &mut RhaiEngine) {
             ))
         },
     );
-    // Legacy two-result version kept for completeness (returns Array of two Arrays).
+    // Array-returning two-result overload kept for completeness.
     engine.register_fn(
         "split_polygon",
         |points: rhai::Array, heading: rhai::INT| -> rhai::Array {

@@ -9,12 +9,12 @@
       rows: ["auto", "auto", "auto", "auto", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "RHAI TIME", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
-        - { type: text, content: "TIME-SLICED VISIBILITY DEMO", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "[phase A/B/C + blink]", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
-        - { type: text, content: "------------------------------", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: gray }
-        - { type: text, id: time-pulse-a, content: "RHAI BEAT A", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
-        - { type: text, id: time-pulse-b, content: "RHAI BEAT B", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
-        - { type: text, id: time-pulse-c, content: "RHAI BEAT C", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
-        - { type: text, id: time-flash, content: "250ms blink", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: yellow }
-    - { type: text, content: "0: return to Rhai Lab", at: cb, y: -1, font: "generic:1", fg: gray, hide_on_leave: true }
+        - { type: text, content: "RHAI TIME", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: white }
+        - { type: text, content: "TIME-SLICED VISIBILITY DEMO", grid-col: 1, grid-row: 2, at: cc, font: "generic:2", fg: gray }
+        - { type: text, content: "[phase A/B/C + blink]", grid-col: 1, grid-row: 3, at: cc, font: "generic:2", fg: silver }
+        - { type: text, content: "------------------------------", grid-col: 1, grid-row: 4, at: cc, font: "generic:2", fg: gray }
+        - { type: text, id: time-pulse-a, content: "RHAI BEAT A", grid-col: 1, grid-row: 5, at: cc, font: "generic:2", fg: cyan }
+        - { type: text, id: time-pulse-b, content: "RHAI BEAT B", grid-col: 1, grid-row: 5, at: cc, font: "generic:2", fg: cyan }
+        - { type: text, id: time-pulse-c, content: "RHAI BEAT C", grid-col: 1, grid-row: 5, at: cc, font: "generic:2", fg: cyan }
+        - { type: text, id: time-flash, content: "250ms blink", grid-col: 1, grid-row: 6, at: cc, font: "generic:2", fg: yellow }
+    - { type: text, content: "0: return to Rhai Lab", at: cb, y: -1, font: "generic:2", fg: gray, hide_on_leave: true }

@@ -120,7 +120,10 @@ mod tests {
             cutscene: true,
             target_fps: None,
             space: Default::default(),
+            spatial: Default::default(),
             celestial: Default::default(),
+            lighting: None,
+            view: None,
             virtual_size_override: None,
             bg_colour: None,
             stages: SceneStages {

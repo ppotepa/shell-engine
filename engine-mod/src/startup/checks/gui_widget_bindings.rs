@@ -1,6 +1,6 @@
 //! Verifies that interactive-looking sprite ids are bound to scene GUI widgets.
 //!
-//! This catches HUD controls that look clickable (`btn-*`, `tab-btn-*`, `preset-*`, `toggle-*`)
+//! This catches HUD controls that look clickable (`btn-*`, `tab-btn-*`, `preset-btn-*`, `toggle-*`)
 //! but are authored only as sprites and therefore cannot emit `gui.*` events.
 
 use std::collections::BTreeSet;
@@ -39,6 +39,60 @@ impl StartupCheck for GuiWidgetBindingsCheck {
                         }
                         if !sprite.is_empty() {
                             widget_sprites.insert(sprite.as_str());
+                        }
+                    }
+                    SceneGuiWidgetDef::RadioGroup { id, sprite, .. }
+                    | SceneGuiWidgetDef::SegmentedControl { id, sprite, .. } => {
+                        if !id.is_empty() {
+                            widget_ids.insert(id.as_str());
+                        }
+                        if !sprite.is_empty() {
+                            widget_sprites.insert(sprite.as_str());
+                        }
+                    }
+                    SceneGuiWidgetDef::Tabs { id, sprite, .. } => {
+                        if !id.is_empty() {
+                            widget_ids.insert(id.as_str());
+                        }
+                        if !sprite.is_empty() {
+                            widget_sprites.insert(sprite.as_str());
+                        }
+                    }
+                    SceneGuiWidgetDef::Dropdown {
+                        id,
+                        sprite,
+                        popup_sprite,
+                        label_sprite,
+                        ..
+                    } => {
+                        if !id.is_empty() {
+                            widget_ids.insert(id.as_str());
+                        }
+                        for alias in [sprite.as_str(), popup_sprite.as_str(), label_sprite.as_str()] {
+                            if !alias.is_empty() {
+                                widget_sprites.insert(alias);
+                            }
+                        }
+                    }
+                    SceneGuiWidgetDef::TextInput {
+                        id,
+                        sprite,
+                        text_sprite,
+                        ..
+                    }
+                    | SceneGuiWidgetDef::NumberInput {
+                        id,
+                        sprite,
+                        text_sprite,
+                        ..
+                    } => {
+                        if !id.is_empty() {
+                            widget_ids.insert(id.as_str());
+                        }
+                        for alias in [sprite.as_str(), text_sprite.as_str()] {
+                            if !alias.is_empty() {
+                                widget_sprites.insert(alias);
+                            }
                         }
                     }
                 }
@@ -96,7 +150,7 @@ impl StartupCheck for GuiWidgetBindingsCheck {
 fn looks_interactive(id: &str) -> bool {
     id.starts_with("btn-")
         || id.starts_with("tab-btn-")
-        || id.starts_with("preset-")
+        || id.starts_with("preset-btn-")
         || id.starts_with("toggle-")
 }
 

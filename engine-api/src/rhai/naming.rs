@@ -1,1 +1,1 @@
-//! Naming conventions and compatibility aliases for exposed script APIs.
+//! Naming conventions for exposed script APIs.

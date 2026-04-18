@@ -70,6 +70,30 @@ impl ScriptGuiApi {
         self.slider_value(id)
     }
 
+    fn selected_index(&mut self, id: &str) -> rhai::INT {
+        self.state
+            .as_ref()
+            .and_then(|s| s.selected_index(id))
+            .map(|v| v as rhai::INT)
+            .unwrap_or(-1)
+    }
+
+    fn widget_open(&mut self, id: &str) -> bool {
+        self.state.as_ref().map(|s| s.is_open(id)).unwrap_or(false)
+    }
+
+    fn text(&mut self, id: &str) -> String {
+        self.state.as_ref().map(|s| s.text(id)).unwrap_or_default()
+    }
+
+    fn submitted(&mut self, id: &str) -> bool {
+        self.state.as_ref().map(|s| s.submitted(id)).unwrap_or(false)
+    }
+
+    fn number_value(&mut self, id: &str) -> rhai::FLOAT {
+        self.state.as_ref().map(|s| s.value(id)).unwrap_or(0.0) as rhai::FLOAT
+    }
+
     fn widget_hovered(&mut self, id: &str) -> bool {
         self.state
             .as_ref()
@@ -152,6 +176,19 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     });
     engine.register_fn("widget_value", |gui: &mut ScriptGuiApi, id: &str| {
         gui.widget_value(id)
+    });
+    engine.register_fn("selected_index", |gui: &mut ScriptGuiApi, id: &str| {
+        gui.selected_index(id)
+    });
+    engine.register_fn("widget_open", |gui: &mut ScriptGuiApi, id: &str| {
+        gui.widget_open(id)
+    });
+    engine.register_fn("text", |gui: &mut ScriptGuiApi, id: &str| gui.text(id));
+    engine.register_fn("submitted", |gui: &mut ScriptGuiApi, id: &str| {
+        gui.submitted(id)
+    });
+    engine.register_fn("number_value", |gui: &mut ScriptGuiApi, id: &str| {
+        gui.number_value(id)
     });
     engine.register_fn("widget_hovered", |gui: &mut ScriptGuiApi, id: &str| {
         gui.widget_hovered(id)

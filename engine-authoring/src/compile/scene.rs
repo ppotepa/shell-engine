@@ -734,7 +734,7 @@ mod tests {
     use engine_core::scene::Sprite;
 
     #[test]
-    fn compiles_compat_scene_yaml_into_runtime_scene() {
+    fn compiles_alternate_scene_yaml_keys_into_runtime_scene() {
         let raw = r#"
 id: intro
 title: Intro

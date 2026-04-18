@@ -8,33 +8,33 @@
     # Left column background
     - type: panel
       id: bg-left
-      x: 4
-      y: 4
-      width: 276
-      height: 352
+      x: 6
+      y: 6
+      width: 274
+      height: 348
       padding: 0
       border-width: 1
-      corner-radius: 2
-      fg: "#303050"
-      bg: "#0c0c18"
-      border-colour: "#303050"
-      shadow-x: 2
-      shadow-y: 2
-      shadow-colour: "#000000"
+      corner-radius: 4
+      fg: "#24324a"
+      bg: "#0b111d"
+      border-colour: "#24324a"
+      shadow-x: 3
+      shadow-y: 3
+      shadow-colour: "#02040a"
 
     # Right column background
     - type: panel
       id: bg-right
-      x: 284
-      y: 4
-      width: 352
-      height: 352
+      x: 286
+      y: 6
+      width: 348
+      height: 348
       padding: 0
       border-width: 1
-      corner-radius: 2
-      fg: "#303050"
-      bg: "#0c0c18"
-      border-colour: "#303050"
-      shadow-x: 2
-      shadow-y: 2
-      shadow-colour: "#000000"
+      corner-radius: 4
+      fg: "#24324a"
+      bg: "#0b111d"
+      border-colour: "#24324a"
+      shadow-x: 3
+      shadow-y: 3
+      shadow-colour: "#02040a"

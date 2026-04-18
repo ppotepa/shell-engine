@@ -1,8 +1,12 @@
 # 3D Refactor Checklist
 
-Status: `IN_PROGRESS`
-Last updated: `2026-04-17`
+Status: `COMPLETE`
+Last updated: `2026-04-18`
 Owner: `engine/render/runtime`
+
+Closure note:
+- Core 3D refactor goals are closed.
+- Remaining work now lives in follow-up tracks (`left.md`, `planetgen.opt.impl.md`, lighting/view-profile implementation notes) rather than in this checklist.
 
 ## 1. Governance / Architecture Rules
 
@@ -90,3 +94,13 @@ Owner: `engine/render/runtime`
 - [x] `ambient-floor` now participates in scene schema (`schemas/scene.schema.yaml`) and docs.
 - [x] Free-look surface mode controls added to `engine-core::scene::FreeLookCameraControls`, scene runtime, and planet-generator scene.
 - [x] Planet-generator scene now documents and enables surface-mode controls for first-person-style walk/fly testing.
+
+## 9. Dual-Resolution UI/World Render Split (Implemented)
+
+- [x] Runtime render layout now distinguishes authored world render size from final presentation size (`ui_render_scale`).
+- [x] Compositor supports split-pass composition:
+  - world pass rendered at world resolution,
+  - nearest-neighbour upscale to final target,
+  - UI-only pass composited at final target.
+- [x] HUD/FPS generic-font scaling now respects `ui_render_scale` to keep overlay readability.
+- [x] Mod schema/documentation updated (`display.ui_render_scale`) with mod-level usage in active playground/planet mods.

@@ -128,7 +128,7 @@ fn sdl_startup_output_size(manifest: &Value) -> (u16, u16) {
     use engine_runtime::RuntimeSettings;
     let settings = RuntimeSettings::from_manifest(manifest);
     // For a fixed render size, the output IS the render buffer — use it directly.
-    if let Some((w, h)) = settings.render_size.fixed() {
+    if let Some((w, h)) = settings.fixed_render_size() {
         return (w, h);
     }
     (SDL_DEFAULT_OUTPUT_WIDTH, SDL_DEFAULT_OUTPUT_HEIGHT)
@@ -295,12 +295,15 @@ impl ShellEngine {
         logging::info(
             "engine.runtime",
             format!(
-                "output={} output_size={}x{} render_size={}x{} policy={:?} scene_override={}",
+                "output={} output_size={}x{} world_size={}x{} render_size={}x{} ui_scale={} policy={:?} scene_override={}",
                 "sdl2",
                 output_w,
                 output_h,
+                layout.world_width,
+                layout.world_height,
                 layout.render_width,
                 layout.render_height,
+                runtime_settings.ui_render_scale,
                 runtime_settings.presentation_policy,
                 scene.virtual_size_override.as_deref().unwrap_or("none"),
             ),

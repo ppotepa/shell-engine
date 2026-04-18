@@ -8,6 +8,7 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
+use engine_core::scene::ResolvedViewProfile;
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -28,14 +29,15 @@ thread_local! {
 pub struct PreparedLayerRenderInputs<'a> {
     pub render_2d_pipeline: Option<&'a dyn Render2dPipeline>,
     pub asset_root: Option<&'a AssetRoot>,
+    pub resolved_view_profile: &'a ResolvedViewProfile,
     pub obj_camera_states: &'a HashMap<String, ObjCameraState>,
     pub scene_camera_3d: &'a SceneCamera3D,
     pub spatial_context: SpatialContext,
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+    pub ui_font_scale: f32,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
-    pub ambient_floor: f32,
 }
 
 /// Prepared layer/frame state consumed by compositor assembly.
@@ -81,21 +83,21 @@ pub fn composite_layers(
     let camera_y = inputs.camera_y;
     let camera_zoom = inputs.camera_zoom;
     let asset_root = inputs.render.asset_root;
+    let resolved_view_profile = inputs.render.resolved_view_profile;
     let obj_camera_states = inputs.render.obj_camera_states;
     let scene_camera_3d = inputs.render.scene_camera_3d;
     let spatial_context = inputs.render.spatial_context;
     let celestial_catalogs = inputs.render.celestial_catalogs;
     let is_pixel_backend = inputs.render.is_pixel_backend;
     let default_font = inputs.render.default_font;
-    let ambient_floor = inputs.render.ambient_floor;
     let resolved_render_pipeline = resolve_render_2d_pipeline(
         inputs.render.render_2d_pipeline,
+        resolved_view_profile,
         obj_camera_states,
         scene_camera_3d,
         spatial_context,
         celestial_catalogs,
         inputs.render.prerender_frames,
-        ambient_floor,
     );
     let render_2d_pipeline: &dyn Render2dPipeline = resolved_render_pipeline.pipeline();
 
@@ -249,6 +251,7 @@ pub fn composite_layers(
                         elapsed_ms,
                         is_pixel_backend,
                         default_font,
+                        ui_font_scale: if layer.ui { inputs.render.ui_font_scale } else { 1.0 },
                     },
                     &mut layer_buf,
                 );
@@ -288,6 +291,7 @@ pub fn composite_layers(
                     elapsed_ms,
                     is_pixel_backend,
                     default_font,
+                    ui_font_scale: if layer.ui { inputs.render.ui_font_scale } else { 1.0 },
                 },
                 buffer,
             );

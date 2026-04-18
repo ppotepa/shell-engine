@@ -215,23 +215,20 @@ fn is_yaml_path(path: &Path) -> bool {
 
 fn apply_virtual_size_override(world: &mut World, scene: &Scene) {
     let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
-    let new_size = {
+    let new_layout = {
         let Some(settings) = world.runtime_settings() else {
             return;
         };
-        crate::runtime_settings::scene_render_size_override(
+        crate::runtime_settings::buffer_layout_for_scene(
             settings,
             scene,
             output_dimensions.0,
             output_dimensions.1,
         )
     };
-    let Some((new_width, new_height)) = new_size else {
-        return;
-    };
     if let Some(buffer) = world.buffer_mut() {
-        if buffer.width != new_width || buffer.height != new_height {
-            buffer.resize(new_width, new_height);
+        if buffer.width != new_layout.render_width || buffer.height != new_layout.render_height {
+            buffer.resize(new_layout.render_width, new_layout.render_height);
         }
     }
 }

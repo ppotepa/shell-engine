@@ -1,0 +1,13 @@
+id: space-hard-vacuum
+ambient_intensity: 0.02
+key_light_intensity: 1.0
+fill_light_intensity: 0.0
+rim_light_intensity: 0.08
+black_level: 0.0
+shadow_contrast: 1.0
+exposure: 0.94
+tonemap: reinhard
+gamma: 2.2
+night_glow_scale: 0.0
+haze_night_leak: 0.0
+specular_floor: 0.0

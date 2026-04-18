@@ -1,0 +1,27 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/lighting-profile.schema.yaml"
+title: Lighting Profile Schema
+description: Reusable renderer-agnostic 3D lighting profile.
+type: object
+additionalProperties: false
+required:
+  - id
+properties:
+  id:
+    type: string
+    minLength: 1
+  ambient_intensity:
+    type: number
+    minimum: 0.0
+  black_level:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+  exposure:
+    type: number
+  tonemap:
+    type: string
+    enum: [linear, reinhard, aces_approx]
+  gamma:
+    type: number
+    minimum: 0.1

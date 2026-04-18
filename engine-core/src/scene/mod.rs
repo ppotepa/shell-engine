@@ -17,6 +17,8 @@ pub mod sprite;
 pub mod template;
 /// UI theme registry and preset styles.
 pub mod ui_theme;
+/// Reusable 3D scene view, lighting, and environment profile contracts.
+pub mod view_profile;
 
 pub use crate::animations::AnimationParams;
 pub use color::TermColour;
@@ -26,8 +28,9 @@ pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, CelestialClockSource, CelestialFrame,
     CelestialScope, Effect, EffectParams, EffectTargetKind, FreeLookCameraControls,
     GameStateBinding, Layer, LayerSpace, LayerStages, MenuOption, ObjOrbitCameraControls,
-    ObjViewerControls, PaletteBinding, Scene, SceneAudio, SceneCelestial, SceneInput, SceneSpace,
-    SceneStages, SceneUi, Stage, StageTrigger, Step, UiPersistence,
+    ObjViewerControls, PaletteBinding, Scene, SceneAudio, SceneCelestial, SceneInput,
+    SceneLighting, SceneSpace, SceneStages, SceneUi, SceneView, Stage, StageTrigger, Step,
+    UiPersistence,
 };
 pub use sprite::{
     CameraSource, FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign,
@@ -35,4 +38,10 @@ pub use sprite::{
 pub use ui_theme::{
     normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default, ScrollListThemeStyle,
     UiThemeStyle, WindowThemeStyle,
+};
+pub use view_profile::{
+    builtin_lighting_profile, builtin_space_environment_profile, builtin_view_profile,
+    merge_lighting_profile, merge_space_environment_profile, resolve_scene_view_profile,
+    LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile, TonemapOperator, ViewProfile,
+    ViewProfileOverrides,
 };

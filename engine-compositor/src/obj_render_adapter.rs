@@ -1,7 +1,7 @@
 use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::render_types::ScreenSpaceMetrics;
-use engine_core::scene::CameraSource;
+use engine_core::scene::{CameraSource, TonemapOperator};
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use engine_render_2d::{resolve_x, resolve_y, RenderArea};
 use engine_render_3d::pipeline::ObjSpriteSpec;
@@ -11,6 +11,61 @@ use engine_render_3d::ObjRenderParams;
 use std::collections::HashMap;
 
 use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
+
+fn resolved_ambient_floor(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .black_level
+        .unwrap_or(0.06)
+}
+
+fn resolved_exposure(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .exposure
+        .unwrap_or(1.0)
+        .max(0.0)
+}
+
+fn resolved_gamma(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .gamma
+        .unwrap_or(2.2)
+        .clamp(0.1, 4.0)
+}
+
+fn resolved_tonemap(ctx: &RenderCtx<'_>) -> TonemapOperator {
+    ctx.resolved_view_profile
+        .lighting
+        .tonemap
+        .unwrap_or(TonemapOperator::Linear)
+}
+
+fn resolved_shadow_contrast(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .shadow_contrast
+        .unwrap_or(1.0)
+        .clamp(0.25, 4.0)
+}
+
+fn resolved_night_glow_scale(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .night_glow_scale
+        .unwrap_or(1.0)
+        .clamp(0.0, 2.0)
+}
+
+fn resolved_haze_night_leak(ctx: &RenderCtx<'_>) -> f32 {
+    ctx.resolved_view_profile
+        .lighting
+        .haze_night_leak
+        .unwrap_or(0.0)
+        .clamp(0.0, 1.0)
+}
+
 pub(crate) fn render_obj_sprite(
     spec: ObjSpriteSpec<'_>,
     area: RenderArea,
@@ -343,7 +398,11 @@ pub(crate) fn render_obj_sprite(
             },
             unlit: false,
             ambient: ambient.unwrap_or(0.15),
-            ambient_floor: ctx.ambient_floor,
+            ambient_floor: resolved_ambient_floor(ctx),
+            shadow_contrast: resolved_shadow_contrast(ctx),
+            exposure: resolved_exposure(ctx),
+            gamma: resolved_gamma(ctx),
+            tonemap: resolved_tonemap(ctx),
             light_point_falloff: 0.7,
             light_point_2_falloff: 0.7,
             smooth_shading: smooth_shading.unwrap_or(false),
@@ -412,11 +471,12 @@ pub(crate) fn render_obj_sprite(
             atmo_forward_scatter: atmo_forward_scatter.unwrap_or(0.72),
             atmo_limb_boost: atmo_limb_boost.unwrap_or(1.0),
             atmo_terminator_softness: atmo_terminator_softness.unwrap_or(1.0),
-            atmo_night_glow: atmo_night_glow.unwrap_or(0.0),
+            atmo_night_glow: atmo_night_glow.unwrap_or(0.0) * resolved_night_glow_scale(ctx),
             atmo_night_glow_color: atmo_night_glow_color.map(|c| {
                 let (r, g, b) = Color::from(c).to_rgb();
                 [r, g, b]
             }),
+            atmo_haze_night_leak: resolved_haze_night_leak(ctx),
             atmo_rim_power: 4.5,
             atmo_haze_strength: 0.0,
             atmo_haze_power: 1.8,

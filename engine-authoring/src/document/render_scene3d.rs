@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 /// Authored document scaffold for Scene3D-oriented inputs.
 ///
 /// `viewports_3d` is the preferred authored surface for render-scene 3D
-/// viewport references. Scene sprite traversal is kept only as a compatibility
-/// fallback when this field is absent.
+/// viewport references. When this field is absent, authoring derives viewport
+/// references from scene sprite traversal.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RenderScene3dDocument {
     #[serde(default)]

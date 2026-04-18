@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use engine_3d::scene3d_format::{CameraDef, MaterialDef, ObjectDef, SurfaceMode, TweenDef};
 use engine_core::color::Color;
+use engine_core::scene::TonemapOperator;
 use engine_core::scene_runtime_types::SceneCamera3D;
 
 use crate::ObjRenderParams;
@@ -125,6 +126,10 @@ pub fn build_object_specs(
                 unlit: mat.surface_mode == SurfaceMode::Unlit,
                 ambient: lights.ambient,
                 ambient_floor: 0.06,
+                shadow_contrast: 1.0,
+                exposure: 1.0,
+                gamma: 2.2,
+                tonemap: TonemapOperator::Linear,
                 light_point_falloff: lights.point1_falloff,
                 light_point_2_falloff: lights.point2_falloff,
                 smooth_shading: false,
@@ -173,6 +178,7 @@ pub fn build_object_specs(
                 atmo_terminator_softness: 1.0,
                 atmo_night_glow: 0.0,
                 atmo_night_glow_color: None,
+                atmo_haze_night_leak: 0.0,
                 atmo_rim_power: 4.5,
                 atmo_haze_strength: 0.0,
                 atmo_haze_power: 1.8,

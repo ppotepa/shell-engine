@@ -1,0 +1,9 @@
+id: backlit-harsh
+lighting_profile: showcase-high-contrast
+space_environment_profile: orbit-bright-star
+overrides:
+  exposure: 0.86
+  black_level: 0.0
+  background_floor: 0.0
+  starfield_brightness: 0.72
+  primary_star_glare_strength: 0.34

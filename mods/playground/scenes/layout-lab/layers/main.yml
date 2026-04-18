@@ -9,8 +9,8 @@
       rows: ["auto", "auto", "1fr", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "LAYOUT LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
-        - { type: text, content: "Resize to check centering, edge alignment, and nested layouts.", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "LAYOUT LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: white }
+        - { type: text, content: "Resize to check centering, edge alignment, and nested layouts.", grid-col: 1, grid-row: 2, at: cc, font: "generic:2", fg: gray }
 
         - type: grid
           id: lab-shell
@@ -21,8 +21,8 @@
           gap-x: 2
           gap-y: 1
           children:
-            - { type: text, content: "CENTERED FLEX BLOCK", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "NESTED FLEX IN GRID", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
+            - { type: text, content: "CENTERED FLEX BLOCK", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: cyan }
+            - { type: text, content: "NESTED FLEX IN GRID", grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: magenta }
 
             - type: flex
               direction: column
@@ -32,9 +32,9 @@
               align_x: center
               align_y: center
               children:
-                - { type: text, content: "[ inner box ]", font: "generic:1", fg: white }
-                - { type: text, content: "keeps itself centered", font: "generic:1", fg: silver }
-                - { type: text, content: "even when resized", font: "generic:1", fg: gray }
+                - { type: text, content: "[ inner box ]", font: "generic:2", fg: white }
+                - { type: text, content: "keeps itself centered", font: "generic:2", fg: silver }
+                - { type: text, content: "even when resized", font: "generic:2", fg: gray }
             - type: grid
               grid-col: 2
               grid-row: 2
@@ -43,8 +43,8 @@
               gap-x: 1
               gap-y: 1
               children:
-                - { type: text, content: "grid cell 1", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
-                - { type: text, content: "grid cell 2", grid-col: 2, grid-row: 1, at: rc, font: "generic:1", fg: gray }
+                - { type: text, content: "grid cell 1", grid-col: 1, grid-row: 1, at: lc, font: "generic:2", fg: gray }
+                - { type: text, content: "grid cell 2", grid-col: 2, grid-row: 1, at: rc, font: "generic:2", fg: gray }
                 - type: flex
                   direction: column
                   grid-col: 1
@@ -53,16 +53,16 @@
                   align_x: center
                   align_y: center
                   children:
-                    - { type: text, content: "flex column", font: "generic:1", fg: white }
+                    - { type: text, content: "flex column", font: "generic:2", fg: white }
                     - type: flex
                       direction: row
                       gap: 2
                       children:
-                        - { type: text, content: "A", font: "generic:1", fg: cyan }
-                        - { type: text, content: "B", font: "generic:1", fg: yellow }
-                        - { type: text, content: "C", font: "generic:1", fg: magenta }
-                - { type: text, content: "row + column", grid-col: 2, grid-row: 2, at: rc, font: "generic:1", fg: silver }
-            - { type: text, content: "Panels auto-flow in available space", grid-col: 1, grid-row: 3, col-span: 2, at: cc, font: "generic:1", fg: gray }
+                        - { type: text, content: "A", font: "generic:2", fg: cyan }
+                        - { type: text, content: "B", font: "generic:2", fg: yellow }
+                        - { type: text, content: "C", font: "generic:2", fg: magenta }
+                - { type: text, content: "row + column", grid-col: 2, grid-row: 2, at: rc, font: "generic:2", fg: silver }
+            - { type: text, content: "Panels auto-flow in available space", grid-col: 1, grid-row: 3, col-span: 2, at: cc, font: "generic:2", fg: gray }
 
         - type: grid
           id: left-right-row
@@ -72,7 +72,7 @@
           rows: ["auto"]
           gap-x: 2
           children:
-            - { type: text, content: "LEFT ALIGNED", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: cyan }
-            - { type: text, content: "RIGHT ALIGNED", grid-col: 2, grid-row: 1, at: rc, font: "generic:1", fg: yellow }
+            - { type: text, content: "LEFT ALIGNED", grid-col: 1, grid-row: 1, at: lc, font: "generic:2", fg: cyan }
+            - { type: text, content: "RIGHT ALIGNED", grid-col: 2, grid-row: 1, at: rc, font: "generic:2", fg: yellow }
 
-        - { type: text, content: "Footer hint: resize and check grid/flex balance.", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "Footer hint: resize and check grid/flex balance.", grid-col: 1, grid-row: 5, at: cc, font: "generic:2", fg: gray }

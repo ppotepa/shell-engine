@@ -335,7 +335,7 @@ fn collect_debug_overlay(world: &mut World) -> Option<OverlayData> {
 }
 
 fn apply_perf_hud(world: &mut World) {
-    use crate::rasterizer::generic::rasterize_generic;
+    use crate::rasterizer::generic::{generic_dimensions, rasterize_generic};
     use engine_core::scene::sprite::TextTransform;
     use std::fmt::Write;
 
@@ -368,17 +368,22 @@ fn apply_perf_hud(world: &mut World) {
             return;
         }
 
+        let ui_render_scale = world
+            .runtime_settings()
+            .map(|settings| settings.ui_render_scale.max(1))
+            .unwrap_or(1);
         let Some(buffer) = world.get_mut::<Buffer>() else {
             return;
         };
-        let text_w = hud_text.len() as u16 * 6;
+        let hud_scale = 2u16.saturating_mul(ui_render_scale).min(8);
+        let (text_w, _) = generic_dimensions(hud_text, hud_scale);
         let x = buffer.width.saturating_sub(text_w);
         let green = Color::Rgb {
             r: 0,
             g: 255,
             b: 80,
         };
-        rasterize_generic(hud_text, 1, green, x, 0, buffer, &TextTransform::None);
+        rasterize_generic(hud_text, hud_scale, green, x, 0, buffer, &TextTransform::None);
     });
 }
 
@@ -394,9 +399,20 @@ fn format_render_info(settings: Option<&RuntimeSettings>) -> String {
     };
 
     if settings.render_size_matches_output() {
-        format!("render: match-output ({policy})")
+        format!(
+            "render: match-output x{} ({policy})",
+            settings.ui_render_scale.max(1)
+        )
     } else {
+        let (world_width, world_height) = settings.fixed_world_render_size().unwrap_or((0, 0));
         let (width, height) = settings.fixed_render_size().unwrap_or((0, 0));
-        format!("render: {}x{} ({policy})", width, height)
+        if settings.ui_render_scale > 1 {
+            format!(
+                "render: {}x{} -> {}x{} ({policy})",
+                world_width, world_height, width, height
+            )
+        } else {
+            format!("render: {}x{} ({policy})", width, height)
+        }
     }
 }

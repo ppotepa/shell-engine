@@ -24,6 +24,8 @@ produced by `engine-authoring`.
 - `AnySceneRepository` / `AnyAssetRepository` — runtime-selected wrappers
 - `ModAssetSourceLoader` — `SourceLoader` implementation for asset refs inside authored content
 - `ImageAssetKey` — canonical key for shared image lookup across 2D and 3D consumers
+- scene-view profile hydration helpers — load asset-backed `view-profile`,
+  `lighting-profile`, and `space-environment-profile` data into compiled scenes
 - `compile_scene_document_with_loader_and_source()` — compiles merged authored YAML into a runtime `Scene`
 
 ## How it works
@@ -34,6 +36,8 @@ produced by `engine-authoring`.
    `objects/`.
 4. Resolve referenced authored fragments through the provided loader.
 5. Hand the final YAML to `engine-authoring` for normalization and typed compilation.
+6. Hydrate any asset-backed scene-view profile refs so runtime can resolve one
+   effective scene-wide look contract without duplicating storage concerns.
 
 The engine should treat this crate as the place for storage format concerns.
 Directory-vs-zip logic belongs here, not in higher-level runtime systems.
@@ -49,6 +53,12 @@ When changing mod loading behavior:
 
 If a change affects how authored assets are resolved, update
 `ModAssetSourceLoader` as well.
+
+Conventional scene-view profile directories are:
+
+- `/view-profiles/<id>.yml|yaml`
+- `/lighting-profiles/<id>.yml|yaml`
+- `/space-environment-profiles/<id>.yml|yaml`
 
 ## Image seam (2D + 3D)
 

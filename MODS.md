@@ -91,3 +91,10 @@ cargo run -p app -- --mod-source=mods/my-mod --check-scenes
   current `world://` and generated-world flows.
 - `gui-playground` is the best reference for the current widget system.
 - `playground` remains the general-purpose scene/render sandbox.
+- Reusable scene look assets can live directly in mods under:
+  - `/view-profiles/`
+  - `/lighting-profiles/`
+  - `/space-environment-profiles/`
+- Those assets resolve into one effective scene-wide lighting/environment
+  contract at runtime, so mods can author reusable 3D scene look presets
+  without making renderers aware of gameplay concepts such as planets.

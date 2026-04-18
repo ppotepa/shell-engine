@@ -95,6 +95,7 @@ impl SceneRuntime {
                 .collect::<HashMap<_, _>>(),
         );
         let spatial_context = scene.spatial.to_context();
+        let resolved_view_profile = engine_core::scene::resolve_scene_view_profile(&scene);
 
         let mut runtime = Self {
             scene,
@@ -140,6 +141,9 @@ impl SceneRuntime {
             camera_zoom: 1.0,
             spatial_context,
             scene_camera_3d: SceneCamera3D::default(),
+            resolved_view_profile,
+            runtime_lighting_profile_override: None,
+            runtime_space_environment_override: None,
             render3d_dirty_mask: engine_core::render_types::DirtyMask3D::empty(),
             render3d_rebuild_diagnostics: Render3dRebuildDiagnostics::default(),
             gui_widgets: Vec::new(),
@@ -152,7 +156,7 @@ impl SceneRuntime {
             .widgets
             .clone()
             .into_iter()
-            .map(scene_gui_widget_to_control)
+            .map(|widget| scene_gui_widget_to_control(widget, runtime.scene.ui.scale))
             .collect();
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.free_look_camera = runtime
@@ -177,6 +181,61 @@ impl SceneRuntime {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_materializes_resolved_view_profile_from_scene() {
+        let scene = Scene {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            cutscene: false,
+            target_fps: None,
+            space: Default::default(),
+            spatial: Default::default(),
+            celestial: Default::default(),
+            lighting: Some(engine_core::scene::SceneLighting {
+                ambient_floor: Some(0.11),
+            }),
+            view: Some(engine_core::scene::SceneView {
+                profile: Some("orbit-realistic".to_string()),
+                lighting_profile: None,
+                space_environment_profile: None,
+                resolved_view_profile_asset: None,
+                resolved_lighting_profile_asset: None,
+                resolved_space_environment_profile_asset: None,
+            }),
+            virtual_size_override: None,
+            bg_colour: None,
+            stages: Default::default(),
+            behaviors: Vec::new(),
+            audio: Default::default(),
+            ui: Default::default(),
+            layers: Vec::new(),
+            menu_options: Vec::new(),
+            input: Default::default(),
+            postfx: Vec::new(),
+            next: None,
+            prerender: false,
+            palette_bindings: Vec::new(),
+            game_state_bindings: Vec::new(),
+            gui: Default::default(),
+        };
+
+        let runtime = SceneRuntime::new(scene);
+
+        assert_eq!(
+            runtime.resolved_view_profile().lighting.black_level,
+            Some(0.11)
+        );
+        assert_eq!(
+            runtime.resolved_view_profile().environment.starfield_brightness,
+            Some(0.7)
+        );
+    }
+}
+
 fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
     let mut key = layer_idx.to_string();
     for idx in sprite_path {
@@ -186,10 +245,22 @@ fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
     key
 }
 
+fn scale_i32(value: i32, scale: f32) -> i32 {
+    ((value as f32) * scale.max(0.01)).round() as i32
+}
+
 fn scene_gui_widget_to_control(
     def: engine_core::scene::model::SceneGuiWidgetDef,
+    ui_scale: f32,
 ) -> Box<dyn engine_gui::GuiControl> {
     use engine_core::scene::model::SceneGuiWidgetDef as Src;
+    let ui_scale = ui_scale.max(0.01);
+    let to_choice = |choice: engine_core::scene::model::SceneGuiChoiceDef| {
+        engine_gui::ChoiceOption::new(
+            choice.value.clone(),
+            choice.label.unwrap_or(choice.value),
+        )
+    };
     match def {
         Src::Slider {
             id,
@@ -203,18 +274,20 @@ fn scene_gui_widget_to_control(
             value,
             hit_padding,
             handle,
+            follow_layout,
         } => Box::new(engine_gui::SliderControl {
             id,
             sprite,
-            x,
-            y,
-            w,
-            h,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
             min,
             max,
             value,
-            hit_padding,
+            hit_padding: scale_i32(hit_padding, ui_scale),
             handle,
+            follow_layout,
         }),
         Src::Button {
             id,
@@ -223,13 +296,15 @@ fn scene_gui_widget_to_control(
             y,
             w,
             h,
+            follow_layout,
         } => Box::new(engine_gui::ButtonControl {
             id,
             sprite,
-            x,
-            y,
-            w,
-            h,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            follow_layout,
         }),
         Src::Toggle {
             id,
@@ -239,14 +314,16 @@ fn scene_gui_widget_to_control(
             w,
             h,
             on,
+            follow_layout,
         } => Box::new(engine_gui::ToggleControl {
             id,
             sprite,
-            x,
-            y,
-            w,
-            h,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
             initial_on: on,
+            follow_layout,
         }),
         Src::Panel {
             id,
@@ -256,6 +333,164 @@ fn scene_gui_widget_to_control(
             id,
             sprite,
             visible,
+        }),
+        Src::RadioGroup {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            options,
+            selected,
+            selected_sprites,
+            follow_layout,
+        } => Box::new(engine_gui::RadioGroupControl {
+            id,
+            sprite,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            options: options.into_iter().map(to_choice).collect(),
+            selected,
+            selected_sprites,
+            follow_layout,
+        }),
+        Src::SegmentedControl {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            options,
+            selected,
+            selected_sprites,
+            follow_layout,
+        } => Box::new(engine_gui::RadioGroupControl {
+            id,
+            sprite,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            options: options.into_iter().map(to_choice).collect(),
+            selected,
+            selected_sprites,
+            follow_layout,
+        }),
+        Src::Tabs {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            options,
+            selected,
+            selected_sprites,
+            follow_layout,
+        } => Box::new(engine_gui::RadioGroupControl {
+            id,
+            sprite,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            options: options
+                .into_iter()
+                .map(|opt| engine_gui::ChoiceOption {
+                    value: opt.value,
+                    label: opt.label.unwrap_or_default(),
+                })
+                .collect(),
+            selected,
+            selected_sprites,
+            follow_layout,
+        }),
+        Src::Dropdown {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            options,
+            selected,
+            popup_sprite,
+            label_sprite,
+            popup_above,
+            follow_layout,
+        } => Box::new(engine_gui::DropdownControl {
+            id,
+            sprite,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            options: options.into_iter().map(to_choice).collect(),
+            selected,
+            popup_sprite,
+            label_sprite,
+            popup_above,
+            follow_layout,
+        }),
+        Src::TextInput {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            text_sprite,
+            placeholder,
+            value,
+            max_length,
+            follow_layout,
+        } => Box::new(engine_gui::TextInputControl {
+            id,
+            sprite,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            text_sprite,
+            placeholder,
+            value,
+            max_length,
+            follow_layout,
+        }),
+        Src::NumberInput {
+            id,
+            sprite,
+            x,
+            y,
+            w,
+            h,
+            text_sprite,
+            placeholder,
+            value,
+            min,
+            max,
+            step,
+            max_length,
+            follow_layout,
+        } => Box::new(engine_gui::NumberInputControl {
+            id,
+            sprite,
+            x: scale_i32(x, ui_scale),
+            y: scale_i32(y, ui_scale),
+            w: scale_i32(w, ui_scale).max(1),
+            h: scale_i32(h, ui_scale).max(1),
+            text_sprite,
+            placeholder,
+            value,
+            min,
+            max,
+            step,
+            max_length,
+            follow_layout,
         }),
     }
 }

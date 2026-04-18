@@ -31,37 +31,37 @@
           gap-y: 3
           children:
             # Row 1 — header
-            - { type: text, content: "WORLD GEN PARAMS", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440" }
+            - { type: text, content: "WORLD GEN PARAMS", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440" }
 
             # Rows 2-3 — seed
-            - { type: text, id: ep-seed-label, content: "  SEED           0", grid-col: 1, grid-row: 2, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+            - { type: text, id: ep-seed-label, content: "  SEED           0", grid-col: 1, grid-row: 2, at: cl, x: 4, font: "generic:2", fg: "#88bbaa" }
             - { type: vector, id: ep-seed-track,  grid-col: 1, grid-row: 3, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
             - { type: vector, id: ep-seed-handle, grid-col: 1, grid-row: 3, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
             # Rows 4-5 — ocean fraction
-            - { type: text, id: ep-ocean-label, content: "  OCEAN          55%", grid-col: 1, grid-row: 4, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+            - { type: text, id: ep-ocean-label, content: "  OCEAN          55%", grid-col: 1, grid-row: 4, at: cl, x: 4, font: "generic:2", fg: "#88bbaa" }
             - { type: vector, id: ep-ocean-track,  grid-col: 1, grid-row: 5, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
             - { type: vector, id: ep-ocean-handle, grid-col: 1, grid-row: 5, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
             # Rows 6-7 — continent scale
-            - { type: text, id: ep-cscale-label, content: "  CONTINENT SZ   2.5", grid-col: 1, grid-row: 6, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+            - { type: text, id: ep-cscale-label, content: "  CONTINENT SZ   2.5", grid-col: 1, grid-row: 6, at: cl, x: 4, font: "generic:2", fg: "#88bbaa" }
             - { type: vector, id: ep-cscale-track,  grid-col: 1, grid-row: 7, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
             - { type: vector, id: ep-cscale-handle, grid-col: 1, grid-row: 7, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
             # Rows 8-9 — continent warp (coastal chaos)
-            - { type: text, id: ep-cwarp-label, content: "  COAST CHAOS    0.7", grid-col: 1, grid-row: 8, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+            - { type: text, id: ep-cwarp-label, content: "  COAST CHAOS    0.7", grid-col: 1, grid-row: 8, at: cl, x: 4, font: "generic:2", fg: "#88bbaa" }
             - { type: vector, id: ep-cwarp-track,  grid-col: 1, grid-row: 9, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
             - { type: vector, id: ep-cwarp-handle, grid-col: 1, grid-row: 9, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
             # Rows 10-11 — mountain strength
-            - { type: text, id: ep-mstr-label, content: "  MTN STRENGTH   45%", grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+            - { type: text, id: ep-mstr-label, content: "  MTN STRENGTH   45%", grid-col: 1, grid-row: 10, at: cl, x: 4, font: "generic:2", fg: "#88bbaa" }
             - { type: vector, id: ep-mstr-track,  grid-col: 1, grid-row: 11, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
             - { type: vector, id: ep-mstr-handle, grid-col: 1, grid-row: 11, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
             # Rows 12-13 — displacement scale
-            - { type: text, id: ep-disp-label, content: "  DISPLACEMENT   22%", grid-col: 1, grid-row: 12, at: cl, x: 4, font: "generic:1", fg: "#88bbaa" }
+            - { type: text, id: ep-disp-label, content: "  DISPLACEMENT   22%", grid-col: 1, grid-row: 12, at: cl, x: 4, font: "generic:2", fg: "#88bbaa" }
             - { type: vector, id: ep-disp-track,  grid-col: 1, grid-row: 13, points: [[4, 4], [184, 4]], stroke-width: 3, fg: "#1a5c28" }
             - { type: vector, id: ep-disp-handle, grid-col: 1, grid-row: 13, points: [[4, 0], [4, 8]],   stroke-width: 2, fg: "#2a9440" }
 
             # Row 14 — footer hint
-            - { type: text, content: "↑↓ sel  ←→ adj  S close", grid-col: 1, grid-row: 14, at: cc, font: "generic:1", fg: "#1a5c28" }
+            - { type: text, content: "↑↓ sel  ←→ adj  S close", grid-col: 1, grid-row: 14, at: cc, font: "generic:2", fg: "#1a5c28" }

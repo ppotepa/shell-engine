@@ -40,6 +40,11 @@ properties:
   lighting:
     $ref: "#/$defs/scene_lighting"
     description: Optional scene-level lighting floor configuration.
+  view:
+    $ref: "#/$defs/scene_view"
+    description: >
+      Optional scene-level 3D view profile selection. Prefer a top-level
+      `view.profile`; direct lower-level profile refs are composition inputs.
   celestial:
     $ref: "#/$defs/scene_celestial"
     description: Optional binding to the persistent celestial scope resolved by this scene.
@@ -78,6 +83,9 @@ properties:
   ui:
     $ref: "#/$defs/ui_config"
     description: Scene-level UI toggles and lifecycle hints.
+  gui:
+    $ref: "#/$defs/scene_gui"
+    description: Optional interactive GUI control declarations for HUD/UI widgets.
   layers:
     type: array
     description: Compositing layers rendered onto the scene buffer, each containing sprites.
@@ -122,6 +130,8 @@ patternProperties:
     $ref: "#/$defs/scene_spatial/properties/virtual-pixels-per-world-unit"
   "^lighting$":
     $ref: "#/properties/lighting"
+  "^view$":
+    $ref: "#/properties/view"
   "^menu_options$":
     $ref: "#/properties/menu-options"
 
@@ -177,6 +187,96 @@ $defs:
         default: {}
         additionalProperties: true
 
+  scene_gui:
+    type: object
+    additionalProperties: false
+    properties:
+      widgets:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/scene_gui_widget"
+
+  scene_gui_choice:
+    type: object
+    additionalProperties: false
+    required: [value]
+    properties:
+      value:
+        type: string
+        minLength: 1
+      label:
+        type: string
+        minLength: 1
+
+  scene_gui_widget:
+    type: object
+    additionalProperties: false
+    required: [type, id]
+    properties:
+      type:
+        type: string
+        enum: [slider, button, toggle, panel, radio-group, segmented-control, tabs, dropdown, text-input, number-input]
+      id:
+        type: string
+        minLength: 1
+      sprite:
+        type: string
+      x:
+        type: integer
+        default: 0
+      y:
+        type: integer
+        default: 0
+      w:
+        type: integer
+        minimum: 1
+      h:
+        type: integer
+        minimum: 1
+      min:
+        type: number
+      max:
+        type: number
+      value:
+        type: number
+      on:
+        type: boolean
+      visible:
+        type: boolean
+      handle:
+        type: string
+      hit-padding:
+        type: integer
+      follow-layout:
+        type: boolean
+      options:
+        type: array
+        items:
+          $ref: "#/$defs/scene_gui_choice"
+      selected:
+        type: integer
+        minimum: 0
+      selected-sprites:
+        type: array
+        items:
+          type: string
+      popup-sprite:
+        type: string
+      label-sprite:
+        type: string
+      popup-above:
+        type: boolean
+      text-sprite:
+        type: string
+      placeholder:
+        type: string
+      max-length:
+        type: integer
+        minimum: 1
+      step:
+        type: number
+
   spatial_handedness:
     type: string
     enum: [left, right]
@@ -228,6 +328,36 @@ $defs:
     patternProperties:
       "^ambient_floor$":
         $ref: "#/$defs/scene_lighting/properties/ambient-floor"
+
+  scene_view:
+    type: object
+    additionalProperties: false
+    properties:
+      profile:
+        type: string
+        minLength: 1
+        description: >
+          Top-level resolved 3D view profile. This is the preferred scene entry-point
+          for reusable space/view presets.
+      lighting-profile:
+        type: string
+        minLength: 1
+        description: >
+          Optional lower-level lighting profile reference used as an explicit composition
+          input for the scene's resolved 3D view.
+      space-environment-profile:
+        type: string
+        minLength: 1
+        description: >
+          Optional lower-level space environment profile reference used by the scene's
+          resolved 3D view. This defines observation environment, not object metadata.
+    patternProperties:
+      "^view_profile$":
+        $ref: "#/$defs/scene_view/properties/profile"
+      "^lighting_profile$":
+        $ref: "#/$defs/scene_view/properties/lighting-profile"
+      "^space_environment_profile$":
+        $ref: "#/$defs/scene_view/properties/space-environment-profile"
 
   celestial_scope:
     type: string
@@ -316,6 +446,20 @@ $defs:
         type: string
         minLength: 1
         description: Optional UI theme id resolved by the runtime/theme registry.
+      scale:
+        type: number
+        minimum: 0.01
+        default: 1.0
+        description: Multiplier applied to GUI widget geometry for UI controls.
+      ui_scale:
+        $ref: "#/$defs/ui_config/properties/scale"
+      font-scale:
+        type: number
+        minimum: 0.01
+        default: 1.0
+        description: Multiplier applied to rasterized text scale for UI layers.
+      font_scale:
+        $ref: "#/$defs/ui_config/properties/font-scale"
       focus-order:
         type: array
         description: Ordered list of focusable UI target ids cycled by Tab/Shift+Tab.

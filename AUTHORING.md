@@ -492,8 +492,22 @@ paths work for both unpacked directories and zip-packaged mods.
 | OBJ meshes   | assets/3d/ or scenes/ | mesh_assets.rs    | Wavefront OBJ + MTL           |
 | YAML prefabs | objects/, layers/  | engine-authoring     | Reusable authored resources    |
 
-`mod.yaml` can define `terminal.default_font`. Then any text sprite using
-`font: "default"` resolves to that spec; if unset, engine fallback generic is used.
+`mod.yaml` can define `display.default_font`. Then any text sprite using
+`font: "default"` resolves to that spec; if unset, the engine fallback font is
+used. For readable GUI/HUD text, prefer `generic:2`; reserve `generic:1` for
+very dense compact readouts only.
+
+For sharper GUI/HUD text without increasing world rendering cost, set
+`display.ui_render_scale` in `mod.yaml`:
+
+```yaml
+display:
+  render_size: 640x360
+  ui_render_scale: 2
+```
+
+This keeps world rendering authored at 640x360 while compositing UI on a denser
+final target (1280x720 in this example).
 
 Audio authoring is mod-root based:
 - `audio/sfx.yaml` defines semantic events such as `ui.menu.select`
@@ -531,8 +545,8 @@ The engine ships a 5×7 pixel bitmap font with several rendering modes:
 
 | Font spec       | Glyph size (px) | Notes                            |
 |-----------------|-----------------|----------------------------------|
-| `generic:1`     | 4×5             | Compact tiny — HUD counters      |
-| `generic:2`     | 6×7 (scale 1)   | Standard — score/wave labels     |
+| `generic:1`     | 4×5             | Compact tiny — dense micro readouts only |
+| `generic:2`     | 6×7 (scale 1)   | Standard readable default for GUI / HUD / overlays |
 | `generic:3`     | 12×14 (scale 2) | Large — titles, life icons       |
 
 Supported special glyphs: `♥` (retro 5×7 heart), `→←↑↓`, `·•…` and all
@@ -563,10 +577,16 @@ A `scene.yml` controls the following concerns:
 | Composition | layers (ordered list of visual slices)                    |
 | Lighting    | lighting.ambient-floor                                     |
 | PostFX      | postfx (ordered list of post-processing passes)           |
-| UI          | ui.enabled, ui.persist, ui.theme, ui.focus-order          |
+| UI          | ui.enabled, ui.persist, ui.theme, ui.scale, ui.font-scale, ui.focus-order |
 | Routing     | next, menu-options (each with `to`)                       |
 | Input       | input profiles (obj-viewer, free-look-camera, custom)     |
 | Prerender   | prerender hooks                                           |
+
+`ui.scale` multiplies GUI widget geometry for `scene.gui.widgets` controls, so hitboxes,
+popup rows, and authored control rects can be resized scene-wide without rewriting each widget.
+`ui.font-scale` multiplies rasterized text scale for layers marked with `ui: true`.
+Use them together for scene-wide HUD readability tuning before hand-authoring per-sprite
+`scale-x/scale-y` overrides.
 
 ---
 
@@ -593,6 +613,19 @@ Scene-level lighting supports:
 - `lighting.ambient-floor` (0.0..1.0): minimum base illumination floor for all
   rasterized geometry. Use `0.0` for full black night-side, higher values to lift
   darkness globally.
+- `view.profile`: preferred top-level reusable 3D scene-view preset.
+- `view.lighting-profile`: optional lower-level lighting profile reference.
+- `view.space-environment-profile`: optional lower-level observation-environment
+  reference used by the resolved 3D scene view.
+
+Profile references resolve in this order:
+
+- built-in engine preset ids such as `orbit-realistic` or `space-hard-vacuum`
+- asset-backed mod profiles by explicit path, e.g. `/view-profiles/orbit.yml`
+- asset-backed mod profiles by conventional id lookup:
+  - `/view-profiles/<id>.yml|yaml`
+  - `/lighting-profiles/<id>.yml|yaml`
+  - `/space-environment-profiles/<id>.yml|yaml`
 
 ## Free-Look Camera Surface Mode
 
@@ -786,11 +819,11 @@ gui:
       id: slider-volume
       x: 50
       y: 100
-      width: 200
-      height: 12
+      w: 200
+      h: 12
       min: 0.0
       max: 100.0
-      default: 50.0
+      value: 50.0
       handle: volume-handle     # sprite alias for engine-level positioning
       hit-padding: 4            # expand clickable area (pixels)
 
@@ -798,22 +831,75 @@ gui:
       id: toggle-mute
       x: 50
       y: 120
-      width: 20
-      height: 12
+      w: 20
+      h: 12
 
     - type: button
       id: btn-apply
       x: 50
       y: 140
-      width: 80
-      height: 16
+      w: 80
+      h: 16
 
     - type: panel
       id: panel-settings
-      x: 40
-      y: 90
-      width: 240
-      height: 80
+      sprite: panel-settings
+      visible: true
+
+    - type: radio-group
+      id: model-picker
+      sprite: model-picker-track
+      x: 50
+      y: 170
+      w: 160
+      h: 18
+      selected: 0
+      options:
+        - { value: world, label: Planet }
+        - { value: sphere, label: Sphere }
+        - { value: cube, label: Cube }
+      selected-sprites: [sel-world, sel-sphere, sel-cube]
+
+    - type: segmented-control
+      id: display-mode
+      sprite: display-mode-track
+      x: 50
+      y: 194
+      w: 160
+      h: 18
+      selected: 0
+      options:
+        - { value: surface, label: Surface }
+        - { value: wire,    label: Wire }
+        - { value: heat,    label: Heat }
+
+    - type: tabs
+      id: top-tabs
+      sprite: top-tabs-track
+      x: 50
+      y: 220
+      w: 220
+      h: 18
+      selected: 0
+      options:
+        - { value: land, label: Land }
+        - { value: climate, label: Climate }
+        - { value: atmo, label: Atmosphere }
+
+    - type: dropdown
+      id: preset-picker
+      sprite: preset-trigger
+      x: 50
+      y: 200
+      w: 120
+      h: 18
+      selected: 0
+      label-sprite: preset-label
+      popup-sprite: preset-popup
+      popup-above: true
+      options:
+        - { value: earth, label: Earth }
+        - { value: mars, label: Mars }
 ```
 
 **Key fields:**
@@ -822,10 +908,27 @@ gui:
   needed.
 - `hit-padding` (slider only) — expands the clickable area beyond the track bounds
   (useful for thin track sprites).
+- `selected-sprites` (radio-group) — optional per-option visual markers that the
+  engine toggles based on the selected index.
+- `type: segmented-control` — neutral sugar over `radio-group` for short
+  mutually-exclusive mode choosers that are not semantically tabs.
+- `type: tabs` — authoring sugar over the same runtime as `radio-group`, for
+  panel/view switching UIs where tab semantics are clearer than a generic chooser.
+- `label-sprite` / `popup-sprite` (dropdown) — optional trigger label + popup
+  visuals driven directly by GUI runtime state.
+- `popup-above` (dropdown) — opens the popup list upward instead of below the
+  trigger; useful for bottom HUD rows.
+- `text-input` — editable single-line text field with `text-sprite`,
+  `placeholder`, `value`, and `max-length`.
+- `number-input` — numeric text field on the same focus/keyboard path, with
+  optional `min`, `max`, `step`, `text-sprite`, and `placeholder`.
 
 Visual rendering is separate: create Panel/Vector/Text sprites in layer YAMLs
 and use Rhai to wire `gui.*` state to visual updates (text content, colors,
-visibility). The engine handles slider handle positioning via `GuiControl::visual_sync()`.
+visibility). The engine now also supports native visual sync for:
+- slider handle movement,
+- radio-group selected marker visibility,
+- dropdown trigger label text and popup visibility.
 
 
 ### Action Map
@@ -1088,10 +1191,10 @@ Important runtime rules:
   and let the runtime perform the final rounding pass. Pre-truncating in script
   makes near layers and particle-bound visuals step more visibly on SDL2.
 - `scene.set(...)` is now typed-first. Supported paths are translated into typed
-  mutation requests before runtime application. A narrow raw-property fallback
-  still exists for unsupported paths, so docs and scripts should treat
-  `scene.mutate(...)` as the strongest contract and `scene.set(...)` as the
-  ergonomic compatibility layer.
+  mutation requests before runtime application. Unsupported paths do not enqueue
+  runtime mutation work, so docs and scripts should treat `scene.mutate(...)` as
+  the strongest contract and `scene.set(...)` as the ergonomic typed alias for
+  supported authored property paths.
 
 ### `game.*` — Global Game State & Navigation
 

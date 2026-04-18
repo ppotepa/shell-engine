@@ -14,13 +14,13 @@ layers:
         content: "FPS CAP SHOWCASE  3D"
         at: ct
         y: 1
-        font: "generic:1"
+        font: "generic:2"
         fg: white
       - type: text
         content: "SCENE 5/6  MONKEY  TARGET 20 FPS  5s"
         at: cb
         y: -1
-        font: "generic:1"
+        font: "generic:2"
         fg: gray
 objects:
   - { ref: suzan, as: suzanne-20, with: { id: suzanne-20 } }

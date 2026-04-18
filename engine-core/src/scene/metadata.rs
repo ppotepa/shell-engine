@@ -201,7 +201,7 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
         value_kind: ValueKind::Text,
         requirement: Requirement::Optional,
         description:
-            "Optional scene-local render canvas override in WIDTHxHEIGHT form (compatibility-only; prefer mod-level display.render_size).",
+            "Optional scene-local render canvas override in WIDTHxHEIGHT form (use sparingly; prefer mod-level display.render_size).",
         default_text: None,
         default_number: None,
         enum_options: None,

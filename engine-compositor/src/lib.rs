@@ -43,7 +43,10 @@ pub use access::CompositorAccess;
 pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
-pub use compositor::{dispatch_composite, dispatch_composite_with_render_2d_pipeline};
+pub use compositor::{
+    dispatch_composite, dispatch_composite_filtered, dispatch_composite_with_render_2d_pipeline,
+    dispatch_composite_with_render_2d_pipeline_filtered, LayerPassKind,
+};
 #[cfg(feature = "render-3d")]
 pub use prepared_frame::{
     layer_frames_from_prepared, prepare_frame_layer_inputs, prepare_frame_layer_inputs_from_frame,

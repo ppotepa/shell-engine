@@ -5,18 +5,22 @@ $defs:
   scene_ids:
     type: string
     enum:
+    - asteroids-bench-cloud
     - asteroids-game
     - asteroids-mainmenu
   scene_paths:
     type: string
     enum:
+    - /scenes/bench-cloud/scene.yml
     - /scenes/game/scene.yml
     - /scenes/mainmenu/scene.yml
   scene_refs:
     type: string
     enum:
+    - /scenes/bench-cloud/scene.yml
     - /scenes/game/scene.yml
     - /scenes/mainmenu/scene.yml
+    - asteroids-bench-cloud
     - asteroids-game
     - asteroids-mainmenu
   object_names:
@@ -31,6 +35,7 @@ $defs:
   layer_refs:
     type: string
     enum:
+    - bench-cloud/layers/planet-bench-layer.yml
     - game/layers/hud-grid.yml
     - game/layers/planet-bg-layer.yml
     - game/layers/ship-scene-layer.yml
@@ -101,6 +106,7 @@ $defs:
     - hud-orbital-vxy
     - item-0
     - item-1
+    - main-planet-bench
     - main-planet-view
     - menu-content
     - menu-frame

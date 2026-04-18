@@ -39,8 +39,18 @@ impl SceneLifecycleManager {
                 .map(|settings| settings.render_size_matches_output())
                 .unwrap_or(true);
             if should_resize_buffer {
+                let layout = {
+                    let Some(settings) = world.runtime_settings() else {
+                        continue;
+                    };
+                    if let Some(scene) = world.scene_runtime().map(|runtime| runtime.scene()) {
+                        crate::runtime_settings::buffer_layout_for_scene(settings, scene, *width, *height)
+                    } else {
+                        settings.buffer_layout(*width, *height)
+                    }
+                };
                 if let Some(buf) = world.buffer_mut() {
-                    buf.resize(*width, *height);
+                    buf.resize(layout.render_width, layout.render_height);
                 }
             }
         }
@@ -273,27 +283,24 @@ impl SceneLifecycleManager {
     }
 
     fn apply_virtual_size_override(world: &mut World, scene: &scene::Scene) {
-        let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
-        let new_size = {
-            let Some(settings) = world.runtime_settings() else {
-                return;
-            };
-            crate::runtime_settings::scene_render_size_override(
-                settings,
-                scene,
-                output_dimensions.0,
-                output_dimensions.1,
-            )
-        };
-        let Some((new_width, new_height)) = new_size else {
+    let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
+    let new_layout = {
+        let Some(settings) = world.runtime_settings() else {
             return;
         };
-        if let Some(buffer) = world.buffer_mut() {
-            if buffer.width != new_width || buffer.height != new_height {
-                buffer.resize(new_width, new_height);
-            }
+        crate::runtime_settings::buffer_layout_for_scene(
+            settings,
+            scene,
+            output_dimensions.0,
+            output_dimensions.1,
+        )
+    };
+    if let Some(buffer) = world.buffer_mut() {
+        if buffer.width != new_layout.render_width || buffer.height != new_layout.render_height {
+            buffer.resize(new_layout.render_width, new_layout.render_height);
         }
     }
+}
 }
 
 fn is_focus_navigation_key(key: &KeyEvent) -> bool {
@@ -592,6 +599,7 @@ mod tests {
             space: Default::default(),
             celestial: Default::default(),
             lighting: None,
+            view: None,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages {
@@ -628,6 +636,7 @@ mod tests {
             space: Default::default(),
             celestial: Default::default(),
             lighting: None,
+            view: None,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),

@@ -11,12 +11,12 @@
       x: -8
       y: 8
       width: 224
-      height: 22
+      height: 24
       padding: 2
       border-width: 1
-      corner-radius: 2
+      corner-radius: 4
       fg: "#2a9440"
-      bg: "#020810"
+      bg: "#041018"
       border-colour: "#1a5c28"
       shadow-x: 2
       shadow-y: 2
@@ -27,8 +27,9 @@
           rows: ["1fr"]
           gap-x: 2
           children:
-            - { type: text, id: tab-btn-continents, content: "LAND",       grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440", bg: "#020810" }
-            - { type: text, id: tab-btn-mountains,  content: "MOUNTS",     grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440", bg: "#020810" }
-            - { type: text, id: tab-btn-climate,    content: "CLIMATE",    grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440", bg: "#020810" }
-            - { type: text, id: tab-btn-visual,     content: "VISUAL",      grid-col: 4, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440", bg: "#020810" }
-            - { type: text, id: tab-btn-atmo,       content: "ATMO",        grid-col: 5, grid-row: 1, at: cc, font: "generic:1", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: tab-label-continents, content: "LAND",       grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: tab-label-mountains,  content: "MOUNTS",     grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: tab-label-climate,    content: "CLIMATE",    grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: tab-label-visual,     content: "VISUAL",     grid-col: 4, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+            - { type: text, id: tab-label-atmo,       content: "ATMO",       grid-col: 5, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
+

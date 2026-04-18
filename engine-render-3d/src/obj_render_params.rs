@@ -1,4 +1,5 @@
 use engine_core::color::Color;
+use engine_core::scene::TonemapOperator;
 
 #[derive(Debug, Clone)]
 pub struct ObjRenderParams {
@@ -68,6 +69,10 @@ pub struct ObjRenderParams {
     pub unlit: bool,
     pub ambient: f32,
     pub ambient_floor: f32,
+    pub shadow_contrast: f32,
+    pub exposure: f32,
+    pub gamma: f32,
+    pub tonemap: TonemapOperator,
     pub light_point_falloff: f32,
     pub light_point_2_falloff: f32,
     pub smooth_shading: bool,
@@ -116,6 +121,7 @@ pub struct ObjRenderParams {
     pub atmo_terminator_softness: f32,
     pub atmo_night_glow: f32,
     pub atmo_night_glow_color: Option<[u8; 3]>,
+    pub atmo_haze_night_leak: f32,
     pub atmo_rim_power: f32,
     pub atmo_haze_strength: f32,
     pub atmo_haze_power: f32,

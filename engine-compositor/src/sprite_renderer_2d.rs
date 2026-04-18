@@ -8,7 +8,7 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_core::markup::strip_markup;
-use engine_core::scene::{Layer, Sprite};
+use engine_core::scene::{Layer, ResolvedViewProfile, Sprite};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -156,7 +156,8 @@ pub(crate) fn render_sprites<'a>(
     celestial_catalogs: Option<&CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
-    ambient_floor: f32,
+    ui_font_scale: f32,
+    resolved_view_profile: &ResolvedViewProfile,
     #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
     prerender_frames: Option<&'a crate::ObjPrerenderedFrames>,
     layer_buf: &mut Buffer,
@@ -174,8 +175,9 @@ pub(crate) fn render_sprites<'a>(
         celestial_catalogs,
         is_pixel_backend,
         default_font,
+        ui_font_scale,
         prerender_frames,
-        ambient_floor,
+        resolved_view_profile,
     };
     let root_area = RenderArea {
         origin_x: root_origin_x,
@@ -191,7 +193,7 @@ pub(crate) fn render_sprites<'a>(
 
     // Reuse one path Vec across sprites; Grid extends/truncates it in-place per child.
     let mut sprite_path: Vec<usize> = Vec::with_capacity(8);
-    with_render_context(is_pixel_backend, default_font, || {
+    with_render_context(is_pixel_backend, default_font, ui_font_scale, || {
         for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
             sprite_path.clear();
             sprite_path.push(sprite_idx);
@@ -461,8 +463,8 @@ fn render_text_sprite(
         resolved_font.as_deref(),
         fg,
         sprite_bg,
-        *scale_x,
-        *scale_y,
+        *scale_x * ctx.ui_font_scale,
+        *scale_y * ctx.ui_font_scale,
     );
 
     let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
@@ -535,8 +537,8 @@ fn render_text_sprite(
                         None,
                         &mut scratch,
                         text_transform,
-                        *scale_x,
-                        *scale_y,
+                        *scale_x * ctx.ui_font_scale,
+                        *scale_y * ctx.ui_font_scale,
                     );
                 }
             }
@@ -587,8 +589,8 @@ fn render_text_sprite(
         clip,
         ctx.layer_buf,
         text_transform,
-        *scale_x,
-        *scale_y,
+        *scale_x * ctx.ui_font_scale,
+        *scale_y * ctx.ui_font_scale,
     );
     let sprite_region = Region {
         x: draw_x,

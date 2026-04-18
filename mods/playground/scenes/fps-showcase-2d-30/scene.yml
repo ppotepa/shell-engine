@@ -21,12 +21,12 @@ layers:
         content: "FPS CAP SHOWCASE  2D"
         at: ct
         y: 1
-        font: "generic:1"
+        font: "generic:2"
         fg: white
       - type: text
         content: "SCENE 1/6  PENGUIN  TARGET 30 FPS  5s"
         at: cb
         y: -1
-        font: "generic:1"
+        font: "generic:2"
         fg: gray
 next: playground-fps-showcase-2d-20

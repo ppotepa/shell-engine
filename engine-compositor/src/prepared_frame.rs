@@ -35,8 +35,8 @@ pub struct PreparedLayerInput<'a> {
 }
 
 impl<'a> PreparedLayerInput<'a> {
-    /// Convert to a `PreparedLayerFrame` for backwards-compatible compositor paths
-    /// that still drive composite_layers via the existing prepared-frame slice contract.
+    /// Convert to a `PreparedLayerFrame` for compositor assembly code that still
+    /// consumes the prepared-frame slice contract.
     pub fn as_layer_frame(&self) -> PreparedLayerFrame<'a> {
         PreparedLayerFrame {
             index: self.layer_index,

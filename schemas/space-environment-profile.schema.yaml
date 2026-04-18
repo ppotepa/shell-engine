@@ -1,0 +1,28 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/space-environment-profile.schema.yaml"
+title: Space Environment Profile Schema
+description: Reusable 3D observation environment for vacuum/space scenes.
+type: object
+additionalProperties: false
+required:
+  - id
+properties:
+  id:
+    type: string
+    minLength: 1
+  background_color:
+    type: string
+    minLength: 1
+  background_floor:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+  starfield_density:
+    type: number
+    minimum: 0.0
+  starfield_brightness:
+    type: number
+    minimum: 0.0
+  primary_star_glare_strength:
+    type: number
+    minimum: 0.0
