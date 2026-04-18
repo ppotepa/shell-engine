@@ -20,11 +20,13 @@ use crate::effects::passes::postprocess::apply_rgb_post_passes;
 use crate::effects::passes::surface::{
     rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba,
 };
-use crate::effects::terrain::{compute_terrain_noise_at, displace_sphere_vertex};
 use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
-use crate::geom::math::{dot3, normalize3, rotate_xyz};
+use crate::geom::math::{dot3, normalize3};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
+use crate::pipeline::stages::project::{
+    project_vertices_into, ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
+};
 use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::{
     apply_point_light_tint, apply_shading, apply_tone_palette, color_to_rgb,
@@ -634,75 +636,28 @@ fn render_mesh_projected(
         taken.reserve(mesh.vertices.len());
         taken
     });
-    mesh.vertices
-        .par_iter()
-        .map(|v| {
-            let centered_raw = [
-                (v[0] - center[0]) * model_scale,
-                (v[1] - center[1]) * model_scale,
-                (v[2] - center[2]) * model_scale,
-            ];
-            let terrain_noise_val =
-                if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
-                    compute_terrain_noise_at(centered_raw, &params)
-                } else {
-                    0.0
-                };
-            let centered = if params.terrain_displacement > 0.0 {
-                displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
-            } else {
-                centered_raw
-            };
-            let rotated = rotate_xyz(centered, pitch, yaw, roll);
-            let translated = [
-                rotated[0] + params.object_translate_x,
-                rotated[1] + params.object_translate_y,
-                rotated[2] + params.object_translate_z,
-            ];
-            let rel = [
-                translated[0] - params.camera_world_x,
-                translated[1] - params.camera_world_y,
-                translated[2] - params.camera_world_z,
-            ];
-            let cam_x = rel[0] * params.view_right_x
-                + rel[1] * params.view_right_y
-                + rel[2] * params.view_right_z
-                - params.camera_pan_x;
-            let cam_y =
-                rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
-                    - params.camera_pan_y;
-            let view_z = rel[0] * params.view_forward_x
-                + rel[1] * params.view_forward_y
-                + rel[2] * params.view_forward_z;
-            if view_z <= near_clip {
-                return None;
-            }
-            let ndc_x = (cam_x / aspect) * inv_tan / view_z;
-            let ndc_y = cam_y * inv_tan / view_z;
-            if !ndc_x.is_finite() || !ndc_y.is_finite() {
-                return None;
-            }
-            Some(ProjectedVertex {
-                x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
-                y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
-                depth: view_z,
-                view: translated,
-                normal: [0.0, 0.0, 1.0],
-                local: centered,
-                terrain_noise: terrain_noise_val,
-            })
-        })
-        .collect_into_vec(&mut projected);
-
-    if params.smooth_shading && !mesh.smooth_normals.is_empty() {
-        for (i, pv_opt) in projected.iter_mut().enumerate() {
-            if let Some(pv) = pv_opt.as_mut() {
-                if let Some(&n) = mesh.smooth_normals.get(i) {
-                    pv.normal = rotate_xyz(n, pitch, yaw, roll);
-                }
-            }
-        }
-    }
+    project_vertices_into(
+        &mesh,
+        &params,
+        ProjectionStageInput {
+            center,
+            model_scale,
+            pitch,
+            yaw,
+            roll,
+            near_clip,
+            aspect,
+            inv_tan,
+            virtual_w,
+            virtual_h,
+        },
+        ProjectionStageConfig {
+            terrain_noise_policy: TerrainNoisePolicy::SurfaceOrDisplacement,
+            apply_smooth_normals: params.smooth_shading,
+            parallel_threshold: 0,
+        },
+        &mut projected,
+    );
 
     if wireframe {
         let line_color = color_to_rgb(fg);
@@ -1261,81 +1216,28 @@ pub fn render_obj_to_canvas(
         taken
     });
 
-    let project_vertex = |v: &[f32; 3]| {
-        let centered_raw = [
-            (v[0] - center[0]) * model_scale,
-            (v[1] - center[1]) * model_scale,
-            (v[2] - center[2]) * model_scale,
-        ];
-        let terrain_noise_val =
-            if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
-                compute_terrain_noise_at(centered_raw, &params)
-            } else {
-                0.0
-            };
-        let centered = if params.terrain_displacement > 0.0 {
-            displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
-        } else {
-            centered_raw
-        };
-        let rotated = rotate_xyz(centered, pitch, yaw, roll);
-        let translated = [
-            rotated[0] + params.object_translate_x,
-            rotated[1] + params.object_translate_y,
-            rotated[2] + params.object_translate_z,
-        ];
-        let rel = [
-            translated[0] - params.camera_world_x,
-            translated[1] - params.camera_world_y,
-            translated[2] - params.camera_world_z,
-        ];
-        let cam_x = rel[0] * params.view_right_x
-            + rel[1] * params.view_right_y
-            + rel[2] * params.view_right_z
-            - params.camera_pan_x;
-        let cam_y =
-            rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
-                - params.camera_pan_y;
-        let view_z = rel[0] * params.view_forward_x
-            + rel[1] * params.view_forward_y
-            + rel[2] * params.view_forward_z;
-        if view_z <= near_clip {
-            return None;
-        }
-        let ndc_x = (cam_x / aspect) * inv_tan / view_z;
-        let ndc_y = cam_y * inv_tan / view_z;
-        if !ndc_x.is_finite() || !ndc_y.is_finite() {
-            return None;
-        }
-        Some(ProjectedVertex {
-            x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
-            y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
-            depth: view_z,
-            view: translated,
-            normal: [0.0, 0.0, 1.0],
-            local: centered,
-            terrain_noise: terrain_noise_val,
-        })
-    };
-
-    if mesh.vertices.len() > VERTEX_PARALLEL_THRESHOLD {
-        mesh.vertices
-            .par_iter()
-            .map(project_vertex)
-            .collect_into_vec(&mut projected);
-    } else {
-        projected.extend(mesh.vertices.iter().map(project_vertex));
-    }
-
-    if params.smooth_shading && !mesh.smooth_normals.is_empty() {
-        for (i, pv_opt) in projected.iter_mut().enumerate() {
-            if let Some(pv) = pv_opt.as_mut() {
-                if let Some(&n) = mesh.smooth_normals.get(i) {
-                    pv.normal = rotate_xyz(n, pitch, yaw, roll);
-                }
-            }
-        }
-    }
+    project_vertices_into(
+        &mesh,
+        &params,
+        ProjectionStageInput {
+            center,
+            model_scale,
+            pitch,
+            yaw,
+            roll,
+            near_clip,
+            aspect,
+            inv_tan,
+            virtual_w,
+            virtual_h,
+        },
+        ProjectionStageConfig {
+            terrain_noise_policy: TerrainNoisePolicy::SurfaceOrDisplacement,
+            apply_smooth_normals: params.smooth_shading,
+            parallel_threshold: VERTEX_PARALLEL_THRESHOLD,
+        },
+        &mut projected,
+    );
 
     let canvas_size = virtual_w as usize * virtual_h as usize;
     let mut canvas = OBJ_CANVAS.with(|c| {
@@ -1793,83 +1695,28 @@ pub fn render_obj_to_rgba_canvas(
         taken
     });
 
-    let project_vertex = |v: &[f32; 3]| {
-        let centered_raw = [
-            (v[0] - center[0]) * model_scale,
-            (v[1] - center[1]) * model_scale,
-            (v[2] - center[2]) * model_scale,
-        ];
-        let terrain_noise_val = if params.terrain_color.is_some()
-            && params.cloud_alpha_softness <= 0.0
-            || params.terrain_displacement > 0.0
-        {
-            compute_terrain_noise_at(centered_raw, &params)
-        } else {
-            0.0
-        };
-        let centered = if params.terrain_displacement > 0.0 {
-            displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
-        } else {
-            centered_raw
-        };
-        let rotated = rotate_xyz(centered, pitch, yaw, roll);
-        let translated = [
-            rotated[0] + params.object_translate_x,
-            rotated[1] + params.object_translate_y,
-            rotated[2] + params.object_translate_z,
-        ];
-        let rel = [
-            translated[0] - params.camera_world_x,
-            translated[1] - params.camera_world_y,
-            translated[2] - params.camera_world_z,
-        ];
-        let cam_x = rel[0] * params.view_right_x
-            + rel[1] * params.view_right_y
-            + rel[2] * params.view_right_z
-            - params.camera_pan_x;
-        let cam_y =
-            rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
-                - params.camera_pan_y;
-        let view_z = rel[0] * params.view_forward_x
-            + rel[1] * params.view_forward_y
-            + rel[2] * params.view_forward_z;
-        if view_z <= near_clip {
-            return None;
-        }
-        let ndc_x = (cam_x / aspect) * inv_tan / view_z;
-        let ndc_y = cam_y * inv_tan / view_z;
-        if !ndc_x.is_finite() || !ndc_y.is_finite() {
-            return None;
-        }
-        Some(ProjectedVertex {
-            x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
-            y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
-            depth: view_z,
-            view: translated,
-            normal: [0.0, 0.0, 1.0],
-            local: centered,
-            terrain_noise: terrain_noise_val,
-        })
-    };
-
-    if mesh.vertices.len() > VERTEX_PARALLEL_THRESHOLD {
-        mesh.vertices
-            .par_iter()
-            .map(project_vertex)
-            .collect_into_vec(&mut projected);
-    } else {
-        projected.extend(mesh.vertices.iter().map(project_vertex));
-    }
-
-    if !mesh.smooth_normals.is_empty() {
-        for (i, pv_opt) in projected.iter_mut().enumerate() {
-            if let Some(pv) = pv_opt.as_mut() {
-                if let Some(&n) = mesh.smooth_normals.get(i) {
-                    pv.normal = rotate_xyz(n, pitch, yaw, roll);
-                }
-            }
-        }
-    }
+    project_vertices_into(
+        &mesh,
+        &params,
+        ProjectionStageInput {
+            center,
+            model_scale,
+            pitch,
+            yaw,
+            roll,
+            near_clip,
+            aspect,
+            inv_tan,
+            virtual_w,
+            virtual_h,
+        },
+        ProjectionStageConfig {
+            terrain_noise_policy: TerrainNoisePolicy::SurfaceUnlessSoftCloudsOrDisplacement,
+            apply_smooth_normals: true,
+            parallel_threshold: VERTEX_PARALLEL_THRESHOLD,
+        },
+        &mut projected,
+    );
 
     let canvas_size = virtual_w as usize * virtual_h as usize;
     let mut canvas = OBJ_CANVAS_RGBA.with(|c| {

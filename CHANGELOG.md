@@ -65,6 +65,12 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: `raster.rs` now consumes post-pass metrics (`halo_us`) from the chain instead of directly wiring a single effect call.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer stage split: shared projection stage** ✅
+- **engine-render-3d**: added `pipeline/stages/project.rs` with `project_vertices_into(...)`, `ProjectionStageInput`, `ProjectionStageConfig`, and explicit terrain-noise policies.
+- **engine-render-3d**: three duplicated projection paths in `raster.rs` now share one stage implementation, with only policy differences left at the call site (`SurfaceOrDisplacement` vs `SurfaceUnlessSoftCloudsOrDisplacement`, smooth normals on/off, parallel threshold).
+- **architecture**: this is the first true stage seam in the 3D pipeline (`project`) and reduces direct planet-specific projection logic in raster orchestration.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

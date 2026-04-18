@@ -9,6 +9,7 @@ pub mod renderer;
 pub mod scene_clip_renderer;
 pub mod scene_clip_sprite_spec;
 pub mod sprite_mapping;
+pub mod stages;
 pub mod view_lighting;
 pub mod world_lod;
 
