@@ -41,7 +41,8 @@ cargo run -p app -- --mod-source=mods/lighting-playground --check-scenes
 - `Q / W / E` — switch lighting profile
 - `A / S / D` — switch environment profile
 - `F / V` — next / previous camera preset
-- `G / T / N / B` — direct camera preset (`far-orbit` / `terminator` / `night-side` / `backlit`)
+- `G / T / N / K` — direct camera preset (`far-orbit` / `terminator` / `night-side` / `backlit`)
+- `B` — A/B compare toggle (`current` ↔ `baseline`)
 - `R` — baseline reset (profiles + sliders + camera)
 - mouse click — use the segmented model picker and dropdown selectors
 - mouse drag — change sliders

@@ -91,6 +91,8 @@ if local.bootstrapped == () {
 
 if local.camera_preset_idx == () { local.camera_preset_idx = 0; }
 if local.camera_preset_dirty == () { local.camera_preset_dirty = true; }
+if local.compare_show_baseline == () { local.compare_show_baseline = false; }
+if local.compare_saved_ready == () { local.compare_saved_ready = false; }
 
 if input.just_pressed("1") { gui.set_widget_value("lighting-model-selector", 0.0); }
 if input.just_pressed("2") { gui.set_widget_value("lighting-model-selector", 1.0); }
@@ -113,7 +115,7 @@ if input.just_pressed("F") {
 if input.just_pressed("G") { local.camera_preset_idx = 0; local.camera_preset_dirty = true; }
 if input.just_pressed("T") { local.camera_preset_idx = 1; local.camera_preset_dirty = true; }
 if input.just_pressed("N") { local.camera_preset_idx = 2; local.camera_preset_dirty = true; }
-if input.just_pressed("B") { local.camera_preset_idx = 3; local.camera_preset_dirty = true; }
+if input.just_pressed("K") { local.camera_preset_idx = 3; local.camera_preset_dirty = true; }
 
 if input.just_pressed("Z") { gui.set_widget_value("lighting-view-dropdown", 0.0); }
 if input.just_pressed("X") { gui.set_widget_value("lighting-view-dropdown", 1.0); }
@@ -260,6 +262,71 @@ if input.just_pressed("R") {
     gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.0));
 }
 
+if input.just_pressed("B") {
+    if local.compare_show_baseline {
+        if local.compare_saved_ready {
+            local.active_view = local.saved_active_view;
+            local.active_light = local.saved_active_light;
+            local.active_env = local.saved_active_env;
+            scene.set_view_profile(local.active_view);
+            scene.set_lighting_profile(local.active_light);
+            scene.set_space_environment_profile(local.active_env);
+            gui.set_widget_value("lighting-view-dropdown", view_index(local.active_view).to_float());
+            gui.set_widget_value("lighting-profile-dropdown", light_index(local.active_light).to_float());
+            gui.set_widget_value("lighting-environment-dropdown", env_index(local.active_env).to_float());
+            gui.set_widget_value("lighting-exposure-slider", local.saved_exposure);
+            gui.set_widget_value("lighting-black-level-slider", local.saved_black);
+            gui.set_widget_value("lighting-gamma-slider", local.saved_gamma);
+            gui.set_widget_value("lighting-contrast-slider", local.saved_contrast);
+            gui.set_widget_value("lighting-starfield-slider", local.saved_stars);
+            gui.set_widget_value("lighting-star-glare-slider", local.saved_glare);
+            gui.set_widget_value("lighting-sun-azimuth-slider", local.saved_sun_az);
+            gui.set_widget_value("lighting-sun-elevation-slider", local.saved_sun_el);
+            gui.set_widget_value("lighting-sun-intensity-slider", local.saved_sun_int);
+            local.camera_preset_idx = local.saved_camera_preset_idx;
+            local.camera_preset_dirty = true;
+        }
+        local.compare_show_baseline = false;
+    } else {
+        local.compare_saved_ready = true;
+        local.saved_active_view = local.active_view;
+        local.saved_active_light = local.active_light;
+        local.saved_active_env = local.active_env;
+        local.saved_exposure = gui.slider_value("lighting-exposure-slider");
+        local.saved_black = gui.slider_value("lighting-black-level-slider");
+        local.saved_gamma = gui.slider_value("lighting-gamma-slider");
+        local.saved_contrast = gui.slider_value("lighting-contrast-slider");
+        local.saved_stars = gui.slider_value("lighting-starfield-slider");
+        local.saved_glare = gui.slider_value("lighting-star-glare-slider");
+        local.saved_sun_az = gui.slider_value("lighting-sun-azimuth-slider");
+        local.saved_sun_el = gui.slider_value("lighting-sun-elevation-slider");
+        local.saved_sun_int = gui.slider_value("lighting-sun-intensity-slider");
+        local.saved_camera_preset_idx = local.camera_preset_idx;
+
+        local.active_view = "orbit-realistic";
+        local.active_light = "space-hard-vacuum";
+        local.active_env = "deep-space-sparse";
+        scene.set_view_profile("orbit-realistic");
+        scene.set_lighting_profile("space-hard-vacuum");
+        scene.set_space_environment_profile("deep-space-sparse");
+        gui.set_widget_value("lighting-view-dropdown", 0.0);
+        gui.set_widget_value("lighting-profile-dropdown", 0.0);
+        gui.set_widget_value("lighting-environment-dropdown", 0.0);
+        gui.set_widget_value("lighting-exposure-slider", exposure_to_01(0.92));
+        gui.set_widget_value("lighting-black-level-slider", black_to_01(0.0));
+        gui.set_widget_value("lighting-gamma-slider", gamma_to_01(2.2));
+        gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.0));
+        gui.set_widget_value("lighting-starfield-slider", stars_to_01(0.68));
+        gui.set_widget_value("lighting-star-glare-slider", glare_to_01(0.08));
+        gui.set_widget_value("lighting-sun-azimuth-slider", sunaz_to_01(210.0));
+        gui.set_widget_value("lighting-sun-elevation-slider", sunel_to_01(40.0));
+        gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.0));
+        local.camera_preset_idx = 0;
+        local.camera_preset_dirty = true;
+        local.compare_show_baseline = true;
+    }
+}
+
 let exposure = exposure_from_01(gui.slider_value("lighting-exposure-slider"));
 let black = black_from_01(gui.slider_value("lighting-black-level-slider"));
 let gamma = gamma_from_01(gui.slider_value("lighting-gamma-slider"));
@@ -385,4 +452,4 @@ scene.set("lighting-sun-intensity-slider-value", "text.content", to_fixed_2(sun_
 
 scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env} | cam=${camera_preset_name(local.camera_preset_idx)} | sun=${sun_azimuth.round()}/${sun_elevation.round()} i=${to_fixed_2(sun_intensity)}`);
 scene.set("hint-1", "text.content", "keys: 1/2/3/4 model | Z/X/C view | Q/W/E light | A/S/D env");
-scene.set("hint-2", "text.content", "camera: F/V cycle | G/T/N/B direct | R baseline reset | mouse: UI + sliders");
+scene.set("hint-2", "text.content", `camera: F/V cycle | G/T/N/K direct | B compare=${if local.compare_show_baseline { "baseline" } else { "current" }} | R reset`);
