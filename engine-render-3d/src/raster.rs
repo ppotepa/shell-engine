@@ -15,15 +15,14 @@ use engine_core::scene::TonemapOperator;
 use rayon::prelude::*;
 
 use crate::api::Render3dPipeline;
-use crate::effects::atmosphere::apply_atmosphere_overlay_barycentric;
-use crate::effects::biome::{land_biome_signals, polar_ice_mask_ocean_from_view};
-use crate::effects::noise::fbm_3d_octaves;
 use crate::effects::params::{PlanetBiomeParams, PlanetTerrainParams};
-use crate::effects::terrain::{
-    apply_crater_overlay_rgb, compute_terrain_noise_at, displace_sphere_vertex,
-    land_elevation_relief, normal_perturb_shade, ocean_shade_from_local, ocean_specular_add,
-    snow_line_mask, CraterParams,
+use crate::effects::passes::halo::{
+    apply_halo_pass, halo_temporal_key_from_obj_params, HaloPassParams,
 };
+use crate::effects::passes::surface::{
+    rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba,
+};
+use crate::effects::terrain::{compute_terrain_noise_at, displace_sphere_vertex};
 use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
 use crate::geom::math::{dot3, normalize3, rotate_xyz};
 use crate::geom::raster::edge;
@@ -31,7 +30,7 @@ use crate::geom::types::ProjectedVertex;
 use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::{
     apply_point_light_tint, apply_shading, apply_tone_palette, color_to_rgb,
-    face_shading_with_specular, flicker_multiplier, mix_rgb, quantize_shade,
+    face_shading_with_specular, flicker_multiplier,
 };
 use crate::ObjRenderParams;
 use engine_core::scene::SpriteSizePreset;
@@ -54,10 +53,6 @@ thread_local! {
     static OBJ_CANVAS_RGBA: RefCell<Vec<Option<[u8; 4]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_DEPTH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static OBJ_SORTED_FACE_INDEX: RefCell<Vec<(f32, usize)>> = const { RefCell::new(Vec::new()) };
-    static OBJ_HALO_EDGE_PIXELS: RefCell<Vec<(i32, i32)>> = const { RefCell::new(Vec::new()) };
-    static OBJ_HALO_OCCUPIED_SCAN: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
-    static OBJ_HALO_NEAREST_SQ: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
-    static OBJ_HALO_TEMPORAL_CACHE: RefCell<Option<HaloTemporalCache>> = const { RefCell::new(None) };
     static OBJ_SHADED_GOURAUD: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3], f32, f32, f32)>>
         = const { RefCell::new(Vec::new()) };
     static OBJ_SHADED_FLAT: RefCell<Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])>>
@@ -100,19 +95,6 @@ pub struct ObjRasterFrameMetrics {
     pub triangles_processed: u32,
     pub faces_drawn: u32,
     pub viewport_area_px: u32,
-}
-
-#[derive(Debug, Clone)]
-struct HaloTemporalCache {
-    virtual_w: u16,
-    virtual_h: u16,
-    temporal_key: u64,
-    material_key: u64,
-    center_x: f32,
-    center_y: f32,
-    radius: f32,
-    edge_count: usize,
-    halo_pixels: Vec<(u32, [u8; 3])>,
 }
 
 #[inline]
@@ -232,51 +214,6 @@ fn apply_canvas_grading(
             *rgb = grade_rgb(*rgb, exposure, gamma, tonemap, shadow_contrast);
         }
     }
-}
-
-#[inline]
-fn quantize_f32(value: f32, step: f32) -> i32 {
-    (value / step.max(1e-6)).round() as i32
-}
-
-#[inline]
-fn mix_hash(seed: &mut u64, value: i64) {
-    *seed ^= value as u64;
-    *seed = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    *seed ^= *seed >> 29;
-}
-
-fn halo_temporal_key(params: &ObjRenderParams) -> u64 {
-    let mut key = 0xCBF2_9CE4_8422_2325u64;
-    mix_hash(&mut key, quantize_f32(params.yaw_deg + params.rotation_y, 0.4) as i64);
-    mix_hash(
-        &mut key,
-        quantize_f32(params.pitch_deg + params.rotation_x, 0.4) as i64,
-    );
-    mix_hash(
-        &mut key,
-        quantize_f32(params.roll_deg + params.rotation_z, 0.5) as i64,
-    );
-    mix_hash(&mut key, quantize_f32(params.scale, 0.02) as i64);
-    mix_hash(
-        &mut key,
-        quantize_f32(params.camera_distance.max(0.01), 0.05) as i64,
-    );
-    mix_hash(&mut key, quantize_f32(params.camera_look_yaw, 0.2) as i64);
-    mix_hash(&mut key, quantize_f32(params.camera_look_pitch, 0.2) as i64);
-    mix_hash(
-        &mut key,
-        quantize_f32(params.object_translate_x, 0.08) as i64,
-    );
-    mix_hash(
-        &mut key,
-        quantize_f32(params.object_translate_y, 0.08) as i64,
-    );
-    mix_hash(
-        &mut key,
-        quantize_f32(params.object_translate_z, 0.08) as i64,
-    );
-    key
 }
 
 fn apply_rgba_canvas_grading(
@@ -549,269 +486,6 @@ pub(crate) fn rasterize_triangle(
             if z < depth[idx] {
                 depth[idx] = z;
                 canvas[idx] = Some(color);
-            }
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn rasterize_triangle_gouraud(
-    canvas: &mut [Option<[u8; 3]>],
-    depth: &mut [f32],
-    w: u16,
-    h: u16,
-    v0: ProjectedVertex,
-    v1: ProjectedVertex,
-    v2: ProjectedVertex,
-    base_color: [u8; 3],
-    shade0: f32,
-    shade1: f32,
-    shade2: f32,
-    shadow_colour: Option<Color>,
-    midtone_colour: Option<Color>,
-    highlight_colour: Option<Color>,
-    tone_mix: f32,
-    cel_levels: u8,
-    latitude_bands: u8,
-    latitude_band_depth: f32,
-    terrain_color: Option<[u8; 3]>,
-    terrain_threshold: f32,
-    marble_depth: f32,
-    terrain_relief: f32,
-    below_threshold_transparent: bool,
-    biome: Option<PlanetBiomeParams>,
-    terrain_extra: Option<PlanetTerrainParams>,
-    clip_min_y: i32,
-    clip_max_y: i32,
-    // First global row at index 0 of `canvas`/`depth`. Set to strip's first row for parallel strip rendering.
-    row_base: i32,
-) {
-    let area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
-    if area.abs() < 1e-5 {
-        return;
-    }
-    let inv_area = 1.0 / area;
-
-    let min_x = v0.x.min(v1.x).min(v2.x).floor().max(0.0) as i32;
-    let max_x = v0.x.max(v1.x).max(v2.x).ceil().min((w - 1) as f32) as i32;
-    let min_y = v0.y.min(v1.y).min(v2.y).floor().max(0.0) as i32;
-    let max_y = v0.y.max(v1.y).max(v2.y).ceil().min((h - 1) as f32) as i32;
-    let min_y = min_y.max(clip_min_y);
-    let max_y = max_y.min(clip_max_y);
-
-    if min_x > max_x || min_y > max_y {
-        return;
-    }
-
-    let use_bands = latitude_bands > 0 && latitude_band_depth > f32::EPSILON;
-
-    for py in min_y..=max_y {
-        let y = py as f32 + 0.5;
-        let row_start = (py - row_base) as usize * w as usize;
-        for px in min_x..=max_x {
-            let x = px as f32 + 0.5;
-            let w0 = edge(v1.x, v1.y, v2.x, v2.y, x, y) * inv_area;
-            let w1 = edge(v2.x, v2.y, v0.x, v0.y, x, y) * inv_area;
-            let w2 = edge(v0.x, v0.y, v1.x, v1.y, x, y) * inv_area;
-            if w0 < -1e-5 || w1 < -1e-5 || w2 < -1e-5 {
-                continue;
-            }
-            let z = w0 * v0.depth + w1 * v1.depth + w2 * v2.depth;
-            let idx = row_start + px as usize;
-            if z < depth[idx] {
-                depth[idx] = z;
-                let shade = (w0 * shade0 + w1 * shade1 + w2 * shade2).clamp(0.0, 1.0);
-                let shade = if use_bands {
-                    let view_y = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                    let band = (view_y * latitude_bands as f32 * std::f32::consts::PI).sin();
-                    (shade + band * latitude_band_depth * 0.5).clamp(0.0, 1.0)
-                } else {
-                    shade
-                };
-
-                let mut pixel = if let Some(tc) = terrain_color {
-                    let noise =
-                        w0 * v0.terrain_noise + w1 * v1.terrain_noise + w2 * v2.terrain_noise;
-                    if noise > terrain_threshold {
-                        let shade =
-                            land_elevation_relief(shade, noise, terrain_threshold, terrain_relief);
-                        let shade = if let Some(te) = terrain_extra {
-                            if te.normal_perturb > 0.0 && te.noise_scale > 0.0 {
-                                let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
-                                let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
-                                let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
-                                let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
-                                let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                                let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
-                                if let Some(b) = biome {
-                                    normal_perturb_shade(
-                                        shade,
-                                        [lx, ly, lz],
-                                        [vx, vy, vz],
-                                        b.sun_dir,
-                                        te.noise_scale,
-                                        te.normal_perturb,
-                                    )
-                                } else {
-                                    shade
-                                }
-                            } else {
-                                shade
-                            }
-                        } else {
-                            shade
-                        };
-                        let mut land_color = tc;
-                        if let Some(te) = terrain_extra {
-                            if te.snow_line > 0.0 {
-                                let elev = (noise - terrain_threshold)
-                                    / (1.0 - terrain_threshold).max(0.01);
-                                if elev > te.snow_line {
-                                    let snow_mask = snow_line_mask(te.snow_line, elev);
-                                    land_color = mix_rgb(land_color, [240, 248, 255], snow_mask);
-                                }
-                            }
-                        }
-                        if let Some(b) = biome {
-                            let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
-                            let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                            let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
-                            let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
-                            let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
-                            let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
-                            let sig = land_biome_signals(
-                                [lx, ly, lz],
-                                [vx, vy, vz],
-                                noise,
-                                terrain_threshold,
-                                b.desert_strength,
-                                b.polar_ice_start,
-                                b.polar_ice_end,
-                                b.night_light_threshold,
-                                b.night_light_intensity,
-                                b.sun_dir,
-                            );
-                            if let Some(dc) = b.desert_color {
-                                if sig.desert_mask > 0.005 {
-                                    land_color = mix_rgb(land_color, dc, sig.desert_mask);
-                                }
-                            }
-                            if let Some(ice_c) = b.polar_ice_color {
-                                if sig.ice_mask > 0.005 {
-                                    land_color = mix_rgb(land_color, ice_c, sig.ice_mask);
-                                }
-                            }
-
-                            let cel = quantize_shade(shade, cel_levels);
-                            let mut px_color = apply_shading(land_color, cel);
-
-                            if let Some(city_c) = b.night_light_color {
-                                if b.night_light_intensity > 0.0 && sig.city_mask > 0.01 {
-                                    px_color =
-                                        mix_rgb(px_color, city_c, sig.city_mask.clamp(0.0, 0.95));
-                                }
-                            }
-                            px_color
-                        } else {
-                            let cel = quantize_shade(shade, cel_levels);
-                            apply_shading(land_color, cel)
-                        }
-                    } else {
-                        if below_threshold_transparent {
-                            continue;
-                        }
-                        if let Some(b) = biome {
-                            if let Some(ice_c) = b.polar_ice_color {
-                                let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
-                                let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                                let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
-                                let ice_mask = polar_ice_mask_ocean_from_view(
-                                    [vx, vy, vz],
-                                    b.polar_ice_start,
-                                    b.polar_ice_end,
-                                );
-                                if ice_mask > 0.005 {
-                                    let cel = quantize_shade(shade, cel_levels);
-                                    let px_color = apply_shading(ice_c, cel);
-                                    canvas[idx] = Some(px_color);
-                                    continue;
-                                }
-                            }
-                        }
-                        let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
-                        let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
-                        let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
-                        let ocean_ns = terrain_extra.map(|te| te.ocean_noise_scale).unwrap_or(4.0);
-                        let ocean_base = terrain_extra
-                            .and_then(|te| te.ocean_color_override)
-                            .unwrap_or(base_color);
-                        let os =
-                            ocean_shade_from_local(shade, [lx, ly, lz], ocean_ns, marble_depth);
-                        let os = if let (Some(b), Some(te)) = (biome, terrain_extra) {
-                            if te.ocean_specular > 0.0 {
-                                let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
-                                let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                                let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
-                                let spec = ocean_specular_add(
-                                    [vx, vy, vz],
-                                    b.sun_dir,
-                                    b.view_dir,
-                                    te.ocean_specular,
-                                    32.0,
-                                );
-                                (os + spec).clamp(0.0, 1.0)
-                            } else {
-                                os
-                            }
-                        } else {
-                            os
-                        };
-                        let cel = quantize_shade(os, cel_levels);
-                        let sb = apply_shading(ocean_base, cel);
-                        apply_tone_palette(
-                            sb,
-                            cel,
-                            shadow_colour,
-                            midtone_colour,
-                            highlight_colour,
-                            tone_mix,
-                        )
-                    }
-                } else {
-                    let cel_shade = quantize_shade(shade, cel_levels);
-                    let shaded_base = apply_shading(base_color, cel_shade);
-                    apply_tone_palette(
-                        shaded_base,
-                        cel_shade,
-                        shadow_colour,
-                        midtone_colour,
-                        highlight_colour,
-                        tone_mix,
-                    )
-                };
-
-                if let Some(te) = terrain_extra {
-                    if te.crater_density > 0.0 {
-                        let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
-                        let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
-                        let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
-                        pixel = apply_crater_overlay_rgb(
-                            pixel,
-                            [lx, ly, lz],
-                            CraterParams {
-                                density: te.crater_density,
-                                rim_height: te.crater_rim_height,
-                            },
-                        );
-                    }
-                }
-
-                if let Some(b) = biome {
-                    pixel =
-                        apply_atmosphere_overlay_barycentric(pixel, &b, &v0, &v1, &v2, w0, w1, w2);
-                }
-
-                canvas[idx] = Some(pixel);
             }
         }
     }
@@ -1551,178 +1225,6 @@ pub fn blit_rgba_canvas(
     }
 }
 
-/// Rasterize a Gouraud-shaded triangle into an RGBA canvas.
-/// When `cloud_alpha_softness > 0`, pixels near the terrain threshold get soft alpha
-/// edges instead of a binary cutoff.  Per-pixel noise is evaluated for cloud detail.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn rasterize_triangle_gouraud_rgba(
-    canvas: &mut [Option<[u8; 4]>],
-    depth: &mut [f32],
-    w: u16,
-    h: u16,
-    v0: ProjectedVertex,
-    v1: ProjectedVertex,
-    v2: ProjectedVertex,
-    base_color: [u8; 3],
-    shade0: f32,
-    shade1: f32,
-    shade2: f32,
-    cel_levels: u8,
-    terrain_color: Option<[u8; 3]>,
-    terrain_threshold: f32,
-    terrain_noise_scale: f32,
-    terrain_noise_octaves: u8,
-    below_threshold_transparent: bool,
-    cloud_alpha_softness: f32,
-    biome: Option<PlanetBiomeParams>,
-    clip_min_y: i32,
-    clip_max_y: i32,
-    row_base: i32,
-    marble_depth: f32,
-    shadow_colour: Option<Color>,
-    midtone_colour: Option<Color>,
-    highlight_colour: Option<Color>,
-    tone_mix: f32,
-    latitude_bands: u8,
-    latitude_band_depth: f32,
-) {
-    let area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
-    if area.abs() < 1e-5 {
-        return;
-    }
-    let inv_area = 1.0 / area;
-
-    let min_x = v0.x.min(v1.x).min(v2.x).floor().max(0.0) as i32;
-    let max_x = v0.x.max(v1.x).max(v2.x).ceil().min((w - 1) as f32) as i32;
-    let min_y = v0.y.min(v1.y).min(v2.y).floor().max(0.0) as i32;
-    let max_y = v0.y.max(v1.y).max(v2.y).ceil().min((h - 1) as f32) as i32;
-    let min_y = min_y.max(clip_min_y);
-    let max_y = max_y.min(clip_max_y);
-    if min_x > max_x || min_y > max_y {
-        return;
-    }
-
-    let use_bands = latitude_bands > 0 && latitude_band_depth > f32::EPSILON;
-    let per_pixel_noise = cloud_alpha_softness > 0.0 && terrain_color.is_some();
-    let soft_edge = cloud_alpha_softness.max(0.0);
-
-    for py in min_y..=max_y {
-        let y = py as f32 + 0.5;
-        let row_start = (py - row_base) as usize * w as usize;
-        for px_coord in min_x..=max_x {
-            let x = px_coord as f32 + 0.5;
-            let w0 = edge(v1.x, v1.y, v2.x, v2.y, x, y) * inv_area;
-            let w1 = edge(v2.x, v2.y, v0.x, v0.y, x, y) * inv_area;
-            let w2 = edge(v0.x, v0.y, v1.x, v1.y, x, y) * inv_area;
-            if w0 < -1e-5 || w1 < -1e-5 || w2 < -1e-5 {
-                continue;
-            }
-            let z = w0 * v0.depth + w1 * v1.depth + w2 * v2.depth;
-            let idx = row_start + px_coord as usize;
-            if z < depth[idx] {
-                depth[idx] = z;
-                let shade = (w0 * shade0 + w1 * shade1 + w2 * shade2).clamp(0.0, 1.0);
-                let shade = if use_bands {
-                    let view_y = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                    let band = (view_y * latitude_bands as f32 * std::f32::consts::PI).sin();
-                    (shade + band * latitude_band_depth * 0.5).clamp(0.0, 1.0)
-                } else {
-                    shade
-                };
-
-                // Per-pixel noise for cloud detail (evaluated from local-space position).
-                let noise = if per_pixel_noise {
-                    let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
-                    let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
-                    let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
-                    fbm_3d_octaves(
-                        lx * terrain_noise_scale,
-                        ly * terrain_noise_scale,
-                        lz * terrain_noise_scale,
-                        terrain_noise_octaves,
-                    )
-                } else {
-                    w0 * v0.terrain_noise + w1 * v1.terrain_noise + w2 * v2.terrain_noise
-                };
-
-                if let Some(tc) = terrain_color {
-                    if noise > terrain_threshold {
-                        let alpha = if soft_edge > 0.0 {
-                            let edge_t = ((noise - terrain_threshold) / soft_edge).clamp(0.0, 1.0);
-                            let a = edge_t * edge_t * (3.0 - 2.0 * edge_t);
-                            (a * 255.0).round() as u8
-                        } else {
-                            255
-                        };
-                        let cel = quantize_shade(shade, cel_levels);
-                        let pixel = apply_shading(tc, cel);
-
-                        let pixel = if let Some(b) = &biome {
-                            apply_atmosphere_overlay_barycentric(
-                                pixel, b, &v0, &v1, &v2, w0, w1, w2,
-                            )
-                        } else {
-                            pixel
-                        };
-
-                        canvas[idx] = Some([pixel[0], pixel[1], pixel[2], alpha]);
-                    } else if below_threshold_transparent {
-                        continue;
-                    } else {
-                        // Ocean/surface below threshold — opaque.
-                        let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
-                        let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
-                        let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
-                        let os = ocean_shade_from_local(shade, [lx, ly, lz], 4.0, marble_depth);
-                        let cel = quantize_shade(os, cel_levels);
-                        let mut pixel = apply_shading(base_color, cel);
-                        pixel = apply_tone_palette(
-                            pixel,
-                            cel,
-                            shadow_colour,
-                            midtone_colour,
-                            highlight_colour,
-                            tone_mix,
-                        );
-                        if let Some(b) = &biome {
-                            let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
-                            let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
-                            let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
-                            if let Some(ice_c) = b.polar_ice_color {
-                                let ice_mask = polar_ice_mask_ocean_from_view(
-                                    [vx, vy, vz],
-                                    b.polar_ice_start,
-                                    b.polar_ice_end,
-                                );
-                                if ice_mask > 0.005 {
-                                    let cel2 = quantize_shade(shade, cel_levels);
-                                    pixel = apply_shading(ice_c, cel2);
-                                }
-                            }
-                            pixel = apply_atmosphere_overlay_barycentric(
-                                pixel, b, &v0, &v1, &v2, w0, w1, w2,
-                            );
-                        }
-                        canvas[idx] = Some([pixel[0], pixel[1], pixel[2], 255]);
-                    }
-                } else {
-                    let cel = quantize_shade(shade, cel_levels);
-                    let pixel = apply_shading(base_color, cel);
-                    let pixel = apply_tone_palette(
-                        pixel,
-                        cel,
-                        shadow_colour,
-                        midtone_colour,
-                        highlight_colour,
-                        tone_mix,
-                    );
-                    canvas[idx] = Some([pixel[0], pixel[1], pixel[2], 255]);
-                }
-            }
-        }
-    }
-}
-
 // ── OBJ sprite dimensions ─────────────────────────────────────────────────────
 
 pub fn obj_sprite_dimensions(
@@ -2326,7 +1828,7 @@ pub fn render_obj_to_canvas(
         } else {
             [0.0, -1.0, 0.0]
         };
-        let halo_key = halo_temporal_key(&params);
+        let halo_key = halo_temporal_key_from_obj_params(&params);
         let t_halo = Instant::now();
         apply_atmosphere_halo_canvas(
             &mut canvas,
@@ -2408,377 +1910,31 @@ fn apply_atmosphere_halo_canvas(
     view_up: [f32; 3],
     temporal_key: u64,
 ) {
-    if halo_strength <= 0.0 || halo_width <= 0.0 {
-        return;
-    }
-
-    let w = virtual_w as usize;
-    let h = virtual_h as usize;
-    let mut sum_x = 0.0f32;
-    let mut sum_y = 0.0f32;
-    let mut count = 0usize;
-    let mut edge_pixels = OBJ_HALO_EDGE_PIXELS.with(|v| {
-        let mut pool = v.borrow_mut();
-        let mut taken = std::mem::take(&mut *pool);
-        taken.clear();
-        taken
-    });
-    let mut min_x = w;
-    let mut min_y = h;
-    let mut max_x = 0usize;
-    let mut max_y = 0usize;
-    for y in 0..h {
-        for x in 0..w {
-            if canvas[y * w + x].is_none() {
-                continue;
-            }
-            sum_x += x as f32;
-            sum_y += y as f32;
-            count += 1;
-            min_x = min_x.min(x);
-            min_y = min_y.min(y);
-            max_x = max_x.max(x);
-            max_y = max_y.max(y);
-
-            let left_empty = x == 0 || canvas[y * w + (x - 1)].is_none();
-            let right_empty = x + 1 >= w || canvas[y * w + (x + 1)].is_none();
-            let up_empty = y == 0 || canvas[(y - 1) * w + x].is_none();
-            let down_empty = y + 1 >= h || canvas[(y + 1) * w + x].is_none();
-            if left_empty || right_empty || up_empty || down_empty {
-                edge_pixels.push((x as i32, y as i32));
-            }
-        }
-    }
-    if count == 0 || edge_pixels.is_empty() {
-        OBJ_HALO_TEMPORAL_CACHE.with(|cell| *cell.borrow_mut() = None);
-        OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
-        return;
-    }
-
-    let cx = sum_x / count as f32;
-    let cy = sum_y / count as f32;
-    let bbox_radius_x = ((max_x.saturating_sub(min_x) + 1) as f32) * 0.5;
-    let bbox_radius_y = ((max_y.saturating_sub(min_y) + 1) as f32) * 0.5;
-    let area_radius = (count as f32 / std::f32::consts::PI).sqrt();
-    let radius = bbox_radius_x.max(bbox_radius_y).max(area_radius).max(1.0);
-    let halo_px = (radius * halo_width.clamp(0.0, 1.0)).max(1.0);
-    let halo_px_sq = halo_px * halo_px;
-    let search = halo_px.ceil() as i32;
-    let scan_min_x = min_x.saturating_sub(search as usize);
-    let scan_min_y = min_y.saturating_sub(search as usize);
-    let scan_max_x = (max_x + search as usize).min(w.saturating_sub(1));
-    let scan_max_y = (max_y + search as usize).min(h.saturating_sub(1));
-    let edge_count = edge_pixels.len();
-
-    let mut material_key = 0xA24B_6F13_91D4_EE99u64;
-    mix_hash(&mut material_key, ray_color[0] as i64);
-    mix_hash(&mut material_key, ray_color[1] as i64);
-    mix_hash(&mut material_key, ray_color[2] as i64);
-    mix_hash(&mut material_key, haze_color[0] as i64);
-    mix_hash(&mut material_key, haze_color[1] as i64);
-    mix_hash(&mut material_key, haze_color[2] as i64);
-    mix_hash(&mut material_key, absorption_color[0] as i64);
-    mix_hash(&mut material_key, absorption_color[1] as i64);
-    mix_hash(&mut material_key, absorption_color[2] as i64);
-    mix_hash(&mut material_key, quantize_f32(halo_strength, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(halo_width, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(halo_power, 0.03) as i64);
-    mix_hash(&mut material_key, quantize_f32(rayleigh_amount, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(haze_amount, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(absorption_amount, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(forward_scatter, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(haze_night_leak, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(night_glow, 0.01) as i64);
-    mix_hash(&mut material_key, quantize_f32(light_intensity, 0.05) as i64);
-    mix_hash(&mut material_key, quantize_f32(light_dir[0], 0.04) as i64);
-    mix_hash(&mut material_key, quantize_f32(light_dir[1], 0.04) as i64);
-    mix_hash(&mut material_key, quantize_f32(light_dir[2], 0.04) as i64);
-
-    let should_try_temporal_reuse = edge_count >= 1200;
-    if should_try_temporal_reuse {
-        let mut reused = false;
-        OBJ_HALO_TEMPORAL_CACHE.with(|cell| {
-            let slot = cell.borrow();
-            let Some(cache) = slot.as_ref() else {
-                return;
-            };
-            if cache.virtual_w != virtual_w || cache.virtual_h != virtual_h {
-                return;
-            }
-            if cache.temporal_key != temporal_key || cache.material_key != material_key {
-                return;
-            }
-            if (cache.center_x - cx).abs() > 0.75
-                || (cache.center_y - cy).abs() > 0.75
-                || (cache.radius - radius).abs() > 0.75
-            {
-                return;
-            }
-            let edge_delta = cache.edge_count.abs_diff(edge_count);
-            let edge_tolerance = (edge_count / 6).max(24);
-            if edge_delta > edge_tolerance {
-                return;
-            }
-            for &(idx, color) in cache.halo_pixels.iter() {
-                let i = idx as usize;
-                if i < canvas.len() && canvas[i].is_none() {
-                    canvas[i] = Some(color);
-                }
-            }
-            reused = true;
-        });
-        if reused {
-            OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
-            return;
-        }
-    }
-
-    let sx = dot3(light_dir, view_right);
-    let sy = dot3(light_dir, view_up);
-    let sl = (sx * sx + sy * sy).sqrt();
-    let sun2d = if sl > 1e-5 {
-        [sx / sl, -sy / sl]
-    } else {
-        [0.0, -1.0]
-    };
-    let haze_white = mix_rgb([255, 252, 246], haze_color, 0.20);
-    let bright_ring = mix_rgb([255, 255, 252], haze_white, 0.42);
-    let ray_tint = mix_rgb(haze_white, ray_color, 0.74);
-    let sunset_tint = mix_rgb([255, 214, 156], absorption_color, 0.65);
-    let haze_amount = haze_amount.clamp(0.0, 1.0);
-    let rayleigh_amount = rayleigh_amount.clamp(0.0, 1.0);
-    let absorption_amount = absorption_amount.clamp(0.0, 1.0);
-    let forward_scatter = forward_scatter.clamp(0.0, 1.0);
-    let haze_night_leak = haze_night_leak.clamp(0.0, 1.0);
-    let night_glow = night_glow.clamp(0.0, 1.0);
-    let light_intensity = light_intensity.clamp(0.0, 4.0);
-    let day_gain = light_intensity.clamp(0.0, 1.6);
-
-    const CORE_LUT_SIZE: usize = 256;
-    const TWILIGHT_LUT_SIZE: usize = 512;
-    const DIST_LUT_SIZE: usize = 512;
-    let core_center = 0.08 + 0.04 * (1.0 - haze_amount);
-    let core_width = 0.08 + halo_width * 0.10;
-    let twilight_width = 0.28 + 0.30 * (1.0 - forward_scatter);
-    let skirt_exp = (halo_power * 0.55).max(0.3);
-    let mut core_lut = [0.0f32; CORE_LUT_SIZE];
-    let mut twilight_lut = [0.0f32; TWILIGHT_LUT_SIZE];
-    let mut dist01_lut = [0.0f32; DIST_LUT_SIZE];
-    let mut skirt_lut = [0.0f32; DIST_LUT_SIZE];
-    for (i, slot) in core_lut.iter_mut().enumerate() {
-        let t = i as f32 / (CORE_LUT_SIZE - 1) as f32;
-        *slot = gaussian(t, core_center, core_width);
-    }
-    for (i, slot) in twilight_lut.iter_mut().enumerate() {
-        let t = i as f32 / (TWILIGHT_LUT_SIZE - 1) as f32;
-        let sun_alignment = t * 2.0 - 1.0;
-        *slot = gaussian(sun_alignment, 0.0, twilight_width);
-    }
-    for i in 0..DIST_LUT_SIZE {
-        let q = i as f32 / (DIST_LUT_SIZE - 1) as f32;
-        let dist01 = q.sqrt();
-        dist01_lut[i] = dist01;
-        skirt_lut[i] = (1.0 - dist01).clamp(0.0, 1.0).powf(skirt_exp);
-    }
-
-    let scan_w = scan_max_x.saturating_sub(scan_min_x) + 1;
-    let scan_h = scan_max_y.saturating_sub(scan_min_y) + 1;
-    let scan_size = scan_w * scan_h;
-
-    let mut occupied_scan = OBJ_HALO_OCCUPIED_SCAN.with(|v| {
-        let mut pool = v.borrow_mut();
-        let mut taken = std::mem::take(&mut *pool);
-        taken.clear();
-        taken.resize(scan_size, 0);
-        taken
-    });
-    for y in scan_min_y..=scan_max_y {
-        let row_offset = (y - scan_min_y) * scan_w;
-        let canvas_row = y * w;
-        for x in scan_min_x..=scan_max_x {
-            if canvas[canvas_row + x].is_some() {
-                occupied_scan[row_offset + (x - scan_min_x)] = 1;
-            }
-        }
-    }
-
-    let mut nearest_sq = OBJ_HALO_NEAREST_SQ.with(|v| {
-        let mut pool = v.borrow_mut();
-        let mut taken = std::mem::take(&mut *pool);
-        taken.clear();
-        taken.resize(scan_size, f32::INFINITY);
-        taken
-    });
-    let mut halo_pixels = OBJ_HALO_TEMPORAL_CACHE.with(|cell| {
-        let mut slot = cell.borrow_mut();
-        if let Some(mut cache) = slot.take() {
-            cache.halo_pixels.clear();
-            cache.halo_pixels
-        } else {
-            Vec::new()
-        }
-    });
-
-    let edge_stride = if edge_pixels.len() > 7000 {
-        6
-    } else if edge_pixels.len() > 5000 {
-        5
-    } else if edge_pixels.len() > 3200 {
-        4
-    } else if edge_pixels.len() > 1800 {
-        3
-    } else if edge_pixels.len() > 900 {
-        2
-    } else {
-        1
-    };
-
-    for &(ex, ey) in edge_pixels.iter().step_by(edge_stride) {
-        let local_min_x = ((ex - search).max(scan_min_x as i32)) as usize;
-        let local_max_x = ((ex + search).min(scan_max_x as i32)) as usize;
-        let local_min_y = ((ey - search).max(scan_min_y as i32)) as usize;
-        let local_max_y = ((ey + search).min(scan_max_y as i32)) as usize;
-        for y in local_min_y..=local_max_y {
-            let dy = y as i32 - ey;
-            let row_offset = (y - scan_min_y) * scan_w;
-            for x in local_min_x..=local_max_x {
-                let local_idx = row_offset + (x - scan_min_x);
-                if occupied_scan[local_idx] != 0 {
-                    continue;
-                }
-                let dx = x as i32 - ex;
-                let dist_sq = (dx * dx + dy * dy) as f32;
-                if dist_sq > halo_px_sq {
-                    continue;
-                }
-                if dist_sq < nearest_sq[local_idx] {
-                    nearest_sq[local_idx] = dist_sq;
-                }
-            }
-        }
-    }
-
-    let radial_limit_sq = (radius + halo_px + 1.5).powi(2);
-    for y in scan_min_y..=scan_max_y {
-        let row_offset = (y - scan_min_y) * scan_w;
-        for x in scan_min_x..=scan_max_x {
-            if occupied_scan[row_offset + (x - scan_min_x)] != 0 {
-                continue;
-            }
-            let dx = x as f32 - cx;
-            let dy = y as f32 - cy;
-            let dl_sq = dx * dx + dy * dy;
-            if dl_sq > radial_limit_sq {
-                continue;
-            }
-            let nearest_sq = nearest_sq[row_offset + (x - scan_min_x)];
-            if !nearest_sq.is_finite() || nearest_sq > halo_px_sq {
-                continue;
-            }
-
-            let dl = dl_sq.sqrt().max(1e-5);
-            let edge_dir = [dx / dl, dy / dl];
-            let sun_alignment = edge_dir[0] * sun2d[0] + edge_dir[1] * sun2d[1];
-            let day = smoothstep(-0.18, 0.92, sun_alignment);
-            let q = (nearest_sq / halo_px_sq).clamp(0.0, 1.0);
-            let dist_idx = ((q * (DIST_LUT_SIZE - 1) as f32) as usize).min(DIST_LUT_SIZE - 1);
-            let dist01 = dist01_lut[dist_idx];
-            let skirt = skirt_lut[dist_idx];
-            let core_idx = ((dist01 * (CORE_LUT_SIZE - 1) as f32) as usize).min(CORE_LUT_SIZE - 1);
-            let core_ring = core_lut[core_idx];
-            let night = (1.0 - day).clamp(0.0, 1.0);
-            let lit_visibility = (day * day_gain)
-                .clamp(0.0, 1.0)
-                .max(night * haze_night_leak);
-            let shadowed_visibility = lit_visibility.powf(1.12);
-            let wide_scatter = skirt * (0.04 + 0.96 * shadowed_visibility);
-            let forward_lobe = skirt.powf(0.52)
-                * smoothstep(0.10, 1.0, sun_alignment).powf(1.8)
-                * forward_scatter
-                * day_gain.min(1.0);
-            let twilight_t = ((sun_alignment + 1.0) * 0.5).clamp(0.0, 1.0);
-            let twilight_idx =
-                ((twilight_t * (TWILIGHT_LUT_SIZE - 1) as f32) as usize).min(TWILIGHT_LUT_SIZE - 1);
-            let twilight_arc = twilight_lut[twilight_idx];
-            let haze_alpha = (halo_strength
-                * (0.12 + 0.88 * haze_amount)
-                * (0.06 + 0.94 * lit_visibility)
-                * (core_ring * (0.22 + 0.78 * shadowed_visibility + 0.35 * forward_lobe)
-                    + wide_scatter * 0.14))
-                .clamp(0.0, 0.97);
-            let ray_alpha = (halo_strength
-                * (0.10 + 0.90 * rayleigh_amount)
-                * (wide_scatter + forward_lobe)
-                * (0.05 + 0.95 * shadowed_visibility))
-                .clamp(0.0, 0.95);
-            let sunset_alpha = (halo_strength
-                * absorption_amount
-                * twilight_arc
-                * (0.10 + 0.90 * skirt)
-                * (0.08 + 0.92 * day + 0.12 * forward_lobe))
-                .clamp(0.0, 0.78);
-            let night_glow_alpha = (halo_strength
-                * night_glow
-                * night
-                * (0.08 + 0.64 * skirt)
-                * (0.08 + 0.52 * haze_amount))
-                .clamp(0.0, 0.45);
-            if haze_alpha <= 0.01
-                && ray_alpha <= 0.01
-                && sunset_alpha <= 0.01
-                && night_glow_alpha <= 0.01
-            {
-                continue;
-            }
-
-            let mut out = [0, 0, 0];
-            if haze_alpha > 0.0 {
-                out = mix_rgb(out, bright_ring, haze_alpha);
-            }
-            if ray_alpha > 0.0 {
-                out = mix_rgb(out, ray_tint, ray_alpha);
-            }
-            if sunset_alpha > 0.0 {
-                out = mix_rgb(out, sunset_tint, sunset_alpha);
-            }
-            if night_glow_alpha > 0.0 {
-                out = mix_rgb(out, night_glow_color, night_glow_alpha);
-            }
-            let idx = y * w + x;
-            canvas[idx] = Some(out);
-            halo_pixels.push((idx as u32, out));
-        }
-    }
-
-    OBJ_HALO_TEMPORAL_CACHE.with(|cell| {
-        *cell.borrow_mut() = Some(HaloTemporalCache {
-            virtual_w,
-            virtual_h,
+    apply_halo_pass(
+        canvas,
+        virtual_w,
+        virtual_h,
+        HaloPassParams {
+            ray_color,
+            haze_color,
+            absorption_color,
+            halo_strength,
+            halo_width,
+            halo_power,
+            rayleigh_amount,
+            haze_amount,
+            absorption_amount,
+            forward_scatter,
+            haze_night_leak,
+            night_glow,
+            night_glow_color,
+            light_intensity,
+            light_dir,
+            view_right,
+            view_up,
             temporal_key,
-            material_key,
-            center_x: cx,
-            center_y: cy,
-            radius,
-            edge_count,
-            halo_pixels,
-        });
-    });
-    OBJ_HALO_EDGE_PIXELS.with(|v| *v.borrow_mut() = edge_pixels);
-    OBJ_HALO_OCCUPIED_SCAN.with(|v| *v.borrow_mut() = occupied_scan);
-    OBJ_HALO_NEAREST_SQ.with(|v| *v.borrow_mut() = nearest_sq);
-}
-
-#[inline]
-fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
-
-#[inline]
-fn gaussian(x: f32, center: f32, width: f32) -> f32 {
-    let w = width.max(0.001);
-    let z = (x - center) / w;
-    (-0.5 * z * z).exp()
+        },
+    );
 }
 
 /// Convert an RGB canvas (from `render_obj_to_canvas`) to RGBA with alpha=255 for every painted pixel.

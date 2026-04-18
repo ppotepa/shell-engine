@@ -40,6 +40,16 @@ Daily progress updates for Shell Engine development.
 **Planet-generator perf presets doc refresh** ✅
 - **mods/planet-generator**: README now includes practical performance presets (`Balanced`, `Look-dev`, `Fast iteration`) and a benchmark smoke command aligned with current optimization workflow.
 
+**3D renderer elasticity step: Halo pass extraction** ✅
+- **engine-render-3d**: moved atmosphere halo implementation out of `raster.rs` into reusable effect-pass module (`effects/passes/halo.rs`) with typed `HaloPassParams` and dedicated temporal-key helper (`halo_temporal_key_from_obj_params`).
+- **engine-render-3d**: `raster.rs` now orchestrates halo through pass invocation instead of owning full halo internals, reducing planet-specific coupling in raster core.
+- **validation**: `cargo check -p engine-render-3d -p engine` and halo regression test (`atmosphere_halo_paints_pixels_outside_the_planet_silhouette`) pass.
+
+**3D renderer elasticity step: Surface pass extraction** ✅
+- **engine-render-3d**: moved Gouraud terrain/surface raster paths (`rasterize_triangle_gouraud`, `rasterize_triangle_gouraud_rgba`) from `raster.rs` into `effects/passes/surface.rs`.
+- **engine-render-3d**: `raster.rs` now treats planet-surface shading as a pass dependency instead of embedding the full terrain/biome/crater logic inline.
+- **validation**: `cargo check -p engine-render-3d` and halo regression test still pass after extraction.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
