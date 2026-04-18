@@ -10,7 +10,20 @@ use engine_render_3d::scene::{select_lod_level_stable, Renderable3D};
 use engine_render_3d::ObjRenderParams;
 use std::collections::HashMap;
 
-use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
+use super::render::{finalize_sprite, RenderCtx};
+
+fn visible_region(draw_x: i32, draw_y: i32, width: u16, height: u16, buf: &engine_core::buffer::Buffer) -> Region {
+    let x0 = draw_x.max(0);
+    let y0 = draw_y.max(0);
+    let x1 = (draw_x + width as i32).min(buf.width as i32).max(x0);
+    let y1 = (draw_y + height as i32).min(buf.height as i32).max(y0);
+    Region {
+        x: x0 as u16,
+        y: y0 as u16,
+        width: (x1 - x0) as u16,
+        height: (y1 - y0) as u16,
+    }
+}
 
 fn resolved_ambient_floor(ctx: &RenderCtx<'_>) -> f32 {
     ctx.resolved_view_profile
@@ -84,6 +97,7 @@ pub(crate) fn render_obj_sprite(
         size,
         width,
         height,
+        stretch_to_area,
         surface_mode,
         backface_cull,
         clip_y_min,
@@ -195,7 +209,9 @@ pub(crate) fn render_obj_sprite(
     let node_yaw = node.transform.rotation_deg[1];
     let node_roll = node.transform.rotation_deg[2];
 
-    let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
+    let (sprite_width, sprite_height) = if stretch_to_area {
+        (area.width.max(1), area.height.max(1))
+    } else if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(width, height, size)
     } else {
         (area.width.max(1), area.height.max(1))
@@ -211,13 +227,13 @@ pub(crate) fn render_obj_sprite(
     let effective_source = apply_world_lod_to_source(source, selected_lod);
     let base_x = area.origin_x + resolve_x(node_x, &align_x, area.width, sprite_width);
     let base_y = area.origin_y + resolve_y(node_y, &align_y, area.height, sprite_height);
-    let (draw_x, draw_y) = compute_draw_pos(
-        base_x,
-        base_y,
-        sprite.animations(),
-        sprite_elapsed,
-        object_state,
-    );
+    let (anim_dx, anim_dy) = super::render::sprite_transform_offset(sprite.animations(), sprite_elapsed);
+    let draw_x = base_x
+        .saturating_add(anim_dx)
+        .saturating_add(object_state.offset_x);
+    let draw_y = base_y
+        .saturating_add(anim_dy)
+        .saturating_add(object_state.offset_y);
 
     let fg = fg_colour.map(Color::from).unwrap_or(Color::White);
     let bg = bg_colour.map(Color::from).unwrap_or(Color::Reset);
@@ -256,12 +272,7 @@ pub(crate) fn render_obj_sprite(
             draw_y,
             ctx.layer_buf,
         ) {
-            let sprite_region = Region {
-                x: draw_x,
-                y: draw_y,
-                width: sprite_width,
-                height: sprite_height,
-            };
+            let sprite_region = visible_region(draw_x, draw_y, sprite_width, sprite_height, ctx.layer_buf);
             finalize_sprite(
                 object_id,
                 sprite_region,
@@ -510,12 +521,7 @@ pub(crate) fn render_obj_sprite(
         draw_y,
         ctx.layer_buf,
     );
-    let sprite_region = Region {
-        x: draw_x,
-        y: draw_y,
-        width: sprite_width,
-        height: sprite_height,
-    };
+    let sprite_region = visible_region(draw_x, draw_y, sprite_width, sprite_height, ctx.layer_buf);
     finalize_sprite(
         object_id,
         sprite_region,

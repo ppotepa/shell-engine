@@ -8,7 +8,7 @@ use engine_core::color::Color;
 use engine_core::logging;
 use engine_debug::DebugOverlayMode;
 use engine_render::{OverlayData, OverlayLine};
-use engine_runtime::{PresentationPolicy, RuntimeSettings};
+use engine_runtime::{PresentationPolicy, RenderSize, RuntimeSettings};
 use std::cell::RefCell;
 
 /// Present the current frame through the active output backend.
@@ -368,14 +368,32 @@ fn apply_perf_hud(world: &mut World) {
             return;
         }
 
-        let ui_render_scale = world
+        let hud_scale_factor = world
             .runtime_settings()
-            .map(|settings| settings.ui_render_scale.max(1))
+            .and_then(|settings| {
+                let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
+                let layout = world
+                    .scene_runtime()
+                    .map(|runtime| {
+                        crate::runtime_settings::buffer_layout_for_scene(
+                            settings,
+                            runtime.scene(),
+                            output_dimensions.0,
+                            output_dimensions.1,
+                        )
+                    })
+                    .unwrap_or_else(|| settings.buffer_layout(output_dimensions.0, output_dimensions.1));
+                Some(
+                    ((layout.ui_width.max(1) as f32 / layout.world_width.max(1) as f32).round()
+                        as u16)
+                        .max(1),
+                )
+            })
             .unwrap_or(1);
         let Some(buffer) = world.get_mut::<Buffer>() else {
             return;
         };
-        let hud_scale = 2u16.saturating_mul(ui_render_scale).min(8);
+        let hud_scale = 2u16.saturating_mul(hud_scale_factor).min(8);
         let (text_w, _) = generic_dimensions(hud_text, hud_scale);
         let x = buffer.width.saturating_sub(text_w);
         let green = Color::Rgb {
@@ -385,6 +403,14 @@ fn apply_perf_hud(world: &mut World) {
         };
         rasterize_generic(hud_text, hud_scale, green, x, 0, buffer, &TextTransform::None);
     });
+}
+
+fn render_size_label(size: RenderSize) -> String {
+    match size {
+        RenderSize::Fixed { width, height } => format!("{width}x{height}"),
+        RenderSize::MatchOutput => "match-output".to_string(),
+        RenderSize::FitWidth { width } => format!("{width}x~"),
+    }
 }
 
 fn format_render_info(settings: Option<&RuntimeSettings>) -> String {
@@ -398,21 +424,15 @@ fn format_render_info(settings: Option<&RuntimeSettings>) -> String {
         PresentationPolicy::Strict => "strict",
     };
 
-    if settings.render_size_matches_output() {
-        format!(
-            "render: match-output x{} ({policy})",
-            settings.ui_render_scale.max(1)
-        )
-    } else {
-        let (world_width, world_height) = settings.fixed_world_render_size().unwrap_or((0, 0));
-        let (width, height) = settings.fixed_render_size().unwrap_or((0, 0));
-        if settings.ui_render_scale > 1 {
-            format!(
-                "render: {}x{} -> {}x{} ({policy})",
-                world_width, world_height, width, height
-            )
-        } else {
-            format!("render: {}x{} ({policy})", width, height)
-        }
-    }
+    let world = render_size_label(settings.world_render_size);
+    let ui = settings
+        .ui_render_size
+        .map(render_size_label)
+        .unwrap_or_else(|| "world".to_string());
+    let ui_layout = settings
+        .ui_layout_size
+        .map(render_size_label)
+        .unwrap_or_else(|| "ui".to_string());
+
+    format!("world:{world} ui:{ui} layout:{ui_layout} ({policy})")
 }

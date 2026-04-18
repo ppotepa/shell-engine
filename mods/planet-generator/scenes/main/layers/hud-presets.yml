@@ -8,46 +8,46 @@
       id: preset-trigger-box
       align-x: right
       align-y: top
-      x: -8
-      y: 334
-      width: 224
-      height: 24
-      padding: 2
+      x: -16
+      y: 664
+      width: 412
+      height: 36
+      padding: 4
       border-width: 1
-      corner-radius: 4
+      corner-radius: 6
       fg: "#507050"
       bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 3
-      shadow-y: 3
+      shadow-x: 4
+      shadow-y: 4
       shadow-colour: "#000000"
       children:
-        - { type: text, id: preset-prefix-label, content: "PRESET", x: 12, y: 8, font: "generic:2", fg: "#507050" }
-        - { type: text, id: preset-current-label, content: "EARTH", x: 112, y: 8, at: cc, font: "generic:2", fg: "#8cc08c" }
-        - { type: text, id: preset-arrow-label, content: "v", x: 206, y: 8, font: "generic:2", fg: "#507050" }
+        - { type: text, id: preset-prefix-label, content: "PRESET", x: 16,  y: 12, font: "generic:2", fg: "#507050" }
+        - { type: text, id: preset-current-label, content: "EARTH",  x: 206, y: 12, at: cc, font: "generic:2", fg: "#8cc08c" }
+        - { type: text, id: preset-arrow-label, content: "v",        x: 386, y: 12, font: "generic:2", fg: "#507050" }
     - type: panel
       id: preset-popup
       align-x: right
       align-y: top
-      x: -8
-      y: 204
-      width: 224
-      height: 128
-      padding: 4
+      x: -16
+      y: 424
+      width: 412
+      height: 232
+      padding: 8
       border-width: 1
-      corner-radius: 4
+      corner-radius: 6
       fg: "#507050"
       bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 3
-      shadow-y: 3
+      shadow-x: 4
+      shadow-y: 4
       shadow-colour: "#000000"
       visible: false
       children:
         - type: grid
           columns: ["1fr"]
           rows: ["1fr","1fr","1fr","1fr","1fr","1fr","1fr"]
-          gap-y: 1
+          gap-y: 4
           children:
             - { type: text, content: "F1  EARTH",        grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#8cc08c" }
             - { type: text, content: "F2  MARS",         grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#8cc08c" }

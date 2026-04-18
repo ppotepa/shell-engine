@@ -75,6 +75,10 @@ pub fn compositor_system(world: &mut World) {
         spatial_context,
         world_render_width,
         world_render_height,
+        ui_render_width,
+        ui_render_height,
+        ui_layout_width,
+        ui_layout_height,
     ) = {
         // Get both Arc snapshots first (requires &mut)
         let (object_states, obj_camera_states) = world
@@ -102,7 +106,7 @@ pub fn compositor_system(world: &mut World) {
         let ui_enabled = scene.ui.enabled;
         let ui_font_scale = scene.ui.font_scale.max(0.01);
         let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
-        let (world_render_width, world_render_height) = world
+        let (world_render_width, world_render_height, ui_render_width, ui_render_height, ui_layout_width, ui_layout_height) = world
             .runtime_settings()
             .map(|settings| {
                 crate::runtime_settings::buffer_layout_for_scene(
@@ -112,8 +116,24 @@ pub fn compositor_system(world: &mut World) {
                     output_dimensions.1,
                 )
             })
-            .map(|layout| (layout.world_width, layout.world_height))
-            .unwrap_or(output_dimensions);
+            .map(|layout| {
+                (
+                    layout.world_width,
+                    layout.world_height,
+                    layout.ui_width,
+                    layout.ui_height,
+                    layout.ui_layout_width,
+                    layout.ui_layout_height,
+                )
+            })
+            .unwrap_or((
+                output_dimensions.0,
+                output_dimensions.1,
+                output_dimensions.0,
+                output_dimensions.1,
+                output_dimensions.0,
+                output_dimensions.1,
+            ));
 
         let current_step = match &stage {
             SceneStage::OnEnter => scene.stages.on_enter.steps.get(step),
@@ -171,6 +191,10 @@ pub fn compositor_system(world: &mut World) {
             spatial_context,
             world_render_width,
             world_render_height,
+            ui_render_width,
+            ui_render_height,
+            ui_layout_width,
+            ui_layout_height,
         )
     };
 
@@ -295,11 +319,16 @@ pub fn compositor_system(world: &mut World) {
             celestial_catalogs,
             is_pixel_backend,
             default_font: default_font.as_deref(),
+            ui_logical_width: ui_layout_width.max(1),
+            ui_logical_height: ui_layout_height.max(1),
             prerender_frames,
         },
     };
     engine_render_2d::clear_vector_primitives();
-    let use_split_pass = world_render_width != buf_w || world_render_height != buf_h;
+    let use_split_pass = world_render_width != ui_render_width
+        || world_render_height != ui_render_height
+        || ui_render_width != buf_w
+        || ui_render_height != buf_h;
 
     let object_regions = if use_split_pass {
         let mut world_scratch = engine_compositor::acquire_buffer(world_render_width, world_render_height);
@@ -424,17 +453,24 @@ fn merge_regions(
 
 fn upscale_world_into_final(world_buffer: &Buffer, final_buffer: &mut Buffer) {
     final_buffer.fill(TRUE_BLACK);
-    let src_w = world_buffer.width.max(1) as u32;
-    let src_h = world_buffer.height.max(1) as u32;
-    let dst_w = final_buffer.width.max(1) as u32;
-    let dst_h = final_buffer.height.max(1) as u32;
+    // In pixel-canvas mode, world 3D content is already represented as RGBA.
+    // Copying cell glyphs on top can visually look like duplicated geometry,
+    // so in this path we upscale pixels only and keep cell writes for non-pixel backends.
+    let has_world_pixels = world_buffer.pixel_canvas.is_some();
+    let has_final_pixels = final_buffer.pixel_canvas.is_some();
+    if !(has_world_pixels && has_final_pixels) {
+        let src_w = world_buffer.width.max(1) as u32;
+        let src_h = world_buffer.height.max(1) as u32;
+        let dst_w = final_buffer.width.max(1) as u32;
+        let dst_h = final_buffer.height.max(1) as u32;
 
-    for dy in 0..dst_h {
-        let sy = ((dy * src_h) / dst_h).min(src_h - 1) as u16;
-        for dx in 0..dst_w {
-            let sx = ((dx * src_w) / dst_w).min(src_w - 1) as u16;
-            if let Some(cell) = world_buffer.get(sx, sy) {
-                final_buffer.set(dx as u16, dy as u16, cell.symbol, cell.fg, cell.bg);
+        for dy in 0..dst_h {
+            let sy = ((dy * src_h) / dst_h).min(src_h - 1) as u16;
+            for dx in 0..dst_w {
+                let sx = ((dx * src_w) / dst_w).min(src_w - 1) as u16;
+                if let Some(cell) = world_buffer.get(sx, sy) {
+                    final_buffer.set(dx as u16, dy as u16, cell.symbol, cell.fg, cell.bg);
+                }
             }
         }
     }

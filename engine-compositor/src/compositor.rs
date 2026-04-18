@@ -22,11 +22,13 @@ pub enum LayerPassKind {
 
 impl LayerPassKind {
     #[inline]
-    fn includes_layer(self, is_ui_layer: bool) -> bool {
+    fn includes_prepared(self, prepared: &crate::scene_compositor::PreparedLayerFrame<'_>) -> bool {
         match self {
             Self::All => true,
-            Self::WorldOnly => !is_ui_layer,
-            Self::UiOnly => is_ui_layer,
+            // 3D content always belongs to the world pass, even if a layer is
+            // accidentally marked as UI.
+            Self::WorldOnly => !prepared.layer.ui || prepared.has_3d,
+            Self::UiOnly => prepared.layer.ui && !prepared.has_3d,
         }
     }
 
@@ -86,6 +88,16 @@ fn composite_scene(
 
     let scene_w = buffer.width;
     let scene_h = buffer.height;
+    let ui_layout_scale_x = if params.prepared.ui_logical_width > 0 {
+        scene_w as f32 / params.prepared.ui_logical_width as f32
+    } else {
+        1.0
+    };
+    let ui_layout_scale_y = if params.prepared.ui_logical_height > 0 {
+        scene_h as f32 / params.prepared.ui_logical_height as f32
+    } else {
+        1.0
+    };
     // Use pre-classified layer inputs when available; fall back to inline frame preparation.
     #[cfg(feature = "render-3d")]
     let prepared_layers: Vec<_> = if let Some(inputs) = &params.frame.prepared_layer_inputs {
@@ -94,12 +106,12 @@ fn composite_scene(
         prepare_layer_frames(&params.frame, params.prepared.current_stage)
     }
     .into_iter()
-    .filter(|prepared| pass.includes_layer(prepared.layer.ui))
+    .filter(|prepared| pass.includes_prepared(prepared))
     .collect();
     #[cfg(not(feature = "render-3d"))]
     let prepared_layers: Vec<_> = prepare_layer_frames(&params.frame, params.prepared.current_stage)
         .into_iter()
-        .filter(|prepared| pass.includes_layer(prepared.layer.ui))
+        .filter(|prepared| pass.includes_prepared(prepared))
         .collect();
 
     let mut layer_inputs = LayerCompositeInputs {
@@ -129,6 +141,8 @@ fn composite_scene(
             is_pixel_backend: params.prepared.is_pixel_backend,
             default_font: params.prepared.default_font,
             ui_font_scale: params.prepared.ui_font_scale,
+            ui_layout_scale_x,
+            ui_layout_scale_y,
             prerender_frames: params.prepared.prerender_frames,
         },
     };

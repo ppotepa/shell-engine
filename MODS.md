@@ -56,12 +56,25 @@ display:
   min_colours: 256
   min_width: 120
   min_height: 30
-  render_size: 120x30
+  world_render_size: 120x30
   presentation_policy: stretch
 ```
 
-`render_size` defines the authored in-memory canvas. `presentation_policy`
+`world_render_size` defines the authored world canvas. `presentation_policy`
 controls how that canvas is shown in the SDL2 window.
+
+When a mod needs sharper HUD/UI than the world pass, also set:
+
+```yaml
+display:
+  world_render_size: 640x360
+  ui_render_size: 1280x720
+  ui_layout_size: 1280x720
+```
+
+Use `ui_layout_size` equal to `ui_render_size` for a native higher-resolution
+UI layout, or equal to `world_render_size` if you are temporarily preserving an
+older HUD coordinate space.
 
 ## Asset Loading
 

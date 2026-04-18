@@ -497,17 +497,22 @@ paths work for both unpacked directories and zip-packaged mods.
 used. For readable GUI/HUD text, prefer `generic:2`; reserve `generic:1` for
 very dense compact readouts only.
 
-For sharper GUI/HUD text without increasing world rendering cost, set
-`display.ui_render_scale` in `mod.yaml`:
+For sharper GUI/HUD text without increasing world rendering cost, set an
+explicit world/UI split in `mod.yaml`:
 
 ```yaml
 display:
-  render_size: 640x360
-  ui_render_scale: 2
+  world_render_size: 640x360
+  ui_render_size: 1280x720
+  ui_layout_size: 1280x720
 ```
 
 This keeps world rendering authored at 640x360 while compositing UI on a denser
-final target (1280x720 in this example).
+1280x720 target. `ui_layout_size` controls the coordinate space used by UI
+layout and hit-testing:
+
+- match `ui_render_size` when you want a native higher-density UI layout with more room for controls,
+- match `world_render_size` when you need to preserve existing HUD coordinates during migration.
 
 Audio authoring is mod-root based:
 - `audio/sfx.yaml` defines semantic events such as `ui.menu.select`

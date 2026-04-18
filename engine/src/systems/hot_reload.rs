@@ -227,8 +227,8 @@ fn apply_virtual_size_override(world: &mut World, scene: &Scene) {
         )
     };
     if let Some(buffer) = world.buffer_mut() {
-        if buffer.width != new_layout.render_width || buffer.height != new_layout.render_height {
-            buffer.resize(new_layout.render_width, new_layout.render_height);
+        if buffer.width != new_layout.ui_width || buffer.height != new_layout.ui_height {
+            buffer.resize(new_layout.ui_width, new_layout.ui_height);
         }
     }
 }

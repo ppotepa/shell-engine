@@ -4,11 +4,18 @@ Daily progress updates for Shell Engine development.
 
 ## 18-04-2026
 
+**Viewport clipping investigation + compositor buffer-pool fix** ✅
+- **engine-compositor**: fixed world/UI scratch-buffer sizing in `buffer_pool.rs` — `acquire()` no longer clamps requested buffer size to pool defaults (`512x256`), preventing 3D viewport crop/stretch artifacts at larger authored world resolutions.
+- **engine-compositor**: release policy now drops oversized transient buffers instead of retaining them in the pool, keeping memory usage bounded while preserving correctness.
+- **engine-compositor/tests**: added regression coverage for non-clamped acquire behavior and oversized-buffer release policy.
+- **mods/lighting-playground**: corrected world layer classification (`ui: false`) so 3D world content always stays on world pass semantics.
+- **engine-scene-runtime**: strengthened orbit safe-distance estimation (aspect-aware + sphere angular fit) to reduce edge clipping under zoom-heavy camera motion.
+
 **Dual-resolution UI/world render path** ✅
-- **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.ui_render_scale` runtime setting.
+- **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
-- **engine / renderer**: FPS HUD generic-font scale now follows `ui_render_scale` to keep overlays readable on denser UI targets.
-- **schemas/docs/mods**: added `ui_render_scale` to `schemas/mod.schema.yaml`, documented contract in `AUTHORING.md`, and enabled scale in active mods (`planet-generator`, `lighting-playground`, `gui-playground`).
+- **engine / renderer**: FPS HUD generic-font scale now follows the UI render/layout split to keep overlays readable on denser UI targets.
+- **schemas/docs/mods**: added `world_render_size` / `ui_render_size` / `ui_layout_size` to `schemas/mod.schema.yaml`, documented the contract in `AUTHORING.md`, and enabled the split in active mods (`planet-generator`, `lighting-playground`, `gui-playground`).
 - **validation**: `cargo check -p engine-runtime -p engine`, `cargo check -p engine-compositor -p engine`, `cargo check -p app`, targeted engine tests, and `--check-scenes` for gui/planet mods.
 
 ## 17-04-2026

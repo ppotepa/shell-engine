@@ -22,10 +22,10 @@ input:
     target: world-atmo
     yaw: 28.0
     pitch: 18.0
-    distance: 2.9
+    distance: 3.0
     pitch-min: -85.0
     pitch-max: 85.0
-    distance-min: 1.2
+    distance-min: 2.6
     distance-max: 6.0
     distance-step: 0.2
     drag-sensitivity: 0.14
@@ -54,6 +54,10 @@ gui:
       selected: 0
       label-sprite: lighting-view-dropdown-label
       popup-sprite: lighting-view-dropdown-popup
+      option-sprites:
+        - lighting-view-dropdown-option-0
+        - lighting-view-dropdown-option-1
+        - lighting-view-dropdown-option-2
       options:
         - { value: orbit-realistic, label: ORBIT REALISTIC }
         - { value: orbit-cinematic, label: ORBIT CINEMATIC }
@@ -68,6 +72,10 @@ gui:
       selected: 0
       label-sprite: lighting-profile-dropdown-label
       popup-sprite: lighting-profile-dropdown-popup
+      option-sprites:
+        - lighting-profile-dropdown-option-0
+        - lighting-profile-dropdown-option-1
+        - lighting-profile-dropdown-option-2
       options:
         - { value: hard-vacuum, label: HARD VACUUM }
         - { value: cinematic-soft, label: CINEMATIC SOFT }
@@ -82,6 +90,10 @@ gui:
       selected: 0
       label-sprite: lighting-environment-dropdown-label
       popup-sprite: lighting-environment-dropdown-popup
+      option-sprites:
+        - lighting-environment-dropdown-option-0
+        - lighting-environment-dropdown-option-1
+        - lighting-environment-dropdown-option-2
       options:
         - { value: deep-space-sparse, label: DEEP SPACE SPARSE }
         - { value: deep-space-rich, label: DEEP SPACE RICH }

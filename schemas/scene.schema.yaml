@@ -53,7 +53,7 @@ properties:
     pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
     description: >
       Optional scene-local render canvas override in WIDTHxHEIGHT form (e.g. 320x240).
-      Compatibility-only: prefer a single mod-level `display.render_size` so the whole mod
+      Compatibility-only: prefer a single mod-level `display.world_render_size` so the whole mod
       shares one authored canvas and presentation remains a backend concern.
   bg_colour:
     $ref: "#/$defs/colour"
@@ -265,6 +265,10 @@ $defs:
         type: string
       label-sprite:
         type: string
+      option-sprites:
+        type: array
+        items:
+          type: string
       popup-above:
         type: boolean
       text-sprite:
@@ -1305,7 +1309,7 @@ $defs:
       stretch-to-area:
         type: boolean
         default: false
-        description: Image sprite only. Stretch source bitmap/GIF to fill resolved draw area.
+        description: Stretch sprite output to fill resolved draw area (image/obj/planet/scene3_d).
       align_x:
         type: string
         enum: [left, center, right]

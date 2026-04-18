@@ -37,6 +37,8 @@ pub struct PreparedLayerRenderInputs<'a> {
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
     pub ui_font_scale: f32,
+    pub ui_layout_scale_x: f32,
+    pub ui_layout_scale_y: f32,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 
@@ -252,6 +254,16 @@ pub fn composite_layers(
                         is_pixel_backend,
                         default_font,
                         ui_font_scale: if layer.ui { inputs.render.ui_font_scale } else { 1.0 },
+                        ui_layout_scale_x: if layer.ui {
+                            inputs.render.ui_layout_scale_x
+                        } else {
+                            1.0
+                        },
+                        ui_layout_scale_y: if layer.ui {
+                            inputs.render.ui_layout_scale_y
+                        } else {
+                            1.0
+                        },
                     },
                     &mut layer_buf,
                 );
@@ -292,6 +304,16 @@ pub fn composite_layers(
                     is_pixel_backend,
                     default_font,
                     ui_font_scale: if layer.ui { inputs.render.ui_font_scale } else { 1.0 },
+                    ui_layout_scale_x: if layer.ui {
+                        inputs.render.ui_layout_scale_x
+                    } else {
+                        1.0
+                    },
+                    ui_layout_scale_y: if layer.ui {
+                        inputs.render.ui_layout_scale_y
+                    } else {
+                        1.0
+                    },
                 },
                 buffer,
             );

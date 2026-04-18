@@ -604,7 +604,7 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         name: "stretch-to-area",
         value_kind: ValueKind::Boolean,
         requirement: Requirement::Optional,
-        description: "Image sprite only: stretch the bitmap or animation frame to exactly fill its resolved draw area.",
+        description: "Stretch sprite output to exactly fill the resolved draw area (image/obj/planet/scene3_d).",
         default_text: Some("false"), default_number: None, enum_options: None,
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,

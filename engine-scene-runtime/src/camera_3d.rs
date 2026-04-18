@@ -6,8 +6,36 @@ const FREE_LOOK_CAPTURED_KEYS: &[&str] = &[
 const FREE_LOOK_VERTICAL_LOOK_SCALE: f32 = 1.8;
 const FREE_LOOK_HORIZONTAL_LOOK_SCALE: f32 = 1.8;
 const FREE_LOOK_PITCH_LIMIT_DEG: f32 = 85.0;
+const OBJ_ORBIT_DISTANCE_HARD_MIN: f32 = 0.3;
+const OBJ_ORBIT_DISTANCE_HARD_MAX: f32 = 10.0;
 
 impl SceneRuntime {
+    pub(crate) fn clamp_orbit_camera_bootstrap(&mut self) {
+        let Some(state) = self.orbit_camera.as_ref() else {
+            return;
+        };
+        let target = state.target.clone();
+        let yaw = state.yaw;
+        let pitch = state.pitch;
+        let authored_min = state.distance_min;
+        let authored_max = state.distance_max;
+        let authored_distance = state.distance;
+        let (effective_min, effective_max) =
+            self.obj_orbit_effective_distance_limits(&target, authored_min, authored_max);
+        let clamped_distance = authored_distance.clamp(effective_min, effective_max);
+        if let Some(state) = self.orbit_camera.as_mut() {
+            state.distance_min = effective_min;
+            state.distance_max = effective_max;
+            state.distance = clamped_distance;
+        }
+        let _ = self.set_obj_orbit_camera_fields(
+            &target,
+            Some(yaw),
+            Some(pitch),
+            Some(clamped_distance),
+        );
+    }
+
     /// Returns `true` if the orbit camera is currently active.
     pub fn orbit_camera_active(&self) -> bool {
         self.orbit_camera.as_ref().is_some_and(|s| s.active)
@@ -41,15 +69,17 @@ impl SceneRuntime {
                     s.target.clone(),
                 )
             };
+            let (effective_min, effective_max) =
+                self.obj_orbit_effective_distance_limits(&target, dist_min, dist_max);
             let mut changed = false;
             for key in key_presses {
                 match key.code {
                     KeyCode::Char('=') | KeyCode::Char('+') => {
-                        dist = (dist - step).max(dist_min);
+                        dist = (dist - step).max(effective_min);
                         changed = true;
                     }
                     KeyCode::Char('-') => {
-                        dist = (dist + step).min(dist_max);
+                        dist = (dist + step).min(effective_max);
                         changed = true;
                     }
                     _ => {}
@@ -84,13 +114,15 @@ impl SceneRuntime {
                 s.target.clone(),
             )
         };
+        let (effective_min, effective_max) =
+            self.obj_orbit_effective_distance_limits(&target, dist_min, dist_max);
         let mut changed = false;
         for &dy in scroll_deltas {
             if dy > 0.0 {
-                dist = (dist - step).max(dist_min);
+                dist = (dist - step).max(effective_min);
                 changed = true;
             } else if dy < 0.0 {
-                dist = (dist + step).min(dist_max);
+                dist = (dist + step).min(effective_max);
                 changed = true;
             }
         }
@@ -169,10 +201,27 @@ impl SceneRuntime {
         if !state.active {
             return false;
         }
-        let (target, yaw, pitch, dist) =
-            (state.target.clone(), state.yaw, state.pitch, state.distance);
+        let (target, yaw, pitch, dist, dist_min, dist_max) = (
+            state.target.clone(),
+            state.yaw,
+            state.pitch,
+            state.distance,
+            state.distance_min,
+            state.distance_max,
+        );
+        let (effective_min, effective_max) =
+            self.obj_orbit_effective_distance_limits(&target, dist_min, dist_max);
+        let clamped_dist = dist.clamp(effective_min, effective_max);
+        if (clamped_dist - dist).abs() > f32::EPSILON {
+            if let Some(state) = self.orbit_camera.as_mut() {
+                if state.target == target {
+                    state.distance = clamped_dist;
+                }
+            }
+        }
 
-        let _ = self.set_obj_orbit_camera_fields(&target, Some(yaw), Some(pitch), Some(dist));
+        let _ =
+            self.set_obj_orbit_camera_fields(&target, Some(yaw), Some(pitch), Some(clamped_dist));
         true
     }
 
@@ -183,6 +232,7 @@ impl SceneRuntime {
         pitch_deg: Option<f32>,
         camera_distance: Option<f32>,
     ) -> bool {
+        let safe_min_distance = self.obj_orbit_safe_distance_min(sprite_id);
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
                 if set_obj_orbit_camera_fields_recursive(
@@ -191,6 +241,7 @@ impl SceneRuntime {
                     yaw_deg,
                     pitch_deg,
                     camera_distance,
+                    safe_min_distance,
                 ) {
                     return true;
                 }
@@ -203,11 +254,37 @@ impl SceneRuntime {
                 yaw_deg,
                 pitch_deg,
                 camera_distance,
+                safe_min_distance,
             ) {
                 return true;
             }
         }
         false
+    }
+
+    fn obj_orbit_effective_distance_limits(
+        &self,
+        sprite_id: &str,
+        authored_min: f32,
+        authored_max: f32,
+    ) -> (f32, f32) {
+        let safe_min = self.obj_orbit_safe_distance_min(sprite_id);
+        let effective_min = authored_min
+            .max(safe_min)
+            .clamp(OBJ_ORBIT_DISTANCE_HARD_MIN, OBJ_ORBIT_DISTANCE_HARD_MAX);
+        let effective_max = authored_max
+            .max(effective_min)
+            .clamp(effective_min, OBJ_ORBIT_DISTANCE_HARD_MAX);
+        (effective_min, effective_max)
+    }
+
+    fn obj_orbit_safe_distance_min(&self, sprite_id: &str) -> f32 {
+        self.scene
+            .layers
+            .iter()
+            .find_map(|layer| find_obj_orbit_safe_distance_in_sprites(&layer.sprites, sprite_id))
+            .unwrap_or(OBJ_ORBIT_DISTANCE_HARD_MIN)
+            .clamp(OBJ_ORBIT_DISTANCE_HARD_MIN, OBJ_ORBIT_DISTANCE_HARD_MAX)
     }
 
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
@@ -626,6 +703,7 @@ fn set_obj_orbit_camera_fields_recursive(
     yaw_deg: Option<f32>,
     pitch_deg: Option<f32>,
     camera_distance: Option<f32>,
+    safe_min_distance: f32,
 ) -> bool {
     for sprite in sprites.iter_mut() {
         match sprite {
@@ -653,7 +731,7 @@ fn set_obj_orbit_camera_fields_recursive(
                     }
                 }
                 if let Some(next_distance) = camera_distance {
-                    let clamped = next_distance.clamp(0.3, 10.0);
+                    let clamped = next_distance.clamp(safe_min_distance, OBJ_ORBIT_DISTANCE_HARD_MAX);
                     if current_distance
                         .map_or(true, |current| (current - clamped).abs() > f32::EPSILON)
                     {
@@ -672,6 +750,7 @@ fn set_obj_orbit_camera_fields_recursive(
                     yaw_deg,
                     pitch_deg,
                     camera_distance,
+                    safe_min_distance,
                 ) {
                     return true;
                 }
@@ -749,4 +828,144 @@ fn project_on_plane(v: [f32; 3], plane_normal: [f32; 3]) -> [f32; 3] {
 fn normalize3(v: [f32; 3]) -> [f32; 3] {
     let len = length3(v).max(1e-6);
     [v[0] / len, v[1] / len, v[2] / len]
+}
+
+fn find_obj_orbit_safe_distance_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<f32> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                size,
+                width,
+                height,
+                scale,
+                fov_degrees,
+                near_clip,
+                atmo_height,
+                atmo_density,
+                atmo_strength,
+                atmo_rayleigh_amount,
+                atmo_haze_amount,
+                atmo_limb_boost,
+                atmo_halo_strength,
+                atmo_halo_width,
+                world_gen_displacement_scale,
+                ..
+            } if id == sprite_id => {
+                return Some(estimate_obj_orbit_safe_distance(
+                    *size,
+                    *width,
+                    *height,
+                    *scale,
+                    *fov_degrees,
+                    *near_clip,
+                    *atmo_height,
+                    *atmo_density,
+                    *atmo_strength,
+                    *atmo_rayleigh_amount,
+                    *atmo_haze_amount,
+                    *atmo_limb_boost,
+                    *atmo_halo_strength,
+                    *atmo_halo_width,
+                    *world_gen_displacement_scale,
+                ));
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if let Some(value) = find_obj_orbit_safe_distance_in_sprites(children, sprite_id) {
+                    return Some(value);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+#[allow(clippy::too_many_arguments)]
+fn estimate_obj_orbit_safe_distance(
+    size: Option<engine_core::scene::SpriteSizePreset>,
+    width: Option<u16>,
+    height: Option<u16>,
+    scale: Option<f32>,
+    fov_degrees: Option<f32>,
+    near_clip: Option<f32>,
+    atmo_height: Option<f32>,
+    atmo_density: Option<f32>,
+    atmo_strength: Option<f32>,
+    atmo_rayleigh_amount: Option<f32>,
+    atmo_haze_amount: Option<f32>,
+    atmo_limb_boost: Option<f32>,
+    atmo_halo_strength: Option<f32>,
+    atmo_halo_width: Option<f32>,
+    world_gen_displacement_scale: Option<f32>,
+) -> f32 {
+    fn estimated_aspect_ratio(
+        size: Option<engine_core::scene::SpriteSizePreset>,
+        width: Option<u16>,
+        height: Option<u16>,
+    ) -> f32 {
+        let (w, h) = match (width, height) {
+            (Some(w), Some(h)) => (w.max(1), h.max(1)),
+            (Some(w), None) => (w.max(1), 24),
+            (None, Some(h)) => (64, h.max(1)),
+            (None, None) => size
+                .unwrap_or(engine_core::scene::SpriteSizePreset::Medium)
+                .obj_dimensions(),
+        };
+        (w as f32 / h as f32).clamp(0.2, 8.0)
+    }
+
+    let base_radius = scale.unwrap_or(1.0).clamp(0.05, 8.0);
+    let atmo_density = atmo_density.unwrap_or(0.0).clamp(0.0, 1.0);
+    let atmo_strength = atmo_strength.unwrap_or(0.0).clamp(0.0, 1.0);
+    let atmo_rayleigh_amount = atmo_rayleigh_amount.unwrap_or(0.0).clamp(0.0, 1.0);
+    let atmo_haze_amount = atmo_haze_amount.unwrap_or(0.0).clamp(0.0, 1.0);
+    let atmo_enabled = atmo_density > 0.001
+        || atmo_strength > 0.001
+        || atmo_rayleigh_amount > 0.001
+        || atmo_haze_amount > 0.001;
+    let atmo_height = atmo_height.unwrap_or(0.0).clamp(0.0, 1.0);
+    let atmo_shell = if atmo_enabled {
+        atmo_height
+    } else {
+        0.0
+    };
+    let authored_halo_shell = if atmo_halo_strength.unwrap_or(0.0) > 0.01 {
+        atmo_halo_width.unwrap_or(0.0).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let limb_boost = atmo_limb_boost.unwrap_or(1.0).clamp(0.0, 4.0);
+    // Keep camera-safety envelope aligned with render-time halo construction in engine-render-3d.
+    let derived_halo_shell = if atmo_enabled {
+        let base_halo = (0.02 + atmo_height * (0.58 + 1.05 * atmo_haze_amount)).clamp(0.02, 0.75);
+        let density_weight = (0.35
+            + 0.40 * atmo_density
+            + 0.25 * atmo_rayleigh_amount.max(atmo_haze_amount)
+            + 0.08 * (limb_boost / 4.0))
+            .clamp(0.35, 1.0);
+        (base_halo * density_weight).clamp(0.0, 0.75)
+    } else {
+        0.0
+    };
+    let halo_shell = authored_halo_shell.max(derived_halo_shell);
+    // Worldgen displacement scales to ~[-disp, +disp] on sphere radius, so keep
+    // a conservative radial envelope for safe zoom limits.
+    let displacement_shell =
+        world_gen_displacement_scale.unwrap_or(0.0).abs().clamp(0.0, 1.0) * 0.9;
+    let effective_radius = base_radius * (1.0 + atmo_shell + halo_shell + displacement_shell);
+
+    let fov_rad = fov_degrees.unwrap_or(60.0).clamp(10.0, 170.0).to_radians();
+    let half_fov_v = (fov_rad * 0.5).clamp(5.0_f32.to_radians(), 85.0_f32.to_radians());
+    let aspect = estimated_aspect_ratio(size, width, height);
+    let half_fov_h = (half_fov_v.tan() * aspect).atan();
+    let limiting_half_fov = half_fov_v.min(half_fov_h).max(5.0_f32.to_radians());
+    // For a sphere, apparent angular radius alpha satisfies sin(alpha)=r/d.
+    // Keeping alpha within the limiting half-FOV avoids edge clipping.
+    let fit_distance = effective_radius / limiting_half_fov.sin().max(0.05);
+    let near_distance = effective_radius + near_clip.unwrap_or(0.001).max(0.0001) + 0.08;
+    let safe_distance = fit_distance.max(near_distance) * 1.08 + 0.06;
+    safe_distance.clamp(OBJ_ORBIT_DISTANCE_HARD_MIN, OBJ_ORBIT_DISTANCE_HARD_MAX)
 }

@@ -50,7 +50,7 @@ impl SceneLifecycleManager {
                     }
                 };
                 if let Some(buf) = world.buffer_mut() {
-                    buf.resize(layout.render_width, layout.render_height);
+                    buf.resize(layout.ui_width, layout.ui_height);
                 }
             }
         }
@@ -296,8 +296,8 @@ impl SceneLifecycleManager {
         )
     };
     if let Some(buffer) = world.buffer_mut() {
-        if buffer.width != new_layout.render_width || buffer.height != new_layout.render_height {
-            buffer.resize(new_layout.render_width, new_layout.render_height);
+        if buffer.width != new_layout.ui_width || buffer.height != new_layout.ui_height {
+            buffer.resize(new_layout.ui_width, new_layout.ui_height);
         }
     }
 }
@@ -681,7 +681,7 @@ layers:
     fn fixed_render_size_ignores_output_resize_events() {
         let mut world = World::new();
         world.register(RuntimeSettings {
-            render_size: RenderSize::Fixed {
+            world_render_size: RenderSize::Fixed {
                 width: 180,
                 height: 30,
             },
@@ -706,7 +706,7 @@ layers:
     fn match_output_render_size_follows_output_resize_events() {
         let mut world = World::new();
         world.register(RuntimeSettings {
-            render_size: RenderSize::MatchOutput,
+            world_render_size: RenderSize::MatchOutput,
             ..RuntimeSettings::default()
         });
         world.register(Buffer::new(80, 24));

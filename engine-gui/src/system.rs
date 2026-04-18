@@ -280,6 +280,7 @@ mod tests {
             selected: 0,
             popup_sprite: "popup".to_string(),
             label_sprite: "label".to_string(),
+            option_sprites: Vec::new(),
             popup_above: false,
             follow_layout: true,
         })];

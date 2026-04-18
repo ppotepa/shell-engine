@@ -18,7 +18,20 @@ use engine_render_3d::raster::{
 use engine_render_3d::scene::{select_lod_level_stable, Renderable3D};
 use std::collections::HashMap;
 
-use super::render::{compute_draw_pos, finalize_sprite, RenderCtx};
+use super::render::{finalize_sprite, sprite_transform_offset, RenderCtx};
+
+fn visible_region(draw_x: i32, draw_y: i32, width: u16, height: u16, buf: &engine_core::buffer::Buffer) -> Region {
+    let x0 = draw_x.max(0);
+    let y0 = draw_y.max(0);
+    let x1 = (draw_x + width as i32).min(buf.width as i32).max(x0);
+    let y1 = (draw_y + height as i32).min(buf.height as i32).max(y0);
+    Region {
+        x: x0 as u16,
+        y: y0 as u16,
+        width: (x1 - x0) as u16,
+        height: (y1 - y0) as u16,
+    }
+}
 
 const DEFAULT_WORLD_CLOUD_COLOR: &str = "#eaf2f8";
 
@@ -93,6 +106,7 @@ pub(crate) fn render_generated_world_sprite(
         size,
         width,
         height,
+        stretch_to_area,
         observer_altitude_km,
         align_x,
         align_y,
@@ -131,7 +145,9 @@ pub(crate) fn render_generated_world_sprite(
         resolved_haze_night_leak(ctx),
     );
 
-    let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
+    let (sprite_width, sprite_height) = if stretch_to_area {
+        (area.width.max(1), area.height.max(1))
+    } else if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(width, height, size)
     } else {
         (area.width.max(1), area.height.max(1))
@@ -162,13 +178,13 @@ pub(crate) fn render_generated_world_sprite(
             area.height,
             sprite_height,
         );
-    let (draw_x, draw_y) = compute_draw_pos(
-        base_x,
-        base_y,
-        sprite.animations(),
-        sprite_elapsed,
-        object_state,
-    );
+    let (anim_dx, anim_dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
+    let draw_x = base_x
+        .saturating_add(anim_dx)
+        .saturating_add(object_state.offset_x);
+    let draw_y = base_y
+        .saturating_add(anim_dy)
+        .saturating_add(object_state.offset_y);
 
     let rendered = render_generated_world_sprite_with(
         spec,
@@ -193,12 +209,7 @@ pub(crate) fn render_generated_world_sprite(
         return;
     }
 
-    let sprite_region = Region {
-        x: draw_x,
-        y: draw_y,
-        width: sprite_width,
-        height: sprite_height,
-    };
+    let sprite_region = visible_region(draw_x, draw_y, sprite_width, sprite_height, ctx.layer_buf);
     finalize_sprite(
         object_id,
         sprite_region,

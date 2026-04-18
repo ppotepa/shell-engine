@@ -52,8 +52,8 @@ properties:
     type: object
     description: |
       Optional display requirements and render presentation settings.
-      Rendering uses a single authored canvas that is presented by the SDL2 backend
-      according to `presentation_policy`.
+      Rendering uses separate world and UI targets that are presented by the SDL2
+      backend according to `presentation_policy`.
     additionalProperties: false
     properties:
       min_colours:
@@ -73,29 +73,35 @@ properties:
         minimum: 1
         maximum: 240
         description: Target engine framerate lock. Default 60 when omitted.
-      render_size:
+      world_render_size:
         anyOf:
           - type: string
             pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
           - type: string
             enum: [match-output, max-available]
         description: |
-          Preferred: a fixed authored render canvas in WIDTHxHEIGHT form
-          (for example 180x30, 320x180, or 320x240).
+          World/3D render canvas in WIDTHxHEIGHT form
+          (for example 180x30, 320x180, or 640x360).
           "match-output" tracks the current output size. `max-available`
           remains an alias for `match-output`.
-      ui_render_scale:
-        type: integer
-        minimum: 1
-        maximum: 8
+      ui_render_size:
+        anyOf:
+          - type: string
+            pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+          - type: string
+            enum: [match-output, max-available]
         description: |
-          Integer multiplier for the final presentation buffer used by UI/HUD rendering.
-          World rendering remains authored at `render_size`; the engine upscales world output
-          and composites UI at this denser target.
-          Example: `render_size: 640x360` with `ui_render_scale: 2` produces a 1280x720
-          final buffer with sharper GUI text.
-      virtual_size:
-        $ref: "#/properties/display/properties/render_size"
+          Optional final UI/HUD framebuffer size. When omitted, the UI target matches
+          `world_render_size`.
+      ui_layout_size:
+        anyOf:
+          - type: string
+            pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+          - type: string
+            enum: [match-output, max-available]
+        description: |
+          Optional authored coordinate space for UI layout and hit-testing.
+          When omitted, UI layout coordinates are interpreted directly in `ui_render_size`.
       presentation_policy:
         type: string
         enum: [strict, fit, stretch]
@@ -113,22 +119,18 @@ properties:
           Can point to either a built-in generic spec (for example `generic:2`)
           or a named font (for example `Abril Fatface`).
     patternProperties:
-      "^render-size$":
-        $ref: "#/properties/display/properties/render_size"
+      "^world-render-size$":
+        $ref: "#/properties/display/properties/world_render_size"
       "^presentation-policy$":
         $ref: "#/properties/display/properties/presentation_policy"
       "^target-fps$":
         $ref: "#/properties/display/properties/target_fps"
-      "^virtual-size$":
-        $ref: "#/properties/display/properties/render_size"
-      "^virtual-policy$":
-        $ref: "#/properties/display/properties/presentation_policy"
-      "^renderer-mode$":
-        $ref: "#/properties/display/properties/renderer_mode"
       "^default-font$":
         $ref: "#/properties/display/properties/default_font"
-      "^ui-render-scale$":
-        $ref: "#/properties/display/properties/ui_render_scale"
+      "^ui-render-size$":
+        $ref: "#/properties/display/properties/ui_render_size"
+      "^ui-layout-size$":
+        $ref: "#/properties/display/properties/ui_layout_size"
 patternProperties:
   "^display$":
     $ref: "#/properties/display"

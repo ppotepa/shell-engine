@@ -127,7 +127,7 @@ const SDL_DEFAULT_OUTPUT_HEIGHT: u16 = 40;
 fn sdl_startup_output_size(manifest: &Value) -> (u16, u16) {
     use engine_runtime::RuntimeSettings;
     let settings = RuntimeSettings::from_manifest(manifest);
-    // For a fixed render size, the output IS the render buffer — use it directly.
+    // For a fixed final render target, the startup window can match it directly.
     if let Some((w, h)) = settings.fixed_render_size() {
         return (w, h);
     }
@@ -295,15 +295,16 @@ impl ShellEngine {
         logging::info(
             "engine.runtime",
             format!(
-                "output={} output_size={}x{} world_size={}x{} render_size={}x{} ui_scale={} policy={:?} scene_override={}",
+                "output={} output_size={}x{} world_size={}x{} ui_size={}x{} ui_layout={}x{} policy={:?} scene_override={}",
                 "sdl2",
                 output_w,
                 output_h,
                 layout.world_width,
                 layout.world_height,
-                layout.render_width,
-                layout.render_height,
-                runtime_settings.ui_render_scale,
+                layout.ui_width,
+                layout.ui_height,
+                layout.ui_layout_width,
+                layout.ui_layout_height,
                 runtime_settings.presentation_policy,
                 scene.virtual_size_override.as_deref().unwrap_or("none"),
             ),
@@ -312,10 +313,7 @@ impl ShellEngine {
         let mut world = world::World::new();
         let presentation_policy = runtime_settings.presentation_policy;
         world.register(EventQueue::new());
-        world.register(buffer::Buffer::new(
-            layout.render_width,
-            layout.render_height,
-        ));
+        world.register(buffer::Buffer::new(layout.ui_width, layout.ui_height));
         let synth_cues =
             audio_sequencer::AudioSequencerState::synthesize_note_sheets_if_any(&self.mod_source)
                 .unwrap_or_default();
@@ -437,8 +435,8 @@ impl ShellEngine {
             #[cfg(feature = "sdl2")]
             {
                 let (mut renderer, input) = engine_render_sdl2::renderer::Sdl2Backend::new_pair(
-                    layout.render_width,
-                    layout.render_height,
+                    layout.ui_width,
+                    layout.ui_height,
                     presentation_policy,
                     self.config.sdl_window_ratio,
                     self.config.sdl_pixel_scale,

@@ -1506,6 +1506,103 @@ layers:
     }
 
     #[test]
+    fn step_orbit_camera_enforces_safe_min_distance_for_large_atmosphere() {
+        let mut runtime = SceneRuntime::new(obj_scene(
+            r#"        fov-degrees: 40
+        atmo-height: 0.20
+        atmo-density: 0.60
+        atmo-halo-strength: 1.0
+        atmo-halo-width: 0.20"#,
+        ));
+        runtime.orbit_camera = Some(ObjOrbitCameraState {
+            target: "helsinki-uni-wireframe".to_string(),
+            active: true,
+            yaw: 12.0,
+            pitch: -8.0,
+            distance: 1.0,
+            pitch_min: -85.0,
+            pitch_max: 85.0,
+            distance_min: 0.3,
+            distance_max: 10.0,
+            distance_step: 0.25,
+            drag_sensitivity: 0.5,
+            last_mouse_pos: None,
+        });
+
+        assert!(runtime.step_orbit_camera());
+
+        let obj_distance = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    camera_distance,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => *camera_distance,
+                _ => None,
+            })
+            .expect("camera distance after orbit step");
+
+        assert!(
+            obj_distance >= 3.5,
+            "expected safe orbit clamp to prevent clipping, got {obj_distance}"
+        );
+    }
+
+    #[test]
+    fn step_orbit_camera_enforces_safe_min_distance_for_dense_haze_shell() {
+        let mut runtime = SceneRuntime::new(obj_scene(
+            r#"        fov-degrees: 40
+        atmo-height: 0.78
+        atmo-density: 0.90
+        atmo-strength: 0.90
+        atmo-rayleigh-amount: 0.80
+        atmo-haze-amount: 0.92
+        atmo-limb-boost: 2.10
+        world-displacement-scale: 0.55"#,
+        ));
+        runtime.orbit_camera = Some(ObjOrbitCameraState {
+            target: "helsinki-uni-wireframe".to_string(),
+            active: true,
+            yaw: 12.0,
+            pitch: -8.0,
+            distance: 1.0,
+            pitch_min: -85.0,
+            pitch_max: 85.0,
+            distance_min: 0.3,
+            distance_max: 10.0,
+            distance_step: 0.25,
+            drag_sensitivity: 0.5,
+            last_mouse_pos: None,
+        });
+
+        assert!(runtime.step_orbit_camera());
+
+        let obj_distance = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    camera_distance,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => *camera_distance,
+                _ => None,
+            })
+            .expect("camera distance after orbit step");
+
+        assert!(
+            obj_distance >= 5.0,
+            "expected dense haze safe clamp to prevent viewport clipping, got {obj_distance}"
+        );
+    }
+
+    #[test]
     fn scene_runtime_initializes_spatial_context_from_scene() {
         let scene = serde_yaml::from_str::<Scene>(
             r#"

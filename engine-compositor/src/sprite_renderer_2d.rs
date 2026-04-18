@@ -104,6 +104,21 @@ use super::render::{
     sprite_transform_offset, RenderCtx,
 };
 
+#[inline(always)]
+fn scale_i32(value: i32, scale: f32) -> i32 {
+    ((value as f32) * scale).round() as i32
+}
+
+#[inline(always)]
+fn scale_u16(value: u16, scale: f32) -> u16 {
+    ((value as f32) * scale).round().max(1.0) as u16
+}
+
+#[inline(always)]
+fn scale_u16_allow_zero(value: u16, scale: f32) -> u16 {
+    ((value as f32) * scale).round().max(0.0) as u16
+}
+
 #[cfg(feature = "render-3d")]
 pub(crate) trait Render3dDelegate {
     /// Render any OBJ or GeneratedWorld (planet) 3D node through a single unified dispatch path.
@@ -157,6 +172,8 @@ pub(crate) fn render_sprites<'a>(
     is_pixel_backend: bool,
     default_font: Option<&str>,
     ui_font_scale: f32,
+    ui_layout_scale_x: f32,
+    ui_layout_scale_y: f32,
     resolved_view_profile: &ResolvedViewProfile,
     #[cfg(feature = "render-3d")] render_3d: &dyn Render3dDelegate,
     prerender_frames: Option<&'a crate::ObjPrerenderedFrames>,
@@ -176,6 +193,8 @@ pub(crate) fn render_sprites<'a>(
         is_pixel_backend,
         default_font,
         ui_font_scale,
+        ui_layout_scale_x,
+        ui_layout_scale_y,
         prerender_frames,
         resolved_view_profile,
     };
@@ -463,12 +482,14 @@ fn render_text_sprite(
         resolved_font.as_deref(),
         fg,
         sprite_bg,
-        *scale_x * ctx.ui_font_scale,
-        *scale_y * ctx.ui_font_scale,
+        *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
+        *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
     );
 
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
+    let x = scale_i32(*x, ctx.ui_layout_scale_x);
+    let y = scale_i32(*y, ctx.ui_layout_scale_y);
+    let base_x = area.origin_x + resolve_x(x, align_x, area.width, sprite_width);
+    let base_y = area.origin_y + resolve_y(y, align_y, area.height, sprite_height);
     let (draw_x, draw_y) = compute_draw_pos(
         base_x,
         base_y,
@@ -537,8 +558,8 @@ fn render_text_sprite(
                         None,
                         &mut scratch,
                         text_transform,
-                        *scale_x * ctx.ui_font_scale,
-                        *scale_y * ctx.ui_font_scale,
+                        *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
+                        *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
                     );
                 }
             }
@@ -589,8 +610,8 @@ fn render_text_sprite(
         clip,
         ctx.layer_buf,
         text_transform,
-        *scale_x * ctx.ui_font_scale,
-        *scale_y * ctx.ui_font_scale,
+        *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
+        *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
     );
     let sprite_region = Region {
         x: draw_x,
@@ -643,12 +664,12 @@ fn render_image_sprite(
     let target_width = if *stretch_to_area {
         Some(area.width.max(1))
     } else {
-        *width
+        width.map(|value| scale_u16(value, ctx.ui_layout_scale_x))
     };
     let target_height = if *stretch_to_area {
         Some(area.height.max(1))
     } else {
-        *height
+        height.map(|value| scale_u16(value, ctx.ui_layout_scale_y))
     };
     let target_size = if *stretch_to_area { None } else { *size };
     let (sprite_width, sprite_height) = image_sprite_dimensions(
@@ -661,8 +682,10 @@ fn render_image_sprite(
         *frame_index,
         ctx.asset_root,
     );
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
+    let x = scale_i32(*x, ctx.ui_layout_scale_x);
+    let y = scale_i32(*y, ctx.ui_layout_scale_y);
+    let base_x = area.origin_x + resolve_x(x, align_x, area.width, sprite_width);
+    let base_y = area.origin_y + resolve_y(y, align_y, area.height, sprite_height);
     let (draw_x, draw_y) = compute_draw_pos(
         base_x,
         base_y,
@@ -729,7 +752,16 @@ fn render_vector_sprite(
     else {
         return;
     };
-    let Some(bounds) = engine_vector::bounds(points) else {
+    let scaled_points: Vec<[i32; 2]> = points
+        .iter()
+        .map(|p| {
+            [
+                scale_i32(p[0], ctx.ui_layout_scale_x),
+                scale_i32(p[1], ctx.ui_layout_scale_y),
+            ]
+        })
+        .collect();
+    let Some(bounds) = engine_vector::bounds(&scaled_points) else {
         return;
     };
     let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
@@ -739,8 +771,10 @@ fn render_vector_sprite(
         .and_then(|value| value.chars().next())
         .unwrap_or('*');
 
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, bounds.width);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, bounds.height);
+    let x = scale_i32(*x, ctx.ui_layout_scale_x);
+    let y = scale_i32(*y, ctx.ui_layout_scale_y);
+    let base_x = area.origin_x + resolve_x(x, align_x, area.width, bounds.width);
+    let base_y = area.origin_y + resolve_y(y, align_y, area.height, bounds.height);
     let (draw_x, draw_y) = compute_draw_pos(
         base_x,
         base_y,
@@ -757,7 +791,7 @@ fn render_vector_sprite(
     let rotated: Vec<[i32; 2]>;
     let draw_points: &[[i32; 2]] = if object_state.heading.abs() > f32::EPSILON {
         let (sin_h, cos_h) = object_state.heading.sin_cos();
-        rotated = points
+        rotated = scaled_points
             .iter()
             .map(|p| {
                 let fx = p[0] as f32;
@@ -770,7 +804,7 @@ fn render_vector_sprite(
             .collect();
         &rotated
     } else {
-        points
+        &scaled_points
     };
 
     if *closed && !matches!(bg, Color::Reset) {
@@ -864,19 +898,35 @@ fn render_panel_sprite(
     if children.is_empty() && width.is_none() && height.is_none() {
         return;
     }
+    let padding = scale_u16(*padding, ctx.ui_layout_scale_x.min(ctx.ui_layout_scale_y));
+    let border_width = scale_u16(
+        *border_width,
+        ctx.ui_layout_scale_x.min(ctx.ui_layout_scale_y),
+    );
+    let corner_radius = scale_u16(
+        *corner_radius,
+        ctx.ui_layout_scale_x.min(ctx.ui_layout_scale_y),
+    );
+    let shadow_x = scale_i32(*shadow_x, ctx.ui_layout_scale_x);
+    let shadow_y = scale_i32(*shadow_y, ctx.ui_layout_scale_y);
     let (auto_w, auto_h) = measure_sprite_for_layout(sprite, ctx.asset_root);
     let container_w = if let Some(explicit) = *width {
-        explicit
+        scale_u16(explicit, ctx.ui_layout_scale_x)
     } else if let Some(percent) = *width_percent {
         let p = percent.clamp(1, 100) as u32;
         ((u32::from(area.width).saturating_mul(p)) / 100).max(1) as u16
     } else {
-        auto_w.min(area.width)
+        scale_u16(auto_w.min(area.width), ctx.ui_layout_scale_x)
     }
     .max(3);
-    let container_h = height.unwrap_or(auto_h.min(area.height)).max(3);
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
+    let container_h = height
+        .map(|value| scale_u16(value, ctx.ui_layout_scale_y))
+        .unwrap_or_else(|| scale_u16(auto_h.min(area.height), ctx.ui_layout_scale_y))
+        .max(3);
+    let x = scale_i32(*x, ctx.ui_layout_scale_x);
+    let y = scale_i32(*y, ctx.ui_layout_scale_y);
+    let base_x = area.origin_x + resolve_x(x, align_x, area.width, container_w);
+    let base_y = area.origin_y + resolve_y(y, align_y, area.height, container_h);
     let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
     let draw_x = base_x
         .saturating_add(dx)
@@ -904,16 +954,16 @@ fn render_panel_sprite(
         draw_y,
         container_w,
         container_h,
-        *border_width,
-        *corner_radius,
+        border_width,
+        corner_radius,
         panel_bg,
         panel_border,
         panel_shadow,
-        *shadow_x,
-        *shadow_y,
+        shadow_x,
+        shadow_y,
     );
 
-    let inset = (border_width.saturating_add(*padding)) as i32;
+    let inset = (border_width.saturating_add(padding)) as i32;
     let inner_w = container_w.saturating_sub((inset.saturating_mul(2)).max(0) as u16);
     let inner_h = container_h.saturating_sub((inset.saturating_mul(2)).max(0) as u16);
     let inner_area = RenderArea {
@@ -1002,10 +1052,18 @@ fn render_grid_sprite(
     if children.is_empty() {
         return;
     }
-    let container_w = width.unwrap_or(area.width).max(1);
-    let container_h = height.unwrap_or(area.height).max(1);
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
+    let container_w = width
+        .map(|value| scale_u16(value, ctx.ui_layout_scale_x))
+        .unwrap_or(area.width)
+        .max(1);
+    let container_h = height
+        .map(|value| scale_u16(value, ctx.ui_layout_scale_y))
+        .unwrap_or(area.height)
+        .max(1);
+    let x = scale_i32(*x, ctx.ui_layout_scale_x);
+    let y = scale_i32(*y, ctx.ui_layout_scale_y);
+    let base_x = area.origin_x + resolve_x(x, align_x, area.width, container_w);
+    let base_y = area.origin_y + resolve_y(y, align_y, area.height, container_h);
     let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
     let draw_x = base_x
         .saturating_add(dx)
@@ -1020,8 +1078,8 @@ fn render_grid_sprite(
         children,
         container_w,
         container_h,
-        *gap_x,
-        *gap_y,
+        scale_u16_allow_zero(*gap_x, ctx.ui_layout_scale_x),
+        scale_u16_allow_zero(*gap_y, ctx.ui_layout_scale_y),
         ctx.asset_root,
         &measure_sprite_for_layout,
     );
@@ -1115,10 +1173,18 @@ fn render_flex_sprite(
     if children.is_empty() {
         return;
     }
-    let container_w = width.unwrap_or(area.width).max(1);
-    let container_h = height.unwrap_or(area.height).max(1);
-    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
-    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
+    let container_w = width
+        .map(|value| scale_u16(value, ctx.ui_layout_scale_x))
+        .unwrap_or(area.width)
+        .max(1);
+    let container_h = height
+        .map(|value| scale_u16(value, ctx.ui_layout_scale_y))
+        .unwrap_or(area.height)
+        .max(1);
+    let x = scale_i32(*x, ctx.ui_layout_scale_x);
+    let y = scale_i32(*y, ctx.ui_layout_scale_y);
+    let base_x = area.origin_x + resolve_x(x, align_x, area.width, container_w);
+    let base_y = area.origin_y + resolve_y(y, align_y, area.height, container_h);
     let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
     let draw_x = base_x
         .saturating_add(dx)
@@ -1132,7 +1198,7 @@ fn render_flex_sprite(
         *direction,
         container_w,
         container_h,
-        *gap,
+        scale_u16_allow_zero(*gap, ctx.ui_layout_scale_x.min(ctx.ui_layout_scale_y)),
         ctx.asset_root,
         &measure_sprite_for_layout,
     );

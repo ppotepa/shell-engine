@@ -24,6 +24,12 @@ pub struct Render2dInput<'a> {
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
     pub ui_font_scale: f32,
+    /// Logical-to-target layout scale on X axis.
+    /// For UI layers in split-pass this is typically `final_w / world_w`.
+    pub ui_layout_scale_x: f32,
+    /// Logical-to-target layout scale on Y axis.
+    /// For UI layers in split-pass this is typically `final_h / world_h`.
+    pub ui_layout_scale_y: f32,
 }
 
 /// Seam between composition and 2D sprite rendering.

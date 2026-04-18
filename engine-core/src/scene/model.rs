@@ -1126,6 +1126,8 @@ pub enum SceneGuiWidgetDef {
         popup_sprite: String,
         #[serde(default, rename = "label-sprite", alias = "label_sprite")]
         label_sprite: String,
+        #[serde(default, rename = "option-sprites", alias = "option_sprites")]
+        option_sprites: Vec<String>,
         #[serde(default, rename = "popup-above", alias = "popup_above")]
         popup_above: bool,
         #[serde(

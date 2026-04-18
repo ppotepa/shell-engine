@@ -1,7 +1,4 @@
 const TRACK_W = 168;
-const VIEW_LABELS = ["ORBIT REALISTIC", "ORBIT CINEMATIC", "BACKLIT HARSH"];
-const LIGHT_LABELS = ["HARD VACUUM", "CINEMATIC SOFT", "HIGH CONTRAST"];
-const ENV_LABELS = ["DEEP SPACE SPARSE", "DEEP SPACE RICH", "ORBIT BRIGHT STAR"];
 
 if local.active_view == () { local.active_view = "orbit-realistic"; }
 if local.active_light == () { local.active_light = "space-hard-vacuum"; }
@@ -238,37 +235,15 @@ scene.set("model-label-sphere", "text.fg", if local.active_model == "sphere" { "
 scene.set("model-label-cube", "text.fg", if local.active_model == "cube" { "#dbe4f6" } else { "#71819a" });
 scene.set("model-label-suzanne", "text.fg", if local.active_model == "suzanne" { "#dbe4f6" } else { "#71819a" });
 
-let view_idx = view_index(local.active_view);
-let light_idx = light_index(local.active_light);
-let env_idx = env_index(local.active_env);
 let view_open = gui.widget_open("lighting-view-dropdown");
 let light_open = gui.widget_open("lighting-profile-dropdown");
 let env_open = gui.widget_open("lighting-environment-dropdown");
-scene.set("lighting-view-dropdown-label", "text.content", VIEW_LABELS[view_idx]);
 scene.set("lighting-view-dropdown-arrow", "text.content", if view_open { "^" } else { "v" });
 scene.set("lighting-view-dropdown-arrow", "text.fg", if view_open { "#cfe6ff" } else { "#8aa2c4" });
-scene.set("lighting-profile-dropdown-label", "text.content", LIGHT_LABELS[light_idx]);
 scene.set("lighting-profile-dropdown-arrow", "text.content", if light_open { "^" } else { "v" });
 scene.set("lighting-profile-dropdown-arrow", "text.fg", if light_open { "#cfe6ff" } else { "#8aa2c4" });
-scene.set("lighting-environment-dropdown-label", "text.content", ENV_LABELS[env_idx]);
 scene.set("lighting-environment-dropdown-arrow", "text.content", if env_open { "^" } else { "v" });
 scene.set("lighting-environment-dropdown-arrow", "text.fg", if env_open { "#cfe6ff" } else { "#8aa2c4" });
-
-for i in 0..VIEW_LABELS.len() {
-    scene.set(`lighting-view-dropdown-opt-${i}`, "visible", view_open);
-    scene.set(`lighting-view-dropdown-opt-${i}`, "text.content", `${if i == view_idx { ">" } else { " " }} ${VIEW_LABELS[i]}`);
-    scene.set(`lighting-view-dropdown-opt-${i}`, "text.fg", if i == view_idx { "#eef5ff" } else { "#9fb1cc" });
-}
-for i in 0..LIGHT_LABELS.len() {
-    scene.set(`lighting-profile-dropdown-opt-${i}`, "visible", light_open);
-    scene.set(`lighting-profile-dropdown-opt-${i}`, "text.content", `${if i == light_idx { ">" } else { " " }} ${LIGHT_LABELS[i]}`);
-    scene.set(`lighting-profile-dropdown-opt-${i}`, "text.fg", if i == light_idx { "#eef5ff" } else { "#9fb1cc" });
-}
-for i in 0..ENV_LABELS.len() {
-    scene.set(`lighting-environment-dropdown-opt-${i}`, "visible", env_open);
-    scene.set(`lighting-environment-dropdown-opt-${i}`, "text.content", `${if i == env_idx { ">" } else { " " }} ${ENV_LABELS[i]}`);
-    scene.set(`lighting-environment-dropdown-opt-${i}`, "text.fg", if i == env_idx { "#eef5ff" } else { "#9fb1cc" });
-}
 
 let fill_exposure = (clamp01(gui.slider_value("lighting-exposure-slider")) * TRACK_W.to_float()).round().to_int();
 let fill_black = (clamp01(gui.slider_value("lighting-black-level-slider")) * TRACK_W.to_float()).round().to_int();
@@ -288,14 +263,14 @@ scene.set("lighting-star-glare-slider-fill", "vector.points", [[0, 0], [if fill_
 scene.set("lighting-night-glow-slider-fill", "vector.points", [[0, 0], [if fill_nglow < 1 { 1 } else { fill_nglow }, 0]]);
 scene.set("lighting-haze-leak-slider-fill", "vector.points", [[0, 0], [if fill_haze < 1 { 1 } else { fill_haze }, 0]]);
 
-scene.set("lighting-exposure-slider-val", "text.content", to_fixed_2(exposure));
-scene.set("lighting-black-level-slider-val", "text.content", to_fixed_2(black));
-scene.set("lighting-gamma-slider-val", "text.content", to_fixed_2(gamma));
-scene.set("lighting-contrast-slider-val", "text.content", to_fixed_2(contrast));
-scene.set("lighting-starfield-slider-val", "text.content", to_fixed_2(stars));
-scene.set("lighting-star-glare-slider-val", "text.content", to_fixed_2(glare));
-scene.set("lighting-night-glow-slider-val", "text.content", to_fixed_2(night_glow));
-scene.set("lighting-haze-leak-slider-val", "text.content", to_fixed_2(haze_leak));
+scene.set("lighting-exposure-slider-value", "text.content", to_fixed_2(exposure));
+scene.set("lighting-black-level-slider-value", "text.content", to_fixed_2(black));
+scene.set("lighting-gamma-slider-value", "text.content", to_fixed_2(gamma));
+scene.set("lighting-contrast-slider-value", "text.content", to_fixed_2(contrast));
+scene.set("lighting-starfield-slider-value", "text.content", to_fixed_2(stars));
+scene.set("lighting-star-glare-slider-value", "text.content", to_fixed_2(glare));
+scene.set("lighting-night-glow-slider-value", "text.content", to_fixed_2(night_glow));
+scene.set("lighting-haze-leak-slider-value", "text.content", to_fixed_2(haze_leak));
 
 scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env}`);
 scene.set("hint-1", "text.content", "keys: 1/2/3/4 model | Z/X/C view | Q/W/E light | A/S/D env");

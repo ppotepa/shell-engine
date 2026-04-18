@@ -46,30 +46,30 @@
 
     - { type: text, content: "VIEW PROFILE", x: 694, y: 112, font: "generic:2", fg: "#55627e" }
     - { type: panel, id: lighting-view-dropdown-box, x: 694, y: 124, width: 238, height: 22, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#0d1625", border-colour: "#48617f" }
-    - { type: text, id: lighting-view-dropdown-label, content: "ORBIT REALISTIC", x: 706, y: 129, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: lighting-view-dropdown-label, content: "", x: 706, y: 129, font: "generic:2", fg: "#dbe4f6" }
     - { type: text, id: lighting-view-dropdown-arrow, content: "v", x: 918, y: 129, font: "generic:2", fg: "#8aa2c4" }
-    - { type: panel, id: lighting-view-dropdown-popup, x: 694, y: 146, width: 238, height: 52, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
-    - { type: text, id: lighting-view-dropdown-option-0, content: "> ORBIT REALISTIC", x: 706, y: 151, visible: false, font: "generic:2", fg: "#eef5ff" }
-    - { type: text, id: lighting-view-dropdown-option-1, content: "  ORBIT CINEMATIC", x: 706, y: 167, visible: false, font: "generic:2", fg: "#9fb1cc" }
-    - { type: text, id: lighting-view-dropdown-option-2, content: "  BACKLIT HARSH", x: 706, y: 183, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: panel, id: lighting-view-dropdown-popup, x: 694, y: 146, width: 238, height: 66, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
+    - { type: text, id: lighting-view-dropdown-option-0, content: "", x: 706, y: 151, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: lighting-view-dropdown-option-1, content: "", x: 706, y: 173, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: lighting-view-dropdown-option-2, content: "", x: 706, y: 195, visible: false, font: "generic:2", fg: "#9fb1cc" }
 
     - { type: text, content: "LIGHTING PROFILE", x: 694, y: 182, font: "generic:2", fg: "#55627e" }
     - { type: panel, id: lighting-profile-dropdown-box, x: 694, y: 194, width: 238, height: 22, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#0d1625", border-colour: "#48617f" }
-    - { type: text, id: lighting-profile-dropdown-label, content: "HARD VACUUM", x: 706, y: 199, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: lighting-profile-dropdown-label, content: "", x: 706, y: 199, font: "generic:2", fg: "#dbe4f6" }
     - { type: text, id: lighting-profile-dropdown-arrow, content: "v", x: 918, y: 199, font: "generic:2", fg: "#8aa2c4" }
-    - { type: panel, id: lighting-profile-dropdown-popup, x: 694, y: 216, width: 238, height: 52, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
-    - { type: text, id: lighting-profile-dropdown-option-0, content: "> HARD VACUUM", x: 706, y: 221, visible: false, font: "generic:2", fg: "#eef5ff" }
-    - { type: text, id: lighting-profile-dropdown-option-1, content: "  CINEMATIC SOFT", x: 706, y: 237, visible: false, font: "generic:2", fg: "#9fb1cc" }
-    - { type: text, id: lighting-profile-dropdown-option-2, content: "  HIGH CONTRAST", x: 706, y: 253, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: panel, id: lighting-profile-dropdown-popup, x: 694, y: 216, width: 238, height: 66, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
+    - { type: text, id: lighting-profile-dropdown-option-0, content: "", x: 706, y: 221, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: lighting-profile-dropdown-option-1, content: "", x: 706, y: 243, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: lighting-profile-dropdown-option-2, content: "", x: 706, y: 265, visible: false, font: "generic:2", fg: "#9fb1cc" }
 
     - { type: text, content: "ENVIRONMENT PROFILE", x: 694, y: 252, font: "generic:2", fg: "#55627e" }
     - { type: panel, id: lighting-environment-dropdown-box, x: 694, y: 264, width: 238, height: 22, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#0d1625", border-colour: "#48617f" }
-    - { type: text, id: lighting-environment-dropdown-label, content: "DEEP SPACE SPARSE", x: 706, y: 269, font: "generic:2", fg: "#dbe4f6" }
+    - { type: text, id: lighting-environment-dropdown-label, content: "", x: 706, y: 269, font: "generic:2", fg: "#dbe4f6" }
     - { type: text, id: lighting-environment-dropdown-arrow, content: "v", x: 918, y: 269, font: "generic:2", fg: "#8aa2c4" }
-    - { type: panel, id: lighting-environment-dropdown-popup, x: 694, y: 286, width: 238, height: 52, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
-    - { type: text, id: lighting-environment-dropdown-option-0, content: "> DEEP SPACE SPARSE", x: 706, y: 291, visible: false, font: "generic:2", fg: "#eef5ff" }
-    - { type: text, id: lighting-environment-dropdown-option-1, content: "  DEEP SPACE RICH", x: 706, y: 307, visible: false, font: "generic:2", fg: "#9fb1cc" }
-    - { type: text, id: lighting-environment-dropdown-option-2, content: "  ORBIT BRIGHT STAR", x: 706, y: 323, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: panel, id: lighting-environment-dropdown-popup, x: 694, y: 286, width: 238, height: 66, visible: false, padding: 0, border-width: 1, corner-radius: 3, fg: "#0d1625", bg: "#121c2b", border-colour: "#5a78a0", shadow-x: 3, shadow-y: 3, shadow-colour: "#02040a" }
+    - { type: text, id: lighting-environment-dropdown-option-0, content: "", x: 706, y: 291, visible: false, font: "generic:2", fg: "#eef5ff" }
+    - { type: text, id: lighting-environment-dropdown-option-1, content: "", x: 706, y: 313, visible: false, font: "generic:2", fg: "#9fb1cc" }
+    - { type: text, id: lighting-environment-dropdown-option-2, content: "", x: 706, y: 335, visible: false, font: "generic:2", fg: "#9fb1cc" }
 
     - { type: text, content: "ACTIVE TWEAKS", x: 694, y: 344, font: "generic:2", fg: "#55627e" }
 

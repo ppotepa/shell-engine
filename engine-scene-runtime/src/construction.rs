@@ -177,6 +177,7 @@ impl SceneRuntime {
         runtime.attach_declared_behaviors(behavior_bindings, None);
         runtime.resolver_cache = std::sync::Arc::new(runtime.build_target_resolver());
         runtime.rebuild_sprite_id_to_layer();
+        runtime.clamp_orbit_camera_bootstrap();
         runtime
     }
 }
@@ -420,6 +421,7 @@ fn scene_gui_widget_to_control(
             selected,
             popup_sprite,
             label_sprite,
+            option_sprites,
             popup_above,
             follow_layout,
         } => Box::new(engine_gui::DropdownControl {
@@ -433,6 +435,7 @@ fn scene_gui_widget_to_control(
             selected,
             popup_sprite,
             label_sprite,
+            option_sprites,
             popup_above,
             follow_layout,
         }),

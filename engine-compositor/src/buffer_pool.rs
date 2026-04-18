@@ -57,18 +57,16 @@ impl BufferPool {
     /// Acquire a buffer from the pool, resized to (width, height).
     /// If no buffer is available, allocates a new one.
     pub fn acquire(&self, width: u16, height: u16) -> PooledBuffer {
+        let target_w = width.max(1);
+        let target_h = height.max(1);
         let mut available = self.available.borrow_mut();
         let mut buf = if let Some(mut b) = available.pop() {
-            b.resize(
-                width.min(self.config.max_width),
-                height.min(self.config.max_height),
-            );
+            // Do not clamp to pool max dimensions: render correctness must follow
+            // requested viewport size (world/ui buffers can exceed pooled defaults).
+            b.resize(target_w, target_h);
             b
         } else {
-            Buffer::new(
-                width.min(self.config.max_width),
-                height.min(self.config.max_height),
-            )
+            Buffer::new(target_w, target_h)
         };
         buf.fill(engine_core::color::Color::Reset);
         PooledBuffer {
@@ -79,6 +77,11 @@ impl BufferPool {
 
     /// Return a buffer to the pool.
     fn release(&self, buf: Buffer) {
+        // Keep pool bounded to configured default dimensions to avoid retaining
+        // oversized scratch buffers forever after transient large requests.
+        if buf.width > self.config.max_width || buf.height > self.config.max_height {
+            return;
+        }
         let mut available = self.available.borrow_mut();
         if available.len() < self.config.pool_size {
             available.push(buf);
@@ -232,5 +235,34 @@ mod tests {
         buf.fill(engine_core::color::Color::White);
         let cell = buf.get(0, 0);
         assert!(cell.is_some());
+    }
+
+    #[test]
+    fn acquire_uses_requested_size_without_clamping() {
+        let config = BufferPoolConfig {
+            max_width: 64,
+            max_height: 32,
+            pool_size: 1,
+        };
+        let pool = BufferPool::new(config);
+        let buf = pool.acquire(320, 180);
+        assert_eq!(buf.width, 320);
+        assert_eq!(buf.height, 180);
+    }
+
+    #[test]
+    fn oversized_buffers_are_not_returned_to_pool() {
+        let config = BufferPoolConfig {
+            max_width: 64,
+            max_height: 32,
+            pool_size: 2,
+        };
+        let pool = BufferPool::new(config);
+        assert_eq!(pool.stats().available_count, 2);
+        {
+            let _buf = pool.acquire(320, 180);
+        }
+        // One preallocated pooled buffer was consumed, and oversized one is dropped on release.
+        assert_eq!(pool.stats().available_count, 1);
     }
 }

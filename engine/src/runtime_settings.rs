@@ -33,9 +33,18 @@ pub fn buffer_layout_for_scene(
     {
         layout.world_width = world_width;
         layout.world_height = world_height;
-        let (render_width, render_height) = settings.apply_ui_render_scale(world_width, world_height);
-        layout.render_width = render_width;
-        layout.render_height = render_height;
+        let (ui_width, ui_height) = settings
+            .ui_render_size
+            .map(|size| size.resolve(output_width, output_height))
+            .unwrap_or((world_width, world_height));
+        let (ui_layout_width, ui_layout_height) = settings
+            .ui_layout_size
+            .map(|size| size.resolve(output_width, output_height))
+            .unwrap_or((ui_width, ui_height));
+        layout.ui_width = ui_width;
+        layout.ui_height = ui_height;
+        layout.ui_layout_width = ui_layout_width;
+        layout.ui_layout_height = ui_layout_height;
     }
     layout
 }
@@ -58,7 +67,7 @@ layers: []
         .expect("scene");
 
         let settings = RuntimeSettings {
-            render_size: RenderSize::Fixed {
+            world_render_size: RenderSize::Fixed {
                 width: 120,
                 height: 30,
             },
@@ -84,7 +93,7 @@ layers: []
         .expect("scene");
 
         let settings = RuntimeSettings {
-            render_size: RenderSize::Fixed {
+            world_render_size: RenderSize::Fixed {
                 width: 120,
                 height: 30,
             },
@@ -94,14 +103,14 @@ layers: []
         let layout = buffer_layout_for_scene(&settings, &scene, 120, 30);
         assert_eq!(layout.world_width, 180);
         assert_eq!(layout.world_height, 30);
-        assert_eq!(layout.render_width, 180);
-        assert_eq!(layout.render_height, 30);
+        assert_eq!(layout.ui_width, 180);
+        assert_eq!(layout.ui_height, 30);
         assert_eq!(layout.output_width, 120);
         assert_eq!(layout.output_height, 30);
     }
 
     #[test]
-    fn buffer_layout_for_scene_scales_final_render_size_after_world_override() {
+    fn buffer_layout_for_scene_keeps_explicit_ui_target_after_world_override() {
         let scene = serde_yaml::from_str::<Scene>(
             r#"
 id: intro
@@ -113,18 +122,27 @@ layers: []
         .expect("scene");
 
         let settings = RuntimeSettings {
-            render_size: RenderSize::Fixed {
+            world_render_size: RenderSize::Fixed {
                 width: 120,
                 height: 30,
             },
-            ui_render_scale: 2,
+            ui_render_size: Some(RenderSize::Fixed {
+                width: 360,
+                height: 60,
+            }),
+            ui_layout_size: Some(RenderSize::Fixed {
+                width: 360,
+                height: 60,
+            }),
             ..RuntimeSettings::default()
         };
 
         let layout = buffer_layout_for_scene(&settings, &scene, 120, 30);
         assert_eq!(layout.world_width, 180);
         assert_eq!(layout.world_height, 30);
-        assert_eq!(layout.render_width, 360);
-        assert_eq!(layout.render_height, 60);
+        assert_eq!(layout.ui_width, 360);
+        assert_eq!(layout.ui_height, 60);
+        assert_eq!(layout.ui_layout_width, 360);
+        assert_eq!(layout.ui_layout_height, 60);
     }
 }

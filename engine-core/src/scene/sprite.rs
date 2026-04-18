@@ -373,6 +373,9 @@ pub enum Sprite {
         width: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
+        /// When true, scales the 3D sprite render target to exactly fill its resolved draw area.
+        #[serde(default, rename = "stretch-to-area")]
+        stretch_to_area: bool,
         #[serde(default, rename = "surface-mode")]
         surface_mode: Option<String>,
         #[serde(default, rename = "backface-cull")]
@@ -806,6 +809,9 @@ pub enum Sprite {
         width: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
+        /// When true, scales the generated-world render target to exactly fill its resolved draw area.
+        #[serde(default, rename = "stretch-to-area")]
+        stretch_to_area: bool,
         #[serde(default)]
         scale: Option<f32>,
         #[serde(default, rename = "yaw-deg")]
@@ -1044,6 +1050,9 @@ pub enum Sprite {
         row_span: u16,
         #[serde(default = "default_grid_span", rename = "col-span")]
         col_span: u16,
+        /// When true, scales the prerendered/live scene clip to fill its resolved draw area.
+        #[serde(default, rename = "stretch-to-area")]
+        stretch_to_area: bool,
         #[serde(default)]
         appear_at_ms: Option<u64>,
         #[serde(default)]

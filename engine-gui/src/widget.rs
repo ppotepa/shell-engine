@@ -104,6 +104,8 @@ pub enum GuiWidgetDef {
         #[serde(default)]
         label_sprite: String,
         #[serde(default)]
+        option_sprites: Vec<String>,
+        #[serde(default)]
         popup_above: bool,
     },
     TextInput {

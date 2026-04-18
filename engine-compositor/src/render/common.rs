@@ -37,6 +37,8 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,
     pub(crate) ui_font_scale: f32,
+    pub(crate) ui_layout_scale_x: f32,
+    pub(crate) ui_layout_scale_y: f32,
     pub(crate) prerender_frames: Option<&'a ObjPrerenderedFrames>,
     pub(crate) resolved_view_profile: &'a ResolvedViewProfile,
 }

@@ -135,6 +135,8 @@ impl Render2dPipeline for DefaultCompositorRender2dPipeline<'_> {
             input.is_pixel_backend,
             input.default_font,
             input.ui_font_scale,
+            input.ui_layout_scale_x,
+            input.ui_layout_scale_y,
             self.resolved_view_profile,
             #[cfg(feature = "render-3d")]
             &self.render_3d,

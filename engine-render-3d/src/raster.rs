@@ -264,8 +264,8 @@ pub fn blit_color_canvas(
     virtual_h: u16,
     target_w: u16,
     target_h: u16,
-    x: u16,
-    y: u16,
+    x: i32,
+    y: i32,
     wireframe: bool,
     draw_char: char,
     _fg: Color,
@@ -291,14 +291,20 @@ pub fn blit_color_canvas(
     if let Some(pc) = &mut buf.pixel_canvas {
         let pc_w = pc.width as usize;
         let virt_mult = virtual_dimensions_multiplier();
-        let base_vx = x as usize * virt_mult.0 as usize;
-        let base_vy = y as usize * virt_mult.1 as usize;
+        let base_vx = x * virt_mult.0 as i32;
+        let base_vy = y * virt_mult.1 as i32;
         for vy in 0..virtual_h {
             for vx in 0..virtual_w {
                 let Some(rgb) = px(vx, vy) else { continue };
-                let px_x = base_vx + vx as usize;
-                let px_y = base_vy + vy as usize;
-                if px_x < pc.width as usize && px_y < pc.height as usize {
+                let px_x = base_vx + vx as i32;
+                let px_y = base_vy + vy as i32;
+                if px_x >= 0
+                    && px_y >= 0
+                    && (px_x as usize) < pc.width as usize
+                    && (px_y as usize) < pc.height as usize
+                {
+                    let px_x = px_x as usize;
+                    let px_y = px_y as usize;
                     let idx = (px_y * pc_w + px_x) * 4;
                     pc.data[idx] = rgb[0];
                     pc.data[idx + 1] = rgb[1];
@@ -319,9 +325,14 @@ pub fn blit_color_canvas(
             let Some(rgb) = px(ox, oy) else {
                 continue;
             };
+            let tx = x + ox as i32;
+            let ty = y + oy as i32;
+            if tx < 0 || ty < 0 || tx >= buf.width as i32 || ty >= buf.height as i32 {
+                continue;
+            }
             let symbol = if wireframe { draw_char } else { '█' };
             let fg_out = rgb_to_color(rgb);
-            buf.set(x + ox, y + oy, symbol, fg_out, bg_color);
+            buf.set(tx as u16, ty as u16, symbol, fg_out, bg_color);
         }
     }
 }
@@ -1416,8 +1427,8 @@ pub fn blit_rgba_canvas(
     virtual_h: u16,
     target_w: u16,
     target_h: u16,
-    x: u16,
-    y: u16,
+    x: i32,
+    y: i32,
 ) {
     let px = |vx: u16, vy: u16| -> Option<[u8; 3]> {
         if vx >= virtual_w || vy >= virtual_h {
@@ -1434,14 +1445,20 @@ pub fn blit_rgba_canvas(
     if let Some(pc) = &mut buf.pixel_canvas {
         let pc_w = pc.width as usize;
         let virt_mult = virtual_dimensions_multiplier();
-        let base_vx = x as usize * virt_mult.0 as usize;
-        let base_vy = y as usize * virt_mult.1 as usize;
+        let base_vx = x * virt_mult.0 as i32;
+        let base_vy = y * virt_mult.1 as i32;
         for vy in 0..virtual_h {
             for vx in 0..virtual_w {
                 let Some(rgb) = px(vx, vy) else { continue };
-                let px_x = base_vx + vx as usize;
-                let px_y = base_vy + vy as usize;
-                if px_x < pc.width as usize && px_y < pc.height as usize {
+                let px_x = base_vx + vx as i32;
+                let px_y = base_vy + vy as i32;
+                if px_x >= 0
+                    && px_y >= 0
+                    && (px_x as usize) < pc.width as usize
+                    && (px_y as usize) < pc.height as usize
+                {
+                    let px_x = px_x as usize;
+                    let px_y = px_y as usize;
                     let idx = (px_y * pc_w + px_x) * 4;
                     pc.data[idx] = rgb[0];
                     pc.data[idx + 1] = rgb[1];
@@ -1459,7 +1476,12 @@ pub fn blit_rgba_canvas(
     for oy in 0..target_h {
         for ox in 0..target_w {
             let Some(rgb) = px(ox, oy) else { continue };
-            buf.set(x + ox, y + oy, '█', rgb_to_color(rgb), bg_color);
+            let tx = x + ox as i32;
+            let ty = y + oy as i32;
+            if tx < 0 || ty < 0 || tx >= buf.width as i32 || ty >= buf.height as i32 {
+                continue;
+            }
+            buf.set(tx as u16, ty as u16, '█', rgb_to_color(rgb), bg_color);
         }
     }
 }
@@ -2919,8 +2941,8 @@ pub fn render_obj_content(
     fg: Color,
     bg: Color,
     asset_root: Option<&AssetRoot>,
-    x: u16,
-    y: u16,
+    x: i32,
+    y: i32,
     buf: &mut Buffer,
 ) {
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
@@ -2970,8 +2992,8 @@ pub fn try_blit_prerendered(
     current_pitch: f32,
     clip_y_min: f32,
     clip_y_max: f32,
-    x: u16,
-    y: u16,
+    x: i32,
+    y: i32,
     buf: &mut Buffer,
 ) -> bool {
     let Some(frames) = frames else {

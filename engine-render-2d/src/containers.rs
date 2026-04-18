@@ -2,7 +2,7 @@ use engine_core::effects::Region;
 use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 
-use crate::{ClipRect, GridCellRect, RenderArea};
+use crate::{intersect_clip_rect, ClipRect, GridCellRect, RenderArea};
 use std::collections::HashMap;
 
 /// Renders all container children using precomputed cell rectangles.
@@ -46,12 +46,21 @@ pub fn render_children_in_cells<Ctx, F>(
             width: rect.width.max(1),
             height: rect.height.max(1),
         };
+        let child_clip = intersect_clip_rect(
+            parent_clip,
+            Some(ClipRect {
+                x: child_area.origin_x,
+                y: child_area.origin_y,
+                width: child_area.width,
+                height: child_area.height,
+            }),
+        );
         render_child(
             layer_idx,
             sprite_path,
             child,
             child_area,
-            parent_clip,
+            child_clip,
             target_resolver,
             object_regions,
             object_states,

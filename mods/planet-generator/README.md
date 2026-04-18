@@ -2,6 +2,10 @@
 
 Procedural planet viewer with a compact modernized multi-tab tool panel and separated live value readouts.
 
+The mod renders the world pass at `640x360`, then composites HUD/UI at native
+`1280x720`. The tool panel is authored directly in `1280x720` UI space so the
+controls stay denser and more readable than the underlying 3D scene.
+
 ## Running
 
 ```bash
@@ -27,8 +31,8 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `scenes/main/layers/planet.yml` — OBJ planet mesh (`world://32`)
 - `scenes/main/layers/hud-tabs.yml` — tab bar (top-right, authored as `type: tabs`)
 - `scenes/main/layers/hud-models.yml` — model selector row (Planet/Sphere/Cube/Suzanne, authored as `type: segmented-control`)
-- `scenes/main/layers/hud-panel.yml` — parameter panel background
-- `scenes/main/layers/hud-sliders.yml` — compact slider layer with active-tab header, summary, and right-aligned live values
+- `scenes/main/layers/hud-panel.yml` — right-side parameter rail background in native `1280x720` UI space
+- `scenes/main/layers/hud-sliders.yml` — compact slider layer with active-tab header, summary, widened tracks, and right-aligned live values
 - `scenes/main/layers/hud-actions.yml` — Randomize / Reset buttons
 - `scenes/main/layers/hud-presets.yml` — compact preset dropdown + popup list
 - `scenes/main/layers/hud-stats.yml` — live stats strip (bottom-left)

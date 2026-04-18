@@ -9,14 +9,14 @@ Runtime settings parsed from mod manifests and environment overrides.
 the app and engine.
 
 It is intentionally narrow: this crate does not run the game loop; it defines
-how runtime options such as render size and presentation policy are interpreted.
+how runtime options such as world/UI render sizes and presentation policy are interpreted.
 
 ## Key types
 
 - `RuntimeSettings` — resolved runtime options used at startup and presentation time
-- `RenderSize` — authored in-memory render size (`Fixed` or `MatchOutput`)
+- `RenderSize` — authored size token (`Fixed`, `MatchOutput`, `FitWidth`)
 - `PresentationPolicy` — how authored rendering maps into the active output buffer
-- `BufferLayout` — explicit render/output dimensions derived from runtime settings
+- `BufferLayout` — explicit world/UI/output dimensions derived from runtime settings
 - `parse_render_size_str()` — shared helper for CLI/config parsing
 
 ## What it does
@@ -24,10 +24,12 @@ how runtime options such as render size and presentation policy are interpreted.
 - reads display settings from the manifest `display` block,
 - accepts both kebab-case and snake_case YAML keys,
 - applies environment overrides such as:
-  - `SHELL_ENGINE_RENDER_SIZE`
+  - `SHELL_ENGINE_WORLD_RENDER_SIZE`
+  - `SHELL_ENGINE_UI_RENDER_SIZE`
+  - `SHELL_ENGINE_UI_LAYOUT_SIZE`
   - `SHELL_ENGINE_PRESENTATION_POLICY`
-- prefers fixed authored render sizes and still resolves `match-output` / `max-available`
-  for compatibility when older content tracks the current output dimensions.
+- resolves separate world/UI/layout sizes and still supports `match-output` /
+  `max-available` when a target should track the current output dimensions.
 - supports display policies:
   - `strict` — 1:1 with centered crop/pad,
   - `fit` — preserve aspect ratio with letterboxing,
@@ -35,7 +37,6 @@ how runtime options such as render size and presentation policy are interpreted.
 
 ## Working with this crate
 
-- keep parsing behavior backward-compatible when possible,
-- if manifest field names change, support both forms during migrations,
+- keep world/UI/layout semantics explicit and non-overlapping,
 - when runtime settings change, update launcher docs and mod authoring docs in
   the same change.

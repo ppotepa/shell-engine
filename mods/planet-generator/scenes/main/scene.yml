@@ -17,17 +17,17 @@ logic:
   behavior: rhai-script
   src: ./main.rhai
 ui:
-  scale: 1.1
-  font-scale: 1.15
+  scale: 1.0
+  font-scale: 1.12
 input:
   orbit-camera:
     target: planet-mesh
     yaw: 30.0
     pitch: 20.0
-    distance: 2.5
+    distance: 3.0
     pitch-min: -85.0
     pitch-max: 85.0
-    distance-min: 1.5
+    distance-min: 2.6
     distance-max: 6.0
     distance-step: 0.2
     drag-sensitivity: 0.14
@@ -49,10 +49,10 @@ gui:
     - type: tabs
       id: planet-parameter-tabs
       sprite: hud-tabs-box
-      x: 408
-      y: 8
-      w: 224
-      h: 22
+      x: 852
+      y: 16
+      w: 412
+      h: 32
       selected: 0
       options:
         - { value: continents, label: LAND }
@@ -63,10 +63,10 @@ gui:
     - type: segmented-control
       id: planet-model-selector
       sprite: hud-models-box
-      x: 408
-      y: 34
-      w: 224
-      h: 22
+      x: 852
+      y: 56
+      w: 412
+      h: 32
       selected: 0
       options:
         - { value: planet,  label: PLANET }
@@ -77,25 +77,27 @@ gui:
     - type: button
       id: planet-randomize-button
       sprite: planet-randomize-button-label
-      x: 410
-      y: 306
-      w: 108
-      h: 24
+      x: 852
+      y: 620
+      w: 200
+      h: 36
+      follow-layout: false
     - type: button
       id: planet-reset-button
       sprite: planet-reset-button-label
-      x: 522
-      y: 306
-      w: 108
-      h: 24
+      x: 1064
+      y: 620
+      w: 200
+      h: 36
+      follow-layout: false
     # ── Preset selector (compact dropdown) ───────────────────────────────────
     - type: dropdown
       id: planet-preset-dropdown
       sprite: preset-trigger-box
-      x: 408
-      y: 334
-      w: 224
-      h: 24
+      x: 852
+      y: 664
+      w: 412
+      h: 36
       selected: 0
       label-sprite: preset-current-label
       popup-sprite: preset-popup
@@ -108,18 +110,17 @@ gui:
         - { value: ice,         label: ICE }
         - { value: volcanic,    label: VOLCANIC }
         - { value: archipelago, label: ARCHIPELAGO }
-    # ── 8 multiplexed sliders — content/mapping changes per active tab in Rhai.
-    # Coords: track starts at x=421, width=180. Handle base at same x=421.
-    # hit-padding=6 gives ~20px tall click zone around each 8px handle.
+    # ── 8 multiplexed sliders — authored in native 1280x720 UI space.
+    # Track starts at x=874, width=334. Handle base at the same x.
     - type: slider
       id: param-0
       sprite: param-track-0
       handle: param-handle-0
-      x: 421
-      y: 87
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 188
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -127,11 +128,11 @@ gui:
       id: param-1
       sprite: param-track-1
       handle: param-handle-1
-      x: 421
-      y: 113
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 234
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -139,11 +140,11 @@ gui:
       id: param-2
       sprite: param-track-2
       handle: param-handle-2
-      x: 421
-      y: 139
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 280
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -151,11 +152,11 @@ gui:
       id: param-3
       sprite: param-track-3
       handle: param-handle-3
-      x: 421
-      y: 165
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 326
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -163,11 +164,11 @@ gui:
       id: param-4
       sprite: param-track-4
       handle: param-handle-4
-      x: 421
-      y: 191
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 372
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -175,11 +176,11 @@ gui:
       id: param-5
       sprite: param-track-5
       handle: param-handle-5
-      x: 421
-      y: 217
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 418
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -187,11 +188,11 @@ gui:
       id: param-6
       sprite: param-track-6
       handle: param-handle-6
-      x: 421
-      y: 243
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 464
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0
@@ -199,11 +200,11 @@ gui:
       id: param-7
       sprite: param-track-7
       handle: param-handle-7
-      x: 421
-      y: 269
-      w: 170
-      h: 8
-      hit-padding: 6
+      x: 874
+      y: 510
+      w: 334
+      h: 12
+      hit-padding: 8
       min: 0
       max: 1
       value: 0

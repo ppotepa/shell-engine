@@ -179,7 +179,7 @@ pub type RenderObjToRgbaCanvasFn = fn(
 
 pub type ConvertCanvasToRgbaFn = fn(Vec<Option<[u8; 3]>>) -> Vec<Option<[u8; 4]>>;
 pub type CompositeRgbaOverFn = fn(&mut [Option<[u8; 4]>], &[Option<[u8; 4]>]);
-pub type BlitRgbaCanvasFn = fn(&mut Buffer, &[Option<[u8; 4]>], u16, u16, u16, u16, u16, u16);
+pub type BlitRgbaCanvasFn = fn(&mut Buffer, &[Option<[u8; 4]>], u16, u16, u16, u16, i32, i32);
 
 pub struct GeneratedWorldRenderCallbacks {
     pub render_obj_to_canvas: RenderObjToCanvasFn,
@@ -417,8 +417,8 @@ pub fn render_generated_world_sprite_with(
     profile: &GeneratedWorldRenderProfile,
     sprite_width: u16,
     sprite_height: u16,
-    draw_x: u16,
-    draw_y: u16,
+    draw_x: i32,
+    draw_y: i32,
     sprite_elapsed: u64,
     scene_camera_3d: &SceneCamera3D,
     asset_root: Option<&AssetRoot>,

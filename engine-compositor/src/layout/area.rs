@@ -29,10 +29,12 @@ pub fn resolve_x(
     area_w: u16,
     sprite_w: u16,
 ) -> i32 {
+    let area_w = i32::from(area_w);
+    let sprite_w = i32::from(sprite_w);
     let origin = match align_x {
         Some(HorizontalAlign::Left) | None => 0i32,
-        Some(HorizontalAlign::Center) => (area_w.saturating_sub(sprite_w) / 2) as i32,
-        Some(HorizontalAlign::Right) => area_w.saturating_sub(sprite_w) as i32,
+        Some(HorizontalAlign::Center) => (area_w - sprite_w) / 2,
+        Some(HorizontalAlign::Right) => area_w - sprite_w,
     };
     origin.saturating_add(offset_x)
 }
@@ -46,10 +48,30 @@ pub fn resolve_y(
     area_h: u16,
     sprite_h: u16,
 ) -> i32 {
+    let area_h = i32::from(area_h);
+    let sprite_h = i32::from(sprite_h);
     let origin = match align_y {
         Some(VerticalAlign::Top) | None => 0i32,
-        Some(VerticalAlign::Center) => (area_h.saturating_sub(sprite_h) / 2) as i32,
-        Some(VerticalAlign::Bottom) => area_h.saturating_sub(sprite_h) as i32,
+        Some(VerticalAlign::Center) => (area_h - sprite_h) / 2,
+        Some(VerticalAlign::Bottom) => area_h - sprite_h,
     };
     origin.saturating_add(offset_y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_x, resolve_y};
+    use engine_core::scene::{HorizontalAlign, VerticalAlign};
+
+    #[test]
+    fn center_alignment_allows_negative_overscan_offsets() {
+        assert_eq!(resolve_x(0, &Some(HorizontalAlign::Center), 640, 720), -40);
+        assert_eq!(resolve_y(0, &Some(VerticalAlign::Center), 360, 405), -22);
+    }
+
+    #[test]
+    fn right_and_bottom_alignment_allow_overscan() {
+        assert_eq!(resolve_x(0, &Some(HorizontalAlign::Right), 640, 720), -80);
+        assert_eq!(resolve_y(0, &Some(VerticalAlign::Bottom), 360, 405), -45);
+    }
 }

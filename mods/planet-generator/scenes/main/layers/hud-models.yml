@@ -8,24 +8,24 @@
       id: hud-models-box
       align-x: right
       align-y: top
-      x: -8
-      y: 34
-      width: 224
-      height: 24
-      padding: 2
+      x: -16
+      y: 56
+      width: 412
+      height: 32
+      padding: 4
       border-width: 1
-      corner-radius: 4
+      corner-radius: 6
       fg: "#2a9440"
       bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 2
-      shadow-y: 2
+      shadow-x: 3
+      shadow-y: 3
       shadow-colour: "#000000"
       children:
         - type: grid
           columns: ["1fr", "1fr", "1fr", "1fr"]
           rows: ["1fr"]
-          gap-x: 2
+          gap-x: 4
           children:
             - { type: text, id: model-label-planet,   content: "PLANET",  grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }
             - { type: text, id: model-label-sphere,   content: "SPHERE",  grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#2a9440", bg: "#020810" }

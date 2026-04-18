@@ -76,6 +76,12 @@ pub struct PreparedCompositeInputs<'a> {
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+    /// UI logical width used for coordinate scaling when final render target is denser
+    /// than world render size.
+    pub ui_logical_width: u16,
+    /// UI logical height used for coordinate scaling when final render target is denser
+    /// than world render size.
+    pub ui_logical_height: u16,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 

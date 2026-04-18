@@ -97,10 +97,14 @@ Closure note:
 
 ## 9. Dual-Resolution UI/World Render Split (Implemented)
 
-- [x] Runtime render layout now distinguishes authored world render size from final presentation size (`ui_render_scale`).
+- [x] Runtime render layout now distinguishes authored world render size from final presentation size (`world_render_size` + `ui_render_size` + `ui_layout_size`).
 - [x] Compositor supports split-pass composition:
   - world pass rendered at world resolution,
   - nearest-neighbour upscale to final target,
   - UI-only pass composited at final target.
-- [x] HUD/FPS generic-font scaling now respects `ui_render_scale` to keep overlay readability.
-- [x] Mod schema/documentation updated (`display.ui_render_scale`) with mod-level usage in active playground/planet mods.
+- [x] HUD/FPS generic-font scaling now respects the UI render/layout split to keep overlay readability.
+- [x] Mod schema/documentation updated (`display.world_render_size`, `display.ui_render_size`, `display.ui_layout_size`) with mod-level usage in active playground/planet mods.
+- [x] Root-cause viewport crop fix shipped in compositor pool path:
+  - `engine-compositor::buffer_pool::acquire` now uses requested dimensions without clamping to pool defaults,
+  - oversized transient buffers are not retained in pool on release,
+  - regression tests added for both behaviors.

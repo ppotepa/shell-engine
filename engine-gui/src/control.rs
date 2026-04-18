@@ -735,6 +735,7 @@ pub struct DropdownControl {
     pub selected: usize,
     pub popup_sprite: String,
     pub label_sprite: String,
+    pub option_sprites: Vec<String>,
     pub popup_above: bool,
     pub follow_layout: bool,
 }
@@ -845,6 +846,31 @@ impl GuiControl for DropdownControl {
             actions.push(VisualSyncAction::SetText {
                 sprite_alias: self.label_sprite.clone(),
                 text: label,
+            });
+        }
+        for (idx, sprite_alias) in self.option_sprites.iter().enumerate() {
+            if sprite_alias.is_empty() {
+                continue;
+            }
+            let text = self
+                .options
+                .get(idx)
+                .map(|opt| {
+                    let prefix = if state.selected_index == Some(idx) {
+                        ">"
+                    } else {
+                        " "
+                    };
+                    format!("{prefix} {}", opt.label)
+                })
+                .unwrap_or_default();
+            actions.push(VisualSyncAction::SetVisible {
+                sprite_alias: sprite_alias.clone(),
+                visible: state.open && idx < self.options.len(),
+            });
+            actions.push(VisualSyncAction::SetText {
+                sprite_alias: sprite_alias.clone(),
+                text,
             });
         }
         if actions.is_empty() {
@@ -1057,13 +1083,14 @@ mod tests {
             selected: 1,
             popup_sprite: "popup".into(),
             label_sprite: "label".into(),
+            option_sprites: vec!["opt-0".into(), "opt-1".into()],
             popup_above: false,
             follow_layout: true,
         };
         let mut ws = dropdown.initial_state();
         ws.open = true;
         let sync = dropdown.visual_sync(&ws).expect("sync");
-        assert_eq!(sync.actions.len(), 2);
+        assert_eq!(sync.actions.len(), 6);
     }
 
     #[test]

@@ -9,17 +9,17 @@
       id: hud-panel-box
       align-x: right
       align-y: top
-      x: -8
-      y: 32
-      width: 224
-      height: 270
-      padding: 10
+      x: -16
+      y: 96
+      width: 412
+      height: 516
+      padding: 18
       border-width: 1
-      corner-radius: 6
+      corner-radius: 8
       fg: "#2a9440"
       bg: "#041018"
       border-colour: "#1a5c28"
-      shadow-x: 3
-      shadow-y: 3
+      shadow-x: 4
+      shadow-y: 4
       shadow-colour: "#000000"
       visible: true
