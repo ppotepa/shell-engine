@@ -223,11 +223,11 @@ pub fn world_mesh_build_key_with_lod_from_uri(uri: &str, lod_level: u8) -> Strin
 pub fn recommended_subdivisions_cap_for_lod(lod_level: u8) -> u32 {
     match lod_level {
         0 => u32::MAX,
-        1 => 128,
-        2 => 96,
-        3 => 72,
-        4 => 56,
-        _ => 40,
+        1 => 112,
+        2 => 80,
+        3 => 60,
+        4 => 48,
+        _ => 32,
     }
 }
 
@@ -485,15 +485,15 @@ mod tests {
         let uri = "world://256?shape=sphere&base=cube&coloring=biome&seed=1";
         let effective = apply_world_lod_to_uri(uri, 4);
         let params = parse_world_params_from_uri(&effective);
-        assert_eq!(params.subdivisions, 56);
+        assert_eq!(params.subdivisions, 48);
     }
 
     #[test]
     fn lod_subdivision_caps_match_policy() {
         assert_eq!(recommended_subdivisions_cap_for_lod(0), u32::MAX);
-        assert_eq!(recommended_subdivisions_cap_for_lod(2), 96);
-        assert_eq!(recommended_subdivisions_cap_for_lod(4), 56);
-        assert_eq!(recommended_subdivisions_cap_for_lod(9), 40);
+        assert_eq!(recommended_subdivisions_cap_for_lod(2), 80);
+        assert_eq!(recommended_subdivisions_cap_for_lod(4), 48);
+        assert_eq!(recommended_subdivisions_cap_for_lod(9), 32);
     }
 
     #[test]

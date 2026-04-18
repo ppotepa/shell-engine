@@ -17,6 +17,10 @@ Daily progress updates for Shell Engine development.
 - **docs**: synced `3drefactor.md`, `engine-compositor` crate docs, and runtime docs wording to the typed-mutation boundary contract.
 - **validation**: `cargo check -p engine-render-3d -p engine-compositor -p engine`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`; `cargo run -p app -- --mod-source=mods/lighting-playground --check-scenes`.
 
+**Cloud-heavy LOD cap retune** ✅
+- **engine-worldgen**: tightened `recommended_subdivisions_cap_for_lod` caps (`112/80/60/48/32`) to reduce CPU surface raster cost on `world://` meshes under screen-space LOD.
+- **perf**: cloud-heavy benchmark (`mods/asteroids` bench-cloud, 6s, `--opt`) improved from ~16.6 FPS to ~18.3 FPS; compositor avg dropped (~54.8ms -> ~50.9ms), with lower average tri count.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
