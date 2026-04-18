@@ -1,0 +1,168 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/lighting-playground/schemas/catalog.yaml
+title: schema lighting-playground catalog
+$defs:
+  scene_ids:
+    type: string
+    enum:
+    - lighting-playground-main
+  scene_paths:
+    type: string
+    enum:
+    - /scenes/main/scene.yml
+  scene_refs:
+    type: string
+    enum:
+    - /scenes/main/scene.yml
+    - lighting-playground-main
+  object_names:
+    type: string
+    enum: []
+  effect_names:
+    type: string
+    enum: []
+  layer_refs:
+    type: string
+    enum:
+    - main/layers/controls.yml
+    - main/layers/labels.yml
+    - main/layers/world.yml
+  sprite_refs:
+    type: string
+    enum: []
+  template_refs:
+    type: string
+    enum: []
+  object_refs:
+    type: string
+    enum: []
+  effect_refs:
+    type: string
+    enum: []
+  font_names:
+    type: string
+    enum: []
+  font_specs:
+    type: string
+    enum:
+    - default
+    - generic
+    - generic:1
+    - generic:2
+    - generic:3
+    - generic:large
+    - generic:standard
+    - generic:tiny
+  image_paths:
+    type: string
+    enum: []
+  model_paths:
+    type: string
+    enum: []
+  scene3d_paths:
+    type: string
+    enum: []
+  cutscene_refs:
+    type: string
+    enum: []
+  sprite_ids:
+    type: string
+    enum:
+    - control-panel
+    - cube-ref
+    - hint-1
+    - hint-2
+    - lighting-black-level-slider
+    - lighting-black-level-slider-fill
+    - lighting-black-level-slider-handle
+    - lighting-black-level-slider-label
+    - lighting-black-level-slider-track
+    - lighting-black-level-slider-value
+    - lighting-contrast-slider
+    - lighting-contrast-slider-fill
+    - lighting-contrast-slider-handle
+    - lighting-contrast-slider-label
+    - lighting-contrast-slider-track
+    - lighting-contrast-slider-value
+    - lighting-environment-dropdown
+    - lighting-environment-dropdown-arrow
+    - lighting-environment-dropdown-box
+    - lighting-environment-dropdown-label
+    - lighting-environment-dropdown-option-0
+    - lighting-environment-dropdown-option-1
+    - lighting-environment-dropdown-option-2
+    - lighting-environment-dropdown-popup
+    - lighting-exposure-slider
+    - lighting-exposure-slider-fill
+    - lighting-exposure-slider-handle
+    - lighting-exposure-slider-label
+    - lighting-exposure-slider-track
+    - lighting-exposure-slider-value
+    - lighting-gamma-slider
+    - lighting-gamma-slider-fill
+    - lighting-gamma-slider-handle
+    - lighting-gamma-slider-label
+    - lighting-gamma-slider-track
+    - lighting-gamma-slider-value
+    - lighting-model-selector
+    - lighting-model-selector-box
+    - lighting-profile-dropdown
+    - lighting-profile-dropdown-arrow
+    - lighting-profile-dropdown-box
+    - lighting-profile-dropdown-label
+    - lighting-profile-dropdown-option-0
+    - lighting-profile-dropdown-option-1
+    - lighting-profile-dropdown-option-2
+    - lighting-profile-dropdown-popup
+    - lighting-star-glare-slider
+    - lighting-star-glare-slider-fill
+    - lighting-star-glare-slider-handle
+    - lighting-star-glare-slider-label
+    - lighting-star-glare-slider-track
+    - lighting-star-glare-slider-value
+    - lighting-starfield-slider
+    - lighting-starfield-slider-fill
+    - lighting-starfield-slider-handle
+    - lighting-starfield-slider-label
+    - lighting-starfield-slider-track
+    - lighting-starfield-slider-value
+    - lighting-sun-azimuth-slider
+    - lighting-sun-azimuth-slider-fill
+    - lighting-sun-azimuth-slider-handle
+    - lighting-sun-azimuth-slider-label
+    - lighting-sun-azimuth-slider-track
+    - lighting-sun-azimuth-slider-value
+    - lighting-sun-elevation-slider
+    - lighting-sun-elevation-slider-fill
+    - lighting-sun-elevation-slider-handle
+    - lighting-sun-elevation-slider-label
+    - lighting-sun-elevation-slider-track
+    - lighting-sun-elevation-slider-value
+    - lighting-sun-intensity-slider
+    - lighting-sun-intensity-slider-fill
+    - lighting-sun-intensity-slider-handle
+    - lighting-sun-intensity-slider-label
+    - lighting-sun-intensity-slider-track
+    - lighting-sun-intensity-slider-value
+    - lighting-view-dropdown
+    - lighting-view-dropdown-arrow
+    - lighting-view-dropdown-box
+    - lighting-view-dropdown-label
+    - lighting-view-dropdown-option-0
+    - lighting-view-dropdown-option-1
+    - lighting-view-dropdown-option-2
+    - lighting-view-dropdown-popup
+    - model-label-cube
+    - model-label-planet
+    - model-label-sphere
+    - model-label-suzanne
+    - panel-subtitle
+    - panel-title
+    - sphere-ref
+    - subtitle
+    - suzanne-ref
+    - title
+    - world-atmo
+  template_names:
+    type: string
+    enum: []

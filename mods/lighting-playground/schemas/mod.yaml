@@ -1,0 +1,22 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/lighting-playground/schemas/mod.yaml
+title: schema lighting-playground mod
+type: object
+additionalProperties: true
+required:
+- name
+- version
+- entrypoint
+properties:
+  name:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/name
+  version:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/version
+  entrypoint:
+    anyOf:
+    - $ref: ./catalog.yaml#/$defs/scene_paths
+    - $ref: ../../../schemas/mod.schema.yaml#/properties/entrypoint
+  splash:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/splash
+  display:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/display

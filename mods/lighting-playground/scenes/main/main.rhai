@@ -36,6 +36,18 @@ fn sunel_from_01(v) { -10.0 + clamp01(v) * 95.0 }
 fn sunint_to_01(v) { clamp01(v / 2.0) }
 fn sunint_from_01(v) { clamp01(v) * 2.0 }
 
+fn camera_preset_name(idx) {
+    if idx == 1 {
+        "terminator"
+    } else if idx == 2 {
+        "night-side"
+    } else if idx == 3 {
+        "backlit"
+    } else {
+        "far-orbit"
+    }
+}
+
 fn view_index(name) {
     if name == "orbit-cinematic" { 1 } else if name == "backlit-harsh" { 2 } else { 0 }
 }
@@ -73,7 +85,12 @@ if local.bootstrapped == () {
     local.sun_azimuth = 210.0;
     local.sun_elevation = 40.0;
     local.sun_intensity = 1.0;
+    local.camera_preset_idx = 0;
+    local.camera_preset_dirty = true;
 }
+
+if local.camera_preset_idx == () { local.camera_preset_idx = 0; }
+if local.camera_preset_dirty == () { local.camera_preset_dirty = true; }
 
 if input.just_pressed("1") { gui.set_widget_value("lighting-model-selector", 0.0); }
 if input.just_pressed("2") { gui.set_widget_value("lighting-model-selector", 1.0); }
@@ -84,6 +101,19 @@ if model_idx == 0 { local.active_model = "planet"; }
 if model_idx == 1 { local.active_model = "sphere"; }
 if model_idx == 2 { local.active_model = "cube"; }
 if model_idx == 3 { local.active_model = "suzanne"; }
+
+if input.just_pressed("V") {
+    local.camera_preset_idx = (local.camera_preset_idx + 3) % 4;
+    local.camera_preset_dirty = true;
+}
+if input.just_pressed("F") {
+    local.camera_preset_idx = (local.camera_preset_idx + 1) % 4;
+    local.camera_preset_dirty = true;
+}
+if input.just_pressed("G") { local.camera_preset_idx = 0; local.camera_preset_dirty = true; }
+if input.just_pressed("T") { local.camera_preset_idx = 1; local.camera_preset_dirty = true; }
+if input.just_pressed("N") { local.camera_preset_idx = 2; local.camera_preset_dirty = true; }
+if input.just_pressed("B") { local.camera_preset_idx = 3; local.camera_preset_dirty = true; }
 
 if input.just_pressed("Z") { gui.set_widget_value("lighting-view-dropdown", 0.0); }
 if input.just_pressed("X") { gui.set_widget_value("lighting-view-dropdown", 1.0); }
@@ -207,6 +237,29 @@ if selected_env != local.active_env {
     }
 }
 
+if input.just_pressed("R") {
+    local.active_view = "orbit-realistic";
+    local.active_light = "space-hard-vacuum";
+    local.active_env = "deep-space-sparse";
+    local.camera_preset_idx = 0;
+    local.camera_preset_dirty = true;
+    scene.set_view_profile("orbit-realistic");
+    scene.set_lighting_profile("space-hard-vacuum");
+    scene.set_space_environment_profile("deep-space-sparse");
+    gui.set_widget_value("lighting-view-dropdown", 0.0);
+    gui.set_widget_value("lighting-profile-dropdown", 0.0);
+    gui.set_widget_value("lighting-environment-dropdown", 0.0);
+    gui.set_widget_value("lighting-exposure-slider", exposure_to_01(0.92));
+    gui.set_widget_value("lighting-black-level-slider", black_to_01(0.0));
+    gui.set_widget_value("lighting-gamma-slider", gamma_to_01(2.2));
+    gui.set_widget_value("lighting-contrast-slider", contrast_to_01(1.0));
+    gui.set_widget_value("lighting-starfield-slider", stars_to_01(0.68));
+    gui.set_widget_value("lighting-star-glare-slider", glare_to_01(0.08));
+    gui.set_widget_value("lighting-sun-azimuth-slider", sunaz_to_01(210.0));
+    gui.set_widget_value("lighting-sun-elevation-slider", sunel_to_01(40.0));
+    gui.set_widget_value("lighting-sun-intensity-slider", sunint_to_01(1.0));
+}
+
 let exposure = exposure_from_01(gui.slider_value("lighting-exposure-slider"));
 let black = black_from_01(gui.slider_value("lighting-black-level-slider"));
 let gamma = gamma_from_01(gui.slider_value("lighting-gamma-slider"));
@@ -238,9 +291,35 @@ scene.set("suzanne-ref", "obj.ambient", ambient_ref);
 
 let az_rad = sun_azimuth * 0.01745329;
 let el_rad = sun_elevation * 0.01745329;
-let sun_x = -(az_rad.cos() * el_rad.cos()) * sun_intensity;
-let sun_y = el_rad.sin() * sun_intensity;
-let sun_z = -(az_rad.sin() * el_rad.cos()) * sun_intensity;
+let sun_ux = -(az_rad.cos() * el_rad.cos());
+let sun_uy = el_rad.sin();
+let sun_uz = -(az_rad.sin() * el_rad.cos());
+let sun_x = sun_ux * sun_intensity;
+let sun_y = sun_uy * sun_intensity;
+let sun_z = sun_uz * sun_intensity;
+
+if local.camera_preset_dirty {
+    if local.camera_preset_idx == 1 {
+        let tx = -sun_uz;
+        let ty = 0.18;
+        let tz = sun_ux;
+        scene.set_camera3d_look_at(tx * 3.7, ty * 3.7, tz * 3.7, 0.0, 0.0, 0.0);
+        scene.set_camera3d_up(0.0, 1.0, 0.0);
+    } else if local.camera_preset_idx == 2 {
+        scene.set_camera3d_look_at(-sun_ux * 3.5, (-sun_uy + 0.08) * 3.5, -sun_uz * 3.5, 0.0, 0.0, 0.0);
+        scene.set_camera3d_up(0.0, 1.0, 0.0);
+    } else if local.camera_preset_idx == 3 {
+        let bx = (-sun_ux * 0.82) + (-sun_uz * 0.42);
+        let by = (-sun_uy * 0.82) + 0.12;
+        let bz = (-sun_uz * 0.82) + (sun_ux * 0.42);
+        scene.set_camera3d_look_at(bx * 3.8, by * 3.8, bz * 3.8, 0.0, 0.0, 0.0);
+        scene.set_camera3d_up(0.0, 1.0, 0.0);
+    } else {
+        scene.set_camera3d_look_at(2.45, 1.2, 3.75, 0.0, 0.0, 0.0);
+        scene.set_camera3d_up(0.0, 1.0, 0.0);
+    }
+    local.camera_preset_dirty = false;
+}
 scene.set("world-atmo", "obj.light.x", sun_x);
 scene.set("world-atmo", "obj.light.y", sun_y);
 scene.set("world-atmo", "obj.light.z", sun_z);
@@ -304,6 +383,6 @@ scene.set("lighting-sun-azimuth-slider-value", "text.content", `${sun_azimuth.ro
 scene.set("lighting-sun-elevation-slider-value", "text.content", `${sun_elevation.round()}`);
 scene.set("lighting-sun-intensity-slider-value", "text.content", to_fixed_2(sun_intensity));
 
-scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env} | sun=${sun_azimuth.round()}/${sun_elevation.round()} i=${to_fixed_2(sun_intensity)}`);
+scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env} | cam=${camera_preset_name(local.camera_preset_idx)} | sun=${sun_azimuth.round()}/${sun_elevation.round()} i=${to_fixed_2(sun_intensity)}`);
 scene.set("hint-1", "text.content", "keys: 1/2/3/4 model | Z/X/C view | Q/W/E light | A/S/D env");
-scene.set("hint-2", "text.content", "mouse: segmented model, dropdown profiles, live grading + directional sun");
+scene.set("hint-2", "text.content", "camera: F/V cycle | G/T/N/B direct | R baseline reset | mouse: UI + sliders");

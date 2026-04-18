@@ -71,11 +71,34 @@ $defs:
     enum:
     - bg-left
     - bg-right
-    - btn-randomize
-    - btn-randomize-label
-    - btn-reset
-    - btn-reset-label
+    - card-actions
+    - card-inputs
+    - card-mixer
     - click-counter
+    - color-blue-slider
+    - color-blue-slider-fill
+    - color-blue-slider-handle
+    - color-blue-slider-label
+    - color-blue-slider-track
+    - color-blue-slider-value
+    - color-green-slider
+    - color-green-slider-fill
+    - color-green-slider-handle
+    - color-green-slider-label
+    - color-green-slider-track
+    - color-green-slider-value
+    - color-red-slider
+    - color-red-slider-fill
+    - color-red-slider-handle
+    - color-red-slider-label
+    - color-red-slider-track
+    - color-red-slider-value
+    - display-hex-toggle
+    - display-hex-toggle-label
+    - display-invert-toggle
+    - display-invert-toggle-label
+    - display-swatch-toggle
+    - display-swatch-toggle-label
     - hex-readout
     - log-0
     - log-1
@@ -85,42 +108,43 @@ $defs:
     - log-5
     - log-6
     - log-7
+    - output-color-card
+    - output-log-card
+    - output-state-card
+    - planet-density-input
+    - planet-density-input-box
+    - planet-density-input-text
+    - planet-name-input
+    - planet-name-input-box
+    - planet-name-input-text
+    - playground-randomize-button
+    - playground-randomize-button-label
+    - playground-reset-button
+    - playground-reset-button-label
     - rgb-readout
-    - slider-b
-    - slider-b-fill
-    - slider-b-handle
-    - slider-b-lbl
-    - slider-b-track
-    - slider-b-val
-    - slider-g
-    - slider-g-fill
-    - slider-g-handle
-    - slider-g-lbl
-    - slider-g-track
-    - slider-g-val
-    - slider-r
-    - slider-r-fill
-    - slider-r-handle
-    - slider-r-lbl
-    - slider-r-track
-    - slider-r-val
     - state-changed
+    - state-density
     - state-hover
     - state-lmb
+    - state-mode
     - state-mouse
+    - state-name
     - state-pressed
+    - subtitle
     - swatch-0
     - swatch-1
     - swatch-2
     - swatch-3
     - swatch-4
     - title
-    - toggle-hex
-    - toggle-hex-label
-    - toggle-invert
-    - toggle-invert-label
-    - toggle-swatch
-    - toggle-swatch-label
+    - view-mode-dropdown
+    - view-mode-dropdown-arrow
+    - view-mode-dropdown-box
+    - view-mode-dropdown-label
+    - view-mode-dropdown-option-0
+    - view-mode-dropdown-option-1
+    - view-mode-dropdown-option-2
+    - view-mode-dropdown-popup
   template_names:
     type: string
     enum: []

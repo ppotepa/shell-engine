@@ -26,6 +26,7 @@ $defs:
     type: string
     enum:
     - main/layers/hud-actions.yml
+    - main/layers/hud-models.yml
     - main/layers/hud-panel.yml
     - main/layers/hud-presets.yml
     - main/layers/hud-sliders.yml
@@ -73,13 +74,15 @@ $defs:
   sprite_ids:
     type: string
     enum:
-    - btn-randomize
-    - btn-reset
     - hud-actions-box
+    - hud-models-box
     - hud-panel-box
-    - hud-presets-box
     - hud-stats-box
     - hud-tabs-box
+    - model-label-cube
+    - model-label-planet
+    - model-label-sphere
+    - model-label-suzanne
     - param-0
     - param-1
     - param-2
@@ -88,6 +91,7 @@ $defs:
     - param-5
     - param-6
     - param-7
+    - param-divider
     - param-handle-0
     - param-handle-1
     - param-handle-2
@@ -97,6 +101,7 @@ $defs:
     - param-handle-6
     - param-handle-7
     - param-hint
+    - param-kicker
     - param-label-0
     - param-label-1
     - param-label-2
@@ -105,6 +110,7 @@ $defs:
     - param-label-5
     - param-label-6
     - param-label-7
+    - param-summary
     - param-title
     - param-track-0
     - param-track-1
@@ -114,28 +120,34 @@ $defs:
     - param-track-5
     - param-track-6
     - param-track-7
+    - param-value-0
+    - param-value-1
+    - param-value-2
+    - param-value-3
+    - param-value-4
+    - param-value-5
+    - param-value-6
+    - param-value-7
     - planet-mesh
-    - preset-archipelago
-    - preset-btn-archipelago
-    - preset-btn-desert
-    - preset-btn-earth
-    - preset-btn-ice
-    - preset-btn-mars
-    - preset-btn-ocean
-    - preset-btn-volcanic
-    - preset-desert
-    - preset-earth
-    - preset-ice
-    - preset-mars
-    - preset-ocean
-    - preset-volcanic
+    - planet-model-selector
+    - planet-parameter-tabs
+    - planet-preset-dropdown
+    - planet-randomize-button
+    - planet-randomize-button-label
+    - planet-reset-button
+    - planet-reset-button-label
+    - preset-arrow-label
+    - preset-current-label
+    - preset-popup
+    - preset-prefix-label
+    - preset-trigger-box
     - stats-biomes
     - stats-seed
-    - tab-btn-atmo
-    - tab-btn-climate
-    - tab-btn-continents
-    - tab-btn-mountains
-    - tab-btn-visual
+    - tab-label-atmo
+    - tab-label-climate
+    - tab-label-continents
+    - tab-label-mountains
+    - tab-label-visual
   template_names:
     type: string
     enum: []
