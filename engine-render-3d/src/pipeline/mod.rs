@@ -18,8 +18,8 @@ pub use generated_world_profile::{
 pub use generated_world_renderer::{
     render_generated_world_sprite_with, reset_generated_world_pass_metrics,
     take_generated_world_pass_metrics, BlitRgbaCanvasFn, CompositeRgbaOverFn,
-    ConvertCanvasToRgbaFn, GeneratedWorldPassMetrics, GeneratedWorldRenderCallbacks,
-    GeneratedWorldRenderProfile, RenderObjToCanvasFn, RenderObjToRgbaCanvasFn,
+    GeneratedWorldPassMetrics, GeneratedWorldRenderCallbacks, GeneratedWorldRenderProfile,
+    RenderObjToRgbaCanvasFn,
 };
 pub use generated_world_sprite_renderer::{
     render_generated_world_sprite_to_buffer, GeneratedWorldSpriteRenderRuntime,

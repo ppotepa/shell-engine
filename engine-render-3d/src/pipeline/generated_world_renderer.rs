@@ -154,18 +154,6 @@ pub struct GeneratedWorldRenderProfile {
     pub sun_dir: [f32; 3],
 }
 
-pub type RenderObjToCanvasFn = fn(
-    source: &str,
-    width: Option<u16>,
-    height: Option<u16>,
-    size: Option<SpriteSizePreset>,
-    params: ObjRenderParams,
-    wireframe: bool,
-    backface_cull: bool,
-    fg: Color,
-    asset_root: Option<&AssetRoot>,
-) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)>;
-
 pub type RenderObjToRgbaCanvasFn = fn(
     source: &str,
     width: Option<u16>,
@@ -177,14 +165,11 @@ pub type RenderObjToRgbaCanvasFn = fn(
     asset_root: Option<&AssetRoot>,
 ) -> Option<(Vec<Option<[u8; 4]>>, u16, u16)>;
 
-pub type ConvertCanvasToRgbaFn = fn(Vec<Option<[u8; 3]>>) -> Vec<Option<[u8; 4]>>;
 pub type CompositeRgbaOverFn = fn(&mut [Option<[u8; 4]>], &[Option<[u8; 4]>]);
 pub type BlitRgbaCanvasFn = fn(&mut Buffer, &[Option<[u8; 4]>], u16, u16, u16, u16, i32, i32);
 
 pub struct GeneratedWorldRenderCallbacks {
-    pub render_obj_to_canvas: RenderObjToCanvasFn,
     pub render_obj_to_rgba_canvas: RenderObjToRgbaCanvasFn,
-    pub convert_canvas_to_rgba: ConvertCanvasToRgbaFn,
     pub composite_rgba_over: CompositeRgbaOverFn,
     pub blit_rgba_canvas: BlitRgbaCanvasFn,
 }
@@ -562,13 +547,12 @@ pub fn render_generated_world_sprite_with(
     };
 
     let t_surface = Instant::now();
-    let Some((surface_rgb, virtual_w, virtual_h)) = (callbacks.render_obj_to_canvas)(
+    let Some((mut composited, virtual_w, virtual_h)) = (callbacks.render_obj_to_rgba_canvas)(
         surface_mesh_path.as_str(),
         Some(sprite_width),
         Some(sprite_height),
         size,
         surface_params,
-        false,
         false,
         profile.ocean_color,
         asset_root,
@@ -585,9 +569,7 @@ pub fn render_generated_world_sprite_with(
         .saturating_add(surface_stats.faces_drawn);
     metrics.viewport_area_px = metrics.viewport_area_px.max(surface_stats.viewport_area_px);
 
-    let t_convert = Instant::now();
-    let mut composited = (callbacks.convert_canvas_to_rgba)(surface_rgb);
-    metrics.convert_us = t_convert.elapsed().as_micros() as f32;
+    metrics.convert_us = 0.0;
     let mut expensive_cloud_update_rendered = false;
 
     let mut cloud_params = build_generated_world_base_params(

@@ -4,8 +4,7 @@ use super::{
     SpriteRenderArea, ViewLightingParams,
 };
 use crate::raster::{
-    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, obj_sprite_dimensions,
-    render_obj_to_canvas, render_obj_to_rgba_canvas,
+    blit_rgba_canvas, composite_rgba_over, obj_sprite_dimensions, render_obj_to_rgba_canvas,
 };
 use crate::scene::{select_lod_level_stable, Renderable3D};
 use engine_asset::MeshBuildKey;
@@ -116,9 +115,7 @@ pub fn render_generated_world_sprite_to_buffer(
         runtime.asset_root,
         target,
         GeneratedWorldRenderCallbacks {
-            render_obj_to_canvas,
             render_obj_to_rgba_canvas,
-            convert_canvas_to_rgba,
             composite_rgba_over,
             blit_rgba_canvas,
         },

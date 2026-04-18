@@ -25,6 +25,10 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: tuned cloud cadence/stale policy in generated-world renderer (shorter update intervals, tighter stale-cache window, lighter cloud2 mesh source) to reduce perceived cloud lag while keeping software path cost bounded.
 - **perf**: follow-up cloud-heavy bench reached ~18.8 FPS class with lower compositor and renderer averages; tri count dropped again versus earlier cloud-heavy baseline.
 
+**Generated-world surface path: remove redundant RGB->RGBA copy** ✅
+- **engine-render-3d**: `generated_world_renderer` now renders surface directly to RGBA and skips intermediate RGB canvas conversion in the hot path.
+- **perf/metrics**: `3D convert` phase is now `0.0us` in cloud-heavy benchmark report (`20260418-114554`), confirming the copy stage is removed.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
