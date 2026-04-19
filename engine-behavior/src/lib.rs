@@ -1188,6 +1188,8 @@ mod tests {
             postfx: Vec::new(),
             next: None,
             spatial: Default::default(),
+            lighting: None,
+            view: None,
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
@@ -3596,6 +3598,80 @@ game.set("/test/spawn_count", ids.len);
             Some(0)
         );
         assert_eq!(gameplay_world.count(), 0);
+    }
+
+    #[test]
+    fn rhai_script_behavior_body_upsert_and_patch_update_body_info() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ok_upsert = world.body_upsert("generated-planet", #{
+    center_x: 12.0,
+    center_y: -4.0,
+    radius_px: 210.0,
+    surface_radius: 205.0,
+    gravity_mu_km3_s2: 4321.5,
+    atmosphere_top_km: 88.0
+});
+let info_a = world.body_info("generated-planet");
+
+let ok_patch = world.body_patch("generated-planet", #{
+    surface_radius: 199.0,
+    atmosphere_dense_start_km: 18.0
+});
+let info_b = world.body_info("generated-planet");
+
+game.set("/test/ok_upsert", ok_upsert);
+game.set("/test/ok_patch", ok_patch);
+game.set("/test/radius_px", info_a["radius_px"]);
+game.set("/test/mu_km3", info_a["gravity_mu_km3_s2"]);
+game.set("/test/surface_radius", info_b["surface_radius"]);
+game.set("/test/atmo_dense_start_km", info_b["atmosphere_dense_start_km"]);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "body_upsert/body_patch should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/test/ok_upsert").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state.get("/test/ok_patch").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state.get("/test/radius_px").and_then(|v| v.as_f64()),
+            Some(210.0)
+        );
+        assert_eq!(
+            game_state.get("/test/mu_km3").and_then(|v| v.as_f64()),
+            Some(4321.5)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/surface_radius")
+                .and_then(|v| v.as_f64()),
+            Some(199.0)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/atmo_dense_start_km")
+                .and_then(|v| v.as_f64()),
+            Some(18.0)
+        );
     }
 
     #[test]

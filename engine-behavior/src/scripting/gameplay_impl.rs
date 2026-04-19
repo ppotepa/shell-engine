@@ -67,6 +67,122 @@ pub(crate) struct ScriptGameplayEntityApi {
 
 // ── ScriptGameplayApi Implementation ──────────────────────────────────────
 impl ScriptGameplayApi {
+    fn map_patch_number(patch: &RhaiMap, key: &str) -> Option<f64> {
+        patch
+            .get(key)
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>().map(|f| f as f64))
+            .or_else(|| {
+                patch
+                    .get(key)
+                    .and_then(|v| v.clone().try_cast::<rhai::INT>().map(|i| i as f64))
+            })
+    }
+
+    fn map_patch_string(patch: &RhaiMap, key: &str) -> Option<String> {
+        patch.get(key).and_then(|v| v.clone().try_cast::<String>())
+    }
+
+    fn map_patch_opt_number(patch: &RhaiMap, key: &str) -> Option<Option<f64>> {
+        let value = patch.get(key)?;
+        if value.is_unit() {
+            return Some(None);
+        }
+        Self::map_patch_number(patch, key).map(Some)
+    }
+
+    fn map_patch_opt_string(patch: &RhaiMap, key: &str) -> Option<Option<String>> {
+        let value = patch.get(key)?;
+        if value.is_unit() {
+            return Some(None);
+        }
+        Self::map_patch_string(patch, key).map(Some)
+    }
+
+    fn apply_body_patch(body: &mut catalog::BodyDef, patch: &RhaiMap) {
+        if let Some(value) = Self::map_patch_opt_string(patch, "planet_type") {
+            body.planet_type = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "center_x") {
+            body.center_x = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "center_y") {
+            body.center_y = value;
+        }
+        if let Some(value) = Self::map_patch_opt_string(patch, "parent") {
+            body.parent = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "orbit_radius") {
+            body.orbit_radius = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "orbit_period_sec") {
+            body.orbit_period_sec = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "orbit_phase_deg") {
+            body.orbit_phase_deg = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "radius_px") {
+            body.radius_px = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "radius_km") {
+            body.radius_km = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "km_per_px") {
+            body.km_per_px = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "gravity_mu") {
+            body.gravity_mu = value;
+        }
+        if let Some(value) =
+            Self::map_patch_opt_number(patch, "gravity_mu_km3_s2")
+                .or_else(|| Self::map_patch_opt_number(patch, "gravity-mu-km3-s2"))
+        {
+            body.gravity_mu_km3_s2 = value;
+        }
+        if let Some(value) = Self::map_patch_number(patch, "surface_radius") {
+            body.surface_radius = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_top") {
+            body.atmosphere_top = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_dense_start") {
+            body.atmosphere_dense_start = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_drag_max") {
+            body.atmosphere_drag_max = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_top_km") {
+            body.atmosphere_top_km = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_dense_start_km") {
+            body.atmosphere_dense_start_km = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "cloud_bottom_km") {
+            body.cloud_bottom_km = value;
+        }
+        if let Some(value) = Self::map_patch_opt_number(patch, "cloud_top_km") {
+            body.cloud_top_km = value;
+        }
+    }
+
+    pub(crate) fn body_upsert(&mut self, id: &str, patch: RhaiMap) -> bool {
+        let body_id = id.trim();
+        if body_id.is_empty() {
+            return false;
+        }
+        let catalogs = Arc::make_mut(&mut self.catalogs);
+        let body = catalogs
+            .celestial
+            .bodies
+            .entry(body_id.to_string())
+            .or_default();
+        Self::apply_body_patch(body, &patch);
+        true
+    }
+
+    pub(crate) fn body_patch(&mut self, id: &str, patch: RhaiMap) -> bool {
+        self.body_upsert(id, patch)
+    }
+
     pub(crate) fn map_number(args: &RhaiMap, key: &str, fallback: rhai::FLOAT) -> rhai::FLOAT {
         map_number(args, key, fallback)
     }
