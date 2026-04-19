@@ -1029,6 +1029,29 @@ pub fn obj_sprite_dimensions(
     }
 }
 
+type LoadedRenderTarget = (std::sync::Arc<ObjMesh>, u16, u16, u16, u16);
+
+#[inline]
+fn load_mesh_and_virtual_target(
+    source: &str,
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+    asset_root: Option<&AssetRoot>,
+) -> Option<LoadedRenderTarget> {
+    let root = asset_root?;
+    let mesh = load_render_mesh(root, source)?;
+    let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
+    if target_w < 2 || target_h < 2 {
+        return None;
+    }
+    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
+    if virtual_w < 2 || virtual_h < 2 {
+        return None;
+    }
+    Some((mesh, target_w, target_h, virtual_w, virtual_h))
+}
+
 /// Render an OBJ mesh into a flat pixel canvas without writing to a terminal buffer.
 /// Returns `(canvas, virtual_w, virtual_h)` on success, or `None` if assets are missing.
 #[allow(clippy::too_many_arguments)]
@@ -1046,16 +1069,8 @@ pub fn render_obj_to_canvas(
 ) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
     let t_render = Instant::now();
     set_last_obj_raster_stats(ObjRasterStats::default());
-    let root = asset_root?;
-    let mesh = load_render_mesh(root, source)?;
-    let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
-    if target_w < 2 || target_h < 2 {
-        return None;
-    }
-    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
-    if virtual_w < 2 || virtual_h < 2 {
-        return None;
-    }
+    let (mesh, _target_w, _target_h, virtual_w, virtual_h) =
+        load_mesh_and_virtual_target(source, width, height, size, asset_root)?;
 
     let point_lights = animate_point_lights(&params);
     let mut projected = OBJ_PROJECTED.with(|p| {
@@ -1263,16 +1278,8 @@ pub fn render_obj_to_rgba_canvas(
 ) -> Option<(Vec<Option<[u8; 4]>>, u16, u16)> {
     let t_render = Instant::now();
     set_last_obj_raster_stats(ObjRasterStats::default());
-    let root = asset_root?;
-    let mesh = load_render_mesh(root, source)?;
-    let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
-    if target_w < 2 || target_h < 2 {
-        return None;
-    }
-    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
-    if virtual_w < 2 || virtual_h < 2 {
-        return None;
-    }
+    let (mesh, _target_w, _target_h, virtual_w, virtual_h) =
+        load_mesh_and_virtual_target(source, width, height, size, asset_root)?;
 
     let mut projected = take_projected_buffer(mesh.vertices.len());
 

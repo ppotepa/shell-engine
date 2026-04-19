@@ -135,6 +135,11 @@ Daily progress updates for Shell Engine development.
 - **architecture**: `raster.rs` drops another repeated fallback/render-glue block and gets closer to pure orchestration.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: shared mesh/target entry helper** ✅
+- **engine-render-3d**: `raster.rs` now uses `load_mesh_and_virtual_target(...)` to share source mesh loading plus target/virtual dimension validation across RGB and RGBA public canvas entrypoints.
+- **architecture**: public entry adapters keep less boilerplate and the remaining divergence is more clearly about render policy than asset/size setup.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
