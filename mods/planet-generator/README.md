@@ -24,6 +24,8 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | `R` | Randomize all parameters |
 | `Delete` | Reset to Earth defaults |
 | `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
+| `F10` or `Fly Around` button | Toggle `generator` / `flight` runtime mode |
+| Flight mode controls | `Up/Down` or `W/S` tangent thrust, `Left/Right` or `A/D` yaw, `Q/E` radial climb/descent |
 
 ## Scene structure
 
