@@ -30,7 +30,7 @@ use crate::pipeline::stages::project::{
     ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
 use crate::pipeline::stages::raster_exec::{
-    execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
+    build_parallel_canvas_strips, execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
     execute_gouraud_rgba_faces_parallel_strips,
 };
 use crate::pipeline::stages::shade::{
@@ -333,14 +333,7 @@ fn render_gouraud_rgb_solid(
     );
 
     let row_w = virtual_w as usize;
-    let num_strips = rayon::current_num_threads().max(1);
-    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
-    let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 3]>], &mut [f32])> = canvas
-        .chunks_mut(strip_rows * row_w)
-        .zip(depth.chunks_mut(strip_rows * row_w))
-        .enumerate()
-        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
-        .collect();
+    let mut canvas_strips = build_parallel_canvas_strips(canvas, depth, row_w, virtual_h);
     execute_gouraud_rgb_faces_parallel_strips(
         &mut canvas_strips,
         &shaded_gouraud,
@@ -382,14 +375,7 @@ fn render_gouraud_rgba_solid(
     );
 
     let row_w = virtual_w as usize;
-    let num_strips = rayon::current_num_threads().max(1);
-    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
-    let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 4]>], &mut [f32])> = canvas
-        .chunks_mut(strip_rows * row_w)
-        .zip(depth.chunks_mut(strip_rows * row_w))
-        .enumerate()
-        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
-        .collect();
+    let mut canvas_strips = build_parallel_canvas_strips(canvas, depth, row_w, virtual_h);
     execute_gouraud_rgba_faces_parallel_strips(
         &mut canvas_strips,
         &shaded_gouraud,

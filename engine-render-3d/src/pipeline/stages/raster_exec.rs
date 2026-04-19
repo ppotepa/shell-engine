@@ -114,6 +114,22 @@ pub(crate) fn execute_flat_rgb_faces(
     }
 }
 
+pub(crate) fn build_parallel_canvas_strips<'a, T>(
+    canvas: &'a mut [Option<T>],
+    depth: &'a mut [f32],
+    row_w: usize,
+    virtual_h: u16,
+) -> Vec<(i32, &'a mut [Option<T>], &'a mut [f32])> {
+    let num_strips = rayon::current_num_threads().max(1);
+    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
+    canvas
+        .chunks_mut(strip_rows * row_w)
+        .zip(depth.chunks_mut(strip_rows * row_w))
+        .enumerate()
+        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
+        .collect()
+}
+
 pub(crate) fn execute_gouraud_rgb_faces_parallel_strips(
     canvas_strips: &mut [(i32, &mut [Option<[u8; 3]>], &mut [f32])],
     faces: &[GouraudFace],

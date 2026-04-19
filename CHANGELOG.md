@@ -155,6 +155,11 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: duplicated wireframe depth-range setup was removed from `raster.rs`; the remaining wireframe entrypoint code now delegates directly to the edge stage.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: shared Gouraud strip partitioning** ✅
+- **engine-render-3d**: added `build_parallel_canvas_strips(...)` in `pipeline/stages/raster_exec.rs` so RGB and RGBA Gouraud solid paths share the same strip partitioning logic.
+- **engine-render-3d**: `raster.rs` no longer duplicates thread-count / strip-row bookkeeping for the two solid Gouraud executors.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
