@@ -3,6 +3,18 @@ id: planet-generator-main
 title: Planet Generator
 bg: "#000008"
 render-size: 640x360
+spatial:
+  meters-per-world-unit: 1000.0
+celestial:
+  scope: local
+  region: planet-generator-local
+  system: generated-system
+  focus-body: generated-planet
+  focus-site: generated-orbit
+  frame: focus-relative
+  clock-source: scene
+objects:
+  - { ref: ship }
 layers:
   - ref: planet
   - ref: hud-tabs
@@ -79,15 +91,23 @@ gui:
       sprite: planet-randomize-button-label
       x: 852
       y: 620
-      w: 200
+      w: 124
+      h: 36
+      follow-layout: false
+    - type: button
+      id: planet-flyaround-button
+      sprite: planet-flyaround-button-label
+      x: 992
+      y: 620
+      w: 124
       h: 36
       follow-layout: false
     - type: button
       id: planet-reset-button
       sprite: planet-reset-button-label
-      x: 1064
+      x: 1132
       y: 620
-      w: 200
+      w: 124
       h: 36
       follow-layout: false
     # ── Preset selector (compact dropdown) ───────────────────────────────────

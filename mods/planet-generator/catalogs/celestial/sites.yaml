@@ -1,0 +1,7 @@
+sites:
+  generated-orbit:
+    kind: orbit
+    display-name: Generated Orbit
+    system: generated-system
+    body: generated-planet
+    orbit-altitude-km: 200.0

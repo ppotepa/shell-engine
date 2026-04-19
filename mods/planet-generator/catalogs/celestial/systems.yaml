@@ -1,0 +1,8 @@
+systems:
+  generated-system:
+    region: planet-generator-local
+    display-name: Generated System
+    bodies: [generated-planet]
+    map-position:
+      x: 0.0
+      y: 0.0

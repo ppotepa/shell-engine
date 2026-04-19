@@ -1,0 +1,8 @@
+regions:
+  planet-generator-local:
+    kind: sector
+    display-name: Planet Generator Local
+    children: [generated-system]
+    map-position:
+      x: 0.0
+      y: 0.0

@@ -11,7 +11,7 @@
       x: 16
       y: 664
       width: 620
-      height: 36
+      height: 64
       padding: 6
       border-width: 1
       corner-radius: 6
@@ -23,9 +23,17 @@
       shadow-colour: "#000000"
       children:
         - type: grid
-          columns: ["1fr", "auto"]
-          rows: ["1fr"]
+          columns: ["2fr", "1fr", "1fr", "1fr"]
+          rows: ["1fr", "1fr"]
           gap-x: 12
+          gap-y: 4
           children:
-            - { type: text, id: stats-biomes, content: "OCEAN 55%  FOREST 12%  DESERT 8%  SNOW 7%", grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
-            - { type: text, id: stats-seed,   content: "SEED: 0",                                   grid-col: 2, grid-row: 1, at: cr, font: "generic:2", fg: "#304040" }
+            - { type: text, id: stats-biomes,      content: "OCEAN 55%  FOREST 12%  DESERT 8%  SNOW 7%", grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
+            - { type: text, id: stats-seed,        content: "SEED: 0",                                    grid-col: 4, grid-row: 1, at: cr, font: "generic:2", fg: "#304040" }
+            - { type: text, id: stats-flight-mode, content: "MODE: GENERATOR",                            grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#5bc0be" }
+            - { type: text, id: stats-radius-real, content: "R_REAL: -- km",                              grid-col: 1, grid-row: 2, at: cr, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-radius-sim,  content: "R_SIM: -- km",                               grid-col: 2, grid-row: 2, at: cc, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-gravity,     content: "G: -- m/s^2",                                grid-col: 3, grid-row: 2, at: cc, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-alt,         content: "ALT: -- km",                                 grid-col: 4, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-spd,         content: "SPD: --",                                    grid-col: 4, grid-row: 2, at: cc, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-vrad,        content: "VRAD: --",                                   grid-col: 4, grid-row: 2, at: cr, font: "generic:2", fg: "#4a6b60" }
