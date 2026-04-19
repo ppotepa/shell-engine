@@ -118,6 +118,11 @@ Daily progress updates for Shell Engine development.
 - **architecture**: this reduces entrypoint duplication and makes the remaining RGB/RGBA divergence much more clearly about render policy, not pool bookkeeping.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: smooth RGB now uses shared Gouraud visibility prep** ✅
+- **engine-render-3d**: the smooth-shaded RGB path now also uses `prepare_visible_gouraud_faces_into(...)`, matching the RGBA path on the combined `classify -> Gouraud prep` seam.
+- **architecture**: Gouraud rendering across RGB and RGBA now diverges mainly at raster execution/output format, not at visible-face selection and shading preparation.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

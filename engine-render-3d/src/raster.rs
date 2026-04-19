@@ -1250,18 +1250,6 @@ pub fn render_obj_to_canvas(
         let mut depth = take_depth_buffer(canvas_size);
         let frame_ctx = FrameShadingContext::from_params(&params, fg);
         let mut sorted_faces = take_sorted_faces_buffer(mesh.faces.len());
-        let face_limit = classify_and_sort_faces_into(
-            &mesh,
-            &projected,
-            FaceClassificationConfig {
-                backface_cull,
-                depth_sort_faces: params.depth_sort_faces,
-                min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
-                max_faces: MAX_OBJ_FACE_RENDER,
-            },
-            &mut sorted_faces,
-        );
-        triangles_processed = face_limit as u32;
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
         let light_point_intensity = params.light_point_intensity;
@@ -1269,17 +1257,19 @@ pub fn render_obj_to_canvas(
         let smooth_shading = params.smooth_shading;
 
         let drawn_faces = if smooth_shading {
-            let mut shaded_gouraud = take_shaded_gouraud_buffer(face_limit);
-            prepare_gouraud_faces_into(
+            let mut shaded_gouraud = take_shaded_gouraud_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
+            let face_limit = prepare_visible_gouraud_faces_into(
                 &mesh,
-                &sorted_faces,
-                face_limit,
                 &projected,
-                frame_ctx.unlit,
-                frame_ctx.fg_rgb,
-                |normal| frame_ctx.shade_at_vertex(normal),
+                backface_cull,
+                params.depth_sort_faces,
+                MIN_PROJECTED_FACE_DOUBLE_AREA,
+                MAX_OBJ_FACE_RENDER,
+                frame_ctx,
+                &mut sorted_faces,
                 &mut shaded_gouraud,
             );
+            triangles_processed = face_limit as u32;
 
             let row_w = virtual_w as usize;
             let num_strips = rayon::current_num_threads().max(1);
@@ -1302,6 +1292,18 @@ pub fn render_obj_to_canvas(
             release_shaded_gouraud_buffer(shaded_gouraud);
             count
         } else {
+            let face_limit = classify_and_sort_faces_into(
+                &mesh,
+                &projected,
+                FaceClassificationConfig {
+                    backface_cull,
+                    depth_sort_faces: params.depth_sort_faces,
+                    min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
+                    max_faces: MAX_OBJ_FACE_RENDER,
+                },
+                &mut sorted_faces,
+            );
+            triangles_processed = face_limit as u32;
             let mut shaded_faces = take_shaded_flat_buffer(face_limit);
             prepare_flat_faces_into(
                 &mesh,
