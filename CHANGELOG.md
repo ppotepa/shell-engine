@@ -150,6 +150,11 @@ Daily progress updates for Shell Engine development.
 - **architecture**: flat rendering now follows the same extraction pattern as Gouraud, narrowing the remaining responsibilities in `raster.rs` to entry orchestration and a small amount of glue.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: shared wireframe edge orchestration** ✅
+- **engine-render-3d**: extended `pipeline/stages/edges.rs` with reusable projected depth-span calculation plus a shared RGB wireframe render helper.
+- **engine-render-3d**: duplicated wireframe depth-range setup was removed from `raster.rs`; the remaining wireframe entrypoint code now delegates directly to the edge stage.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

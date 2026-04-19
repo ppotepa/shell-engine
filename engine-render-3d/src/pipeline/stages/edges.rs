@@ -4,6 +4,52 @@ use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
 use crate::geom::types::ProjectedVertex;
 use crate::raster::{draw_line_depth, draw_line_flat};
 
+pub(crate) fn projected_depth_span(projected: &[Option<ProjectedVertex>]) -> Option<(f32, f32)> {
+    let mut near = f32::INFINITY;
+    let mut far = f32::NEG_INFINITY;
+    for pv in projected.iter().flatten() {
+        near = near.min(pv.depth);
+        far = far.max(pv.depth);
+    }
+    if !near.is_finite() || !far.is_finite() {
+        return None;
+    }
+    Some(if (far - near).abs() < f32::EPSILON {
+        (near, near + 1.0)
+    } else {
+        (near, far)
+    })
+}
+
+pub(crate) fn render_wireframe_rgb(
+    mesh: &ObjMesh,
+    projected: &[Option<ProjectedVertex>],
+    canvas: &mut [Option<[u8; 3]>],
+    depth_buf: &mut [f32],
+    virtual_w: u16,
+    virtual_h: u16,
+    clipped_viewport: Viewport,
+    line_color: [u8; 3],
+    max_edges: usize,
+) {
+    let Some((depth_near, depth_far)) = projected_depth_span(projected) else {
+        return;
+    };
+    draw_wireframe_edges_with_depth(
+        mesh,
+        projected,
+        canvas,
+        depth_buf,
+        virtual_w,
+        virtual_h,
+        clipped_viewport,
+        line_color,
+        depth_near,
+        depth_far,
+        max_edges,
+    );
+}
+
 pub(crate) fn draw_wireframe_edges_with_depth(
     mesh: &ObjMesh,
     projected: &[Option<ProjectedVertex>],

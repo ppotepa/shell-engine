@@ -18,7 +18,9 @@ use crate::geom::clip::{clip_line_to_viewport, Viewport};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
-use crate::pipeline::stages::edges::{draw_outline_edges_flat, draw_wireframe_edges_with_depth};
+use crate::pipeline::stages::edges::{
+    draw_outline_edges_flat, render_wireframe_rgb,
+};
 use crate::pipeline::stages::flat::render_flat_rgb_solid;
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::gouraud::prepare_visible_gouraud_faces_into;
@@ -841,20 +843,7 @@ fn render_mesh_projected(
 
     if wireframe {
         let line_color = color_to_rgb(fg);
-        let (depth_near, depth_far) = {
-            let mut near = f32::INFINITY;
-            let mut far = f32::NEG_INFINITY;
-            for pv in projected.iter().flatten() {
-                near = near.min(pv.depth);
-                far = far.max(pv.depth);
-            }
-            if (far - near).abs() < f32::EPSILON {
-                (near, near + 1.0)
-            } else {
-                (near, far)
-            }
-        };
-        draw_wireframe_edges_with_depth(
+        render_wireframe_rgb(
             mesh,
             &projected,
             canvas,
@@ -863,8 +852,6 @@ fn render_mesh_projected(
             virtual_h,
             clipped_viewport,
             line_color,
-            depth_near,
-            depth_far,
             12_000,
         );
     } else {
@@ -1205,21 +1192,7 @@ pub fn render_obj_to_canvas(
         let line_color = color_to_rgb(fg);
         let mut depth_buf = take_depth_buffer(canvas_size);
 
-        let (depth_near, depth_far) = {
-            let mut near = f32::INFINITY;
-            let mut far = f32::NEG_INFINITY;
-            for pv in projected.iter().flatten() {
-                near = near.min(pv.depth);
-                far = far.max(pv.depth);
-            }
-            if (far - near).abs() < f32::EPSILON {
-                (near, near + 1.0)
-            } else {
-                (near, far)
-            }
-        };
-
-        draw_wireframe_edges_with_depth(
+        render_wireframe_rgb(
             &mesh,
             &projected,
             &mut canvas,
@@ -1228,8 +1201,6 @@ pub fn render_obj_to_canvas(
             virtual_h,
             clipped_viewport,
             line_color,
-            depth_near,
-            depth_far,
             12_000,
         );
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth_buf);
