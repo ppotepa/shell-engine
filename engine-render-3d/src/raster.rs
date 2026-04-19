@@ -12,8 +12,6 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::scene::TonemapOperator;
-use rayon::prelude::*;
-
 use crate::api::Render3dPipeline;
 use crate::effects::passes::postprocess::apply_rgb_post_passes;
 use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
@@ -1443,30 +1441,15 @@ pub fn render_obj_to_rgba_canvas(
         taken.reserve(face_limit);
         taken
     });
-    shaded_gouraud.par_extend(
-        sorted_faces[..face_limit]
-            .par_iter()
-            .filter_map(|(_, face_idx)| {
-                let face = &mesh.faces[*face_idx];
-                let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
-                let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
-                let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                let (s0, s1, s2) = if frame_ctx.unlit {
-                    (1.0, 1.0, 1.0)
-                } else {
-                    (
-                        frame_ctx.shade_at_vertex(v0.normal),
-                        frame_ctx.shade_at_vertex(v1.normal),
-                        frame_ctx.shade_at_vertex(v2.normal),
-                    )
-                };
-                let base_color = if frame_ctx.unlit {
-                    frame_ctx.fg_rgb
-                } else {
-                    face.color
-                };
-                Some((v0, v1, v2, base_color, s0, s1, s2))
-            }),
+    prepare_gouraud_faces_into(
+        &mesh,
+        &sorted_faces,
+        face_limit,
+        &projected,
+        frame_ctx.unlit,
+        frame_ctx.fg_rgb,
+        |normal| frame_ctx.shade_at_vertex(normal),
+        &mut shaded_gouraud,
     );
 
     let row_w = virtual_w as usize;

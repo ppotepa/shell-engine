@@ -95,6 +95,11 @@ Daily progress updates for Shell Engine development.
 - **architecture**: the remaining work in `raster.rs` shifts further toward orchestration, with frame-domain inputs prepared up front and handed to later stages.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: RGBA path now reuses shared Gouraud prep** ✅
+- **engine-render-3d**: the RGBA cloud/soft-alpha render path now calls `prepare_gouraud_faces_into(...)` instead of keeping an extra inline parallel face-prep block in `raster.rs`.
+- **architecture**: Gouraud face preparation is now owned by one stage helper across shared-buffer RGB, standard RGB, and RGBA paths, reducing drift risk between output formats.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
