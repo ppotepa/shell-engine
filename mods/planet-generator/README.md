@@ -24,7 +24,7 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | `R` | Randomize all parameters |
 | `Delete` | Reset to Earth defaults |
 | `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
-| `F10` or `Fly Around` button | Enter/exit `flight` mode from the same scene |
+| `F10` or `Fly Around` button | Toggle `generator` / `flight` mode |
 | `F9` / `C` (flight mode) | Toggle flight profile: `arcade` / `sim-lite` |
 | `H` / `J` (flight mode) | Toggle assists: `HOLD ALT` / `HOLD HDG` |
 | Flight mode controls | `Up/Down` or `W/S` tangent thrust, `Left/Right` or `A/D` yaw, `Q/E` radial climb/descent, `X` boost, `Z` brake |
@@ -32,14 +32,14 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 ## Runtime modes
 
 - `generator` mode is the default authoring/view mode; sliders, tabs, presets, randomize, and reset stay active.
-- `flight` mode is entered by `F10` or `Fly Around`; the script syncs the generated body runtime data, ensures a single ship entity, and drives camera basis from ship-relative motion.
+- `flight` mode is toggled by `F10` or `Fly Around`; the script syncs generated body runtime data, ensures one ship entity, and drives camera basis from ship-relative motion.
 - `flight profile` can be toggled with `F9` or `C` while flying:
   - `arcade` keeps stronger response and easier correction.
   - `sim-lite` keeps smoother input response and gentler stabilization.
 - `flight assists` are active in runtime and reflected in HUD:
   - `HOLD ALT`
   - `HOLD HDG`
-- Press `F10` or `Esc` in `flight` mode to return to `generator` mode without resetting current generator parameters.
+- `F10` or `Esc` returns to `generator` mode without resetting current generator parameters.
 
 ## Scene structure
 

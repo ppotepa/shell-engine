@@ -28,10 +28,10 @@
           gap-x: 10
           gap-y: 2
           children:
-            - { type: text, id: planet-randomize-button-label, content: "[R] RANDOMIZE", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#ffc030" }
-            - { type: text, id: planet-flyaround-button-label, content: "[F10] FLY AROUND", grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#5bc0be" }
+            - { type: text, id: planet-randomize-button-label, content: "[R] RANDOM", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#ffc030" }
+            - { type: text, id: planet-flyaround-button-label, content: "[F10] FLY MODE", grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#5bc0be" }
             - { type: text, id: planet-reset-button-label,     content: "[DEL] RESET",      grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#4080ff" }
             - { type: text, id: stats-flight-speed-hint,       content: "[X/Z] SPEED",    grid-col: 1, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
             - { type: text, id: stats-flight-profile-hint,     content: "[F9/C] PROFILE", grid-col: 2, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
-            - { type: text, id: stats-flight-assist-hint,      content: "[H/J] ASSIST",   grid-col: 3, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
+            - { type: text, id: stats-flight-assist-hint,      content: "[H/J] ALT/HDG",  grid-col: 3, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
 
