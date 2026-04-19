@@ -180,6 +180,11 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: added `render_prepared_render3d_item_to_buffer(...)` with a shared runtime wrapper, so prepared 3D items can already flow through one dispatch seam even before call-sites are migrated.
 - **architecture**: old mesh/generated-world/scene-clip renderers stay intact underneath, but the new common entrypoint is now ready for compositor/provider migration.
 - **validation**: `cargo check -p engine-render-3d` and targeted producer tests pass.
+
+**3D renderer foundation: neutral render pass context** ✅
+- **engine-render-3d**: added `effects/passes/context.rs` with `RenderPassContext` derived from the new neutral `Render3dFrameInput`.
+- **architecture**: pass chaining now has a canonical frame-level context to converge on, instead of future passes depending directly on sprite-specific param bags.
+- **validation**: `cargo check -p engine-render-3d` pass.
 - **schemas/docs/mods**: added `world_render_size` / `ui_render_size` / `ui_layout_size` to `schemas/mod.schema.yaml`, documented the contract in `AUTHORING.md`, and enabled the split in active mods (`planet-generator`, `lighting-playground`, `gui-playground`).
 - **validation**: `cargo check -p engine-runtime -p engine`, `cargo check -p engine-compositor -p engine`, `cargo check -p app`, targeted engine tests, and `--check-scenes` for gui/planet mods.
 
