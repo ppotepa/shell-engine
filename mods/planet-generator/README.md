@@ -21,10 +21,12 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | Slider drag | Adjust parameter value with mouse |
 | `F1`–`F7` | Load preset: Earth / Mars / Ocean / Desert / Ice / Volcanic / Archipelago |
 | Preset dropdown | Open compact preset list and select with mouse |
-| `R` | Randomize all parameters |
+| `Randomize` button | Randomize all parameters |
+| `R` | Toggle planet auto-rotation on/off |
 | `Delete` | Reset to Earth defaults |
 | `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
 | `F10` or `Fly Around` button | Toggle `generator` / `flight` mode |
+| `Esc` | Exit `flight` mode and return to `generator` mode |
 | `F9` / `C` (flight mode) | Toggle flight profile: `arcade` / `sim-lite` |
 | `H` / `J` (flight mode) | Toggle assists: `HOLD ALT` / `HOLD HDG` |
 | Flight mode controls | `Up/Down` or `W/S` tangent thrust, `Left/Right` or `A/D` yaw, `Q/E` radial climb/descent, `X` boost, `Z` brake |
@@ -39,7 +41,7 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `flight assists` are active in runtime and reflected in HUD:
   - `HOLD ALT`
   - `HOLD HDG`
-- `flight profile` and both assist toggles are persisted in game state and restored on next run.
+- `flight profile` and both assist toggles are persisted in game state and restored on next run, so the next launch resumes the last flight setup.
 - `F10` or `Esc` returns to `generator` mode without resetting current generator parameters.
 
 ## Scene structure

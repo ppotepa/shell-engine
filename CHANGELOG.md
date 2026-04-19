@@ -2,6 +2,12 @@
 
 Daily progress updates for Shell Engine development.
 
+## 19-04-2026
+
+**Planet-generator flight-mode docs cleanup** ✅
+- **mods/planet-generator**: refreshed the README controls table to match current bindings (`Randomize` button, `R` auto-rotation toggle, `Esc` exit flight mode) and clarified that flight profile plus assist toggles persist in game state across runs.
+- **validation**: checked the documented controls against `mods/planet-generator/scenes/main/main.rhai`.
+
 ## 18-04-2026
 
 **Prepared-item compositor/provider dispatch convergence** ✅

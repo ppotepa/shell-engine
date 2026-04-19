@@ -1268,8 +1268,7 @@ if is_flight_active {
         );
 
         // Drive planet renderer camera manually in flight mode.
-        let scene_scale = 1.0 / surface_radius.max(0.0001);
-        let scene_r = next_r * scene_scale;
+        let scene_r = next_r / surface_radius.max(0.0001);
         let cam_wx = next_nx * scene_r;
         let cam_wz = next_ny * scene_r;
         let fwd_x = (next_tx * heading.cos() + next_nx * heading.sin()).max(-1.0).min(1.0);
