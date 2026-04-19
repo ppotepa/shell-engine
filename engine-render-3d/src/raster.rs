@@ -20,6 +20,7 @@ use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::gouraud::prepare_visible_gouraud_faces_into;
+use crate::pipeline::stages::light_motion::animate_point_lights;
 use crate::pipeline::stages::project::{
     project_mesh_with_viewport, project_vertices_into, ProjectionPoseConfig,
     ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
@@ -32,7 +33,7 @@ use crate::pipeline::stages::shade::{
     prepare_flat_faces_into, prepare_gouraud_faces_into,
 };
 use crate::prerender::ObjPrerenderedFrames;
-use crate::shading::{color_to_rgb, flicker_multiplier};
+use crate::shading::color_to_rgb;
 use crate::ObjRenderParams;
 use engine_core::scene::SpriteSizePreset;
 
@@ -678,51 +679,8 @@ fn render_mesh_projected(
     canvas: &mut [Option<[u8; 3]>],
     depth_buf: &mut [f32],
 ) {
-    fn snap_angle(elapsed_s: f32, snap_hz: f32, seed: u32) -> f32 {
-        let snap_index = (elapsed_s * snap_hz) as u32;
-        let h = snap_index.wrapping_mul(2654435761u32).wrapping_add(seed);
-        (h as f32 / u32::MAX as f32) * std::f32::consts::TAU
-    }
-
+    let point_lights = animate_point_lights(&params);
     let elapsed_s = params.scene_elapsed_ms as f32 / 1000.0;
-    let point_1_flicker = flicker_multiplier(
-        elapsed_s,
-        params.light_point_flicker_hz,
-        params.light_point_flicker_depth,
-        0.37,
-    );
-    let point_2_flicker = flicker_multiplier(
-        elapsed_s,
-        params.light_point_2_flicker_hz,
-        params.light_point_2_flicker_depth,
-        1.91,
-    );
-
-    let orbit_radius_1 = (params.light_point_x.powi(2) + params.light_point_z.powi(2))
-        .sqrt()
-        .max(0.0001);
-    let (light_1_x, light_1_z) = if params.light_point_snap_hz > f32::EPSILON {
-        let angle = snap_angle(elapsed_s, params.light_point_snap_hz, 0x9e37_79b9);
-        (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
-    } else if params.light_point_orbit_hz > f32::EPSILON {
-        let angle = elapsed_s * params.light_point_orbit_hz * std::f32::consts::TAU;
-        (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
-    } else {
-        (params.light_point_x, params.light_point_z)
-    };
-
-    let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2))
-        .sqrt()
-        .max(0.0001);
-    let (light_2_x, light_2_z) = if params.light_point_2_snap_hz > f32::EPSILON {
-        let angle = snap_angle(elapsed_s, params.light_point_2_snap_hz, 0x6c62_272d);
-        (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
-    } else if params.light_point_2_orbit_hz > f32::EPSILON {
-        let angle = elapsed_s * params.light_point_2_orbit_hz * std::f32::consts::TAU;
-        (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
-    } else {
-        (params.light_point_2_x, params.light_point_2_z)
-    };
 
     let yaw = (params.yaw_deg
         + params.rotation_y
@@ -882,10 +840,10 @@ fn render_mesh_projected(
                 face_limit,
                 &projected,
                 frame_ctx.flat_stage_context(
-                    [light_1_x, light_point_y, light_1_z],
-                    light_point_intensity * point_1_flicker,
-                    [light_2_x, light_point_2_y, light_2_z],
-                    light_point_2_intensity * point_2_flicker,
+                    [point_lights.point_1_x, light_point_y, point_lights.point_1_z],
+                    light_point_intensity * point_lights.point_1_flicker,
+                    [point_lights.point_2_x, light_point_2_y, point_lights.point_2_z],
+                    light_point_2_intensity * point_lights.point_2_flicker,
                 ),
                 &mut shaded_faces,
             );
@@ -1113,52 +1071,7 @@ pub fn render_obj_to_canvas(
         return None;
     }
 
-    let elapsed_s = params.scene_elapsed_ms as f32 / 1000.0;
-    let point_1_flicker = flicker_multiplier(
-        elapsed_s,
-        params.light_point_flicker_hz,
-        params.light_point_flicker_depth,
-        0.37,
-    );
-    let point_2_flicker = flicker_multiplier(
-        elapsed_s,
-        params.light_point_2_flicker_hz,
-        params.light_point_2_flicker_depth,
-        1.91,
-    );
-    // Light position: snap (teleport) wins over smooth orbit when snap_hz > 0.
-    fn snap_angle(elapsed_s: f32, snap_hz: f32, seed: u32) -> f32 {
-        let snap_index = (elapsed_s * snap_hz) as u32;
-        let h = snap_index.wrapping_mul(2654435761u32).wrapping_add(seed);
-        (h as f32 / u32::MAX as f32) * std::f32::consts::TAU
-    }
-
-    let orbit_radius_1 = (params.light_point_x.powi(2) + params.light_point_z.powi(2))
-        .sqrt()
-        .max(0.0001);
-    let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2))
-        .sqrt()
-        .max(0.0001);
-
-    let (light_1_x, light_1_z) = if params.light_point_snap_hz > f32::EPSILON {
-        let angle = snap_angle(elapsed_s, params.light_point_snap_hz, 0x9e37_79b9);
-        (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
-    } else if params.light_point_orbit_hz > f32::EPSILON {
-        let angle = elapsed_s * params.light_point_orbit_hz * std::f32::consts::TAU;
-        (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
-    } else {
-        (params.light_point_x, params.light_point_z)
-    };
-
-    let (light_2_x, light_2_z) = if params.light_point_2_snap_hz > f32::EPSILON {
-        let angle = snap_angle(elapsed_s, params.light_point_2_snap_hz, 0x6c62_272d);
-        (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
-    } else if params.light_point_2_orbit_hz > f32::EPSILON {
-        let angle = elapsed_s * params.light_point_2_orbit_hz * std::f32::consts::TAU;
-        (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
-    } else {
-        (params.light_point_2_x, params.light_point_2_z)
-    };
+    let point_lights = animate_point_lights(&params);
     let mut projected = OBJ_PROJECTED.with(|p| {
         let mut v = p.borrow_mut();
         let mut taken = std::mem::take(&mut *v);
@@ -1311,10 +1224,10 @@ pub fn render_obj_to_canvas(
                 face_limit,
                 &projected,
                 frame_ctx.flat_stage_context(
-                    [light_1_x, light_point_y, light_1_z],
-                    light_point_intensity * point_1_flicker,
-                    [light_2_x, light_point_2_y, light_2_z],
-                    light_point_2_intensity * point_2_flicker,
+                    [point_lights.point_1_x, light_point_y, point_lights.point_1_z],
+                    light_point_intensity * point_lights.point_1_flicker,
+                    [point_lights.point_2_x, light_point_2_y, point_lights.point_2_z],
+                    light_point_2_intensity * point_lights.point_2_flicker,
                 ),
                 &mut shaded_faces,
             );

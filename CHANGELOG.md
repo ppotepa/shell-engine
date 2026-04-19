@@ -123,6 +123,12 @@ Daily progress updates for Shell Engine development.
 - **architecture**: Gouraud rendering across RGB and RGBA now diverges mainly at raster execution/output format, not at visible-face selection and shading preparation.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer stage split: shared point-light motion helper** ✅
+- **engine-render-3d**: added `pipeline/stages/light_motion.rs` with `animate_point_lights(...)` and `AnimatedPointLights`, moving orbit/snap/flicker logic out of `raster.rs`.
+- **engine-render-3d**: both shared-buffer RGB rendering and canvas RGB rendering now consume the same point-light motion helper for flat-shaded lighting inputs.
+- **architecture**: `raster.rs` loses another domain-specific animation block and keeps moving toward render orchestration instead of effect-state assembly.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
