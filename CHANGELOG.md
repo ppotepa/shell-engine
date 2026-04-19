@@ -175,6 +175,11 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: added `pipeline/producers/*` with a first common producer seam (`prepare_render3d_item`) for mesh, generated-world, and scene-clip sprites.
 - **engine-render-3d**: introduced `PreparedRender3dItem` / `PreparedRender3dSource` as the next migration layer above raw sprite spec extraction.
 - **validation**: `cargo check -p engine-render-3d` and targeted producer tests pass.
+
+**3D renderer foundation: common prepared-item dispatch** ✅
+- **engine-render-3d**: added `render_prepared_render3d_item_to_buffer(...)` with a shared runtime wrapper, so prepared 3D items can already flow through one dispatch seam even before call-sites are migrated.
+- **architecture**: old mesh/generated-world/scene-clip renderers stay intact underneath, but the new common entrypoint is now ready for compositor/provider migration.
+- **validation**: `cargo check -p engine-render-3d` and targeted producer tests pass.
 - **schemas/docs/mods**: added `world_render_size` / `ui_render_size` / `ui_layout_size` to `schemas/mod.schema.yaml`, documented the contract in `AUTHORING.md`, and enabled the split in active mods (`planet-generator`, `lighting-playground`, `gui-playground`).
 - **validation**: `cargo check -p engine-runtime -p engine`, `cargo check -p engine-compositor -p engine`, `cargo check -p app`, targeted engine tests, and `--check-scenes` for gui/planet mods.
 

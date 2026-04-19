@@ -4,6 +4,7 @@ pub mod generated_world_sprite_renderer;
 pub mod generated_world_sprite_spec;
 pub mod obj_sprite_renderer;
 pub mod obj_sprite_spec;
+pub mod prepared_item_renderer;
 pub mod producers;
 pub mod render3d_sprite_spec;
 pub mod renderer;
@@ -33,6 +34,9 @@ pub use obj_sprite_renderer::{
     render_obj_sprite_to_buffer, ObjSpriteRenderRuntime, SpriteRenderArea,
 };
 pub use obj_sprite_spec::{extract_obj_sprite_spec, ObjSpriteSpec};
+pub use prepared_item_renderer::{
+    render_prepared_render3d_item_to_buffer, PreparedRender3dRuntime,
+};
 pub use producers::{
     prepare_render3d_item, GeneratedWorldFrameProducer, MeshFrameProducer,
     PreparedRender3dItem, PreparedRender3dSource, Render3dProducer, SceneClipFrameProducer,
