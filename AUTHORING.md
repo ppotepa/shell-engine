@@ -1044,6 +1044,10 @@ world.transform(id)                           // #{x, y, heading} map
 world.set_transform(id, x, y, heading)
 world.physics(id)                             // #{vx, vy, ax, ay, drag, max_speed}
 world.set_physics(id, vx, vy, ax, ay, drag, max_speed)
+world.body_info(body_id)                      // celestial body map (catalog + resolved fields)
+world.body_upsert(body_id, patch_map)         // runtime mutate/create celestial body fields
+world.body_patch(body_id, patch_map)          // alias of body_upsert for patch-style usage
+world.body_gravity(body_id, x, y)             // gravity vector at world position
 
 // Colliders
 world.set_collider_circle(id, radius, layer_mask, collision_mask)

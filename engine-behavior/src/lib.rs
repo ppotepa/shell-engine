@@ -3697,6 +3697,57 @@ game.set("/test/atmo_dense_start_km", info_b["atmosphere_dense_start_km"]);
     }
 
     #[test]
+    fn rhai_script_behavior_body_patch_creates_body_when_missing() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ok_patch = world.body_patch("patched-body", #{
+    radius_km: 120.0,
+    gravity_mu_km3_s2: 9876.0,
+    atmosphere_top_km: 25.0
+});
+let info = world.body_info("patched-body");
+
+game.set("/test/ok_patch", ok_patch);
+game.set("/test/radius_km", info["radius_km"]);
+game.set("/test/mu_km3", info["gravity_mu_km3_s2"]);
+game.set("/test/atmo_top_km", info["atmosphere_top_km"]);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "body_patch on missing body should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/test/ok_patch").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state.get("/test/radius_km").and_then(|v| v.as_f64()),
+            Some(120.0)
+        );
+        assert_eq!(
+            game_state.get("/test/mu_km3").and_then(|v| v.as_f64()),
+            Some(9876.0)
+        );
+        assert_eq!(
+            game_state.get("/test/atmo_top_km").and_then(|v| v.as_f64()),
+            Some(25.0)
+        );
+    }
+
+    #[test]
     fn rhai_script_behavior_emit_spawns_generic_ephemeral_fx() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
