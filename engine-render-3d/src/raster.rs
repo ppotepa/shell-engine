@@ -303,6 +303,105 @@ fn finish_rgba_canvas_render(
     );
 }
 
+fn render_gouraud_rgb_solid(
+    mesh: &ObjMesh,
+    projected: &[Option<ProjectedVertex>],
+    canvas: &mut [Option<[u8; 3]>],
+    depth: &mut [f32],
+    virtual_w: u16,
+    virtual_h: u16,
+    clipped_viewport: Viewport,
+    backface_cull: bool,
+    depth_sort_faces: bool,
+    frame_ctx: FrameShadingContext,
+) -> (u32, u32) {
+    let mut sorted_faces = take_sorted_faces_buffer(mesh.faces.len());
+    let mut shaded_gouraud = take_shaded_gouraud_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
+    let face_limit = prepare_visible_gouraud_faces_into(
+        mesh,
+        projected,
+        backface_cull,
+        depth_sort_faces,
+        MIN_PROJECTED_FACE_DOUBLE_AREA,
+        MAX_OBJ_FACE_RENDER,
+        frame_ctx,
+        &mut sorted_faces,
+        &mut shaded_gouraud,
+    );
+
+    let row_w = virtual_w as usize;
+    let num_strips = rayon::current_num_threads().max(1);
+    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
+    let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 3]>], &mut [f32])> = canvas
+        .chunks_mut(strip_rows * row_w)
+        .zip(depth.chunks_mut(strip_rows * row_w))
+        .enumerate()
+        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
+        .collect();
+    execute_gouraud_rgb_faces_parallel_strips(
+        &mut canvas_strips,
+        &shaded_gouraud,
+        row_w,
+        clipped_viewport.min_y,
+        clipped_viewport.max_y,
+        frame_ctx.gouraud_rgb_raster_context(virtual_w, virtual_h),
+    );
+    let faces_drawn = shaded_gouraud.len() as u32;
+    release_shaded_gouraud_buffer(shaded_gouraud);
+    release_sorted_faces_buffer(sorted_faces);
+    (face_limit as u32, faces_drawn)
+}
+
+fn render_gouraud_rgba_solid(
+    mesh: &ObjMesh,
+    projected: &[Option<ProjectedVertex>],
+    canvas: &mut [Option<[u8; 4]>],
+    depth: &mut [f32],
+    virtual_w: u16,
+    virtual_h: u16,
+    clipped_viewport: Viewport,
+    backface_cull: bool,
+    depth_sort_faces: bool,
+    frame_ctx: FrameShadingContext,
+) -> (u32, u32) {
+    let mut sorted_faces = take_sorted_faces_buffer(mesh.faces.len());
+    let mut shaded_gouraud = take_shaded_gouraud_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
+    let face_limit = prepare_visible_gouraud_faces_into(
+        mesh,
+        projected,
+        backface_cull,
+        depth_sort_faces,
+        MIN_PROJECTED_FACE_DOUBLE_AREA,
+        MAX_OBJ_FACE_RENDER,
+        frame_ctx,
+        &mut sorted_faces,
+        &mut shaded_gouraud,
+    );
+
+    let row_w = virtual_w as usize;
+    let num_strips = rayon::current_num_threads().max(1);
+    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
+    let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 4]>], &mut [f32])> = canvas
+        .chunks_mut(strip_rows * row_w)
+        .zip(depth.chunks_mut(strip_rows * row_w))
+        .enumerate()
+        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
+        .collect();
+    execute_gouraud_rgba_faces_parallel_strips(
+        &mut canvas_strips,
+        &shaded_gouraud,
+        row_w,
+        clipped_viewport.min_y,
+        clipped_viewport.max_y,
+        frame_ctx.gouraud_rgba_raster_context(virtual_w, virtual_h),
+    );
+
+    let faces_drawn = shaded_gouraud.len() as u32;
+    release_shaded_gouraud_buffer(shaded_gouraud);
+    release_sorted_faces_buffer(sorted_faces);
+    (face_limit as u32, faces_drawn)
+}
+
 // ── Dimension helpers ─────────────────────────────────────────────────────────
 
 /// Returns `(target_w, target_h)` — virtual canvas equals the output size for this pipeline.
@@ -1146,40 +1245,20 @@ pub fn render_obj_to_canvas(
         let smooth_shading = params.smooth_shading;
 
         let drawn_faces = if smooth_shading {
-            let mut shaded_gouraud = take_shaded_gouraud_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
-            let face_limit = prepare_visible_gouraud_faces_into(
+            let (triangles, faces_drawn) = render_gouraud_rgb_solid(
                 &mesh,
                 &projected,
+                &mut canvas,
+                &mut depth,
+                virtual_w,
+                virtual_h,
+                clipped_viewport,
                 backface_cull,
                 params.depth_sort_faces,
-                MIN_PROJECTED_FACE_DOUBLE_AREA,
-                MAX_OBJ_FACE_RENDER,
                 frame_ctx,
-                &mut sorted_faces,
-                &mut shaded_gouraud,
             );
-            triangles_processed = face_limit as u32;
-
-            let row_w = virtual_w as usize;
-            let num_strips = rayon::current_num_threads().max(1);
-            let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
-            let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 3]>], &mut [f32])> = canvas
-                .chunks_mut(strip_rows * row_w)
-                .zip(depth.chunks_mut(strip_rows * row_w))
-                .enumerate()
-                .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
-                .collect();
-            execute_gouraud_rgb_faces_parallel_strips(
-                &mut canvas_strips,
-                &shaded_gouraud,
-                row_w,
-                clipped_viewport.min_y,
-                clipped_viewport.max_y,
-                frame_ctx.gouraud_rgb_raster_context(virtual_w, virtual_h),
-            );
-            let count = shaded_gouraud.len();
-            release_shaded_gouraud_buffer(shaded_gouraud);
-            count
+            triangles_processed = triangles;
+            faces_drawn as usize
         } else {
             let face_limit = classify_and_sort_faces_into(
                 &mesh,
@@ -1221,7 +1300,9 @@ pub fn render_obj_to_canvas(
             release_shaded_flat_buffer(shaded_faces);
             count
         };
-        release_sorted_faces_buffer(sorted_faces);
+        if !smooth_shading {
+            release_sorted_faces_buffer(sorted_faces);
+        }
 
         faces_drawn = drawn_faces as u32;
         if drawn_faces == 0 {
@@ -1306,47 +1387,24 @@ pub fn render_obj_to_rgba_canvas(
 
     let frame_ctx = FrameShadingContext::from_params(&params, fg);
 
-    let mut sorted_faces = take_sorted_faces_buffer(mesh.faces.len());
-    let mut shaded_gouraud = take_shaded_gouraud_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
-    let face_limit = prepare_visible_gouraud_faces_into(
+    let (triangles_processed, faces_drawn_count) = render_gouraud_rgba_solid(
         &mesh,
         &projected,
+        &mut canvas,
+        &mut depth,
+        virtual_w,
+        virtual_h,
+        clipped_viewport,
         backface_cull,
         params.depth_sort_faces,
-        MIN_PROJECTED_FACE_DOUBLE_AREA,
-        MAX_OBJ_FACE_RENDER,
         frame_ctx,
-        &mut sorted_faces,
-        &mut shaded_gouraud,
     );
-
-    let row_w = virtual_w as usize;
-    let num_strips = rayon::current_num_threads().max(1);
-    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
-    let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 4]>], &mut [f32])> = canvas
-        .chunks_mut(strip_rows * row_w)
-        .zip(depth.chunks_mut(strip_rows * row_w))
-        .enumerate()
-        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
-        .collect();
-    execute_gouraud_rgba_faces_parallel_strips(
-        &mut canvas_strips,
-        &shaded_gouraud,
-        row_w,
-        clipped_viewport.min_y,
-        clipped_viewport.max_y,
-        frame_ctx.gouraud_rgba_raster_context(virtual_w, virtual_h),
-    );
-
-    let faces_drawn_count = shaded_gouraud.len() as u32;
     OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
-    release_shaded_gouraud_buffer(shaded_gouraud);
-    release_sorted_faces_buffer(sorted_faces);
     finish_rgba_canvas_render(
         t_render,
         &mut canvas,
         projected,
-        face_limit as u32,
+        triangles_processed,
         faces_drawn_count,
         virtual_w,
         virtual_h,

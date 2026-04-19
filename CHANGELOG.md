@@ -140,6 +140,11 @@ Daily progress updates for Shell Engine development.
 - **architecture**: public entry adapters keep less boilerplate and the remaining divergence is more clearly about render policy than asset/size setup.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: shared Gouraud solid render orchestration** ✅
+- **engine-render-3d**: `raster.rs` now uses dedicated higher-level helpers for Gouraud solid rendering in RGB and RGBA paths, instead of spelling out visible-face prep, strip construction, execution, and release inline in each entrypoint.
+- **architecture**: this is the first real shared solid-render orchestration seam above the lower-level stages, and it leaves the remaining entrypoint differences much narrower.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
