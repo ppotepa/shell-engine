@@ -688,6 +688,18 @@ impl SceneRuntime {
                 mutation_applied = true;
             }
             SceneMutation::SetRender3D(render3d) => match render3d {
+                Render3DMutation::SetGroupedParams { target, params } => {
+                    for (param, value) in params {
+                        if self.apply_grouped_render3d_param(
+                            resolver,
+                            target.as_deref(),
+                            param,
+                            value,
+                        ) {
+                            mutation_applied = true;
+                        }
+                    }
+                }
                 Render3DMutation::SetProfile { slot, profile } => {
                     if self.apply_profile_selection(*slot, profile) {
                         mutation_applied = true;
@@ -856,6 +868,69 @@ impl SceneRuntime {
             self.render3d_dirty_mask.insert(dirty);
             self.track_render3d_rebuild_cause(dirty);
         }
+    }
+
+    fn apply_grouped_render3d_param(
+        &mut self,
+        resolver: &TargetResolver,
+        target: Option<&str>,
+        param: &crate::mutations::Render3DGroupedParam,
+        value: &engine_core::render_types::MaterialValue,
+    ) -> bool {
+        match param {
+            crate::mutations::Render3DGroupedParam::View(param) => {
+                let material_param = match param {
+                    crate::mutations::ViewParam::Distance => crate::mutations::ObjMaterialParam::CameraDistance,
+                    crate::mutations::ViewParam::Yaw => crate::mutations::ObjMaterialParam::Yaw,
+                    crate::mutations::ViewParam::Pitch => crate::mutations::ObjMaterialParam::Pitch,
+                    crate::mutations::ViewParam::Roll => crate::mutations::ObjMaterialParam::Roll,
+                };
+                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                    runtime.set_obj_material_typed_wrapper(alias, &material_param, value)
+                })
+            }
+            crate::mutations::Render3DGroupedParam::Material(param) => {
+                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                    runtime.set_obj_material_typed_wrapper(alias, param, value)
+                })
+            }
+            crate::mutations::Render3DGroupedParam::Atmosphere(param) => {
+                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                    runtime.set_obj_atmosphere_typed_wrapper(alias, param, value)
+                })
+            }
+            crate::mutations::Render3DGroupedParam::Surface(param) => {
+                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                    runtime.set_obj_terrain_typed_wrapper(alias, param, value)
+                })
+            }
+            crate::mutations::Render3DGroupedParam::Generator(param) => {
+                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                    runtime.set_obj_worldgen_typed_wrapper(alias, param, value)
+                })
+            }
+            crate::mutations::Render3DGroupedParam::Body(param) => {
+                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                    runtime.set_planet_typed_wrapper(alias, param, value)
+                })
+            }
+        }
+    }
+
+    fn apply_targeted_grouped_render3d_param(
+        &mut self,
+        resolver: &TargetResolver,
+        target: Option<&str>,
+        mut apply: impl FnMut(&mut Self, &str) -> bool,
+    ) -> bool {
+        let target = match target {
+            Some(target) => target,
+            None => return false,
+        };
+        let Some(object_id) = resolver.resolve_alias(target) else {
+            return false;
+        };
+        self.apply_text_property_for_target(object_id, target, |runtime, alias| apply(runtime, alias))
     }
 
     pub(crate) fn attach_default_behaviors(&mut self) {

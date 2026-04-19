@@ -4,12 +4,13 @@ use engine_api::scene::{
 };
 use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
+use serde_json::Value as JsonValue;
 
 use crate::render3d_state::{material_value_from_json, scene_mutation_from_render_path};
 use crate::{
-    LightingProfileParam, Render3DMutation, Render3DProfileParam, Render3DProfileSlot,
-    SceneMutation, Set2DPropsMutation, SetCamera2DMutation, SetSpritePropertyMutation,
-    SpaceEnvironmentParam,
+    LightingProfileParam, Render3DGroupedParam, Render3DMutation, Render3DProfileParam,
+    Render3DProfileSlot, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
+    SetSpritePropertyMutation, SpaceEnvironmentParam,
 };
 
 pub fn scene_mutation_from_request(
@@ -187,12 +188,20 @@ pub fn render3d_mutation_from_request(
             use crate::mutations::ObjMaterialParam;
             let full_path = format!("obj.{}", name);
             let param = ObjMaterialParam::from_full_path(&full_path)?;
-            Some(Render3DMutation::SetObjMaterialParam {
-                target: target.clone(),
-                param,
-                value: material_value_from_json(value)?,
+            Some(Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: vec![(
+                    Render3DGroupedParam::Material(param),
+                    material_value_from_json(value)?,
+                )],
             })
         }
+        Render3dMutationRequest::SetMaterialParams { target, params } => Some(
+            Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: grouped_params_from_json(params, material_grouped_param_from_name)?,
+            },
+        ),
         Render3dMutationRequest::SetAtmosphereParam {
             target,
             name,
@@ -200,12 +209,23 @@ pub fn render3d_mutation_from_request(
         } => {
             use crate::mutations::AtmosphereParam;
             let param = AtmosphereParam::from_full_path(name)?;
-            Some(Render3DMutation::SetAtmosphereParamTyped {
-                target: target.clone(),
-                param,
-                value: material_value_from_json(value)?,
+            Some(Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: vec![(
+                    Render3DGroupedParam::Atmosphere(param),
+                    material_value_from_json(value)?,
+                )],
             })
         }
+        Render3dMutationRequest::SetAtmosphereParams { target, params } => Some(
+            Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: grouped_params_from_json(params, |name| {
+                    crate::mutations::AtmosphereParam::from_full_path(&canonical_group_name(name))
+                        .map(Render3DGroupedParam::Atmosphere)
+                })?,
+            },
+        ),
         Render3dMutationRequest::SetWorldParam {
             target,
             name,
@@ -214,14 +234,114 @@ pub fn render3d_mutation_from_request(
             crate::SceneMutation::SetRender3D(m) => Some(m),
             _ => None,
         },
+        Render3dMutationRequest::SetSurfaceParams { target, params } => Some(
+            Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: grouped_params_from_json(params, |name| {
+                    crate::mutations::TerrainParam::from_full_path(&canonical_group_name(name))
+                        .map(Render3DGroupedParam::Surface)
+                })?,
+            },
+        ),
+        Render3dMutationRequest::SetGeneratorParams { target, params } => Some(
+            Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: grouped_params_from_json(params, |name| {
+                    crate::mutations::WorldgenParam::from_full_path(&canonical_group_name(name))
+                        .map(Render3DGroupedParam::Generator)
+                })?,
+            },
+        ),
+        Render3dMutationRequest::SetBodyParams { target, params } => Some(
+            Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: grouped_params_from_json(params, |name| {
+                    crate::mutations::PlanetParam::from_full_path(&canonical_group_name(name))
+                        .map(Render3DGroupedParam::Body)
+                })?,
+            },
+        ),
+        Render3dMutationRequest::SetViewParams { target, params } => Some(
+            Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: grouped_params_from_json(params, grouped_view_param_from_name)?,
+            },
+        ),
         Render3dMutationRequest::SetSurfaceMode { target, mode } => {
-            Some(Render3DMutation::SetObjMaterialParam {
-                target: target.clone(),
-                param: crate::mutations::ObjMaterialParam::SurfaceMode,
-                value: MaterialValue::Text(mode.clone()),
+            Some(Render3DMutation::SetGroupedParams {
+                target: Some(target.clone()),
+                params: vec![(
+                    Render3DGroupedParam::Material(crate::mutations::ObjMaterialParam::SurfaceMode),
+                    MaterialValue::Text(mode.clone()),
+                )],
             })
         }
     }
+}
+
+fn canonical_group_name(name: &str) -> String {
+    name.trim().to_string()
+}
+
+fn grouped_params_from_json(
+    params: &JsonValue,
+    mut map_name: impl FnMut(&str) -> Option<Render3DGroupedParam>,
+) -> Option<Vec<(Render3DGroupedParam, MaterialValue)>> {
+    let object = params.as_object()?;
+    let mut grouped = Vec::with_capacity(object.len());
+    for (name, value) in object {
+        grouped.push((map_name(name)?, material_value_from_json(value)?));
+    }
+    Some(grouped)
+}
+
+fn grouped_view_param_from_name(name: &str) -> Option<Render3DGroupedParam> {
+    match canonical_group_name(name).as_str() {
+        "distance" | "camera-distance" | "camera_distance" => {
+            Some(Render3DGroupedParam::View(crate::mutations::ViewParam::Distance))
+        }
+        "yaw" | "yaw-deg" | "yaw_deg" => {
+            Some(Render3DGroupedParam::View(crate::mutations::ViewParam::Yaw))
+        }
+        "pitch" | "pitch-deg" | "pitch_deg" => {
+            Some(Render3DGroupedParam::View(crate::mutations::ViewParam::Pitch))
+        }
+        "roll" | "roll-deg" | "roll_deg" => {
+            Some(Render3DGroupedParam::View(crate::mutations::ViewParam::Roll))
+        }
+        _ => None,
+    }
+}
+
+fn material_grouped_param_from_name(name: &str) -> Option<Render3DGroupedParam> {
+    let canonical = canonical_group_name(name);
+    let full_path = match canonical.as_str() {
+        "rotation_speed" => "obj.rotation-speed".to_string(),
+        "orbit-speed" => "obj.orbit_speed".to_string(),
+        "orbit_speed" => "obj.orbit_speed".to_string(),
+        "surface-mode" => "obj.surface_mode".to_string(),
+        "surface_mode" => "obj.surface_mode".to_string(),
+        "world-x" => "obj.world.x".to_string(),
+        "world_x" => "obj.world.x".to_string(),
+        "world-y" => "obj.world.y".to_string(),
+        "world_y" => "obj.world.y".to_string(),
+        "world-z" => "obj.world.z".to_string(),
+        "world_z" => "obj.world.z".to_string(),
+        "light-x" => "obj.light.x".to_string(),
+        "light_x" => "obj.light.x".to_string(),
+        "light-y" => "obj.light.y".to_string(),
+        "light_y" => "obj.light.y".to_string(),
+        "light-z" => "obj.light.z".to_string(),
+        "light_z" => "obj.light.z".to_string(),
+        "clip-y-min" => "obj.clip_y_min".to_string(),
+        "clip_y_min" => "obj.clip_y_min".to_string(),
+        "clip-y-max" => "obj.clip_y_max".to_string(),
+        "clip_y_max" => "obj.clip_y_max".to_string(),
+        "camera-distance" => "obj.camera-distance".to_string(),
+        "camera_distance" => "obj.camera-distance".to_string(),
+        other => format!("obj.{other}"),
+    };
+    crate::mutations::ObjMaterialParam::from_full_path(&full_path).map(Render3DGroupedParam::Material)
 }
 
 fn profile_slot_from_request(slot: RequestProfileSlot) -> Render3DProfileSlot {
@@ -286,16 +406,20 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetWorldgenParamTyped {
+            Render3DMutation::SetGroupedParams {
                 target,
-                param,
-                value,
+                params,
             } => {
-                assert_eq!(target, "planet-main");
-                assert_eq!(param, crate::mutations::WorldgenParam::Seed);
-                assert_eq!(value, MaterialValue::Scalar(42.0));
+                assert_eq!(target.as_deref(), Some("planet-main"));
+                assert_eq!(
+                    params,
+                    vec![(
+                        crate::Render3DGroupedParam::Generator(crate::mutations::WorldgenParam::Seed),
+                        MaterialValue::Scalar(42.0),
+                    )]
+                );
             }
-            _ => panic!("expected SetWorldgenParamTyped"),
+            _ => panic!("expected SetGroupedParams"),
         }
     }
 
@@ -308,16 +432,20 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetObjMaterialParam {
+            Render3DMutation::SetGroupedParams {
                 target,
-                param,
-                value,
+                params,
             } => {
-                assert_eq!(target, "planet-main");
-                assert_eq!(param, crate::mutations::ObjMaterialParam::Scale);
-                assert_eq!(value, MaterialValue::Scalar(1.25));
+                assert_eq!(target.as_deref(), Some("planet-main"));
+                assert_eq!(
+                    params,
+                    vec![(
+                        crate::Render3DGroupedParam::Material(crate::mutations::ObjMaterialParam::Scale),
+                        MaterialValue::Scalar(1.25),
+                    )]
+                );
             }
-            _ => panic!("expected SetObjMaterialParam"),
+            _ => panic!("expected SetGroupedParams"),
         }
     }
 
@@ -347,16 +475,20 @@ mod tests {
         )
         .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetPlanetParamTyped {
+            SceneMutation::SetRender3D(Render3DMutation::SetGroupedParams {
                 target,
-                param,
-                value,
+                params,
             }) => {
-                assert_eq!(target, "planet-view");
-                assert_eq!(param, crate::mutations::PlanetParam::SpinDeg);
-                assert_eq!(value, MaterialValue::Scalar(15.0));
+                assert_eq!(target.as_deref(), Some("planet-view"));
+                assert_eq!(
+                    params,
+                    vec![(
+                        crate::Render3DGroupedParam::Body(crate::mutations::PlanetParam::SpinDeg),
+                        MaterialValue::Scalar(15.0),
+                    )]
+                );
             }
-            _ => panic!("expected SetPlanetParamTyped"),
+            _ => panic!("expected SetGroupedParams"),
         }
     }
 
@@ -404,6 +536,38 @@ mod tests {
                 assert_eq!(profile, "lab-neutral");
             }
             _ => panic!("expected SetProfile"),
+        }
+    }
+
+    #[test]
+    fn maps_grouped_view_request_to_view_grouped_runtime_mutation() {
+        let request = Render3dMutationRequest::SetViewParams {
+            target: "planet-main".to_string(),
+            params: serde_json::json!({
+                "distance": 12.0,
+                "yaw_deg": 25.0
+            }),
+        };
+        let mutation = render3d_mutation_from_request(&request).expect("render mutation");
+
+        match mutation {
+            Render3DMutation::SetGroupedParams { target, params } => {
+                assert_eq!(target.as_deref(), Some("planet-main"));
+                assert_eq!(
+                    params,
+                    vec![
+                        (
+                            crate::Render3DGroupedParam::View(crate::mutations::ViewParam::Distance),
+                            MaterialValue::Scalar(12.0),
+                        ),
+                        (
+                            crate::Render3DGroupedParam::View(crate::mutations::ViewParam::Yaw),
+                            MaterialValue::Scalar(25.0),
+                        ),
+                    ]
+                );
+            }
+            _ => panic!("expected SetGroupedParams"),
         }
     }
 

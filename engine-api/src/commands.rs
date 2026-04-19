@@ -192,15 +192,65 @@ pub fn scene_mutation_request_from_set_path(
                 text: None,
             })
         }
-        _ if is_render3d_set_path(path) => Some(crate::scene::SceneMutationRequest::SetRender3d(
-            crate::scene::Render3dMutationRequest::SetWorldParam {
-                target: target.to_string(),
-                name: path.to_string(),
-                value: value.clone(),
-            },
-        )),
+        _ if is_render3d_set_path(path) => render3d_request_from_set_path(target, path, value)
+            .map(crate::scene::SceneMutationRequest::SetRender3d),
         _ => None,
     }
+}
+
+fn render3d_request_from_set_path(
+    target: &str,
+    path: &str,
+    value: &JsonValue,
+) -> Option<crate::scene::Render3dMutationRequest> {
+    let mut params = serde_json::Map::new();
+    if let Some(name) = path.strip_prefix("obj.atmo.") {
+        params.insert(name.replace('-', "_"), value.clone());
+        return Some(crate::scene::Render3dMutationRequest::SetAtmosphereParams {
+            target: target.to_string(),
+            params: JsonValue::Object(params),
+        });
+    }
+    if let Some(name) = path.strip_prefix("obj.") {
+        let group_name = match name {
+            "camera-distance" => "distance".to_string(),
+            other => other.replace('-', "_"),
+        };
+        params.insert(group_name, value.clone());
+        return Some(crate::scene::Render3dMutationRequest::SetMaterialParams {
+            target: target.to_string(),
+            params: JsonValue::Object(params),
+        });
+    }
+    if let Some(name) = path.strip_prefix("terrain.") {
+        params.insert(name.replace('-', "_"), value.clone());
+        return Some(crate::scene::Render3dMutationRequest::SetSurfaceParams {
+            target: target.to_string(),
+            params: JsonValue::Object(params),
+        });
+    }
+    if let Some(name) = path.strip_prefix("world.") {
+        params.insert(name.replace('-', "_"), value.clone());
+        return Some(crate::scene::Render3dMutationRequest::SetGeneratorParams {
+            target: target.to_string(),
+            params: JsonValue::Object(params),
+        });
+    }
+    if let Some(name) = path.strip_prefix("planet.") {
+        params.insert(name.replace('.', "_").replace('-', "_"), value.clone());
+        return Some(crate::scene::Render3dMutationRequest::SetBodyParams {
+            target: target.to_string(),
+            params: JsonValue::Object(params),
+        });
+    }
+    if path == "scene3d.frame" {
+        return Some(crate::scene::Render3dMutationRequest::SetWorldParam {
+            target: target.to_string(),
+            name: path.to_string(),
+            value: value.clone(),
+        });
+    }
+    None
 }
 
 fn is_render3d_set_path(path: &str) -> bool {
@@ -235,10 +285,11 @@ mod tests {
 
         assert_eq!(
             request,
-            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetWorldParam {
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetMaterialParams {
                 target: "planet".to_string(),
-                name: "obj.world.x".to_string(),
-                value: serde_json::json!(1.5),
+                params: serde_json::json!({
+                    "world.x": 1.5,
+                }),
             })
         );
     }

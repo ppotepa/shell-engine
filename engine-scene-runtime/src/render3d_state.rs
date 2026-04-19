@@ -234,10 +234,12 @@ pub fn scene_mutation_from_render_path(
     if path.starts_with("planet.") {
         if let Some(param) = PlanetParam::from_full_path(path) {
             return Some(SceneMutation::SetRender3D(
-                Render3DMutation::SetPlanetParamTyped {
-                    target: target.to_string(),
-                    param,
-                    value: mat_value,
+                Render3DMutation::SetGroupedParams {
+                    target: Some(target.to_string()),
+                    params: vec![(
+                        crate::mutations::Render3DGroupedParam::Body(param),
+                        mat_value,
+                    )],
                 },
             ));
         }
@@ -247,10 +249,12 @@ pub fn scene_mutation_from_render_path(
     if path.starts_with("obj.atmo.") {
         if let Some(param) = AtmosphereParam::from_full_path(path) {
             return Some(SceneMutation::SetRender3D(
-                Render3DMutation::SetAtmosphereParamTyped {
-                    target: target.to_string(),
-                    param,
-                    value: mat_value,
+                Render3DMutation::SetGroupedParams {
+                    target: Some(target.to_string()),
+                    params: vec![(
+                        crate::mutations::Render3DGroupedParam::Atmosphere(param),
+                        mat_value,
+                    )],
                 },
             ));
         }
@@ -260,10 +264,12 @@ pub fn scene_mutation_from_render_path(
     if path.starts_with("obj.") {
         if let Some(param) = ObjMaterialParam::from_full_path(path) {
             return Some(SceneMutation::SetRender3D(
-                Render3DMutation::SetObjMaterialParam {
-                    target: target.to_string(),
-                    param,
-                    value: mat_value,
+                Render3DMutation::SetGroupedParams {
+                    target: Some(target.to_string()),
+                    params: vec![(
+                        crate::mutations::Render3DGroupedParam::Material(param),
+                        mat_value,
+                    )],
                 },
             ));
         }
@@ -273,10 +279,12 @@ pub fn scene_mutation_from_render_path(
     if path.starts_with("terrain.") {
         if let Some(param) = TerrainParam::from_full_path(path) {
             return Some(SceneMutation::SetRender3D(
-                Render3DMutation::SetTerrainParamTyped {
-                    target: target.to_string(),
-                    param,
-                    value: mat_value,
+                Render3DMutation::SetGroupedParams {
+                    target: Some(target.to_string()),
+                    params: vec![(
+                        crate::mutations::Render3DGroupedParam::Surface(param),
+                        mat_value,
+                    )],
                 },
             ));
         }
@@ -286,10 +294,12 @@ pub fn scene_mutation_from_render_path(
     if path.starts_with("world.") {
         if let Some(param) = WorldgenParam::from_full_path(path) {
             return Some(SceneMutation::SetRender3D(
-                Render3DMutation::SetWorldgenParamTyped {
-                    target: target.to_string(),
-                    param,
-                    value: mat_value,
+                Render3DMutation::SetGroupedParams {
+                    target: Some(target.to_string()),
+                    params: vec![(
+                        crate::mutations::Render3DGroupedParam::Generator(param),
+                        mat_value,
+                    )],
                 },
             ));
         }
@@ -394,16 +404,22 @@ mod tests {
             scene_mutation_from_render_path("ship", "obj.scale", &serde_json::json!(1.25))
                 .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetObjMaterialParam {
+            SceneMutation::SetRender3D(Render3DMutation::SetGroupedParams {
                 target,
-                param,
-                value,
+                params,
             }) => {
-                assert_eq!(target, "ship");
-                assert_eq!(param, crate::mutations::ObjMaterialParam::Scale);
-                assert_eq!(value, MaterialValue::Scalar(1.25));
+                assert_eq!(target.as_deref(), Some("ship"));
+                assert_eq!(
+                    params,
+                    vec![(
+                        crate::mutations::Render3DGroupedParam::Material(
+                            crate::mutations::ObjMaterialParam::Scale
+                        ),
+                        MaterialValue::Scalar(1.25),
+                    )]
+                );
             }
-            _ => panic!("expected SetObjMaterialParam"),
+            _ => panic!("expected SetGroupedParams"),
         }
     }
 

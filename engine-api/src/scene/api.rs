@@ -129,6 +129,27 @@ impl ScriptSceneApi {
         true
     }
 
+    fn enqueue_render3d_group_params(
+        &mut self,
+        target: &str,
+        params: RhaiMap,
+        build: impl FnOnce(String, JsonValue) -> Render3dMutationRequest,
+    ) -> bool {
+        if target.trim().is_empty() || params.is_empty() {
+            return false;
+        }
+        let Some(params) = rhai_dynamic_to_json(&RhaiDynamic::from_map(params)) else {
+            return false;
+        };
+        if !params.is_object() {
+            return false;
+        }
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(build(
+            target.to_string(),
+            params,
+        )))
+    }
+
     /// Get a single scene object API by target (alias or ID).
     pub fn get(&mut self, target: &str) -> ScriptObjectApi {
         // Resolve alias → real object id.
@@ -441,6 +462,48 @@ impl ScriptSceneApi {
             },
         ))
     }
+
+    /// Convenience helper for additive grouped material parameter overrides.
+    pub fn set_material_params(&mut self, target: &str, params: RhaiMap) -> bool {
+        self.enqueue_render3d_group_params(target, params, |target, params| {
+            Render3dMutationRequest::SetMaterialParams { target, params }
+        })
+    }
+
+    /// Convenience helper for additive grouped atmosphere parameter overrides.
+    pub fn set_atmosphere_params(&mut self, target: &str, params: RhaiMap) -> bool {
+        self.enqueue_render3d_group_params(target, params, |target, params| {
+            Render3dMutationRequest::SetAtmosphereParams { target, params }
+        })
+    }
+
+    /// Convenience helper for additive grouped surface parameter overrides.
+    pub fn set_surface_params(&mut self, target: &str, params: RhaiMap) -> bool {
+        self.enqueue_render3d_group_params(target, params, |target, params| {
+            Render3dMutationRequest::SetSurfaceParams { target, params }
+        })
+    }
+
+    /// Convenience helper for additive grouped generator parameter overrides.
+    pub fn set_generator_params(&mut self, target: &str, params: RhaiMap) -> bool {
+        self.enqueue_render3d_group_params(target, params, |target, params| {
+            Render3dMutationRequest::SetGeneratorParams { target, params }
+        })
+    }
+
+    /// Convenience helper for additive grouped body parameter overrides.
+    pub fn set_body_params(&mut self, target: &str, params: RhaiMap) -> bool {
+        self.enqueue_render3d_group_params(target, params, |target, params| {
+            Render3dMutationRequest::SetBodyParams { target, params }
+        })
+    }
+
+    /// Convenience helper for additive grouped view parameter overrides.
+    pub fn set_view_params(&mut self, target: &str, params: RhaiMap) -> bool {
+        self.enqueue_render3d_group_params(target, params, |target, params| {
+            Render3dMutationRequest::SetViewParams { target, params }
+        })
+    }
 }
 
 impl ScriptObjectApi {
@@ -608,6 +671,42 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
                 return false;
             };
             scene.set_render3d_profile_param(profile_slot, name, value)
+        },
+    );
+    engine.register_fn(
+        "set_material_params",
+        |scene: &mut ScriptSceneApi, target: &str, params: RhaiMap| {
+            scene.set_material_params(target, params)
+        },
+    );
+    engine.register_fn(
+        "set_atmosphere_params",
+        |scene: &mut ScriptSceneApi, target: &str, params: RhaiMap| {
+            scene.set_atmosphere_params(target, params)
+        },
+    );
+    engine.register_fn(
+        "set_surface_params",
+        |scene: &mut ScriptSceneApi, target: &str, params: RhaiMap| {
+            scene.set_surface_params(target, params)
+        },
+    );
+    engine.register_fn(
+        "set_generator_params",
+        |scene: &mut ScriptSceneApi, target: &str, params: RhaiMap| {
+            scene.set_generator_params(target, params)
+        },
+    );
+    engine.register_fn(
+        "set_body_params",
+        |scene: &mut ScriptSceneApi, target: &str, params: RhaiMap| {
+            scene.set_body_params(target, params)
+        },
+    );
+    engine.register_fn(
+        "set_view_params",
+        |scene: &mut ScriptSceneApi, target: &str, params: RhaiMap| {
+            scene.set_view_params(target, params)
         },
     );
 
@@ -808,6 +907,143 @@ mod tests {
     }
 
     #[test]
+    fn set_grouped_render_param_helpers_enqueue_typed_mutations() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        let mut material = RhaiMap::new();
+        material.insert("roughness".into(), 0.25.into());
+        material.insert("specular".into(), 0.6.into());
+        let mut atmosphere = RhaiMap::new();
+        atmosphere.insert("density".into(), 0.4.into());
+        let mut surface = RhaiMap::new();
+        surface.insert("terrain_relief".into(), 0.8.into());
+        let mut generator = RhaiMap::new();
+        generator.insert("noise_seed".into(), 42.into());
+        let mut body = RhaiMap::new();
+        body.insert("rotation_deg".into(), 12.0.into());
+        let mut view = RhaiMap::new();
+        view.insert("distance".into(), 9.5.into());
+
+        assert!(api.set_material_params("planet-main", material));
+        assert!(api.set_atmosphere_params("planet-main", atmosphere));
+        assert!(api.set_surface_params("planet-main", surface));
+        assert!(api.set_generator_params("planet-main", generator));
+        assert!(api.set_body_params("planet-main", body));
+        assert!(api.set_view_params("planet-main", view));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 6);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetMaterialParams {
+                        target: "planet-main".to_string(),
+                        params: serde_json::json!({
+                            "roughness": 0.25,
+                            "specular": 0.6
+                        }),
+                    },
+                ),
+            }
+        );
+        assert_eq!(
+            queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetAtmosphereParams {
+                        target: "planet-main".to_string(),
+                        params: serde_json::json!({
+                            "density": 0.4
+                        }),
+                    },
+                ),
+            }
+        );
+        assert_eq!(
+            queue[2],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetSurfaceParams {
+                        target: "planet-main".to_string(),
+                        params: serde_json::json!({
+                            "terrain_relief": 0.8
+                        }),
+                    },
+                ),
+            }
+        );
+        assert_eq!(
+            queue[3],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetGeneratorParams {
+                        target: "planet-main".to_string(),
+                        params: serde_json::json!({
+                            "noise_seed": 42
+                        }),
+                    },
+                ),
+            }
+        );
+        assert_eq!(
+            queue[4],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetBodyParams {
+                        target: "planet-main".to_string(),
+                        params: serde_json::json!({
+                            "rotation_deg": 12.0
+                        }),
+                    },
+                ),
+            }
+        );
+        assert_eq!(
+            queue[5],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetViewParams {
+                        target: "planet-main".to_string(),
+                        params: serde_json::json!({
+                            "distance": 9.5
+                        }),
+                    },
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn set_grouped_render_param_helpers_reject_empty_target_or_params() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        assert!(!api.set_material_params("", RhaiMap::new()));
+        assert!(!api.set_material_params("planet-main", RhaiMap::new()));
+
+        let queue = queue.lock().expect("queue lock");
+        assert!(queue.is_empty());
+    }
+
+    #[test]
     fn set_visible_enqueues_typed_2d_mutation() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
         let mut resolver = TargetResolver::new("scene-root".to_string());
@@ -898,10 +1134,11 @@ mod tests {
             queue[0],
             BehaviorCommand::ApplySceneMutation {
                 request: SceneMutationRequest::SetRender3d(
-                    Render3dMutationRequest::SetWorldParam {
+                    Render3dMutationRequest::SetMaterialParams {
                         target: "planet-view".to_string(),
-                        name: "obj.world.x".to_string(),
-                        value: serde_json::json!(2.5),
+                        params: serde_json::json!({
+                            "world.x": 2.5
+                        }),
                     },
                 ),
             }

@@ -4,6 +4,12 @@ Daily progress updates for Shell Engine development.
 
 ## 18-04-2026
 
+**Grouped render-param mutations for neutral 3D runtime control** ✅
+- **engine-api / engine-scene-runtime**: added grouped render-param mutation requests for `material`, `atmosphere`, `surface`, `generator`, `body`, and `view`, plus Rhai helpers (`set_*_params`) that validate and enqueue JSON-map payloads instead of growing more string-path-only render controls.
+- **engine-api**: legacy `scene.set(target, "...", value)` routing for render3d paths now normalizes `obj.*`, `obj.atmo.*`, `terrain.*`, `world.*`, and `planet.*` into grouped typed requests instead of funneling everything through `SetWorldParam`.
+- **engine-scene-runtime**: added canonical grouped runtime mutations (`SetGroupedParam`, `SetGroupedParams`) with unified request-adapter mapping, dirty-mask classification, and behavior-runner dispatch so grouped API calls and legacy path shims converge on one execution path.
+- **validation**: `cargo test -p engine-api`; `cargo test -p engine-scene-runtime`.
+
 **Viewport clipping investigation + compositor buffer-pool fix** ✅
 - **engine-compositor**: fixed world/UI scratch-buffer sizing in `buffer_pool.rs` — `acquire()` no longer clamps requested buffer size to pool defaults (`512x256`), preventing 3D viewport crop/stretch artifacts at larger authored world resolutions.
 - **engine-compositor**: release policy now drops oversized transient buffers instead of retaining them in the pool, keeping memory usage bounded while preserving correctness.

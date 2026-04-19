@@ -158,6 +158,24 @@ pub enum SpaceEnvironmentParam {
     DustBandStrength,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Render3DGroupedParam {
+    Material(ObjMaterialParam),
+    Atmosphere(AtmosphereParam),
+    Surface(TerrainParam),
+    Generator(WorldgenParam),
+    Body(PlanetParam),
+    View(ViewParam),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ViewParam {
+    Distance,
+    Yaw,
+    Pitch,
+    Roll,
+}
+
 impl ObjMaterialParam {
     pub(crate) fn from_full_path(path: &str) -> Option<Self> {
         match path {
@@ -344,6 +362,10 @@ pub struct SetCamera2DMutation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Render3DMutation {
+    SetGroupedParams {
+        target: Option<String>,
+        params: Vec<(Render3DGroupedParam, MaterialValue)>,
+    },
     SetProfile {
         slot: Render3DProfileSlot,
         profile: String,
@@ -471,21 +493,27 @@ mod tests {
 
     #[test]
     fn typed_obj_material_param_mutation() {
-        let mutation = Render3DMutation::SetObjMaterialParam {
-            target: "ship".to_string(),
-            param: ObjMaterialParam::Yaw,
-            value: MaterialValue::Scalar(45.0),
+        let mutation = Render3DMutation::SetGroupedParams {
+            target: Some("ship".to_string()),
+            params: vec![(
+                Render3DGroupedParam::Material(ObjMaterialParam::Yaw),
+                MaterialValue::Scalar(45.0),
+            )],
         };
 
         match mutation {
-            Render3DMutation::SetObjMaterialParam {
+            Render3DMutation::SetGroupedParams {
                 target,
-                param,
-                value,
+                params,
             } => {
-                assert_eq!(target, "ship");
-                assert_eq!(param, ObjMaterialParam::Yaw);
-                assert_eq!(value, MaterialValue::Scalar(45.0));
+                assert_eq!(target.as_deref(), Some("ship"));
+                assert_eq!(
+                    params,
+                    vec![(
+                        Render3DGroupedParam::Material(ObjMaterialParam::Yaw),
+                        MaterialValue::Scalar(45.0),
+                    )]
+                );
             }
             _ => panic!("unexpected mutation shape"),
         }
@@ -493,21 +521,27 @@ mod tests {
 
     #[test]
     fn typed_atmosphere_param_mutation() {
-        let mutation = Render3DMutation::SetAtmosphereParamTyped {
-            target: "planet".to_string(),
-            param: AtmosphereParam::Height,
-            value: MaterialValue::Scalar(0.15),
+        let mutation = Render3DMutation::SetGroupedParams {
+            target: Some("planet".to_string()),
+            params: vec![(
+                Render3DGroupedParam::Atmosphere(AtmosphereParam::Height),
+                MaterialValue::Scalar(0.15),
+            )],
         };
 
         match mutation {
-            Render3DMutation::SetAtmosphereParamTyped {
+            Render3DMutation::SetGroupedParams {
                 target,
-                param,
-                value,
+                params,
             } => {
-                assert_eq!(target, "planet");
-                assert_eq!(param, AtmosphereParam::Height);
-                assert_eq!(value, MaterialValue::Scalar(0.15));
+                assert_eq!(target.as_deref(), Some("planet"));
+                assert_eq!(
+                    params,
+                    vec![(
+                        Render3DGroupedParam::Atmosphere(AtmosphereParam::Height),
+                        MaterialValue::Scalar(0.15),
+                    )]
+                );
             }
             _ => panic!("unexpected mutation shape"),
         }
@@ -547,22 +581,24 @@ mod tests {
 
     #[test]
     fn neutral_profile_param_mutation_keeps_typed_payload() {
-        let mutation = Render3DMutation::SetProfileParam {
-            param: Render3DProfileParam::SpaceEnvironment(
-                SpaceEnvironmentParam::BackgroundColor,
-            ),
-            value: MaterialValue::Text("#010203".to_string()),
+        let mutation = Render3DMutation::SetGroupedParams {
+            target: None,
+            params: vec![(
+                Render3DGroupedParam::View(ViewParam::Distance),
+                MaterialValue::Text("#010203".to_string()),
+            )],
         };
 
         match mutation {
-            Render3DMutation::SetProfileParam { param, value } => {
+            Render3DMutation::SetGroupedParams { target, params } => {
+                assert_eq!(target, None);
                 assert_eq!(
-                    param,
-                    Render3DProfileParam::SpaceEnvironment(
-                        SpaceEnvironmentParam::BackgroundColor
-                    )
+                    params,
+                    vec![(
+                        Render3DGroupedParam::View(ViewParam::Distance),
+                        MaterialValue::Text("#010203".to_string()),
+                    )]
                 );
-                assert_eq!(value, MaterialValue::Text("#010203".to_string()));
             }
             _ => panic!("unexpected mutation shape"),
         }

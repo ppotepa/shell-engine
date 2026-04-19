@@ -95,17 +95,47 @@ pub enum Render3dMutationRequest {
         name: String,
         value: JsonValue,
     },
+    /// Additively set multiple material parameters by name.
+    SetMaterialParams {
+        target: String,
+        params: JsonValue,
+    },
     /// Set an atmosphere parameter by name.
     SetAtmosphereParam {
         target: String,
         name: String,
         value: JsonValue,
     },
+    /// Additively set multiple atmosphere parameters by name.
+    SetAtmosphereParams {
+        target: String,
+        params: JsonValue,
+    },
     /// Set a world/profile parameter by name.
     SetWorldParam {
         target: String,
         name: String,
         value: JsonValue,
+    },
+    /// Additively set multiple surface parameters by name.
+    SetSurfaceParams {
+        target: String,
+        params: JsonValue,
+    },
+    /// Additively set multiple generator parameters by name.
+    SetGeneratorParams {
+        target: String,
+        params: JsonValue,
+    },
+    /// Additively set multiple body parameters by name.
+    SetBodyParams {
+        target: String,
+        params: JsonValue,
+    },
+    /// Additively set multiple view parameters by name.
+    SetViewParams {
+        target: String,
+        params: JsonValue,
     },
     /// Set surface mode using a typed string value.
     SetSurfaceMode { target: String, mode: String },
@@ -233,6 +263,56 @@ mod tests {
                 profile_slot: Render3dProfileSlot::SpaceEnvironment,
                 name: "background_color".to_string(),
                 value: json!("#010203"),
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_render3d_grouped_material_params_from_json_shape() {
+        let raw = json!({
+            "type": "set_render3d",
+            "kind": "set_material_params",
+            "target": "planet-main",
+            "params": {
+                "diffuse_color": "#aabbcc",
+                "roughness": 0.3
+            }
+        });
+        let decoded: SceneMutationRequest =
+            serde_json::from_value(raw).expect("deserialize request");
+        assert_eq!(
+            decoded,
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetMaterialParams {
+                target: "planet-main".to_string(),
+                params: json!({
+                    "diffuse_color": "#aabbcc",
+                    "roughness": 0.3
+                }),
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_render3d_grouped_view_params_from_json_shape() {
+        let raw = json!({
+            "type": "set_render3d",
+            "kind": "set_view_params",
+            "target": "planet-main",
+            "params": {
+                "distance": 12.0,
+                "yaw_deg": 25.0
+            }
+        });
+        let decoded: SceneMutationRequest =
+            serde_json::from_value(raw).expect("deserialize request");
+        assert_eq!(
+            decoded,
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetViewParams {
+                target: "planet-main".to_string(),
+                params: json!({
+                    "distance": 12.0,
+                    "yaw_deg": 25.0
+                }),
             })
         );
     }
