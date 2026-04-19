@@ -345,6 +345,8 @@ if !(local.initialized ?? false) {
     local.flight_assist_heading_hold = false;
     local.flight_assist_alt_damping = 1.8;
     local.flight_assist_heading_damping = 2.1;
+    local.flight_input_deadzone = 0.03;
+    local.flight_speed_deadzone = 0.02;
     local.tab = 0;
     local.model_mode = 1;
     let p = preset_earth();
@@ -1164,9 +1166,14 @@ if is_flight_active {
             else if input.down("Right") || input.down("d") { -1.0 }
             else { 0.0 };
         let input_blend = (dt * (local.flight_input_blend ?? 6.0)).min(1.0);
-        let thrust_input = (local.flight_thrust_input ?? 0.0) + (thrust_target - (local.flight_thrust_input ?? 0.0)) * input_blend;
-        let radial_input = (local.flight_radial_input ?? 0.0) + (radial_target - (local.flight_radial_input ?? 0.0)) * input_blend;
-        let yaw_input = (local.flight_yaw_input ?? 0.0) + (yaw_target - (local.flight_yaw_input ?? 0.0)) * input_blend;
+        let input_deadzone = (local.flight_input_deadzone ?? 0.03).max(0.0).min(0.2);
+        let speed_deadzone = (local.flight_speed_deadzone ?? 0.02).max(0.0).min(0.2);
+        let thrust_input_raw = (local.flight_thrust_input ?? 0.0) + (thrust_target - (local.flight_thrust_input ?? 0.0)) * input_blend;
+        let radial_input_raw = (local.flight_radial_input ?? 0.0) + (radial_target - (local.flight_radial_input ?? 0.0)) * input_blend;
+        let yaw_input_raw = (local.flight_yaw_input ?? 0.0) + (yaw_target - (local.flight_yaw_input ?? 0.0)) * input_blend;
+        let thrust_input = if thrust_input_raw.abs() < input_deadzone { 0.0 } else { thrust_input_raw };
+        let radial_input = if radial_input_raw.abs() < input_deadzone { 0.0 } else { radial_input_raw };
+        let yaw_input = if yaw_input_raw.abs() < input_deadzone { 0.0 } else { yaw_input_raw };
         let has_explicit_radial = radial_target.abs() > 0.001;
         let has_explicit_yaw = yaw_target.abs() > 0.001;
 
@@ -1185,17 +1192,30 @@ if is_flight_active {
         let mut_radial_speed = radial_speed;
         if (local.flight_assist_alt_hold ?? false) && !has_explicit_radial {
             let alt_hold_damp = (local.flight_assist_alt_damping ?? 1.8).max(0.0);
-            mut_radial_speed = mut_radial_speed * (1.0 / (1.0 + alt_hold_damp * dt));
+            let altitude_now = (r - surface_radius).max(0.0);
+            let surface_band = (min_alt * 3.0).max(0.15);
+            let surface_ratio = (altitude_now / surface_band).max(0.0).min(1.0);
+            let near_surface_boost = 1.0 + (1.0 - surface_ratio) * 4.0;
+            mut_radial_speed = mut_radial_speed * (1.0 / (1.0 + alt_hold_damp * near_surface_boost * dt));
+            let radial_snap = speed_deadzone * (1.0 + (1.0 - surface_ratio) * 1.5);
+            if mut_radial_speed.abs() < radial_snap {
+                mut_radial_speed = 0.0;
+            }
         }
         let mut_yaw_input = yaw_input;
         if (local.flight_assist_heading_hold ?? false) && !has_explicit_yaw {
             let hdg_hold_damp = (local.flight_assist_heading_damping ?? 2.1).max(0.0);
             mut_yaw_input = mut_yaw_input * (1.0 / (1.0 + hdg_hold_damp * dt));
+            if mut_yaw_input.abs() < (input_deadzone * 0.8).max(0.01) {
+                mut_yaw_input = 0.0;
+            }
         }
         let heading = (local.flight_heading ?? 0.0) + mut_yaw_input * dt * (local.flight_yaw_rate ?? 1.8);
 
-        let tangent_speed_damped = tangent_speed * (1.0 / (1.0 + (local.flight_tangent_damping ?? 0.22) * dt));
-        let radial_speed_damped = mut_radial_speed * (1.0 / (1.0 + (local.flight_radial_damping ?? 0.28) * dt));
+        let tangent_speed_damped_raw = tangent_speed * (1.0 / (1.0 + (local.flight_tangent_damping ?? 0.22) * dt));
+        let radial_speed_damped_raw = mut_radial_speed * (1.0 / (1.0 + (local.flight_radial_damping ?? 0.28) * dt));
+        let tangent_speed_damped = if tangent_speed_damped_raw.abs() < speed_deadzone { 0.0 } else { tangent_speed_damped_raw };
+        let radial_speed_damped = if radial_speed_damped_raw.abs() < speed_deadzone { 0.0 } else { radial_speed_damped_raw };
 
         let next_r = (r + radial_speed_damped * dt).max(surface_radius + min_alt);
         let arc = tangent_speed_damped * dt;
