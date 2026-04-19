@@ -89,6 +89,12 @@ Daily progress updates for Shell Engine development.
 - **architecture**: pipeline now has explicit `project -> classify -> shade-prep -> raster-exec -> postprocess` seams, leaving `raster.rs` primarily as high-level orchestration and metrics glue.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer stage split: shared frame shading context** ✅
+- **engine-render-3d**: added `pipeline/stages/frame_context.rs` so per-frame lighting, tone, terrain, and biome inputs are assembled once instead of being rebuilt independently in each raster path.
+- **engine-render-3d**: `raster.rs` now consumes `FrameShadingContext` to build flat-shading inputs plus Gouraud RGB/RGBA raster contexts, removing another large block of duplicated param plumbing.
+- **architecture**: the remaining work in `raster.rs` shifts further toward orchestration, with frame-domain inputs prepared up front and handed to later stages.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.

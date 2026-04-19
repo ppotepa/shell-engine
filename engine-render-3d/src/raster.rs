@@ -15,22 +15,21 @@ use engine_core::scene::TonemapOperator;
 use rayon::prelude::*;
 
 use crate::api::Render3dPipeline;
-use crate::effects::passes::planet_params::{build_biome_params, build_terrain_extra_params};
 use crate::effects::passes::postprocess::apply_rgb_post_passes;
 use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
-use crate::geom::math::{dot3, normalize3};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
+use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::project::{
     project_vertices_into, ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
 use crate::pipeline::stages::raster_exec::{
     execute_flat_rgb_faces, execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
-    execute_gouraud_rgba_faces_parallel_strips, GouraudRgbRasterContext, GouraudRgbaRasterContext,
+    execute_gouraud_rgba_faces_parallel_strips,
 };
 use crate::pipeline::stages::shade::{
-    prepare_flat_faces_into, prepare_gouraud_faces_into, FlatShadingStageContext,
+    prepare_flat_faces_into, prepare_gouraud_faces_into,
 };
 use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::{color_to_rgb, flicker_multiplier};
@@ -493,28 +492,6 @@ pub(crate) fn rasterize_triangle(
     }
 }
 
-// ── Setup helpers (light/camera param extraction) ─────────────────────────────
-
-#[inline]
-fn normalized_light_and_view_dirs(params: &ObjRenderParams) -> ([f32; 3], [f32; 3], [f32; 3]) {
-    let light_dir_norm = normalize3([
-        params.light_direction_x,
-        params.light_direction_y,
-        params.light_direction_z,
-    ]);
-    let light_2_dir_norm = normalize3([
-        params.light_2_direction_x,
-        params.light_2_direction_y,
-        params.light_2_direction_z,
-    ]);
-    let view_dir = normalize3([
-        -params.view_forward_x,
-        -params.view_forward_y,
-        -params.view_forward_z,
-    ]);
-    (light_dir_norm, light_2_dir_norm, view_dir)
-}
-
 // ── Core mesh projection + rasterization ──────────────────────────────────────
 
 /// Project vertices and render a single mesh into provided canvas and depth buffers.
@@ -686,17 +663,7 @@ fn render_mesh_projected(
             }
         }
     } else {
-        let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
-        let half_dir_1 = normalize3([
-            light_dir_norm[0] + view_dir[0],
-            light_dir_norm[1] + view_dir[1],
-            light_dir_norm[2] + view_dir[2],
-        ]);
-        let half_dir_2 = normalize3([
-            light_2_dir_norm[0] + view_dir[0],
-            light_2_dir_norm[1] + view_dir[1],
-            light_2_dir_norm[2] + view_dir[2],
-        ]);
+        let frame_ctx = FrameShadingContext::from_params(&params, fg);
 
         let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
             let mut pool = v.borrow_mut();
@@ -718,48 +685,20 @@ fn render_mesh_projected(
         );
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
-        let light_2_intensity = params.light_2_intensity;
         let light_point_intensity = params.light_point_intensity;
         let light_point_2_intensity = params.light_point_2_intensity;
-        let cel_levels = params.cel_levels;
-        let tone_mix = params.tone_mix;
-        let shadow_colour = params.shadow_colour;
-        let midtone_colour = params.midtone_colour;
-        let highlight_colour = params.highlight_colour;
-        let light_point_colour = params.light_point_colour;
-        let light_point_2_colour = params.light_point_2_colour;
-        let unlit = params.unlit;
-        let ambient = params.ambient;
-        let light_point_falloff = params.light_point_falloff;
-        let light_point_2_falloff = params.light_point_2_falloff;
         let smooth_shading = params.smooth_shading;
-        let latitude_bands = params.latitude_bands;
-        let latitude_band_depth = params.latitude_band_depth;
-        let fg_rgb = color_to_rgb(fg);
-
-        let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
-        let planet_terrain_extra = build_terrain_extra_params(&params);
 
         let drawn_faces = if smooth_shading {
-            let ka_lum_ambient = ambient.max(params.ambient_floor);
-            let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
-
-            let shade_at_vertex = |normal: [f32; 3]| -> f32 {
-                let lambert_1 = dot3(normal, light_dir_norm).max(0.0);
-                let lambert_2 = dot3(normal, light_2_dir_norm).max(0.0) * light_2_strength;
-                let lambert = (lambert_1 + lambert_2).clamp(0.0, 1.0);
-                (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
-            };
-
             let mut shaded_gouraud = Vec::with_capacity(face_limit);
             prepare_gouraud_faces_into(
                 &mesh,
                 &sorted_faces,
                 face_limit,
                 &projected,
-                unlit,
-                fg_rgb,
-                shade_at_vertex,
+                frame_ctx.unlit,
+                frame_ctx.fg_rgb,
+                |normal| frame_ctx.shade_at_vertex(normal),
                 &mut shaded_gouraud,
             );
 
@@ -768,24 +707,7 @@ fn render_mesh_projected(
                 canvas,
                 depth_buf,
                 &shaded_gouraud,
-                GouraudRgbRasterContext {
-                    virtual_w,
-                    virtual_h,
-                    shadow_colour,
-                    midtone_colour,
-                    highlight_colour,
-                    tone_mix,
-                    cel_levels,
-                    latitude_bands,
-                    latitude_band_depth,
-                    terrain_color: params.terrain_color,
-                    terrain_threshold: params.terrain_threshold,
-                    marble_depth: params.marble_depth,
-                    terrain_relief: params.terrain_relief,
-                    below_threshold_transparent: params.below_threshold_transparent,
-                    biome: biome_params,
-                    terrain_extra: planet_terrain_extra,
-                },
+                frame_ctx.gouraud_rgb_raster_context(virtual_w, virtual_h),
                 clipped_viewport.min_y,
                 clipped_viewport.max_y,
                 0,
@@ -798,30 +720,12 @@ fn render_mesh_projected(
                 &sorted_faces,
                 face_limit,
                 &projected,
-                FlatShadingStageContext {
-                    unlit,
-                    fg_rgb,
-                    light_dir_norm,
-                    light_2_dir_norm,
-                    half_dir_1,
-                    half_dir_2,
-                    light_2_intensity,
-                    light_1_pos: [light_1_x, light_point_y, light_1_z],
-                    light_point_intensity: light_point_intensity * point_1_flicker,
-                    light_2_pos: [light_2_x, light_point_2_y, light_2_z],
-                    light_point_2_intensity: light_point_2_intensity * point_2_flicker,
-                    cel_levels,
-                    tone_mix,
-                    ambient,
-                    view_dir,
-                    light_point_falloff,
-                    light_point_2_falloff,
-                    shadow_colour,
-                    midtone_colour,
-                    highlight_colour,
-                    light_point_colour,
-                    light_point_2_colour,
-                },
+                frame_ctx.flat_stage_context(
+                    [light_1_x, light_point_y, light_1_z],
+                    light_point_intensity * point_1_flicker,
+                    [light_2_x, light_point_2_y, light_2_z],
+                    light_point_2_intensity * point_2_flicker,
+                ),
                 &mut shaded_faces,
             );
 
@@ -1238,17 +1142,7 @@ pub fn render_obj_to_canvas(
             taken.resize(canvas_size, f32::INFINITY);
             taken
         });
-        let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
-        let half_dir_1 = normalize3([
-            light_dir_norm[0] + view_dir[0],
-            light_dir_norm[1] + view_dir[1],
-            light_dir_norm[2] + view_dir[2],
-        ]);
-        let half_dir_2 = normalize3([
-            light_2_dir_norm[0] + view_dir[0],
-            light_2_dir_norm[1] + view_dir[1],
-            light_2_dir_norm[2] + view_dir[2],
-        ]);
+        let frame_ctx = FrameShadingContext::from_params(&params, fg);
         let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
             let mut pool = v.borrow_mut();
             let mut taken = std::mem::take(&mut *pool);
@@ -1270,39 +1164,11 @@ pub fn render_obj_to_canvas(
         triangles_processed = face_limit as u32;
         let light_point_y = params.light_point_y;
         let light_point_2_y = params.light_point_2_y;
-        let light_2_intensity = params.light_2_intensity;
         let light_point_intensity = params.light_point_intensity;
         let light_point_2_intensity = params.light_point_2_intensity;
-        let cel_levels = params.cel_levels;
-        let tone_mix = params.tone_mix;
-        let shadow_colour = params.shadow_colour;
-        let midtone_colour = params.midtone_colour;
-        let highlight_colour = params.highlight_colour;
-        let light_point_colour = params.light_point_colour;
-        let light_point_2_colour = params.light_point_2_colour;
-        let unlit = params.unlit;
-        let ambient = params.ambient;
-        let light_point_falloff = params.light_point_falloff;
-        let light_point_2_falloff = params.light_point_2_falloff;
         let smooth_shading = params.smooth_shading;
-        let latitude_bands = params.latitude_bands;
-        let latitude_band_depth = params.latitude_band_depth;
-        let fg_rgb = color_to_rgb(fg);
-
-        let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
-        let planet_terrain_extra = build_terrain_extra_params(&params);
 
         let drawn_faces = if smooth_shading {
-            let ka_lum_ambient = ambient.max(params.ambient_floor);
-            let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
-
-            let shade_at_vertex = |normal: [f32; 3]| -> f32 {
-                let lambert_1 = dot3(normal, light_dir_norm).max(0.0);
-                let lambert_2 = dot3(normal, light_2_dir_norm).max(0.0) * light_2_strength;
-                let lambert = (lambert_1 + lambert_2).clamp(0.0, 1.0);
-                (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
-            };
-
             let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
                 let mut pool = g.borrow_mut();
                 let mut taken = std::mem::take(&mut *pool);
@@ -1315,9 +1181,9 @@ pub fn render_obj_to_canvas(
                 &sorted_faces,
                 face_limit,
                 &projected,
-                unlit,
-                fg_rgb,
-                shade_at_vertex,
+                frame_ctx.unlit,
+                frame_ctx.fg_rgb,
+                |normal| frame_ctx.shade_at_vertex(normal),
                 &mut shaded_gouraud,
             );
 
@@ -1336,24 +1202,7 @@ pub fn render_obj_to_canvas(
                 row_w,
                 clipped_viewport.min_y,
                 clipped_viewport.max_y,
-                GouraudRgbRasterContext {
-                    virtual_w,
-                    virtual_h,
-                    shadow_colour,
-                    midtone_colour,
-                    highlight_colour,
-                    tone_mix,
-                    cel_levels,
-                    latitude_bands,
-                    latitude_band_depth,
-                    terrain_color: params.terrain_color,
-                    terrain_threshold: params.terrain_threshold,
-                    marble_depth: params.marble_depth,
-                    terrain_relief: params.terrain_relief,
-                    below_threshold_transparent: params.below_threshold_transparent,
-                    biome: biome_params,
-                    terrain_extra: planet_terrain_extra,
-                },
+                frame_ctx.gouraud_rgb_raster_context(virtual_w, virtual_h),
             );
             let count = shaded_gouraud.len();
             OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
@@ -1371,30 +1220,12 @@ pub fn render_obj_to_canvas(
                 &sorted_faces,
                 face_limit,
                 &projected,
-                FlatShadingStageContext {
-                    unlit,
-                    fg_rgb,
-                    light_dir_norm,
-                    light_2_dir_norm,
-                    half_dir_1,
-                    half_dir_2,
-                    light_2_intensity,
-                    light_1_pos: [light_1_x, light_point_y, light_1_z],
-                    light_point_intensity: light_point_intensity * point_1_flicker,
-                    light_2_pos: [light_2_x, light_point_2_y, light_2_z],
-                    light_point_2_intensity: light_point_2_intensity * point_2_flicker,
-                    cel_levels,
-                    tone_mix,
-                    ambient,
-                    view_dir,
-                    light_point_falloff,
-                    light_point_2_falloff,
-                    shadow_colour,
-                    midtone_colour,
-                    highlight_colour,
-                    light_point_colour,
-                    light_point_2_colour,
-                },
+                frame_ctx.flat_stage_context(
+                    [light_1_x, light_point_y, light_1_z],
+                    light_point_intensity * point_1_flicker,
+                    [light_2_x, light_point_2_y, light_2_z],
+                    light_point_2_intensity * point_2_flicker,
+                ),
                 &mut shaded_faces,
             );
 
@@ -1585,19 +1416,7 @@ pub fn render_obj_to_rgba_canvas(
         taken
     });
 
-    let (light_dir_norm, light_2_dir_norm, view_dir) = normalized_light_and_view_dirs(&params);
-    let fg_rgb = color_to_rgb(fg);
-    let ka_lum_ambient = params.ambient.max(params.ambient_floor);
-    let light_2_strength = params.light_2_intensity.clamp(0.0, 2.0);
-
-    let shade_at_vertex = |normal: [f32; 3]| -> f32 {
-        let lambert_1 = dot3(normal, light_dir_norm).max(0.0);
-        let lambert_2 = dot3(normal, light_2_dir_norm).max(0.0) * light_2_strength;
-        let lambert = (lambert_1 + lambert_2).clamp(0.0, 1.0);
-        (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
-    };
-
-    let biome_params = build_biome_params(&params, light_dir_norm, view_dir);
+    let frame_ctx = FrameShadingContext::from_params(&params, fg);
 
     let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
         let mut pool = v.borrow_mut();
@@ -1617,8 +1436,6 @@ pub fn render_obj_to_rgba_canvas(
         },
         &mut sorted_faces,
     );
-    let unlit = params.unlit;
-
     let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
         let mut pool = g.borrow_mut();
         let mut taken = std::mem::take(&mut *pool);
@@ -1634,22 +1451,25 @@ pub fn render_obj_to_rgba_canvas(
                 let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                 let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                 let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                let (s0, s1, s2) = if unlit {
+                let (s0, s1, s2) = if frame_ctx.unlit {
                     (1.0, 1.0, 1.0)
                 } else {
                     (
-                        shade_at_vertex(v0.normal),
-                        shade_at_vertex(v1.normal),
-                        shade_at_vertex(v2.normal),
+                        frame_ctx.shade_at_vertex(v0.normal),
+                        frame_ctx.shade_at_vertex(v1.normal),
+                        frame_ctx.shade_at_vertex(v2.normal),
                     )
                 };
-                let base_color = if unlit { fg_rgb } else { face.color };
+                let base_color = if frame_ctx.unlit {
+                    frame_ctx.fg_rgb
+                } else {
+                    face.color
+                };
                 Some((v0, v1, v2, base_color, s0, s1, s2))
             }),
     );
 
     let row_w = virtual_w as usize;
-    let cel_levels = params.cel_levels;
     let num_strips = rayon::current_num_threads().max(1);
     let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
     let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 4]>], &mut [f32])> = canvas
@@ -1664,25 +1484,7 @@ pub fn render_obj_to_rgba_canvas(
         row_w,
         clipped_viewport.min_y,
         clipped_viewport.max_y,
-        GouraudRgbaRasterContext {
-            virtual_w,
-            virtual_h,
-            cel_levels,
-            terrain_color: params.terrain_color,
-            terrain_threshold: params.terrain_threshold,
-            terrain_noise_scale: params.terrain_noise_scale,
-            terrain_noise_octaves: params.terrain_noise_octaves,
-            below_threshold_transparent: params.below_threshold_transparent,
-            cloud_alpha_softness: params.cloud_alpha_softness,
-            biome: biome_params,
-            marble_depth: params.marble_depth,
-            shadow_colour: params.shadow_colour,
-            midtone_colour: params.midtone_colour,
-            highlight_colour: params.highlight_colour,
-            tone_mix: params.tone_mix,
-            latitude_bands: params.latitude_bands,
-            latitude_band_depth: params.latitude_band_depth,
-        },
+        frame_ctx.gouraud_rgba_raster_context(virtual_w, virtual_h),
     );
 
     let faces_drawn_count = shaded_gouraud.len() as u32;
