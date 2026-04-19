@@ -1,3 +1,4 @@
+use crate::frame_input::Render3dFrameInput;
 use crate::scene::Scene3DInstance;
 use engine_core::buffer::Buffer;
 use engine_core::render_types::{Camera3DState, ViewportRect};
@@ -17,6 +18,8 @@ pub struct Render3dInput<'a> {
     pub camera: &'a Camera3DState,
     pub frame_time_ms: u64,
 }
+
+pub type NeutralRender3dInput = Render3dFrameInput;
 
 #[derive(Debug)]
 pub struct Render3dOutput {
