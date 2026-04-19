@@ -97,33 +97,34 @@ Scene runtime now materializes one effective scene-wide look contract from:
 
 Preferred mutations in this area are typed:
 
-- `SetViewProfile`
-- `SetLightingProfile`
-- `SetSpaceEnvironmentProfile`
-- `SetLightingParam`
-- `SetSpaceEnvironmentParam`
+- `SetProfile { slot, profile }`
+- `SetProfileParam { slot, name/value }`
 
 This should stay the preferred path. Do not add new render-facing string-path
 semantics when typed scene mutations can express the same intent.
 
-## OBJ / world runtime property mutations
+## Render3D grouped runtime mutations
 
-`materialization.rs` handles typed `Render3DMutation` variants for `Sprite::Obj` and `Sprite::Planet`
-sprites. Compatibility `scene.set(id, "path", value)` calls are translated at
-the API boundary into typed mutations before reaching `materialization.rs`; the
-runtime no longer accepts a separate raw string-path mutation branch.
+`materialization.rs` handles typed `Render3DMutation` variants for authored 3D
+sprites, but runtime mutation semantics are now grouped by render-domain
+responsibility instead of growing new string-path branches.
 
-| Typed enum | Variants | Notes |
-|------------|----------|-------|
-| `ObjMaterialParam` | `Source`, `Scale`, `Yaw`, `Pitch`, `Roll`, `RotationSpeed`, `Ambient`, `SurfaceMode`, `LightDirectionX/Y/Z`, `WorldX/Y/Z`, … | Lighting, motion, material — no mesh rebuild |
-| `AtmosphereParam` | `Color`, `Strength`, `HaloStrength`, `HazeStrength`, `RimPower`, … | Atmosphere render properties — no mesh rebuild |
-| `TerrainParam` | `Amplitude`, `Frequency`, `Roughness`, `Octaves`, `SeedX/Z`, … | Terrain plane geometry — triggers mesh rebuild |
-| `WorldgenParam` | `Seed`, `OceanFraction`, `ContinentScale`, `MountainScale`, `Subdivisions`, `Coloring`, … | World generation params — triggers mesh rebuild |
-| `PlanetParam` | `SpinDeg`, `CloudSpinDeg`, `ObserverAltitudeKm`, `SunDirX/Y/Z` | Planet animation state |
+Canonical grouped mutations:
 
-Rhai scripts can still use `scene.set(id, "obj.yaw", val)` for supported paths,
-but those paths are converted at the API boundary into typed mutations before
-they reach runtime materialization.
+| Group | Runtime enum backing | Typical responsibility |
+|-------|----------------------|------------------------|
+| `material` | `Render3DGroupedParam::Material(ObjMaterialParam)` | motion, material, light vectors, object placement |
+| `atmosphere` | `Render3DGroupedParam::Atmosphere(AtmosphereParam)` | atmosphere shell / halo / haze controls |
+| `surface` | `Render3DGroupedParam::Surface(TerrainParam)` | terrain/displacement-facing surface params |
+| `generator` | `Render3DGroupedParam::Generator(WorldgenParam)` | world generation inputs and rebuild-affecting params |
+| `body` | `Render3DGroupedParam::Body(PlanetParam)` | planet/body animation and observer inputs |
+| `view` | `Render3DGroupedParam::View(ViewParam)` | view-local runtime controls such as distance/yaw/pitch/roll |
+
+Compatibility `scene.set(id, "obj.*", value)` / `scene.set(id, "planet.*",
+value)` / `scene.set(id, "terrain.*", value)` calls are still supported, but
+they are normalized into grouped typed mutations before runtime application.
+The runtime should converge on grouped/profile mutations, not add more
+render-facing string-path branches.
 
 ## Integration points
 

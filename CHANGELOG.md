@@ -4,6 +4,17 @@ Daily progress updates for Shell Engine development.
 
 ## 18-04-2026
 
+**Prepared-item compositor/provider dispatch convergence** ✅
+- **engine-compositor**: replaced remaining provider-side branching for OBJ / GeneratedWorld / SceneClip sprite rendering with a single prepared-item delegate path (`render_prepared_item(...)`) backed by `render_prepared_render3d_item_to_buffer(...)`.
+- **engine-compositor**: `prepared_frame` now stores `PreparedRender3dItem` instead of the older `Render3dSpriteSpec`, and layer 3D detection/preparation now uses `prepare_render3d_item(...)` consistently.
+- **engine-render-3d**: added `PreparedRender3dSource::{sprite,id}` helpers so compositor glue can finalize sprites and resolve object camera state without reopening source-specific branching.
+- **validation**: `cargo check -p engine-render-3d -p engine-compositor`; `cargo test -p engine-compositor`.
+
+**Render3D neutralization docs/export cleanup** ✅
+- **engine-render-3d**: refreshed crate docs and top-level exports to surface the neutral frame-input contract, prepared-item producer seams, and `RenderPassContext` as first-class public API.
+- **engine-api**: documented the new grouped render3d mutation requests and Rhai helpers (`set_material_params`, `set_atmosphere_params`, `set_surface_params`, `set_generator_params`, `set_body_params`, `set_view_params`) as the preferred typed surface above compatibility `scene.set(...)` paths.
+- **engine-scene-runtime**: updated crate docs to describe canonical grouped runtime mutations (`material`, `atmosphere`, `surface`, `generator`, `body`, `view`) and the scene-level profile path without implying a separate raw string-path execution branch.
+
 **Grouped render-param mutations for neutral 3D runtime control** ✅
 - **engine-api / engine-scene-runtime**: added grouped render-param mutation requests for `material`, `atmosphere`, `surface`, `generator`, `body`, and `view`, plus Rhai helpers (`set_*_params`) that validate and enqueue JSON-map payloads instead of growing more string-path-only render controls.
 - **engine-api**: legacy `scene.set(target, "...", value)` routing for render3d paths now normalizes `obj.*`, `obj.atmo.*`, `terrain.*`, `world.*`, and `planet.*` into grouped typed requests instead of funneling everything through `SetWorldParam`.

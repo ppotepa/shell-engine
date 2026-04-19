@@ -9,7 +9,7 @@ use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
 use engine_core::spatial::SpatialContext;
-use engine_render_3d::pipeline::extract_render3d_sprite_spec;
+use engine_render_3d::pipeline::prepare_render3d_item;
 use std::collections::HashMap;
 
 /// All scene-invariant inputs to a single compositor invocation.
@@ -138,7 +138,7 @@ pub fn prepare_layer_frames<'a>(
             let has_3d = layer
                 .sprites
                 .iter()
-                .any(|sprite| extract_render3d_sprite_spec(sprite).is_some());
+                .any(|sprite| prepare_render3d_item(sprite).is_some());
 
             Some(PreparedLayerFrame {
                 index,

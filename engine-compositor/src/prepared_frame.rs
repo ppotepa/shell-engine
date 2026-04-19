@@ -1,6 +1,6 @@
 use engine_animation::SceneStage;
 use engine_core::scene::{Layer, LayerSpace, SceneSpace, Sprite};
-use engine_render_3d::pipeline::{extract_render3d_sprite_spec, Render3dSpriteSpec};
+use engine_render_3d::pipeline::{prepare_render3d_item, PreparedRender3dItem};
 
 use crate::scene_compositor::{FrameAssemblyInputs, PreparedLayerFrame};
 
@@ -14,7 +14,7 @@ pub struct PreparedSprite2d<'a> {
 pub struct PreparedSprite3d<'a> {
     pub sprite: &'a Sprite,
     pub sprite_idx: usize,
-    pub spec: Render3dSpriteSpec<'a>,
+    pub item: PreparedRender3dItem<'a>,
 }
 
 /// Layer render inputs with sprites pre-classified into 2D and 3D render lists.
@@ -92,11 +92,11 @@ pub fn prepare_layer_input<'a>(
     let mut sprites_2d = Vec::new();
     let mut sprites_3d = Vec::new();
     for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
-        if let Some(spec) = extract_render3d_sprite_spec(sprite) {
+        if let Some(item) = prepare_render3d_item(sprite) {
             sprites_3d.push(PreparedSprite3d {
                 sprite,
                 sprite_idx,
-                spec,
+                item,
             });
         } else {
             sprites_2d.push(PreparedSprite2d { sprite, sprite_idx });

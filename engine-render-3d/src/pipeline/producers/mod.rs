@@ -14,6 +14,24 @@ pub enum PreparedRender3dSource<'a> {
     SceneClip(SceneClipSpriteSpec<'a>),
 }
 
+impl<'a> PreparedRender3dSource<'a> {
+    pub fn sprite(&self) -> &'a Sprite {
+        match self {
+            Self::Mesh(spec) => spec.sprite,
+            Self::GeneratedWorld(spec) => spec.sprite,
+            Self::SceneClip(spec) => spec.sprite,
+        }
+    }
+
+    pub fn id(&self) -> Option<&'a str> {
+        match self {
+            Self::Mesh(spec) => spec.id,
+            Self::GeneratedWorld(_) => None,
+            Self::SceneClip(spec) => spec.id,
+        }
+    }
+}
+
 pub struct PreparedRender3dItem<'a> {
     pub source: PreparedRender3dSource<'a>,
 }

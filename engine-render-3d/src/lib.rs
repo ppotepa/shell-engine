@@ -17,6 +17,12 @@ pub use frame_profiles::{
     FrameAtmosphereProfile, FrameEnvironmentProfile, FrameGeometry3D, FrameLightingProfile,
     FramePointLightProfile, FramePostProcessProfile, FrameSurfaceProfile,
 };
+pub use effects::passes::context::RenderPassContext;
+pub use pipeline::{
+    prepare_render3d_item, render_prepared_render3d_item_to_buffer, GeneratedWorldFrameProducer,
+    MeshFrameProducer, PreparedRender3dItem, PreparedRender3dRuntime, PreparedRender3dSource,
+    Render3dProducer, SceneClipFrameProducer,
+};
 pub use raster::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
     obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,

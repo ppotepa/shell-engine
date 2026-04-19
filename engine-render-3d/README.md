@@ -7,8 +7,8 @@ Shared 3D rendering domain crate.
 `engine-render-3d` owns the reusable 3D domain that should not live in
 compositor assembly:
 
-- typed 3D scene/render inputs,
-- sprite-to-3D spec extraction,
+- neutral frame-level 3D render inputs,
+- sprite/domain-to-frame producer seams,
 - generated-world rendering,
 - Scene3D prerender/runtime-store logic,
 - software raster helpers,
@@ -21,11 +21,14 @@ internals.
 
 ## Main modules
 
-- `api` — concrete 3D pipeline input/output types and seams
+- `api` / `frame_input` / `frame_profiles` — neutral 3D frame contract and
+  profile types (`Render3dFrameInput`, `Frame*Profile`)
 - `scene` — typed 3D scene graph/runtime data
   - includes LOD policy seam (`scene::lod::{select_lod_level, select_lod_level_stable}`) and `Node3DInstance::lod_hint`
-- `pipeline` — prepared sprite specs and render execution helpers
+- `pipeline` — prepared-item producers, sprite specs, and render execution helpers
   - generated-world path includes cloud cadence/reuse hooks for CPU raster cost control
+- `effects::passes` — reusable effect/pass seams (`surface`, `halo`,
+  `postprocess`, `RenderPassContext`)
 - `prerender` — Scene3D atlas/runtime-store/work-item orchestration
 - `raster` — low-level software raster helpers shared by 3D paths
 - `effects` — atmosphere, biome, terrain, and related effect kernels
@@ -39,7 +42,19 @@ internals.
 
 ## Integration
 
-- `engine-compositor` uses prepared 3D sprite specs and 3D callbacks from here
+- `engine-compositor` should consume `PreparedRender3dItem` /
+  `render_prepared_render3d_item_to_buffer(...)` instead of rebuilding 3D
+  dispatch logic locally
 - `engine-worldgen` supplies generated mesh/build-key inputs
   - including optional LOD-tagged mesh build-key domains for future adaptive LOD rollout
 - `engine-scene-runtime` and `engine-api` feed typed-first runtime mutation data
+
+## Public seams
+
+The current neutralization work centers around these public seams:
+
+- `Render3dFrameInput` and `Frame*Profile` for renderer-facing frame data
+- `PreparedRender3dItem` / `PreparedRender3dSource` for producer output
+- `prepare_render3d_item(...)` for sprite/spec extraction into prepared items
+- `render_prepared_render3d_item_to_buffer(...)` for common prepared-item dispatch
+- `RenderPassContext` for pass-level effect execution

@@ -21,19 +21,9 @@ use engine_render_2d::{
 };
 #[cfg(feature = "render-3d")]
 use engine_render_3d::pipeline::{
-    extract_render3d_sprite_spec, GeneratedWorldSpriteSpec, ObjSpriteSpec, Render3dSpriteSpec,
-    SceneClipSpriteSpec,
+    prepare_render3d_item, PreparedRender3dItem,
 };
 
-/// Unified 3D node spec — carries either an OBJ mesh or a GeneratedWorld (planet) node.
-///
-/// `SceneClip` is intentionally excluded: it composites pre-rendered Scene3D content and
-/// therefore has a distinct dispatch path (`render_scene_clip_sprite`).
-#[cfg(feature = "render-3d")]
-pub(crate) enum Render3dNodeSpec<'a> {
-    Obj(ObjSpriteSpec<'a>),
-    GeneratedWorld(GeneratedWorldSpriteSpec<'a>),
-}
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -121,31 +111,16 @@ fn scale_u16_allow_zero(value: u16, scale: f32) -> u16 {
 
 #[cfg(feature = "render-3d")]
 pub(crate) trait Render3dDelegate {
-    /// Render any OBJ or GeneratedWorld (planet) 3D node through a single unified dispatch path.
-    /// The implementation branches on the spec variant internally; the compositor no longer
-    /// differentiates between OBJ and planet at this boundary.
-    fn render_3d_node(
+    /// Render any prepared 3D item through a single unified dispatch path.
+    fn render_prepared_item(
         &self,
-        spec: Render3dNodeSpec<'_>,
+        item: PreparedRender3dItem<'_>,
         area: RenderArea,
         target_resolver: Option<&TargetResolver>,
         object_regions: &mut HashMap<String, Region>,
         object_id: Option<&str>,
         object_state: &ObjectRuntimeState,
-        appear_at: u64,
         sprite_elapsed: u64,
-        ctx: &mut RenderCtx<'_>,
-    );
-
-    fn render_scene_clip_sprite(
-        &self,
-        spec: SceneClipSpriteSpec<'_>,
-        area: RenderArea,
-        target_resolver: Option<&TargetResolver>,
-        object_id: Option<&str>,
-        object_state: &ObjectRuntimeState,
-        sprite_elapsed: u64,
-        object_regions: &mut HashMap<String, Region>,
         ctx: &mut RenderCtx<'_>,
     );
 }
@@ -281,47 +256,17 @@ fn render_sprite(
     let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
 
     #[cfg(feature = "render-3d")]
-    if let Some(spec) = extract_render3d_sprite_spec(sprite) {
-        match spec {
-            Render3dSpriteSpec::Obj(spec) => {
-                render_3d.render_3d_node(
-                    Render3dNodeSpec::Obj(spec),
-                    area,
-                    target_resolver,
-                    object_regions,
-                    object_id,
-                    &object_state,
-                    appear_at,
-                    sprite_elapsed,
-                    ctx,
-                );
-            }
-            Render3dSpriteSpec::GeneratedWorld(spec) => {
-                render_3d.render_3d_node(
-                    Render3dNodeSpec::GeneratedWorld(spec),
-                    area,
-                    target_resolver,
-                    object_regions,
-                    object_id,
-                    &object_state,
-                    appear_at,
-                    sprite_elapsed,
-                    ctx,
-                );
-            }
-            Render3dSpriteSpec::SceneClip(spec) => {
-                render_3d.render_scene_clip_sprite(
-                    spec,
-                    area,
-                    target_resolver,
-                    object_id,
-                    &object_state,
-                    sprite_elapsed,
-                    object_regions,
-                    ctx,
-                );
-            }
-        }
+    if let Some(item) = prepare_render3d_item(sprite) {
+        render_3d.render_prepared_item(
+            item,
+            area,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            sprite_elapsed,
+            ctx,
+        );
         return;
     }
 
