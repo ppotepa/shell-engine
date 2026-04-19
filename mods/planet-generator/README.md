@@ -39,6 +39,7 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `flight assists` are active in runtime and reflected in HUD:
   - `HOLD ALT`
   - `HOLD HDG`
+- `flight profile` and both assist toggles are persisted in game state and restored on next run.
 - `F10` or `Esc` returns to `generator` mode without resetting current generator parameters.
 
 ## Scene structure

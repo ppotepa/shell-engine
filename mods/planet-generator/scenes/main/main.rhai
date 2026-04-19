@@ -183,6 +183,22 @@ fn flight_profile_state_path() {
     "/mods/planet-generator/flight/profile"
 }
 
+fn flight_assist_alt_state_path() {
+    "/mods/planet-generator/flight/assist_alt_hold"
+}
+
+fn flight_assist_heading_state_path() {
+    "/mods/planet-generator/flight/assist_heading_hold"
+}
+
+fn bool_to_i(v) {
+    if v { 1 } else { 0 }
+}
+
+fn i_to_bool(v) {
+    v != 0
+}
+
 fn apply_flight_profile(local, profile_name) {
     let profile = normalize_flight_profile_name(profile_name);
     local["flight_profile"] = profile;
@@ -221,6 +237,14 @@ fn toggle_flight_profile(local) {
 fn persist_flight_profile(local, game) {
     let profile = normalize_flight_profile_name(local["flight_profile"] ?? "arcade");
     game.set(flight_profile_state_path(), profile);
+    local
+}
+
+fn persist_flight_assists(local, game) {
+    let alt_hold = local["flight_assist_alt_hold"] ?? false;
+    let heading_hold = local["flight_assist_heading_hold"] ?? false;
+    game.set(flight_assist_alt_state_path(), bool_to_i(alt_hold));
+    game.set(flight_assist_heading_state_path(), bool_to_i(heading_hold));
     local
 }
 
@@ -341,8 +365,8 @@ if !(local.initialized ?? false) {
     local.flight_profile = normalize_flight_profile_name(
         game.get_s(flight_profile_state_path(), "arcade")
     );
-    local.flight_assist_alt_hold = false;
-    local.flight_assist_heading_hold = false;
+    local.flight_assist_alt_hold = i_to_bool(game.get_i(flight_assist_alt_state_path(), 0));
+    local.flight_assist_heading_hold = i_to_bool(game.get_i(flight_assist_heading_state_path(), 0));
     local.flight_assist_alt_damping = 1.8;
     local.flight_assist_heading_damping = 2.1;
     local.flight_input_deadzone = 0.03;
@@ -363,6 +387,7 @@ if !(local.initialized ?? false) {
     local.tab_sync_needed = true;
     local = apply_flight_profile(local, local.flight_profile);
     local = persist_flight_profile(local, game);
+    local = persist_flight_assists(local, game);
 }
 
 let tab  = local.tab  ?? 0;
@@ -504,9 +529,11 @@ if is_flight_active && profile_toggle_pressed {
 }
 if is_flight_active && input.just_pressed("h") {
     local.flight_assist_alt_hold = !(local.flight_assist_alt_hold ?? false);
+    local = persist_flight_assists(local, game);
 }
 if is_flight_active && input.just_pressed("j") {
     local.flight_assist_heading_hold = !(local.flight_assist_heading_hold ?? false);
+    local = persist_flight_assists(local, game);
 }
 
 // ── Preset keys (F1-F7) ───────────────────────────────────────────────────────
