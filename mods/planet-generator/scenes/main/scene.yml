@@ -90,25 +90,25 @@ gui:
       id: planet-randomize-button
       sprite: planet-randomize-button-label
       x: 852
-      y: 620
-      w: 124
-      h: 36
+      y: 616
+      w: 132
+      h: 40
       follow-layout: false
     - type: button
       id: planet-flyaround-button
       sprite: planet-flyaround-button-label
       x: 992
-      y: 620
-      w: 124
-      h: 36
+      y: 616
+      w: 132
+      h: 40
       follow-layout: false
     - type: button
       id: planet-reset-button
       sprite: planet-reset-button-label
       x: 1132
-      y: 620
-      w: 124
-      h: 36
+      y: 616
+      w: 132
+      h: 40
       follow-layout: false
     # ── Preset selector (compact dropdown) ───────────────────────────────────
     - type: dropdown

@@ -9,10 +9,10 @@
       align-x: right
       align-y: top
       x: -16
-      y: 620
+      y: 616
       width: 412
-      height: 36
-      padding: 4
+      height: 40
+      padding: 6
       border-width: 1
       corner-radius: 6
       fg: "#2a9440"
@@ -25,7 +25,7 @@
         - type: grid
           columns: ["1fr", "1fr", "1fr"]
           rows: ["1fr"]
-          gap-x: 8
+          gap-x: 10
           children:
             - { type: text, id: planet-randomize-button-label, content: "[R] RANDOMIZE", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#ffc030" }
             - { type: text, id: planet-flyaround-button-label, content: "[F10] FLY AROUND", grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#5bc0be" }
