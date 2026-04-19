@@ -19,6 +19,7 @@ use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::edges::{draw_outline_edges_flat, draw_wireframe_edges_with_depth};
+use crate::pipeline::stages::flat::render_flat_rgb_solid;
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::gouraud::prepare_visible_gouraud_faces_into;
 use crate::pipeline::stages::light_motion::animate_point_lights;
@@ -27,11 +28,11 @@ use crate::pipeline::stages::project::{
     ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
 use crate::pipeline::stages::raster_exec::{
-    execute_flat_rgb_faces, execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
+    execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
     execute_gouraud_rgba_faces_parallel_strips,
 };
 use crate::pipeline::stages::shade::{
-    prepare_flat_faces_into, prepare_gouraud_faces_into,
+    prepare_gouraud_faces_into,
 };
 use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::color_to_rgb;
@@ -918,32 +919,30 @@ fn render_mesh_projected(
             );
             count
         } else {
-            let mut shaded_faces = Vec::with_capacity(face_limit);
-            prepare_flat_faces_into(
+            let mut shaded_faces = Vec::with_capacity(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
+            let (_, faces_drawn) = render_flat_rgb_solid(
                 &mesh,
-                &sorted_faces,
-                face_limit,
                 &projected,
+                canvas,
+                depth_buf,
+                virtual_w,
+                virtual_h,
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
+                backface_cull,
+                params.depth_sort_faces,
+                MIN_PROJECTED_FACE_DOUBLE_AREA,
+                MAX_OBJ_FACE_RENDER,
                 frame_ctx.flat_stage_context(
                     [point_lights.point_1_x, light_point_y, point_lights.point_1_z],
                     light_point_intensity * point_lights.point_1_flicker,
                     [point_lights.point_2_x, light_point_2_y, point_lights.point_2_z],
                     light_point_2_intensity * point_lights.point_2_flicker,
                 ),
+                &mut sorted_faces,
                 &mut shaded_faces,
             );
-
-            let count = shaded_faces.len();
-            execute_flat_rgb_faces(
-                canvas,
-                depth_buf,
-                &shaded_faces,
-                virtual_w,
-                virtual_h,
-                clipped_viewport.min_y,
-                clipped_viewport.max_y,
-            );
-            count
+            faces_drawn as usize
         };
 
         OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
@@ -1260,45 +1259,32 @@ pub fn render_obj_to_canvas(
             triangles_processed = triangles;
             faces_drawn as usize
         } else {
-            let face_limit = classify_and_sort_faces_into(
+            let mut shaded_faces = take_shaded_flat_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
+            let (triangles, faces_drawn) = render_flat_rgb_solid(
                 &mesh,
                 &projected,
-                FaceClassificationConfig {
-                    backface_cull,
-                    depth_sort_faces: params.depth_sort_faces,
-                    min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
-                    max_faces: MAX_OBJ_FACE_RENDER,
-                },
-                &mut sorted_faces,
-            );
-            triangles_processed = face_limit as u32;
-            let mut shaded_faces = take_shaded_flat_buffer(face_limit);
-            prepare_flat_faces_into(
-                &mesh,
-                &sorted_faces,
-                face_limit,
-                &projected,
+                &mut canvas,
+                &mut depth,
+                virtual_w,
+                virtual_h,
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
+                backface_cull,
+                params.depth_sort_faces,
+                MIN_PROJECTED_FACE_DOUBLE_AREA,
+                MAX_OBJ_FACE_RENDER,
                 frame_ctx.flat_stage_context(
                     [point_lights.point_1_x, light_point_y, point_lights.point_1_z],
                     light_point_intensity * point_lights.point_1_flicker,
                     [point_lights.point_2_x, light_point_2_y, point_lights.point_2_z],
                     light_point_2_intensity * point_lights.point_2_flicker,
                 ),
+                &mut sorted_faces,
                 &mut shaded_faces,
             );
-
-            let count = shaded_faces.len();
-            execute_flat_rgb_faces(
-                &mut canvas,
-                &mut depth,
-                &shaded_faces,
-                virtual_w,
-                virtual_h,
-                clipped_viewport.min_y,
-                clipped_viewport.max_y,
-            );
+            triangles_processed = triangles;
             release_shaded_flat_buffer(shaded_faces);
-            count
+            faces_drawn as usize
         };
         if !smooth_shading {
             release_sorted_faces_buffer(sorted_faces);

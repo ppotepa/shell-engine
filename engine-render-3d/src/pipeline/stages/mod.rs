@@ -1,5 +1,6 @@
 pub mod classify;
 pub mod edges;
+pub mod flat;
 pub mod frame_context;
 pub mod gouraud;
 pub mod light_motion;
