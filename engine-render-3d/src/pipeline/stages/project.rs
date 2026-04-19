@@ -2,6 +2,7 @@ use engine_asset::ObjMesh;
 use rayon::prelude::*;
 
 use crate::effects::terrain::{compute_terrain_noise_at, displace_sphere_vertex};
+use crate::geom::clip::Viewport;
 use crate::geom::math::rotate_xyz;
 use crate::geom::types::ProjectedVertex;
 use crate::ObjRenderParams;
@@ -31,6 +32,12 @@ pub(crate) struct ProjectionStageInput {
     pub inv_tan: f32,
     pub virtual_w: u16,
     pub virtual_h: u16,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ProjectionPoseConfig {
+    pub include_animated_yaw: bool,
+    pub include_camera_look: bool,
 }
 
 #[inline]
@@ -132,4 +139,86 @@ pub(crate) fn project_vertices_into(
             }
         }
     }
+}
+
+pub(crate) fn project_mesh_with_viewport(
+    mesh: &ObjMesh,
+    params: &ObjRenderParams,
+    virtual_w: u16,
+    virtual_h: u16,
+    pose: ProjectionPoseConfig,
+    config: ProjectionStageConfig,
+    projected: &mut Vec<Option<ProjectedVertex>>,
+) -> Option<Viewport> {
+    if virtual_w < 2 || virtual_h < 2 {
+        return None;
+    }
+
+    let elapsed_s = params.scene_elapsed_ms as f32 / 1000.0;
+    let yaw = (params.yaw_deg
+        + params.rotation_y
+        + if pose.include_animated_yaw {
+            params.rotate_y_deg_per_sec * elapsed_s
+        } else {
+            0.0
+        }
+        + if pose.include_camera_look {
+            params.camera_look_yaw
+        } else {
+            0.0
+        })
+    .to_radians();
+    let pitch = (params.pitch_deg
+        + params.rotation_x
+        + if pose.include_camera_look {
+            params.camera_look_pitch
+        } else {
+            0.0
+        })
+    .to_radians();
+    let roll = (params.roll_deg + params.rotation_z).to_radians();
+    let fov = params.fov_degrees.clamp(10.0, 170.0).to_radians();
+    let inv_tan = 1.0 / (fov * 0.5).tan().max(0.0001);
+    let near_clip = params.near_clip.max(0.000001);
+    let model_scale = params.scale.max(0.0001) / mesh.radius.max(0.0001);
+    let aspect = virtual_w as f32 / virtual_h as f32;
+
+    let viewport = Viewport {
+        min_x: 0,
+        min_y: 0,
+        max_x: virtual_w as i32 - 1,
+        max_y: virtual_h as i32 - 1,
+    };
+    let clip_row_min = (params.clip_y_min.clamp(0.0, 1.0) * virtual_h as f32).floor() as i32;
+    let clip_row_max = (params.clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as i32 - 1;
+    let clipped_viewport = Viewport {
+        min_x: viewport.min_x,
+        min_y: viewport.min_y.max(clip_row_min),
+        max_x: viewport.max_x,
+        max_y: viewport.max_y.min(clip_row_max),
+    };
+    if clipped_viewport.min_y > clipped_viewport.max_y {
+        return None;
+    }
+
+    project_vertices_into(
+        mesh,
+        params,
+        ProjectionStageInput {
+            center: mesh.center,
+            model_scale,
+            pitch,
+            yaw,
+            roll,
+            near_clip,
+            aspect,
+            inv_tan,
+            virtual_w,
+            virtual_h,
+        },
+        config,
+        projected,
+    );
+
+    Some(clipped_viewport)
 }

@@ -20,7 +20,8 @@ use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::project::{
-    project_vertices_into, ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
+    project_mesh_with_viewport, project_vertices_into, ProjectionPoseConfig,
+    ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
 };
 use crate::pipeline::stages::raster_exec::{
     execute_flat_rgb_faces, execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
@@ -996,37 +997,6 @@ pub fn render_obj_to_canvas(
     } else {
         (params.light_point_2_x, params.light_point_2_z)
     };
-    let yaw = (params.yaw_deg
-        + params.rotation_y
-        + params.rotate_y_deg_per_sec * elapsed_s
-        + params.camera_look_yaw)
-        .to_radians();
-    let pitch = (params.pitch_deg + params.rotation_x + params.camera_look_pitch).to_radians();
-    let roll = (params.roll_deg + params.rotation_z).to_radians();
-    let fov = params.fov_degrees.clamp(10.0, 170.0).to_radians();
-    let inv_tan = 1.0 / (fov * 0.5).tan().max(0.0001);
-    let near_clip = params.near_clip.max(0.000001);
-    let model_scale = params.scale.max(0.0001) / mesh.radius.max(0.0001);
-    let aspect = virtual_w as f32 / virtual_h as f32;
-
-    let viewport = Viewport {
-        min_x: 0,
-        min_y: 0,
-        max_x: virtual_w as i32 - 1,
-        max_y: virtual_h as i32 - 1,
-    };
-    let clip_row_min = (params.clip_y_min.clamp(0.0, 1.0) * virtual_h as f32).floor() as i32;
-    let clip_row_max = (params.clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as i32 - 1;
-    let clipped_viewport = Viewport {
-        min_x: viewport.min_x,
-        min_y: viewport.min_y.max(clip_row_min),
-        max_x: viewport.max_x,
-        max_y: viewport.max_y.min(clip_row_max),
-    };
-    if clipped_viewport.min_y > clipped_viewport.max_y {
-        return None;
-    }
-    let center = mesh.center;
     let mut projected = OBJ_PROJECTED.with(|p| {
         let mut v = p.borrow_mut();
         let mut taken = std::mem::take(&mut *v);
@@ -1035,20 +1005,14 @@ pub fn render_obj_to_canvas(
         taken
     });
 
-    project_vertices_into(
+    let clipped_viewport = project_mesh_with_viewport(
         &mesh,
         &params,
-        ProjectionStageInput {
-            center,
-            model_scale,
-            pitch,
-            yaw,
-            roll,
-            near_clip,
-            aspect,
-            inv_tan,
-            virtual_w,
-            virtual_h,
+        virtual_w,
+        virtual_h,
+        ProjectionPoseConfig {
+            include_animated_yaw: true,
+            include_camera_look: true,
         },
         ProjectionStageConfig {
             terrain_noise_policy: TerrainNoisePolicy::SurfaceOrDisplacement,
@@ -1056,7 +1020,7 @@ pub fn render_obj_to_canvas(
             parallel_threshold: VERTEX_PARALLEL_THRESHOLD,
         },
         &mut projected,
-    );
+    )?;
 
     let canvas_size = virtual_w as usize * virtual_h as usize;
     let mut canvas = OBJ_CANVAS.with(|c| {
@@ -1340,33 +1304,6 @@ pub fn render_obj_to_rgba_canvas(
         return None;
     }
 
-    let yaw = (params.yaw_deg + params.rotation_y).to_radians();
-    let pitch = (params.pitch_deg + params.rotation_x).to_radians();
-    let roll = (params.roll_deg + params.rotation_z).to_radians();
-    let fov = params.fov_degrees.clamp(10.0, 170.0).to_radians();
-    let inv_tan = 1.0 / (fov * 0.5).tan().max(0.0001);
-    let near_clip = params.near_clip.max(0.000001);
-    let model_scale = params.scale.max(0.0001) / mesh.radius.max(0.0001);
-    let aspect = virtual_w as f32 / virtual_h as f32;
-    let viewport = Viewport {
-        min_x: 0,
-        min_y: 0,
-        max_x: virtual_w as i32 - 1,
-        max_y: virtual_h as i32 - 1,
-    };
-    let clip_row_min = (params.clip_y_min.clamp(0.0, 1.0) * virtual_h as f32).floor() as i32;
-    let clip_row_max = (params.clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as i32 - 1;
-    let clipped_viewport = Viewport {
-        min_x: viewport.min_x,
-        min_y: viewport.min_y.max(clip_row_min),
-        max_x: viewport.max_x,
-        max_y: viewport.max_y.min(clip_row_max),
-    };
-    if clipped_viewport.min_y > clipped_viewport.max_y {
-        return None;
-    }
-
-    let center = mesh.center;
     let mut projected = OBJ_PROJECTED.with(|p| {
         let mut v = p.borrow_mut();
         let mut taken = std::mem::take(&mut *v);
@@ -1375,20 +1312,14 @@ pub fn render_obj_to_rgba_canvas(
         taken
     });
 
-    project_vertices_into(
+    let clipped_viewport = project_mesh_with_viewport(
         &mesh,
         &params,
-        ProjectionStageInput {
-            center,
-            model_scale,
-            pitch,
-            yaw,
-            roll,
-            near_clip,
-            aspect,
-            inv_tan,
-            virtual_w,
-            virtual_h,
+        virtual_w,
+        virtual_h,
+        ProjectionPoseConfig {
+            include_animated_yaw: false,
+            include_camera_look: false,
         },
         ProjectionStageConfig {
             terrain_noise_policy: TerrainNoisePolicy::SurfaceUnlessSoftCloudsOrDisplacement,
@@ -1396,7 +1327,7 @@ pub fn render_obj_to_rgba_canvas(
             parallel_threshold: VERTEX_PARALLEL_THRESHOLD,
         },
         &mut projected,
-    );
+    )?;
 
     let canvas_size = virtual_w as usize * virtual_h as usize;
     let mut canvas = OBJ_CANVAS_RGBA.with(|c| {

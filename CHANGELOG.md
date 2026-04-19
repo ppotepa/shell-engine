@@ -100,6 +100,12 @@ Daily progress updates for Shell Engine development.
 - **architecture**: Gouraud face preparation is now owned by one stage helper across shared-buffer RGB, standard RGB, and RGBA paths, reducing drift risk between output formats.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer stage split: shared projection setup helper** ✅
+- **engine-render-3d**: extended `pipeline/stages/project.rs` with `project_mesh_with_viewport(...)` and `ProjectionPoseConfig`, so yaw/pitch/roll, clip rows, viewport clipping, and vertex projection are prepared through one stage seam.
+- **engine-render-3d**: both `render_obj_to_canvas` and `render_obj_to_rgba_canvas` now delegate shared projection setup instead of rebuilding that block inline; the remaining difference is explicit pose policy (`animated yaw/camera look` on RGB, fixed pose on RGBA).
+- **architecture**: this pushes `raster.rs` further toward orchestration and makes future unification of RGB/RGBA setup substantially simpler.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
