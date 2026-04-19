@@ -134,6 +134,173 @@ pub fn take_obj_raster_frame_metrics() -> ObjRasterFrameMetrics {
     OBJ_RASTER_FRAME_METRICS.with(|cell| std::mem::take(&mut *cell.borrow_mut()))
 }
 
+#[inline]
+fn take_projected_buffer(capacity: usize) -> Vec<Option<ProjectedVertex>> {
+    OBJ_PROJECTED.with(|p| {
+        let mut v = p.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.reserve(capacity);
+        taken
+    })
+}
+
+#[inline]
+fn take_sorted_faces_buffer(capacity: usize) -> Vec<(f32, usize)> {
+    OBJ_SORTED_FACE_INDEX.with(|v| {
+        let mut pool = v.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.reserve(capacity);
+        taken
+    })
+}
+
+#[inline]
+fn take_shaded_gouraud_buffer(capacity: usize) -> Vec<crate::pipeline::stages::shade::GouraudFace> {
+    OBJ_SHADED_GOURAUD.with(|g| {
+        let mut pool = g.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.reserve(capacity);
+        taken
+    })
+}
+
+#[inline]
+fn take_shaded_flat_buffer(capacity: usize) -> Vec<crate::pipeline::stages::shade::FlatFace> {
+    OBJ_SHADED_FLAT.with(|g| {
+        let mut pool = g.borrow_mut();
+        let mut taken = std::mem::take(&mut *pool);
+        taken.clear();
+        taken.reserve(capacity);
+        taken
+    })
+}
+
+#[inline]
+fn take_rgb_canvas_buffer(canvas_size: usize) -> Vec<Option<[u8; 3]>> {
+    OBJ_CANVAS.with(|c| {
+        let mut v = c.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.resize(canvas_size, None);
+        taken
+    })
+}
+
+#[inline]
+fn take_rgba_canvas_buffer(canvas_size: usize) -> Vec<Option<[u8; 4]>> {
+    OBJ_CANVAS_RGBA.with(|c| {
+        let mut v = c.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.resize(canvas_size, None);
+        taken
+    })
+}
+
+#[inline]
+fn take_depth_buffer(canvas_size: usize) -> Vec<f32> {
+    OBJ_DEPTH.with(|d| {
+        let mut v = d.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.resize(canvas_size, f32::INFINITY);
+        taken
+    })
+}
+
+#[inline]
+fn release_sorted_faces_buffer(sorted_faces: Vec<(f32, usize)>) {
+    OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
+}
+
+#[inline]
+fn release_shaded_gouraud_buffer(
+    shaded_gouraud: Vec<crate::pipeline::stages::shade::GouraudFace>,
+) {
+    OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
+}
+
+#[inline]
+fn release_shaded_flat_buffer(shaded_faces: Vec<crate::pipeline::stages::shade::FlatFace>) {
+    OBJ_SHADED_FLAT.with(|g| *g.borrow_mut() = shaded_faces);
+}
+
+#[inline]
+fn finish_rgb_canvas_render(
+    t_render: Instant,
+    canvas: &mut [Option<[u8; 3]>],
+    projected: Vec<Option<ProjectedVertex>>,
+    triangles_processed: u32,
+    faces_drawn: u32,
+    virtual_w: u16,
+    virtual_h: u16,
+    params: &ObjRenderParams,
+) {
+    let post_pass_metrics = apply_rgb_post_passes(canvas, virtual_w, virtual_h, params);
+    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+    set_last_obj_raster_stats(ObjRasterStats {
+        triangles_processed,
+        faces_drawn,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
+    accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
+        rgb_us: t_render.elapsed().as_micros() as f32,
+        rgba_us: 0.0,
+        halo_us: post_pass_metrics.halo_us,
+        rgb_calls: 1,
+        rgba_calls: 0,
+        triangles_processed,
+        faces_drawn,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
+    apply_canvas_grading(
+        canvas,
+        params.exposure,
+        params.gamma,
+        params.tonemap,
+        params.shadow_contrast,
+    );
+}
+
+#[inline]
+fn finish_rgba_canvas_render(
+    t_render: Instant,
+    canvas: &mut [Option<[u8; 4]>],
+    projected: Vec<Option<ProjectedVertex>>,
+    triangles_processed: u32,
+    faces_drawn: u32,
+    virtual_w: u16,
+    virtual_h: u16,
+    params: &ObjRenderParams,
+) {
+    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+    set_last_obj_raster_stats(ObjRasterStats {
+        triangles_processed,
+        faces_drawn,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
+    accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
+        rgb_us: 0.0,
+        rgba_us: t_render.elapsed().as_micros() as f32,
+        halo_us: 0.0,
+        rgb_calls: 0,
+        rgba_calls: 1,
+        triangles_processed,
+        faces_drawn,
+        viewport_area_px: virtual_w as u32 * virtual_h as u32,
+    });
+    apply_rgba_canvas_grading(
+        canvas,
+        params.exposure,
+        params.gamma,
+        params.tonemap,
+        params.shadow_contrast,
+    );
+}
+
 // ── Dimension helpers ─────────────────────────────────────────────────────────
 
 /// Returns `(target_w, target_h)` — virtual canvas equals the output size for this pipeline.
@@ -589,13 +756,7 @@ fn render_mesh_projected(
     }
 
     let center = mesh.center;
-    let mut projected = OBJ_PROJECTED.with(|p| {
-        let mut v = p.borrow_mut();
-        let mut taken = std::mem::take(&mut *v);
-        taken.clear();
-        taken.reserve(mesh.vertices.len());
-        taken
-    });
+    let mut projected = take_projected_buffer(mesh.vertices.len());
     project_vertices_into(
         &mesh,
         &params,
@@ -1024,25 +1185,13 @@ pub fn render_obj_to_canvas(
     )?;
 
     let canvas_size = virtual_w as usize * virtual_h as usize;
-    let mut canvas = OBJ_CANVAS.with(|c| {
-        let mut v = c.borrow_mut();
-        let mut taken = std::mem::take(&mut *v);
-        taken.clear();
-        taken.resize(canvas_size, None);
-        taken
-    });
+    let mut canvas = take_rgb_canvas_buffer(canvas_size);
     let mut triangles_processed = 0u32;
     let mut faces_drawn = 0u32;
 
     if wireframe {
         let line_color = color_to_rgb(fg);
-        let mut depth_buf = OBJ_DEPTH.with(|d| {
-            let mut v = d.borrow_mut();
-            let mut taken = std::mem::take(&mut *v);
-            taken.clear();
-            taken.resize(canvas_size, f32::INFINITY);
-            taken
-        });
+        let mut depth_buf = take_depth_buffer(canvas_size);
 
         let (depth_near, depth_far) = {
             let mut near = f32::INFINITY;
@@ -1098,21 +1247,9 @@ pub fn render_obj_to_canvas(
         }
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth_buf);
     } else {
-        let mut depth = OBJ_DEPTH.with(|d| {
-            let mut v = d.borrow_mut();
-            let mut taken = std::mem::take(&mut *v);
-            taken.clear();
-            taken.resize(canvas_size, f32::INFINITY);
-            taken
-        });
+        let mut depth = take_depth_buffer(canvas_size);
         let frame_ctx = FrameShadingContext::from_params(&params, fg);
-        let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
-            let mut pool = v.borrow_mut();
-            let mut taken = std::mem::take(&mut *pool);
-            taken.clear();
-            taken.reserve(mesh.faces.len());
-            taken
-        });
+        let mut sorted_faces = take_sorted_faces_buffer(mesh.faces.len());
         let face_limit = classify_and_sort_faces_into(
             &mesh,
             &projected,
@@ -1132,13 +1269,7 @@ pub fn render_obj_to_canvas(
         let smooth_shading = params.smooth_shading;
 
         let drawn_faces = if smooth_shading {
-            let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
-                let mut pool = g.borrow_mut();
-                let mut taken = std::mem::take(&mut *pool);
-                taken.clear();
-                taken.reserve(face_limit);
-                taken
-            });
+            let mut shaded_gouraud = take_shaded_gouraud_buffer(face_limit);
             prepare_gouraud_faces_into(
                 &mesh,
                 &sorted_faces,
@@ -1168,16 +1299,10 @@ pub fn render_obj_to_canvas(
                 frame_ctx.gouraud_rgb_raster_context(virtual_w, virtual_h),
             );
             let count = shaded_gouraud.len();
-            OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
+            release_shaded_gouraud_buffer(shaded_gouraud);
             count
         } else {
-            let mut shaded_faces = OBJ_SHADED_FLAT.with(|g| {
-                let mut pool = g.borrow_mut();
-                let mut taken = std::mem::take(&mut *pool);
-                taken.clear();
-                taken.reserve(face_limit);
-                taken
-            });
+            let mut shaded_faces = take_shaded_flat_buffer(face_limit);
             prepare_flat_faces_into(
                 &mesh,
                 &sorted_faces,
@@ -1202,10 +1327,10 @@ pub fn render_obj_to_canvas(
                 clipped_viewport.min_y,
                 clipped_viewport.max_y,
             );
-            OBJ_SHADED_FLAT.with(|g| *g.borrow_mut() = shaded_faces);
+            release_shaded_flat_buffer(shaded_faces);
             count
         };
-        OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
+        release_sorted_faces_buffer(sorted_faces);
 
         faces_drawn = drawn_faces as u32;
         if drawn_faces == 0 {
@@ -1240,30 +1365,15 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
-    let post_pass_metrics = apply_rgb_post_passes(&mut canvas, virtual_w, virtual_h, &params);
-
-    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
-    set_last_obj_raster_stats(ObjRasterStats {
-        triangles_processed,
-        faces_drawn,
-        viewport_area_px: virtual_w as u32 * virtual_h as u32,
-    });
-    accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
-        rgb_us: t_render.elapsed().as_micros() as f32,
-        rgba_us: 0.0,
-        halo_us: post_pass_metrics.halo_us,
-        rgb_calls: 1,
-        rgba_calls: 0,
-        triangles_processed,
-        faces_drawn,
-        viewport_area_px: virtual_w as u32 * virtual_h as u32,
-    });
-    apply_canvas_grading(
+    finish_rgb_canvas_render(
+        t_render,
         &mut canvas,
-        params.exposure,
-        params.gamma,
-        params.tonemap,
-        params.shadow_contrast,
+        projected,
+        triangles_processed,
+        faces_drawn,
+        virtual_w,
+        virtual_h,
+        &params,
     );
     Some((canvas, virtual_w, virtual_h))
 }
@@ -1305,13 +1415,7 @@ pub fn render_obj_to_rgba_canvas(
         return None;
     }
 
-    let mut projected = OBJ_PROJECTED.with(|p| {
-        let mut v = p.borrow_mut();
-        let mut taken = std::mem::take(&mut *v);
-        taken.clear();
-        taken.reserve(mesh.vertices.len());
-        taken
-    });
+    let mut projected = take_projected_buffer(mesh.vertices.len());
 
     let clipped_viewport = project_mesh_with_viewport(
         &mesh,
@@ -1331,37 +1435,13 @@ pub fn render_obj_to_rgba_canvas(
     )?;
 
     let canvas_size = virtual_w as usize * virtual_h as usize;
-    let mut canvas = OBJ_CANVAS_RGBA.with(|c| {
-        let mut v = c.borrow_mut();
-        let mut taken = std::mem::take(&mut *v);
-        taken.clear();
-        taken.resize(canvas_size, None);
-        taken
-    });
-    let mut depth = OBJ_DEPTH.with(|d| {
-        let mut v = d.borrow_mut();
-        let mut taken = std::mem::take(&mut *v);
-        taken.clear();
-        taken.resize(canvas_size, f32::INFINITY);
-        taken
-    });
+    let mut canvas = take_rgba_canvas_buffer(canvas_size);
+    let mut depth = take_depth_buffer(canvas_size);
 
     let frame_ctx = FrameShadingContext::from_params(&params, fg);
 
-    let mut sorted_faces = OBJ_SORTED_FACE_INDEX.with(|v| {
-        let mut pool = v.borrow_mut();
-        let mut taken = std::mem::take(&mut *pool);
-        taken.clear();
-        taken.reserve(mesh.faces.len());
-        taken
-    });
-    let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
-        let mut pool = g.borrow_mut();
-        let mut taken = std::mem::take(&mut *pool);
-        taken.clear();
-        taken.reserve(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
-        taken
-    });
+    let mut sorted_faces = take_sorted_faces_buffer(mesh.faces.len());
+    let mut shaded_gouraud = take_shaded_gouraud_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
     let face_limit = prepare_visible_gouraud_faces_into(
         &mesh,
         &projected,
@@ -1394,30 +1474,17 @@ pub fn render_obj_to_rgba_canvas(
 
     let faces_drawn_count = shaded_gouraud.len() as u32;
     OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
-    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
-    OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
-    OBJ_SORTED_FACE_INDEX.with(|v| *v.borrow_mut() = sorted_faces);
-    set_last_obj_raster_stats(ObjRasterStats {
-        triangles_processed: face_limit as u32,
-        faces_drawn: faces_drawn_count,
-        viewport_area_px: virtual_w as u32 * virtual_h as u32,
-    });
-    accumulate_obj_raster_frame_metrics(ObjRasterFrameMetrics {
-        rgb_us: 0.0,
-        rgba_us: t_render.elapsed().as_micros() as f32,
-        halo_us: 0.0,
-        rgb_calls: 0,
-        rgba_calls: 1,
-        triangles_processed: face_limit as u32,
-        faces_drawn: faces_drawn_count,
-        viewport_area_px: virtual_w as u32 * virtual_h as u32,
-    });
-    apply_rgba_canvas_grading(
+    release_shaded_gouraud_buffer(shaded_gouraud);
+    release_sorted_faces_buffer(sorted_faces);
+    finish_rgba_canvas_render(
+        t_render,
         &mut canvas,
-        params.exposure,
-        params.gamma,
-        params.tonemap,
-        params.shadow_contrast,
+        projected,
+        face_limit as u32,
+        faces_drawn_count,
+        virtual_w,
+        virtual_h,
+        &params,
     );
     Some((canvas, virtual_w, virtual_h))
 }

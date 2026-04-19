@@ -112,6 +112,12 @@ Daily progress updates for Shell Engine development.
 - **architecture**: this is the first combined stage above the low-level seams and is the direct foundation for a future shared RGB/RGBA render core.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer cleanup: shared pooled-buffer and finalization helpers** ✅
+- **engine-render-3d**: `raster.rs` now uses shared helpers for projected/sorted/shaded/depth/canvas pool acquisition and release, instead of repeating thread-local buffer plumbing in each public render entrypoint.
+- **engine-render-3d**: RGB and RGBA paths now share explicit `finish_*_canvas_render(...)` finalization for stats, metrics, projection buffer release, and grading.
+- **architecture**: this reduces entrypoint duplication and makes the remaining RGB/RGBA divergence much more clearly about render policy, not pool bookkeeping.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
