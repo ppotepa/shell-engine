@@ -14,10 +14,11 @@ use engine_core::color::Color;
 use engine_core::scene::TonemapOperator;
 use crate::api::Render3dPipeline;
 use crate::effects::passes::postprocess::apply_rgb_post_passes;
-use crate::geom::clip::{clip_line_to_viewport, clipped_depths, Viewport};
+use crate::geom::clip::{clip_line_to_viewport, Viewport};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
+use crate::pipeline::stages::edges::{draw_outline_edges_flat, draw_wireframe_edges_with_depth};
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::gouraud::prepare_visible_gouraud_faces_into;
 use crate::pipeline::stages::light_motion::animate_point_lights;
@@ -753,34 +754,19 @@ fn render_mesh_projected(
                 (near, far)
             }
         };
-
-        let mut drawn_edges = 0usize;
-        for (a, b) in &mesh.edges {
-            if drawn_edges > 12_000 {
-                break;
-            }
-            let Some(pa) = projected.get(*a).and_then(|p| *p) else {
-                continue;
-            };
-            let Some(pb) = projected.get(*b).and_then(|p| *p) else {
-                continue;
-            };
-            let x0 = pa.x.round() as i32;
-            let y0 = pa.y.round() as i32;
-            let x1 = pb.x.round() as i32;
-            let y1 = pb.y.round() as i32;
-            if let Some((cx0, cy0, cx1, cy1)) =
-                clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
-            {
-                let (cz0, cz1) =
-                    clipped_depths(x0, y0, x1, y1, cx0, cy0, cx1, cy1, pa.depth, pb.depth);
-                draw_line_depth(
-                    canvas, depth_buf, virtual_w, virtual_h, cx0, cy0, cx1, cy1, line_color, cz0,
-                    cz1, depth_near, depth_far,
-                );
-                drawn_edges += 1;
-            }
-        }
+        draw_wireframe_edges_with_depth(
+            mesh,
+            &projected,
+            canvas,
+            depth_buf,
+            virtual_w,
+            virtual_h,
+            clipped_viewport,
+            line_color,
+            depth_near,
+            depth_far,
+            12_000,
+        );
     } else {
         let frame_ctx = FrameShadingContext::from_params(&params, fg);
 
@@ -1120,44 +1106,19 @@ pub fn render_obj_to_canvas(
             }
         };
 
-        let mut drawn_edges = 0usize;
-        for (a, b) in &mesh.edges {
-            if drawn_edges > 12_000 {
-                break;
-            }
-            let Some(pa) = projected.get(*a).and_then(|p| *p) else {
-                continue;
-            };
-            let Some(pb) = projected.get(*b).and_then(|p| *p) else {
-                continue;
-            };
-            let x0 = pa.x.round() as i32;
-            let y0 = pa.y.round() as i32;
-            let x1 = pb.x.round() as i32;
-            let y1 = pb.y.round() as i32;
-            if let Some((cx0, cy0, cx1, cy1)) =
-                clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
-            {
-                let (cz0, cz1) =
-                    clipped_depths(x0, y0, x1, y1, cx0, cy0, cx1, cy1, pa.depth, pb.depth);
-                draw_line_depth(
-                    &mut canvas,
-                    &mut depth_buf,
-                    virtual_w,
-                    virtual_h,
-                    cx0,
-                    cy0,
-                    cx1,
-                    cy1,
-                    line_color,
-                    cz0,
-                    cz1,
-                    depth_near,
-                    depth_far,
-                );
-                drawn_edges += 1;
-            }
-        }
+        draw_wireframe_edges_with_depth(
+            &mesh,
+            &projected,
+            &mut canvas,
+            &mut depth_buf,
+            virtual_w,
+            virtual_h,
+            clipped_viewport,
+            line_color,
+            depth_near,
+            depth_far,
+            12_000,
+        );
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth_buf);
     } else {
         let mut depth = take_depth_buffer(canvas_size);
@@ -1250,32 +1211,15 @@ pub fn render_obj_to_canvas(
         faces_drawn = drawn_faces as u32;
         if drawn_faces == 0 {
             let line_color = color_to_rgb(fg);
-            for (a, b) in &mesh.edges {
-                let Some(pa) = projected.get(*a).and_then(|p| *p) else {
-                    continue;
-                };
-                let Some(pb) = projected.get(*b).and_then(|p| *p) else {
-                    continue;
-                };
-                let x0 = pa.x.round() as i32;
-                let y0 = pa.y.round() as i32;
-                let x1 = pb.x.round() as i32;
-                let y1 = pb.y.round() as i32;
-                if let Some((cx0, cy0, cx1, cy1)) =
-                    clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
-                {
-                    draw_line_flat(
-                        &mut canvas,
-                        virtual_w,
-                        virtual_h,
-                        cx0,
-                        cy0,
-                        cx1,
-                        cy1,
-                        line_color,
-                    );
-                }
-            }
+            draw_outline_edges_flat(
+                &mesh,
+                &projected,
+                &mut canvas,
+                virtual_w,
+                virtual_h,
+                clipped_viewport,
+                line_color,
+            );
         }
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }

@@ -129,6 +129,12 @@ Daily progress updates for Shell Engine development.
 - **architecture**: `raster.rs` loses another domain-specific animation block and keeps moving toward render orchestration instead of effect-state assembly.
 - **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
 
+**3D renderer stage split: shared edge rendering helpers** ✅
+- **engine-render-3d**: added `pipeline/stages/edges.rs` with reusable helpers for depth-tested wireframe edges and flat outline fallback rendering.
+- **engine-render-3d**: both shared-buffer rendering and canvas RGB rendering now reuse the same edge drawing helpers instead of keeping duplicated edge loops in `raster.rs`.
+- **architecture**: `raster.rs` drops another repeated fallback/render-glue block and gets closer to pure orchestration.
+- **validation**: `cargo check -p engine-render-3d` and `cargo test -p engine-render-3d` pass.
+
 **Dual-resolution UI/world render path** ✅
 - **engine-runtime**: introduced explicit world-vs-final buffer layout (`world_width/world_height` + `render_width/render_height`) and `display.world_render_size` / `display.ui_render_size` / `display.ui_layout_size`.
 - **engine / compositor**: added split-pass composition path (WorldOnly -> upscale -> UiOnly) using compositor pass filtering, preserving renderer/domain separation.
