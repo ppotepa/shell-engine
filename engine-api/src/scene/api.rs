@@ -13,8 +13,18 @@ use crate::rhai::conversion::{
     normalize_set_path, rhai_dynamic_to_json,
 };
 use crate::{
-    BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
+    BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot,
+    SceneMutationRequest,
 };
+
+fn render3d_profile_slot_from_str(value: &str) -> Option<Render3dProfileSlot> {
+    match value.trim() {
+        "view" => Some(Render3dProfileSlot::View),
+        "lighting" => Some(Render3dProfileSlot::Lighting),
+        "space_environment" | "space-environment" => Some(Render3dProfileSlot::SpaceEnvironment),
+        _ => None,
+    }
+}
 
 /// Helpers for object state conversion (should ideally be shared or generic).
 fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
@@ -392,6 +402,45 @@ impl ScriptSceneApi {
             },
         ))
     }
+
+    /// Convenience helper for neutral scene-level 3D profile switching by slot.
+    pub fn set_render3d_profile(
+        &mut self,
+        profile_slot: Render3dProfileSlot,
+        profile: &str,
+    ) -> bool {
+        if profile.trim().is_empty() {
+            return false;
+        }
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetProfile {
+                profile_slot,
+                profile: profile.to_string(),
+            },
+        ))
+    }
+
+    /// Convenience helper for neutral scene-level 3D profile parameter override by slot.
+    pub fn set_render3d_profile_param(
+        &mut self,
+        profile_slot: Render3dProfileSlot,
+        name: &str,
+        value: RhaiDynamic,
+    ) -> bool {
+        if name.trim().is_empty() {
+            return false;
+        }
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        self.enqueue_scene_mutation(SceneMutationRequest::SetRender3d(
+            Render3dMutationRequest::SetProfileParam {
+                profile_slot,
+                name: name.to_string(),
+                value,
+            },
+        ))
+    }
 }
 
 impl ScriptObjectApi {
@@ -543,6 +592,24 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
             scene.set_space_environment_param(name, value)
         },
     );
+    engine.register_fn(
+        "set_render3d_profile",
+        |scene: &mut ScriptSceneApi, profile_slot: &str, profile: &str| {
+            let Some(profile_slot) = render3d_profile_slot_from_str(profile_slot) else {
+                return false;
+            };
+            scene.set_render3d_profile(profile_slot, profile)
+        },
+    );
+    engine.register_fn(
+        "set_render3d_profile_param",
+        |scene: &mut ScriptSceneApi, profile_slot: &str, name: &str, value: RhaiDynamic| {
+            let Some(profile_slot) = render3d_profile_slot_from_str(profile_slot) else {
+                return false;
+            };
+            scene.set_render3d_profile_param(profile_slot, name, value)
+        },
+    );
 
     engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
         object.get(path)
@@ -560,7 +627,8 @@ mod tests {
     use super::ScriptSceneApi;
     use crate::rhai::conversion::map_set_path_dynamic;
     use crate::{
-        BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
+        BehaviorCommand, Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot,
+        SceneMutationRequest,
     };
     use engine_core::effects::Region;
     use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
@@ -686,6 +754,51 @@ mod tests {
             BehaviorCommand::ApplySceneMutation {
                 request: SceneMutationRequest::SetRender3d(
                     Render3dMutationRequest::SetSpaceEnvironmentParam {
+                        name: "background_color".to_string(),
+                        value: serde_json::json!("#010203"),
+                    },
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn set_neutral_profile_helpers_enqueue_typed_mutations() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptSceneApi::new(
+            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(HashMap::<String, serde_json::Value>::new()),
+            Arc::new(HashMap::<String, Region>::new()),
+            Arc::new(HashMap::<String, String>::new()),
+            Arc::new(TargetResolver::new("scene-root".to_string())),
+            Arc::clone(&queue),
+        );
+
+        assert!(api.set_render3d_profile(Render3dProfileSlot::Lighting, "space-hard-vacuum"));
+        assert!(api.set_render3d_profile_param(
+            Render3dProfileSlot::SpaceEnvironment,
+            "background_color",
+            "#010203".into()
+        ));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 2);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetProfile {
+                    profile_slot: Render3dProfileSlot::Lighting,
+                    profile: "space-hard-vacuum".to_string(),
+                },),
+            }
+        );
+        assert_eq!(
+            queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetProfileParam {
+                        profile_slot: Render3dProfileSlot::SpaceEnvironment,
                         name: "background_color".to_string(),
                         value: serde_json::json!("#010203"),
                     },

@@ -50,8 +50,9 @@ use engine_core::spatial::SpatialContext;
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 pub use mutations::{
-    LightingProfileParam, Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
-    SetSpritePropertyMutation, SpaceEnvironmentParam,
+    LightingProfileParam, Render3DMutation, Render3DProfileParam, Render3DProfileSlot,
+    SceneMutation, Set2DPropsMutation, SetCamera2DMutation, SetSpritePropertyMutation,
+    SpaceEnvironmentParam,
 };
 pub use render3d_state::{scene_mutation_from_render_path, Render3dRebuildDiagnostics};
 pub use request_adapter::{render3d_mutation_from_request, scene_mutation_from_request};

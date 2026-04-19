@@ -130,6 +130,19 @@ pub enum LightingProfileParam {
     SpecularFloor,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Render3DProfileSlot {
+    View,
+    Lighting,
+    SpaceEnvironment,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Render3DProfileParam {
+    Lighting(LightingProfileParam),
+    SpaceEnvironment(SpaceEnvironmentParam),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum SpaceEnvironmentParam {
     BackgroundColor,
@@ -331,6 +344,10 @@ pub struct SetCamera2DMutation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Render3DMutation {
+    SetProfile {
+        slot: Render3DProfileSlot,
+        profile: String,
+    },
     SetViewProfile {
         profile: String,
     },
@@ -339,6 +356,10 @@ pub enum Render3DMutation {
     },
     SetSpaceEnvironmentProfile {
         profile: String,
+    },
+    SetProfileParam {
+        param: Render3DProfileParam,
+        value: MaterialValue,
     },
     SetLightingParam {
         param: LightingProfileParam,
@@ -503,6 +524,45 @@ mod tests {
             Render3DMutation::SetLightingParam { param, value } => {
                 assert_eq!(param, LightingProfileParam::Exposure);
                 assert_eq!(value, MaterialValue::Scalar(0.9));
+            }
+            _ => panic!("unexpected mutation shape"),
+        }
+    }
+
+    #[test]
+    fn neutral_profile_mutation_keeps_slot_and_profile() {
+        let mutation = Render3DMutation::SetProfile {
+            slot: Render3DProfileSlot::Lighting,
+            profile: "lab-neutral".to_string(),
+        };
+
+        match mutation {
+            Render3DMutation::SetProfile { slot, profile } => {
+                assert_eq!(slot, Render3DProfileSlot::Lighting);
+                assert_eq!(profile, "lab-neutral");
+            }
+            _ => panic!("unexpected mutation shape"),
+        }
+    }
+
+    #[test]
+    fn neutral_profile_param_mutation_keeps_typed_payload() {
+        let mutation = Render3DMutation::SetProfileParam {
+            param: Render3DProfileParam::SpaceEnvironment(
+                SpaceEnvironmentParam::BackgroundColor,
+            ),
+            value: MaterialValue::Text("#010203".to_string()),
+        };
+
+        match mutation {
+            Render3DMutation::SetProfileParam { param, value } => {
+                assert_eq!(
+                    param,
+                    Render3DProfileParam::SpaceEnvironment(
+                        SpaceEnvironmentParam::BackgroundColor
+                    )
+                );
+                assert_eq!(value, MaterialValue::Text("#010203".to_string()));
             }
             _ => panic!("unexpected mutation shape"),
         }

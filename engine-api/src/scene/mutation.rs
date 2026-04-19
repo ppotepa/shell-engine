@@ -48,10 +48,30 @@ pub enum Camera3dMutationRequest {
     Up { up: [f32; 3] },
 }
 
+/// Neutral slot selector for scene-level 3D profile mutations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Render3dProfileSlot {
+    View,
+    Lighting,
+    SpaceEnvironment,
+}
+
 /// Typed 3D render mutation request.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Render3dMutationRequest {
+    /// Switch an active scene-level render profile by slot.
+    SetProfile {
+        profile_slot: Render3dProfileSlot,
+        profile: String,
+    },
+    /// Override a single scene-level profile field by slot.
+    SetProfileParam {
+        profile_slot: Render3dProfileSlot,
+        name: String,
+        value: JsonValue,
+    },
     /// Switch the active top-level scene view profile.
     SetViewProfile { profile: String },
     /// Switch the active lighting profile feeding the resolved scene view.
@@ -93,7 +113,9 @@ pub enum Render3dMutationRequest {
 
 #[cfg(test)]
 mod tests {
-    use super::{Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest};
+    use super::{
+        Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot, SceneMutationRequest,
+    };
     use serde_json::json;
 
     #[test]
@@ -171,6 +193,46 @@ mod tests {
             decoded,
             SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetViewProfile {
                 profile: "orbit-realistic".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_render3d_neutral_profile_switch_from_json_shape() {
+        let raw = json!({
+            "type": "set_render3d",
+            "kind": "set_profile",
+            "profile_slot": "lighting",
+            "profile": "space-hard-vacuum"
+        });
+        let decoded: SceneMutationRequest =
+            serde_json::from_value(raw).expect("deserialize request");
+        assert_eq!(
+            decoded,
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetProfile {
+                profile_slot: Render3dProfileSlot::Lighting,
+                profile: "space-hard-vacuum".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_render3d_neutral_profile_param_from_json_shape() {
+        let raw = json!({
+            "type": "set_render3d",
+            "kind": "set_profile_param",
+            "profile_slot": "space_environment",
+            "name": "background_color",
+            "value": "#010203"
+        });
+        let decoded: SceneMutationRequest =
+            serde_json::from_value(raw).expect("deserialize request");
+        assert_eq!(
+            decoded,
+            SceneMutationRequest::SetRender3d(Render3dMutationRequest::SetProfileParam {
+                profile_slot: Render3dProfileSlot::SpaceEnvironment,
+                name: "background_color".to_string(),
+                value: json!("#010203"),
             })
         );
     }

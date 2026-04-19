@@ -38,6 +38,6 @@ pub use rhai::conversion::{
     region_to_rhai_map, rhai_dynamic_to_json,
 };
 pub use scene::{
-    register_scene_api, Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest,
-    ScriptObjectApi, ScriptSceneApi,
+    register_scene_api, Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot,
+    SceneMutationRequest, ScriptObjectApi, ScriptSceneApi,
 };

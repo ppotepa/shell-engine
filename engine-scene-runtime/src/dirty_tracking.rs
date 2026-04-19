@@ -1,12 +1,17 @@
 use engine_core::render_types::DirtyMask3D;
 
-use crate::mutations::{Render3DMutation, SceneMutation};
+use crate::mutations::{Render3DMutation, Render3DProfileParam, SceneMutation};
 
 pub fn dirty_for_render3d_mutation(mutation: &Render3DMutation) -> DirtyMask3D {
     match mutation {
+        Render3DMutation::SetProfile { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetViewProfile { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetLightingProfile { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetSpaceEnvironmentProfile { .. } => DirtyMask3D::LIGHTING,
+        Render3DMutation::SetProfileParam { param, .. } => match param {
+            Render3DProfileParam::Lighting(_) => DirtyMask3D::LIGHTING,
+            Render3DProfileParam::SpaceEnvironment(_) => DirtyMask3D::LIGHTING,
+        },
         Render3DMutation::SetLightingParam { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetSpaceEnvironmentParam { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetNodeTransform { .. } => DirtyMask3D::TRANSFORM,
@@ -42,6 +47,13 @@ mod tests {
     fn maps_render3d_mutations_to_expected_dirty_masks() {
         let cases = vec![
             (
+                Render3DMutation::SetProfile {
+                    slot: crate::Render3DProfileSlot::View,
+                    profile: "orbit-realistic".to_string(),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
                 Render3DMutation::SetViewProfile {
                     profile: "orbit-realistic".to_string(),
                 },
@@ -56,6 +68,15 @@ mod tests {
             (
                 Render3DMutation::SetSpaceEnvironmentProfile {
                     profile: "deep-space-sparse".to_string(),
+                },
+                DirtyMask3D::LIGHTING,
+            ),
+            (
+                Render3DMutation::SetProfileParam {
+                    param: crate::Render3DProfileParam::Lighting(
+                        crate::mutations::LightingProfileParam::Exposure,
+                    ),
+                    value: engine_core::render_types::MaterialValue::Scalar(0.85),
                 },
                 DirtyMask3D::LIGHTING,
             ),

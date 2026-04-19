@@ -16,6 +16,42 @@ impl Render3dRebuildDiagnostics {
 }
 
 impl SceneRuntime {
+    pub(crate) fn apply_profile_selection(
+        &mut self,
+        slot: crate::mutations::Render3DProfileSlot,
+        profile: &str,
+    ) -> bool {
+        let view = self.scene.view.get_or_insert_with(Default::default);
+        match slot {
+            crate::mutations::Render3DProfileSlot::View => {
+                view.profile = Some(profile.to_string());
+            }
+            crate::mutations::Render3DProfileSlot::Lighting => {
+                view.lighting_profile = Some(profile.to_string());
+            }
+            crate::mutations::Render3DProfileSlot::SpaceEnvironment => {
+                view.space_environment_profile = Some(profile.to_string());
+            }
+        }
+        self.refresh_resolved_view_profile();
+        true
+    }
+
+    pub(crate) fn apply_profile_param(
+        &mut self,
+        param: &crate::mutations::Render3DProfileParam,
+        value: &MaterialValue,
+    ) -> bool {
+        match param {
+            crate::mutations::Render3DProfileParam::Lighting(param) => {
+                self.apply_lighting_profile_param(param, value)
+            }
+            crate::mutations::Render3DProfileParam::SpaceEnvironment(param) => {
+                self.apply_space_environment_param(param, value)
+            }
+        }
+    }
+
     pub(crate) fn refresh_resolved_view_profile(&mut self) {
         let mut resolved = engine_core::scene::resolve_scene_view_profile(&self.scene);
         if let Some(override_profile) = self.runtime_lighting_profile_override.as_ref() {
@@ -381,15 +417,31 @@ mod tests {
     #[test]
     fn apply_scene_level_profile_param_mutations_refreshes_resolved_view() {
         let mut runtime = test_scene_runtime();
-        assert!(runtime.apply_lighting_profile_param(
-            &crate::mutations::LightingProfileParam::Exposure,
+        assert!(runtime.apply_profile_selection(
+            crate::mutations::Render3DProfileSlot::Lighting,
+            "lab-neutral",
+        ));
+        assert!(runtime.apply_profile_param(
+            &crate::mutations::Render3DProfileParam::Lighting(
+                crate::mutations::LightingProfileParam::Exposure,
+            ),
             &MaterialValue::Scalar(0.81),
         ));
-        assert!(runtime.apply_space_environment_param(
-            &crate::mutations::SpaceEnvironmentParam::BackgroundColor,
+        assert!(runtime.apply_profile_param(
+            &crate::mutations::Render3DProfileParam::SpaceEnvironment(
+                crate::mutations::SpaceEnvironmentParam::BackgroundColor,
+            ),
             &MaterialValue::Text("#010203".to_string()),
         ));
 
+        assert_eq!(
+            runtime
+                .scene
+                .view
+                .as_ref()
+                .and_then(|view| view.lighting_profile.as_deref()),
+            Some("lab-neutral")
+        );
         assert_eq!(
             runtime.resolved_view_profile().lighting.exposure,
             Some(0.81)

@@ -1,11 +1,15 @@
-use engine_api::scene::{Camera3dMutationRequest, Render3dMutationRequest, SceneMutationRequest};
+use engine_api::scene::{
+    Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot as RequestProfileSlot,
+    SceneMutationRequest,
+};
 use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
 use crate::render3d_state::{material_value_from_json, scene_mutation_from_render_path};
 use crate::{
-    LightingProfileParam, Render3DMutation, SceneMutation, Set2DPropsMutation, SetCamera2DMutation,
-    SetSpritePropertyMutation, SpaceEnvironmentParam,
+    LightingProfileParam, Render3DMutation, Render3DProfileParam, Render3DProfileSlot,
+    SceneMutation, Set2DPropsMutation, SetCamera2DMutation, SetSpritePropertyMutation,
+    SpaceEnvironmentParam,
 };
 
 pub fn scene_mutation_from_request(
@@ -115,30 +119,50 @@ pub fn render3d_mutation_from_request(
     request: &Render3dMutationRequest,
 ) -> Option<Render3DMutation> {
     match request {
+        Render3dMutationRequest::SetProfile {
+            profile_slot,
+            profile,
+        } => Some(Render3DMutation::SetProfile {
+            slot: profile_slot_from_request(*profile_slot),
+            profile: profile.clone(),
+        }),
+        Render3dMutationRequest::SetProfileParam {
+            profile_slot,
+            name,
+            value,
+        } => Some(Render3DMutation::SetProfileParam {
+            param: profile_param_from_request(*profile_slot, name)?,
+            value: material_value_from_json(value)?,
+        }),
         Render3dMutationRequest::SetViewProfile { profile } => {
-            Some(Render3DMutation::SetViewProfile {
+            Some(Render3DMutation::SetProfile {
+                slot: Render3DProfileSlot::View,
                 profile: profile.clone(),
             })
         }
         Render3dMutationRequest::SetLightingProfile { profile } => {
-            Some(Render3DMutation::SetLightingProfile {
+            Some(Render3DMutation::SetProfile {
+                slot: Render3DProfileSlot::Lighting,
                 profile: profile.clone(),
             })
         }
         Render3dMutationRequest::SetSpaceEnvironmentProfile { profile } => {
-            Some(Render3DMutation::SetSpaceEnvironmentProfile {
+            Some(Render3DMutation::SetProfile {
+                slot: Render3DProfileSlot::SpaceEnvironment,
                 profile: profile.clone(),
             })
         }
         Render3dMutationRequest::SetLightingParam { name, value } => {
-            Some(Render3DMutation::SetLightingParam {
-                param: LightingProfileParam::from_name(name)?,
+            Some(Render3DMutation::SetProfileParam {
+                param: Render3DProfileParam::Lighting(LightingProfileParam::from_name(name)?),
                 value: material_value_from_json(value)?,
             })
         }
         Render3dMutationRequest::SetSpaceEnvironmentParam { name, value } => {
-            Some(Render3DMutation::SetSpaceEnvironmentParam {
-                param: SpaceEnvironmentParam::from_name(name)?,
+            Some(Render3DMutation::SetProfileParam {
+                param: Render3DProfileParam::SpaceEnvironment(
+                    SpaceEnvironmentParam::from_name(name)?,
+                ),
                 value: material_value_from_json(value)?,
             })
         }
@@ -197,6 +221,29 @@ pub fn render3d_mutation_from_request(
                 value: MaterialValue::Text(mode.clone()),
             })
         }
+    }
+}
+
+fn profile_slot_from_request(slot: RequestProfileSlot) -> Render3DProfileSlot {
+    match slot {
+        RequestProfileSlot::View => Render3DProfileSlot::View,
+        RequestProfileSlot::Lighting => Render3DProfileSlot::Lighting,
+        RequestProfileSlot::SpaceEnvironment => Render3DProfileSlot::SpaceEnvironment,
+    }
+}
+
+fn profile_param_from_request(
+    slot: RequestProfileSlot,
+    name: &str,
+) -> Option<Render3DProfileParam> {
+    match slot {
+        RequestProfileSlot::View => None,
+        RequestProfileSlot::Lighting => Some(Render3DProfileParam::Lighting(
+            LightingProfileParam::from_name(name)?,
+        )),
+        RequestProfileSlot::SpaceEnvironment => Some(Render3DProfileParam::SpaceEnvironment(
+            SpaceEnvironmentParam::from_name(name)?,
+        )),
     }
 }
 
@@ -332,11 +379,54 @@ mod tests {
         };
         let mutation = render3d_mutation_from_request(&request).expect("render mutation");
         match mutation {
-            Render3DMutation::SetLightingParam { param, value } => {
-                assert_eq!(param, crate::LightingProfileParam::Exposure);
+            Render3DMutation::SetProfileParam { param, value } => {
+                assert_eq!(
+                    param,
+                    crate::Render3DProfileParam::Lighting(crate::LightingProfileParam::Exposure)
+                );
                 assert_eq!(value, MaterialValue::Scalar(0.82));
             }
-            _ => panic!("expected SetLightingParam"),
+            _ => panic!("expected SetProfileParam"),
+        }
+    }
+
+    #[test]
+    fn maps_neutral_profile_request_to_neutral_runtime_mutation() {
+        let request = Render3dMutationRequest::SetProfile {
+            profile_slot: RequestProfileSlot::Lighting,
+            profile: "lab-neutral".to_string(),
+        };
+        let mutation = render3d_mutation_from_request(&request).expect("render mutation");
+
+        match mutation {
+            Render3DMutation::SetProfile { slot, profile } => {
+                assert_eq!(slot, crate::Render3DProfileSlot::Lighting);
+                assert_eq!(profile, "lab-neutral");
+            }
+            _ => panic!("expected SetProfile"),
+        }
+    }
+
+    #[test]
+    fn maps_neutral_profile_param_request_to_neutral_runtime_mutation() {
+        let request = Render3dMutationRequest::SetProfileParam {
+            profile_slot: RequestProfileSlot::SpaceEnvironment,
+            name: "background_color".to_string(),
+            value: serde_json::json!("#010203"),
+        };
+        let mutation = render3d_mutation_from_request(&request).expect("render mutation");
+
+        match mutation {
+            Render3DMutation::SetProfileParam { param, value } => {
+                assert_eq!(
+                    param,
+                    crate::Render3DProfileParam::SpaceEnvironment(
+                        crate::SpaceEnvironmentParam::BackgroundColor
+                    )
+                );
+                assert_eq!(value, MaterialValue::Text("#010203".to_string()));
+            }
+            _ => panic!("expected SetProfileParam"),
         }
     }
 }

@@ -185,6 +185,12 @@ Daily progress updates for Shell Engine development.
 - **engine-render-3d**: added `effects/passes/context.rs` with `RenderPassContext` derived from the new neutral `Render3dFrameInput`.
 - **architecture**: pass chaining now has a canonical frame-level context to converge on, instead of future passes depending directly on sprite-specific param bags.
 - **validation**: `cargo check -p engine-render-3d` pass.
+
+**3D runtime/API foundation: neutral scene-level profile mutations** ✅
+- **engine-api**: added neutral `Render3dProfileSlot` plus `SetProfile` / `SetProfileParam` requests and matching script helpers for scene-level 3D profile control.
+- **engine-scene-runtime**: added neutral runtime mutations `SetProfile` / `SetProfileParam`, normalized both new and legacy request variants through the same profile helpers, and preserved existing compatibility semantics.
+- **dirty tracking**: neutral profile mutations map to the same `DirtyMask3D::LIGHTING` behavior as earlier scene-level lighting/environment changes.
+- **validation**: `cargo test -p engine-api` and `cargo test -p engine-scene-runtime` pass.
 - **schemas/docs/mods**: added `world_render_size` / `ui_render_size` / `ui_layout_size` to `schemas/mod.schema.yaml`, documented the contract in `AUTHORING.md`, and enabled the split in active mods (`planet-generator`, `lighting-playground`, `gui-playground`).
 - **validation**: `cargo check -p engine-runtime -p engine`, `cargo check -p engine-compositor -p engine`, `cargo check -p app`, targeted engine tests, and `--check-scenes` for gui/planet mods.
 

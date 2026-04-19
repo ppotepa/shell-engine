@@ -688,23 +688,39 @@ impl SceneRuntime {
                 mutation_applied = true;
             }
             SceneMutation::SetRender3D(render3d) => match render3d {
+                Render3DMutation::SetProfile { slot, profile } => {
+                    if self.apply_profile_selection(*slot, profile) {
+                        mutation_applied = true;
+                    }
+                }
                 Render3DMutation::SetViewProfile { profile } => {
-                    let view = self.scene.view.get_or_insert_with(Default::default);
-                    view.profile = Some(profile.clone());
-                    self.refresh_resolved_view_profile();
-                    mutation_applied = true;
+                    if self.apply_profile_selection(
+                        crate::mutations::Render3DProfileSlot::View,
+                        profile,
+                    ) {
+                        mutation_applied = true;
+                    }
                 }
                 Render3DMutation::SetLightingProfile { profile } => {
-                    let view = self.scene.view.get_or_insert_with(Default::default);
-                    view.lighting_profile = Some(profile.clone());
-                    self.refresh_resolved_view_profile();
-                    mutation_applied = true;
+                    if self.apply_profile_selection(
+                        crate::mutations::Render3DProfileSlot::Lighting,
+                        profile,
+                    ) {
+                        mutation_applied = true;
+                    }
                 }
                 Render3DMutation::SetSpaceEnvironmentProfile { profile } => {
-                    let view = self.scene.view.get_or_insert_with(Default::default);
-                    view.space_environment_profile = Some(profile.clone());
-                    self.refresh_resolved_view_profile();
-                    mutation_applied = true;
+                    if self.apply_profile_selection(
+                        crate::mutations::Render3DProfileSlot::SpaceEnvironment,
+                        profile,
+                    ) {
+                        mutation_applied = true;
+                    }
+                }
+                Render3DMutation::SetProfileParam { param, value } => {
+                    if self.apply_profile_param(param, value) {
+                        mutation_applied = true;
+                    }
                 }
                 Render3DMutation::SetLightingParam { param, value } => {
                     if self.apply_lighting_profile_param(param, value) {
