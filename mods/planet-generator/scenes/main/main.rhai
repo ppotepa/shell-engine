@@ -492,7 +492,11 @@ if (local.mode ?? "generator") == "flight" && input.just_pressed("Escape") {
 let active_mode = local.mode ?? "generator";
 let is_flight_active = active_mode == "flight";
 let is_generator_active = !is_flight_active;
-if is_flight_active && input.just_pressed("F9") {
+let profile_toggle_pressed =
+    input.just_pressed("F9")
+    || input.just_pressed("c")
+    || input.just_pressed("C");
+if is_flight_active && profile_toggle_pressed {
     local = toggle_flight_profile(local);
     local = persist_flight_profile(local, game);
 }
@@ -925,6 +929,8 @@ let stats_spd = (local.flight_speed_kms ?? 0.0).abs();
 let stats_vrad = local.flight_vrad_kms ?? 0.0;
 scene.set("stats-flight-mode", "text.content", `MODE: ${stats_mode} ${stats_flight_profile_label} ${stats_alt_hold_label} ${stats_hdg_hold_label}`);
 scene.set("stats-flight-profile", "text.content", `PROFILE: ${stats_flight_profile_label}  H[${stats_alt_hold_label}]  J[${stats_hdg_hold_label}]`);
+scene.set("stats-assist-alt", "text.content", `HOLD ALT: ${if stats_alt_hold { "ON" } else { "OFF" }}`);
+scene.set("stats-assist-hdg", "text.content", `HOLD HDG: ${if stats_hdg_hold { "ON" } else { "OFF" }}`);
 scene.set("stats-radius-real", "text.content", `R REAL: ${stats_radius_real.round()} km`);
 scene.set("stats-radius-sim", "text.content", `R SIM: ${(stats_radius_sim * 100.0).round() / 100.0} wu`);
 scene.set("stats-gravity", "text.content", `G: ${stats_surface_g_fmt} m/s2`);
