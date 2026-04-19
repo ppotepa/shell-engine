@@ -10,7 +10,7 @@
       align-y: top
       x: 16
       y: 660
-      width: 700
+      width: 740
       height: 72
       padding: 6
       border-width: 1
@@ -29,7 +29,8 @@
           gap-y: 4
           children:
             - { type: text, id: stats-biomes,      content: "OCEAN 55%  FOREST 12%  DESERT 8%  SNOW 7%", grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
-            - { type: text, id: stats-flight-profile, content: "PROFILE: ARCADE",                          grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#4f8e7e" }
+            - { type: text, id: stats-flight-profile, content: "PROFILE: ARCADE",                          grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#4f8e7e" }
+            - { type: text, id: stats-assist-alt,     content: "HOLD ALT: OFF",                            grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#4f8e7e" }
             - { type: text, id: stats-seed,        content: "SEED: 0",                                    grid-col: 4, grid-row: 1, at: cr, font: "generic:2", fg: "#304040" }
             - { type: text, id: stats-flight-mode, content: "MODE: GENERATOR",                            grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#5bc0be" }
             - { type: text, id: stats-radius-real, content: "R_REAL: -- km",                              grid-col: 2, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
@@ -38,3 +39,4 @@
             - { type: text, id: stats-alt,         content: "ALT: -- km",                                 grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
             - { type: text, id: stats-spd,         content: "SPD: --",                                    grid-col: 2, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
             - { type: text, id: stats-vrad,        content: "VRAD: --",                                   grid-col: 3, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-assist-hdg,   content: "HOLD HDG: OFF",                              grid-col: 4, grid-row: 3, at: cl, font: "generic:2", fg: "#4f8e7e" }
