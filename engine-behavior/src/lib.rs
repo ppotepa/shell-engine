@@ -1338,6 +1338,28 @@ mod tests {
         }
     }
 
+    fn ctx_with_menu_item_state(offset_x: i32, offset_y: i32) -> BehaviorContext {
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = HashMap::new();
+        let state = ObjectRuntimeState {
+            heading: 0.0,
+            offset_z: 0,
+            visible: true,
+            offset_x,
+            offset_y,
+        };
+        object_states.insert("menu-item-0".to_string(), state.clone());
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            state,
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_states = Arc::new(object_states);
+        test_ctx
+    }
+
     fn update_ctx_menu_map(ctx: &mut BehaviorContext, menu_count: usize) {
         // When test modifies menu_selected_index, rebuild the menu map to match
         let mut menu_map = RhaiMap::new();
@@ -1982,7 +2004,7 @@ out
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,
@@ -2220,7 +2242,7 @@ out
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,
@@ -2247,7 +2269,7 @@ out
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,
@@ -2277,7 +2299,7 @@ out
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,
@@ -2308,13 +2330,13 @@ scene.set("menu-item-0", "position.y", 6);
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,
             vec![BehaviorCommand::ApplySceneMutation {
                 request: engine_api::commands::scene_mutation_request_from_set_path(
-                    "menu-item-0",
+                    "obj:menu-item-0",
                     "position.y",
                     &JsonValue::Number(6.into()),
                     Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
@@ -2339,13 +2361,13 @@ scene.set("menu-item-0", "props.position.y", 6);
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,
             vec![BehaviorCommand::ApplySceneMutation {
                 request: engine_api::commands::scene_mutation_request_from_set_path(
-                    "menu-item-0",
+                    "obj:menu-item-0",
                     "position.y",
                     &JsonValue::Number(6.into()),
                     Some(&engine_core::scene_runtime_types::ObjectRuntimeState::default()),
@@ -2371,7 +2393,7 @@ scene.despawn_object("item-99");
         let commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            ctx_with_menu_item_state(0, 0),
         );
         assert_eq!(
             commands,

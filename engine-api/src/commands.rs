@@ -171,7 +171,7 @@ pub fn scene_mutation_request_from_set_path(
             value: value.clone(),
         }),
         "offset.x" | "position.x" => {
-            let state = current_state?;
+            let state = current_state.cloned().unwrap_or_default();
             let next_x = rounded_i32(value)?;
             Some(crate::scene::SceneMutationRequest::Set2dProps {
                 target: target.to_string(),
@@ -182,7 +182,7 @@ pub fn scene_mutation_request_from_set_path(
             })
         }
         "offset.y" | "position.y" => {
-            let state = current_state?;
+            let state = current_state.cloned().unwrap_or_default();
             let next_y = rounded_i32(value)?;
             Some(crate::scene::SceneMutationRequest::Set2dProps {
                 target: target.to_string(),
