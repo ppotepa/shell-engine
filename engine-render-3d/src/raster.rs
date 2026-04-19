@@ -19,6 +19,7 @@ use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::frame_context::FrameShadingContext;
+use crate::pipeline::stages::gouraud::prepare_visible_gouraud_faces_into;
 use crate::pipeline::stages::project::{
     project_mesh_with_viewport, project_vertices_into, ProjectionPoseConfig,
     ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
@@ -1354,32 +1355,22 @@ pub fn render_obj_to_rgba_canvas(
         taken.reserve(mesh.faces.len());
         taken
     });
-    let face_limit = classify_and_sort_faces_into(
-        &mesh,
-        &projected,
-        FaceClassificationConfig {
-            backface_cull,
-            depth_sort_faces: params.depth_sort_faces,
-            min_projected_face_double_area: MIN_PROJECTED_FACE_DOUBLE_AREA,
-            max_faces: MAX_OBJ_FACE_RENDER,
-        },
-        &mut sorted_faces,
-    );
     let mut shaded_gouraud = OBJ_SHADED_GOURAUD.with(|g| {
         let mut pool = g.borrow_mut();
         let mut taken = std::mem::take(&mut *pool);
         taken.clear();
-        taken.reserve(face_limit);
+        taken.reserve(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
         taken
     });
-    prepare_gouraud_faces_into(
+    let face_limit = prepare_visible_gouraud_faces_into(
         &mesh,
-        &sorted_faces,
-        face_limit,
         &projected,
-        frame_ctx.unlit,
-        frame_ctx.fg_rgb,
-        |normal| frame_ctx.shade_at_vertex(normal),
+        backface_cull,
+        params.depth_sort_faces,
+        MIN_PROJECTED_FACE_DOUBLE_AREA,
+        MAX_OBJ_FACE_RENDER,
+        frame_ctx,
+        &mut sorted_faces,
         &mut shaded_gouraud,
     );
 
