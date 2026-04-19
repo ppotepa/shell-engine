@@ -266,6 +266,16 @@ fn exit_flight_mode(local, world) {
     local["flight_altitude_km"] = 0.0;
     local["flight_speed_kms"] = 0.0;
     local["flight_vrad_kms"] = 0.0;
+    local["flight_input_blend"] = 6.0;
+    local["flight_tangent_accel"] = 3.5;
+    local["flight_radial_accel"] = 2.6;
+    local["flight_yaw_rate"] = 1.8;
+    local["flight_tangent_damping"] = 0.22;
+    local["flight_radial_damping"] = 0.28;
+    local["flight_max_tangent_speed"] = 18.0;
+    local["flight_max_radial_speed"] = 8.0;
+    local["flight_boost_mult"] = 1.6;
+    local["flight_brake_mult"] = 1.7;
     local
 }
 
@@ -297,6 +307,16 @@ if !(local.initialized ?? false) {
     local.rotation_paused = false;
     local.preset_choice = 0;
     local.tab_sync_needed = true;
+    local.flight_input_blend = 6.0;
+    local.flight_tangent_accel = 3.5;
+    local.flight_radial_accel = 2.6;
+    local.flight_yaw_rate = 1.8;
+    local.flight_tangent_damping = 0.22;
+    local.flight_radial_damping = 0.28;
+    local.flight_max_tangent_speed = 18.0;
+    local.flight_max_radial_speed = 8.0;
+    local.flight_boost_mult = 1.6;
+    local.flight_brake_mult = 1.7;
 }
 
 let tab  = local.tab  ?? 0;
@@ -1076,19 +1096,27 @@ if is_flight_active {
             if input.down("Left") || input.down("a") { 1.0 }
             else if input.down("Right") || input.down("d") { -1.0 }
             else { 0.0 };
-        let input_blend = (dt * 6.0).min(1.0);
+        let input_blend = (dt * (local.flight_input_blend ?? 6.0)).min(1.0);
         let thrust_input = (local.flight_thrust_input ?? 0.0) + (thrust_target - (local.flight_thrust_input ?? 0.0)) * input_blend;
         let radial_input = (local.flight_radial_input ?? 0.0) + (radial_target - (local.flight_radial_input ?? 0.0)) * input_blend;
         let yaw_input = (local.flight_yaw_input ?? 0.0) + (yaw_target - (local.flight_yaw_input ?? 0.0)) * input_blend;
 
-        let accel_tangent = thrust_input * 3.5;
-        let accel_radial = radial_input * 2.6;
-        let tangent_speed = (local.flight_tangent_speed ?? 0.0) + accel_tangent * dt;
-        let radial_speed = (local.flight_radial_speed ?? 0.0) + accel_radial * dt;
-        let heading = (local.flight_heading ?? 0.0) + yaw_input * dt * 1.8;
+        let boost_mult = local.flight_boost_mult ?? 1.6;
+        let brake_mult = local.flight_brake_mult ?? 1.7;
+        let thrust_scale =
+            if input.down("x") { boost_mult }
+            else if input.down("z") { 1.0 / brake_mult.max(1.01) }
+            else { 1.0 };
+        let accel_tangent = thrust_input * (local.flight_tangent_accel ?? 3.5) * thrust_scale;
+        let accel_radial = radial_input * (local.flight_radial_accel ?? 2.6);
+        let max_tangent = (local.flight_max_tangent_speed ?? 18.0).max(0.1);
+        let max_radial = (local.flight_max_radial_speed ?? 8.0).max(0.1);
+        let tangent_speed = ((local.flight_tangent_speed ?? 0.0) + accel_tangent * dt).max(-max_tangent).min(max_tangent);
+        let radial_speed = ((local.flight_radial_speed ?? 0.0) + accel_radial * dt).max(-max_radial).min(max_radial);
+        let heading = (local.flight_heading ?? 0.0) + yaw_input * dt * (local.flight_yaw_rate ?? 1.8);
 
-        let tangent_speed_damped = tangent_speed * (1.0 / (1.0 + 0.22 * dt));
-        let radial_speed_damped = radial_speed * (1.0 / (1.0 + 0.28 * dt));
+        let tangent_speed_damped = tangent_speed * (1.0 / (1.0 + (local.flight_tangent_damping ?? 0.22) * dt));
+        let radial_speed_damped = radial_speed * (1.0 / (1.0 + (local.flight_radial_damping ?? 0.28) * dt));
 
         let next_r = (r + radial_speed_damped * dt).max(surface_radius + min_alt);
         let arc = tangent_speed_damped * dt;
@@ -1156,12 +1184,19 @@ if is_flight_active {
 
         let altitude = (next_r - surface_radius).max(0.0);
         local.flight_altitude_km = altitude;
-        local.flight_speed_kms = tangent_speed_damped.abs();
+        local.flight_speed_kms = sqrt(
+            tangent_speed_damped * tangent_speed_damped
+            + radial_speed_damped * radial_speed_damped
+        );
         local.flight_vrad_kms = radial_speed_damped;
+        let alt_fmt = (altitude * 100.0).round() / 100.0;
+        let spd_fmt = ((local.flight_speed_kms ?? 0.0) * 100.0).round() / 100.0;
+        let vrad_fmt = (radial_speed_damped * 100.0).round() / 100.0;
+        let vrad_txt = if vrad_fmt >= 0.0 { `+${vrad_fmt}` } else { `${vrad_fmt}` };
         scene.set(
             "stats-biomes",
             "text.content",
-            `MODE FLIGHT  ALT ${altitude.round()}km  SPD ${(tangent_speed_damped.abs() * 100.0).round() / 100.0}km/s  VRAD ${(radial_speed_damped * 100.0).round() / 100.0}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}`
+            `MODE FLIGHT  ALT ${alt_fmt}km  SPD ${spd_fmt}km/s  VRAD ${vrad_txt}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}  BOOST[X] BRAKE[Z]`
         );
         if !body_patch_ok {
             scene.set("stats-biomes", "text.content", "MODE FLIGHT  BODY PATCH FAILED");
