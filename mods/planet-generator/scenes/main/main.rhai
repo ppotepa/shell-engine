@@ -170,6 +170,50 @@ fn gravity_mu_km3_s2(surface_g_mps2, radius_km) {
     (surface_g_mps2.max(0.0) / 1000.0) * r * r
 }
 
+fn normalize_flight_profile_name(profile_name) {
+    let name = profile_name ?? "arcade";
+    if name == "sim-lite" || name == "sim_lite" {
+        "sim-lite"
+    } else {
+        "arcade"
+    }
+}
+
+fn apply_flight_profile(local, profile_name) {
+    let profile = normalize_flight_profile_name(profile_name);
+    local["flight_profile"] = profile;
+    if profile == "sim-lite" {
+        local["flight_input_blend"] = 4.8;
+        local["flight_tangent_accel"] = 2.1;
+        local["flight_radial_accel"] = 1.5;
+        local["flight_yaw_rate"] = 1.1;
+        local["flight_tangent_damping"] = 0.14;
+        local["flight_radial_damping"] = 0.18;
+        local["flight_max_tangent_speed"] = 14.0;
+        local["flight_max_radial_speed"] = 6.0;
+        local["flight_boost_mult"] = 1.35;
+        local["flight_brake_mult"] = 1.45;
+    } else {
+        local["flight_input_blend"] = 6.6;
+        local["flight_tangent_accel"] = 4.0;
+        local["flight_radial_accel"] = 3.0;
+        local["flight_yaw_rate"] = 2.1;
+        local["flight_tangent_damping"] = 0.26;
+        local["flight_radial_damping"] = 0.34;
+        local["flight_max_tangent_speed"] = 22.0;
+        local["flight_max_radial_speed"] = 10.0;
+        local["flight_boost_mult"] = 1.85;
+        local["flight_brake_mult"] = 1.85;
+    }
+    local
+}
+
+fn toggle_flight_profile(local) {
+    let current = normalize_flight_profile_name(local["flight_profile"] ?? "arcade");
+    let next = if current == "arcade" { "sim-lite" } else { "arcade" };
+    apply_flight_profile(local, next)
+}
+
 fn build_generated_body_map(
     real_radius_km,
     scale_divisor,
@@ -226,6 +270,7 @@ fn ensure_ship(world, spawn_x, spawn_y) {
 }
 
 fn enter_flight_mode(local, world) {
+    local = apply_flight_profile(local, local["flight_profile"] ?? "arcade");
     let body_sync = sync_generated_body(local, world);
     let body = body_sync["body"] ?? #{};
     let cx = body["center_x"] ?? 0.0;
@@ -266,17 +311,7 @@ fn exit_flight_mode(local, world) {
     local["flight_altitude_km"] = 0.0;
     local["flight_speed_kms"] = 0.0;
     local["flight_vrad_kms"] = 0.0;
-    local["flight_input_blend"] = 6.0;
-    local["flight_tangent_accel"] = 3.5;
-    local["flight_radial_accel"] = 2.6;
-    local["flight_yaw_rate"] = 1.8;
-    local["flight_tangent_damping"] = 0.22;
-    local["flight_radial_damping"] = 0.28;
-    local["flight_max_tangent_speed"] = 18.0;
-    local["flight_max_radial_speed"] = 8.0;
-    local["flight_boost_mult"] = 1.6;
-    local["flight_brake_mult"] = 1.7;
-    local
+    apply_flight_profile(local, local["flight_profile"] ?? "arcade")
 }
 
 // ── Persistent state──────────────────────────────────────────────────────────
@@ -293,6 +328,7 @@ if !(local.initialized ?? false) {
     local.atmo_top_km = 80.0 / 30.0;
     local.atmo_dense_start_km = 12.0 / 30.0;
     local.atmo_drag_max = 2.0;
+    local.flight_profile = "arcade";
     local.tab = 0;
     local.model_mode = 1;
     let p = preset_earth();
@@ -307,16 +343,7 @@ if !(local.initialized ?? false) {
     local.rotation_paused = false;
     local.preset_choice = 0;
     local.tab_sync_needed = true;
-    local.flight_input_blend = 6.0;
-    local.flight_tangent_accel = 3.5;
-    local.flight_radial_accel = 2.6;
-    local.flight_yaw_rate = 1.8;
-    local.flight_tangent_damping = 0.22;
-    local.flight_radial_damping = 0.28;
-    local.flight_max_tangent_speed = 18.0;
-    local.flight_max_radial_speed = 8.0;
-    local.flight_boost_mult = 1.6;
-    local.flight_brake_mult = 1.7;
+    local = apply_flight_profile(local, local.flight_profile);
 }
 
 let tab  = local.tab  ?? 0;
@@ -448,6 +475,9 @@ if (local.mode ?? "generator") == "flight" && input.just_pressed("Escape") {
 let active_mode = local.mode ?? "generator";
 let is_flight_active = active_mode == "flight";
 let is_generator_active = !is_flight_active;
+if is_flight_active && input.just_pressed("F9") {
+    local = toggle_flight_profile(local);
+}
 
 // ── Preset keys (F1-F7) ───────────────────────────────────────────────────────
 let preset_applied = false;
@@ -856,6 +886,8 @@ if tab == 0 {
 scene.set("stats-seed", "text.content", `SEED: ${seed.round()}`);
 let ps = planet_last_stats();
 let stats_mode = if is_flight_active { "FLIGHT" } else { "GENERATOR" };
+let stats_flight_profile = normalize_flight_profile_name(local.flight_profile ?? "arcade");
+let stats_flight_profile_label = if stats_flight_profile == "sim-lite" { "SIM-LITE" } else { "ARCADE" };
 let stats_radius_real = local.planet_radius_real_km ?? 6371.0;
 let stats_radius_sim = sim_radius_km(stats_radius_real, local.planet_radius_scale_divisor ?? 30.0);
 let stats_surface_g = local.surface_gravity_mps2 ?? 9.81;
@@ -863,7 +895,7 @@ let stats_surface_g_fmt = (stats_surface_g * 100.0).round() / 100.0;
 let stats_alt = (local.flight_altitude_km ?? 0.0).max(0.0);
 let stats_spd = (local.flight_speed_kms ?? 0.0).abs();
 let stats_vrad = local.flight_vrad_kms ?? 0.0;
-scene.set("stats-flight-mode", "text.content", `MODE: ${stats_mode}`);
+scene.set("stats-flight-mode", "text.content", `MODE: ${stats_mode} ${stats_flight_profile_label}`);
 scene.set("stats-radius-real", "text.content", `R REAL: ${stats_radius_real.round()} km`);
 scene.set("stats-radius-sim", "text.content", `R SIM: ${(stats_radius_sim * 100.0).round() / 100.0} wu`);
 scene.set("stats-gravity", "text.content", `G: ${stats_surface_g_fmt} m/s2`);
@@ -1196,7 +1228,7 @@ if is_flight_active {
         scene.set(
             "stats-biomes",
             "text.content",
-            `MODE FLIGHT  ALT ${alt_fmt}km  SPD ${spd_fmt}km/s  VRAD ${vrad_txt}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}  BOOST[X] BRAKE[Z]`
+            `MODE FLIGHT  PROFILE ${stats_flight_profile_label}  ALT ${alt_fmt}km  SPD ${spd_fmt}km/s  VRAD ${vrad_txt}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}  BOOST[X] BRAKE[Z]  PROFILE[F9]`
         );
         if !body_patch_ok {
             scene.set("stats-biomes", "text.content", "MODE FLIGHT  BODY PATCH FAILED");
