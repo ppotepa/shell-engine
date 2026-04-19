@@ -196,7 +196,7 @@ fn build_generated_body_map(
     }
 }
 
-fn sync_generated_body(local) {
+fn sync_generated_body(local, world) {
     let real_radius_km = local["planet_radius_real_km"] ?? 6371.0;
     let scale_divisor = local["planet_radius_scale_divisor"] ?? 30.0;
     let surface_gravity_mps2 = local["surface_gravity_mps2"] ?? 9.81;
@@ -212,21 +212,11 @@ fn sync_generated_body(local) {
         atmo_drag_max
     );
 
-    // Render-profile/body group sync available today.
-    scene.set("planet-mesh", "body.center_x", body["center_x"]);
-    scene.set("planet-mesh", "body.center_y", body["center_y"]);
-    scene.set("planet-mesh", "body.radius_px", body["radius_px"]);
-    scene.set("planet-mesh", "body.surface_radius", body["surface_radius"]);
-    scene.set("planet-mesh", "body.radius_km", body["radius_km"]);
-    scene.set("planet-mesh", "body.gravity_mu_km3_s2", body["gravity_mu_km3_s2"]);
-    scene.set("planet-mesh", "body.atmosphere_top_km", body["atmosphere_top_km"]);
-    scene.set("planet-mesh", "body.atmosphere_dense_start_km", body["atmosphere_dense_start_km"]);
-    scene.set("planet-mesh", "body.atmosphere_drag_max", body["atmosphere_drag_max"]);
-    scene.set("planet-mesh", "body.cloud_bottom_km", body["cloud_bottom_km"]);
-    scene.set("planet-mesh", "body.cloud_top_km", body["cloud_top_km"]);
-
-    // Future gameplay hook: world.body_patch/world.body_upsert should consume this map.
-    body
+    let patched = world.body_patch("generated-planet", body);
+    #{
+        body: body,
+        patched: patched
+    }
 }
 
 fn ensure_ship(world, spawn_x, spawn_y) {
@@ -236,7 +226,8 @@ fn ensure_ship(world, spawn_x, spawn_y) {
 }
 
 fn enter_flight_mode(local, world) {
-    let body = sync_generated_body(local);
+    let body_sync = sync_generated_body(local, world);
+    let body = body_sync["body"] ?? #{};
     let cx = body["center_x"] ?? 0.0;
     let cy = body["center_y"] ?? 0.0;
     let surface_radius_wu = body["surface_radius"] ?? 1.0;
@@ -266,6 +257,15 @@ fn exit_flight_mode(local, world) {
     local["mode"] = "generator";
     local["flight_initialized"] = false;
     local["ship_id"] = 0;
+    local["flight_tangent_speed"] = 0.0;
+    local["flight_radial_speed"] = 0.0;
+    local["flight_heading"] = 0.0;
+    local["flight_thrust_input"] = 0.0;
+    local["flight_radial_input"] = 0.0;
+    local["flight_yaw_input"] = 0.0;
+    local["flight_altitude_km"] = 0.0;
+    local["flight_speed_kms"] = 0.0;
+    local["flight_vrad_kms"] = 0.0;
     local
 }
 
@@ -425,10 +425,14 @@ if (local.mode ?? "generator") == "flight" && input.just_pressed("Escape") {
     local = exit_flight_mode(local, world);
 }
 
+let active_mode = local.mode ?? "generator";
+let is_flight_active = active_mode == "flight";
+let is_generator_active = !is_flight_active;
+
 // ── Preset keys (F1-F7) ───────────────────────────────────────────────────────
 let preset_applied = false;
 
-if !is_flight_mode && input.just_pressed("F1") {
+if is_generator_active && input.just_pressed("F1") {
     let p = preset_earth();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -439,7 +443,7 @@ if !is_flight_mode && input.just_pressed("F1") {
     gui.set_widget_value("planet-preset-dropdown", 0.0);
     preset_applied = true;
 }
-if !is_flight_mode && input.just_pressed("F2") {
+if is_generator_active && input.just_pressed("F2") {
     let p = preset_mars();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -450,7 +454,7 @@ if !is_flight_mode && input.just_pressed("F2") {
     gui.set_widget_value("planet-preset-dropdown", 1.0);
     preset_applied = true;
 }
-if !is_flight_mode && input.just_pressed("F3") {
+if is_generator_active && input.just_pressed("F3") {
     let p = preset_ocean();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -461,7 +465,7 @@ if !is_flight_mode && input.just_pressed("F3") {
     gui.set_widget_value("planet-preset-dropdown", 2.0);
     preset_applied = true;
 }
-if !is_flight_mode && input.just_pressed("F4") {
+if is_generator_active && input.just_pressed("F4") {
     let p = preset_desert();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -472,7 +476,7 @@ if !is_flight_mode && input.just_pressed("F4") {
     gui.set_widget_value("planet-preset-dropdown", 3.0);
     preset_applied = true;
 }
-if !is_flight_mode && input.just_pressed("F5") {
+if is_generator_active && input.just_pressed("F5") {
     let p = preset_ice();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -483,7 +487,7 @@ if !is_flight_mode && input.just_pressed("F5") {
     gui.set_widget_value("planet-preset-dropdown", 4.0);
     preset_applied = true;
 }
-if !is_flight_mode && input.just_pressed("F6") {
+if is_generator_active && input.just_pressed("F6") {
     let p = preset_volcanic();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -494,7 +498,7 @@ if !is_flight_mode && input.just_pressed("F6") {
     gui.set_widget_value("planet-preset-dropdown", 5.0);
     preset_applied = true;
 }
-if !is_flight_mode && input.just_pressed("F7") {
+if is_generator_active && input.just_pressed("F7") {
     let p = preset_archipelago();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -505,7 +509,7 @@ if !is_flight_mode && input.just_pressed("F7") {
     gui.set_widget_value("planet-preset-dropdown", 6.0);
     preset_applied = true;
 }
-let gui_preset = if is_flight_mode { -1 } else { gui.selected_index("planet-preset-dropdown") };
+let gui_preset = if is_flight_active { -1 } else { gui.selected_index("planet-preset-dropdown") };
 if gui_preset >= 0 && gui_preset != preset_choice {
     local.preset_choice = gui_preset;
     if gui_preset == 0 {
@@ -561,7 +565,7 @@ if gui_preset >= 0 && gui_preset != preset_choice {
 }
 
 // ── Randomize (GUI button only) ───────────────────────────────────────────────
-if !is_flight_mode && gui.button_clicked("planet-randomize-button") {
+if is_generator_active && gui.button_clicked("planet-randomize-button") {
     local.seed     = (seed * 1234.5 + 6789.0) % 9999.0;
     local.ocean    = 0.2 + ((local.seed * 0.618) % 0.7);
     local.cscale   = 1.0 + ((local.seed * 0.382) % 9.0);
@@ -591,7 +595,7 @@ if !is_flight_mode && gui.button_clicked("planet-randomize-button") {
 }
 
 // ── Reset to Earth defaults (Delete) ─────────────────────────────────────────
-if !is_flight_mode && (input.just_pressed("Delete") || gui.button_clicked("planet-reset-button")) {
+if is_generator_active && (input.just_pressed("Delete") || gui.button_clicked("planet-reset-button")) {
     let p = preset_earth();
     local.seed=p.seed; local.ocean=p.ocean; local.cscale=p.cscale; local.cwarp=p.cwarp; local.coct=p.coct;
     local.mscale=p.mscale; local.mstr=p.mstr; local.mroct=p.mroct;
@@ -685,7 +689,7 @@ if need_sync {
 // ── Read slider values → local state (normal mouse drag frames) ───────────────
 // gui.slider_value() returns the value from this frame's gui state (after mouse events).
 // Skip on sync frames (preset/tab-switch) — local.* is already correct.
-if !need_sync && ((local.mode ?? "generator") != "flight") {
+if !need_sync && is_generator_active {
     if tab == 0 {
         seed     = seed_from_01(gui.slider_value("param-0"));
         ocean    = ocean_from_01(gui.slider_value("param-1"));
@@ -831,17 +835,31 @@ if tab == 0 {
 // ── Stats strip ───────────────────────────────────────────────────────────────
 scene.set("stats-seed", "text.content", `SEED: ${seed.round()}`);
 let ps = planet_last_stats();
-let stats_mode = if (local.mode ?? "generator") == "flight" { "FLIGHT" } else { "GENERATOR" };
+let stats_mode = if is_flight_active { "FLIGHT" } else { "GENERATOR" };
 let stats_radius_real = local.planet_radius_real_km ?? 6371.0;
 let stats_radius_sim = sim_radius_km(stats_radius_real, local.planet_radius_scale_divisor ?? 30.0);
 let stats_surface_g = local.surface_gravity_mps2 ?? 9.81;
+let stats_surface_g_fmt = (stats_surface_g * 100.0).round() / 100.0;
+let stats_alt = (local.flight_altitude_km ?? 0.0).max(0.0);
+let stats_spd = (local.flight_speed_kms ?? 0.0).abs();
+let stats_vrad = local.flight_vrad_kms ?? 0.0;
+scene.set("stats-flight-mode", "text.content", `MODE: ${stats_mode}`);
+scene.set("stats-radius-real", "text.content", `R REAL: ${stats_radius_real.round()} km`);
+scene.set("stats-radius-sim", "text.content", `R SIM: ${(stats_radius_sim * 100.0).round() / 100.0} wu`);
+scene.set("stats-gravity", "text.content", `G: ${stats_surface_g_fmt} m/s2`);
+scene.set("stats-alt", "text.content", `ALT: ${stats_alt.round()} km`);
+scene.set("stats-spd", "text.content", `SPD: ${(stats_spd * 100.0).round() / 100.0} km/s`);
+scene.set("stats-vrad", "text.content", `VRAD: ${(stats_vrad * 100.0).round() / 100.0} km/s`);
 if ps.len() > 0 {
     let ocean_pct  = (ps["ocean"]  * 100.0).round();
     let forest_pct = (ps["forest"] * 100.0).round();
     let desert_pct = (ps["desert"] * 100.0).round();
     let cold_pct   = (ps["cold"]   * 100.0).round();
     scene.set("stats-biomes", "text.content",
-        `MODE ${stats_mode}  OCEAN ${ocean_pct}%  FOREST ${forest_pct}%  DESERT ${desert_pct}%  SNOW ${cold_pct}%  R ${stats_radius_real.round()}km/${stats_radius_sim.round()}wu  G ${stats_surface_g}`);
+        `MODE ${stats_mode}  OCEAN ${ocean_pct}%  FOREST ${forest_pct}%  DESERT ${desert_pct}%  SNOW ${cold_pct}%  R ${stats_radius_real.round()}km/${stats_radius_sim.round()}wu  G ${stats_surface_g_fmt}`);
+} else {
+    scene.set("stats-biomes", "text.content",
+        `MODE ${stats_mode}  OCEAN --  FOREST --  DESERT --  SNOW --  R ${stats_radius_real.round()}km/${stats_radius_sim.round()}wu  G ${stats_surface_g_fmt}`);
 }
 
 // ── Push world params to planet mesh (throttled to ≤ THROTTLE_MS between pushes) ──
@@ -1020,9 +1038,11 @@ if light_changed {
 }
 
 // ── Flight runtime (same scene, alternate mode) ─────────────────────────────
-if (local.mode ?? "generator") == "flight" {
+if is_flight_active {
     // Keep generated body sync in-flight so gravity/atmo contracts stay aligned.
-    let body = sync_generated_body(local);
+    let body_sync = sync_generated_body(local, world);
+    let body = body_sync["body"] ?? #{};
+    let body_patch_ok = body_sync["patched"] ?? false;
     let cx = body["center_x"] ?? 0.0;
     let cy = body["center_y"] ?? 0.0;
     let surface_radius = (body["surface_radius"] ?? planet_radius_sim_km).max(0.1);
@@ -1044,25 +1064,31 @@ if (local.mode ?? "generator") == "flight" {
         let tx = -ny;
         let ty = nx;
 
-        let accel_tangent =
-            if input.down("Up") || input.down("w") { 3.5 }
-            else if input.down("Down") || input.down("s") { -2.0 }
+        let thrust_target =
+            if input.down("Up") || input.down("w") { 1.0 }
+            else if input.down("Down") || input.down("s") { -1.0 }
             else { 0.0 };
-        let accel_radial =
-            if input.down("e") { 2.6 }
-            else if input.down("q") { -2.6 }
+        let radial_target =
+            if input.down("e") { 1.0 }
+            else if input.down("q") { -1.0 }
             else { 0.0 };
-        let yaw_input =
+        let yaw_target =
             if input.down("Left") || input.down("a") { 1.0 }
             else if input.down("Right") || input.down("d") { -1.0 }
             else { 0.0 };
+        let input_blend = (dt * 6.0).min(1.0);
+        let thrust_input = (local.flight_thrust_input ?? 0.0) + (thrust_target - (local.flight_thrust_input ?? 0.0)) * input_blend;
+        let radial_input = (local.flight_radial_input ?? 0.0) + (radial_target - (local.flight_radial_input ?? 0.0)) * input_blend;
+        let yaw_input = (local.flight_yaw_input ?? 0.0) + (yaw_target - (local.flight_yaw_input ?? 0.0)) * input_blend;
 
+        let accel_tangent = thrust_input * 3.5;
+        let accel_radial = radial_input * 2.6;
         let tangent_speed = (local.flight_tangent_speed ?? 0.0) + accel_tangent * dt;
         let radial_speed = (local.flight_radial_speed ?? 0.0) + accel_radial * dt;
         let heading = (local.flight_heading ?? 0.0) + yaw_input * dt * 1.8;
 
-        let tangent_speed_damped = tangent_speed * (1.0 / (1.0 + 0.15 * dt));
-        let radial_speed_damped = radial_speed * (1.0 / (1.0 + 0.20 * dt));
+        let tangent_speed_damped = tangent_speed * (1.0 / (1.0 + 0.22 * dt));
+        let radial_speed_damped = radial_speed * (1.0 / (1.0 + 0.28 * dt));
 
         let next_r = (r + radial_speed_damped * dt).max(surface_radius + min_alt);
         let arc = tangent_speed_damped * dt;
@@ -1124,13 +1150,22 @@ if (local.mode ?? "generator") == "flight" {
         local.flight_heading = heading;
         local.flight_tangent_speed = tangent_speed_damped;
         local.flight_radial_speed = radial_speed_damped;
+        local.flight_thrust_input = thrust_input;
+        local.flight_radial_input = radial_input;
+        local.flight_yaw_input = yaw_input;
 
         let altitude = (next_r - surface_radius).max(0.0);
+        local.flight_altitude_km = altitude;
+        local.flight_speed_kms = tangent_speed_damped.abs();
+        local.flight_vrad_kms = radial_speed_damped;
         scene.set(
             "stats-biomes",
             "text.content",
-            `MODE FLIGHT  ALT ${altitude.round()}km  SPD ${absf(tangent_speed_damped).round()}km/s  VRAD ${radial_speed_damped.round()}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${surface_gravity_mps2}`
+            `MODE FLIGHT  ALT ${altitude.round()}km  SPD ${(tangent_speed_damped.abs() * 100.0).round() / 100.0}km/s  VRAD ${(radial_speed_damped * 100.0).round() / 100.0}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}`
         );
+        if !body_patch_ok {
+            scene.set("stats-biomes", "text.content", "MODE FLIGHT  BODY PATCH FAILED");
+        }
     } else {
         scene.set("stats-biomes", "text.content", "MODE FLIGHT  SHIP PREFAB NOT AVAILABLE");
     }
