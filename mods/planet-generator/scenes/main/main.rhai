@@ -179,6 +179,10 @@ fn normalize_flight_profile_name(profile_name) {
     }
 }
 
+fn flight_profile_state_path() {
+    "/mods/planet-generator/flight/profile"
+}
+
 fn apply_flight_profile(local, profile_name) {
     let profile = normalize_flight_profile_name(profile_name);
     local["flight_profile"] = profile;
@@ -212,6 +216,12 @@ fn toggle_flight_profile(local) {
     let current = normalize_flight_profile_name(local["flight_profile"] ?? "arcade");
     let next = if current == "arcade" { "sim-lite" } else { "arcade" };
     apply_flight_profile(local, next)
+}
+
+fn persist_flight_profile(local, game) {
+    let profile = normalize_flight_profile_name(local["flight_profile"] ?? "arcade");
+    game.set(flight_profile_state_path(), profile);
+    local
 }
 
 fn build_generated_body_map(
@@ -328,7 +338,13 @@ if !(local.initialized ?? false) {
     local.atmo_top_km = 80.0 / 30.0;
     local.atmo_dense_start_km = 12.0 / 30.0;
     local.atmo_drag_max = 2.0;
-    local.flight_profile = "arcade";
+    local.flight_profile = normalize_flight_profile_name(
+        game.get_s(flight_profile_state_path(), "arcade")
+    );
+    local.flight_assist_alt_hold = false;
+    local.flight_assist_heading_hold = false;
+    local.flight_assist_alt_damping = 1.8;
+    local.flight_assist_heading_damping = 2.1;
     local.tab = 0;
     local.model_mode = 1;
     let p = preset_earth();
@@ -344,6 +360,7 @@ if !(local.initialized ?? false) {
     local.preset_choice = 0;
     local.tab_sync_needed = true;
     local = apply_flight_profile(local, local.flight_profile);
+    local = persist_flight_profile(local, game);
 }
 
 let tab  = local.tab  ?? 0;
@@ -477,6 +494,13 @@ let is_flight_active = active_mode == "flight";
 let is_generator_active = !is_flight_active;
 if is_flight_active && input.just_pressed("F9") {
     local = toggle_flight_profile(local);
+    local = persist_flight_profile(local, game);
+}
+if is_flight_active && input.just_pressed("h") {
+    local.flight_assist_alt_hold = !(local.flight_assist_alt_hold ?? false);
+}
+if is_flight_active && input.just_pressed("j") {
+    local.flight_assist_heading_hold = !(local.flight_assist_heading_hold ?? false);
 }
 
 // ── Preset keys (F1-F7) ───────────────────────────────────────────────────────
@@ -888,6 +912,10 @@ let ps = planet_last_stats();
 let stats_mode = if is_flight_active { "FLIGHT" } else { "GENERATOR" };
 let stats_flight_profile = normalize_flight_profile_name(local.flight_profile ?? "arcade");
 let stats_flight_profile_label = if stats_flight_profile == "sim-lite" { "SIM-LITE" } else { "ARCADE" };
+let stats_alt_hold = local.flight_assist_alt_hold ?? false;
+let stats_hdg_hold = local.flight_assist_heading_hold ?? false;
+let stats_alt_hold_label = if stats_alt_hold { "ALT-HOLD" } else { "ALT-MAN" };
+let stats_hdg_hold_label = if stats_hdg_hold { "HDG-HOLD" } else { "HDG-MAN" };
 let stats_radius_real = local.planet_radius_real_km ?? 6371.0;
 let stats_radius_sim = sim_radius_km(stats_radius_real, local.planet_radius_scale_divisor ?? 30.0);
 let stats_surface_g = local.surface_gravity_mps2 ?? 9.81;
@@ -895,7 +923,8 @@ let stats_surface_g_fmt = (stats_surface_g * 100.0).round() / 100.0;
 let stats_alt = (local.flight_altitude_km ?? 0.0).max(0.0);
 let stats_spd = (local.flight_speed_kms ?? 0.0).abs();
 let stats_vrad = local.flight_vrad_kms ?? 0.0;
-scene.set("stats-flight-mode", "text.content", `MODE: ${stats_mode} ${stats_flight_profile_label}`);
+scene.set("stats-flight-mode", "text.content", `MODE: ${stats_mode} ${stats_flight_profile_label} ${stats_alt_hold_label} ${stats_hdg_hold_label}`);
+scene.set("stats-flight-profile", "text.content", `PROFILE: ${stats_flight_profile_label}  H[${stats_alt_hold_label}]  J[${stats_hdg_hold_label}]`);
 scene.set("stats-radius-real", "text.content", `R REAL: ${stats_radius_real.round()} km`);
 scene.set("stats-radius-sim", "text.content", `R SIM: ${(stats_radius_sim * 100.0).round() / 100.0} wu`);
 scene.set("stats-gravity", "text.content", `G: ${stats_surface_g_fmt} m/s2`);
@@ -1132,6 +1161,8 @@ if is_flight_active {
         let thrust_input = (local.flight_thrust_input ?? 0.0) + (thrust_target - (local.flight_thrust_input ?? 0.0)) * input_blend;
         let radial_input = (local.flight_radial_input ?? 0.0) + (radial_target - (local.flight_radial_input ?? 0.0)) * input_blend;
         let yaw_input = (local.flight_yaw_input ?? 0.0) + (yaw_target - (local.flight_yaw_input ?? 0.0)) * input_blend;
+        let has_explicit_radial = radial_target.abs() > 0.001;
+        let has_explicit_yaw = yaw_target.abs() > 0.001;
 
         let boost_mult = local.flight_boost_mult ?? 1.6;
         let brake_mult = local.flight_brake_mult ?? 1.7;
@@ -1145,10 +1176,20 @@ if is_flight_active {
         let max_radial = (local.flight_max_radial_speed ?? 8.0).max(0.1);
         let tangent_speed = ((local.flight_tangent_speed ?? 0.0) + accel_tangent * dt).max(-max_tangent).min(max_tangent);
         let radial_speed = ((local.flight_radial_speed ?? 0.0) + accel_radial * dt).max(-max_radial).min(max_radial);
-        let heading = (local.flight_heading ?? 0.0) + yaw_input * dt * (local.flight_yaw_rate ?? 1.8);
+        let mut_radial_speed = radial_speed;
+        if (local.flight_assist_alt_hold ?? false) && !has_explicit_radial {
+            let alt_hold_damp = (local.flight_assist_alt_damping ?? 1.8).max(0.0);
+            mut_radial_speed = mut_radial_speed * (1.0 / (1.0 + alt_hold_damp * dt));
+        }
+        let mut_yaw_input = yaw_input;
+        if (local.flight_assist_heading_hold ?? false) && !has_explicit_yaw {
+            let hdg_hold_damp = (local.flight_assist_heading_damping ?? 2.1).max(0.0);
+            mut_yaw_input = mut_yaw_input * (1.0 / (1.0 + hdg_hold_damp * dt));
+        }
+        let heading = (local.flight_heading ?? 0.0) + mut_yaw_input * dt * (local.flight_yaw_rate ?? 1.8);
 
         let tangent_speed_damped = tangent_speed * (1.0 / (1.0 + (local.flight_tangent_damping ?? 0.22) * dt));
-        let radial_speed_damped = radial_speed * (1.0 / (1.0 + (local.flight_radial_damping ?? 0.28) * dt));
+        let radial_speed_damped = mut_radial_speed * (1.0 / (1.0 + (local.flight_radial_damping ?? 0.28) * dt));
 
         let next_r = (r + radial_speed_damped * dt).max(surface_radius + min_alt);
         let arc = tangent_speed_damped * dt;
@@ -1212,7 +1253,7 @@ if is_flight_active {
         local.flight_radial_speed = radial_speed_damped;
         local.flight_thrust_input = thrust_input;
         local.flight_radial_input = radial_input;
-        local.flight_yaw_input = yaw_input;
+        local.flight_yaw_input = mut_yaw_input;
 
         let altitude = (next_r - surface_radius).max(0.0);
         local.flight_altitude_km = altitude;
@@ -1228,7 +1269,7 @@ if is_flight_active {
         scene.set(
             "stats-biomes",
             "text.content",
-            `MODE FLIGHT  PROFILE ${stats_flight_profile_label}  ALT ${alt_fmt}km  SPD ${spd_fmt}km/s  VRAD ${vrad_txt}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}  BOOST[X] BRAKE[Z]  PROFILE[F9]`
+            `MODE FLIGHT  PROFILE ${stats_flight_profile_label}  ALT ${alt_fmt}km  SPD ${spd_fmt}km/s  VRAD ${vrad_txt}km/s  R ${planet_radius_real_km.round()}km/${surface_radius.round()}wu  G ${stats_surface_g_fmt}  BOOST[X] BRAKE[Z]  PROFILE[F9]  H:${stats_alt_hold_label} J:${stats_hdg_hold_label}`
         );
         if !body_patch_ok {
             scene.set("stats-biomes", "text.content", "MODE FLIGHT  BODY PATCH FAILED");
