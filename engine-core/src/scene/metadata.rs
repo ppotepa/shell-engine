@@ -42,6 +42,8 @@ const FLEX_DIRECTION_OPTIONS: &[&str] = &["column", "row"];
 const FORCE_FONT_MODE_OPTIONS: &[&str] = &[
     "ascii", "raster", "1", "2", "3", "tiny", "standard", "large",
 ];
+const TEXT_OVERFLOW_MODE_OPTIONS: &[&str] = &["clip", "ellipsis"];
+const TEXT_WRAP_MODE_OPTIONS: &[&str] = &["none", "word", "char"];
 
 /// Field metadata for scene-level properties.
 pub static SCENE_FIELDS: &[FieldMetadata] = &[
@@ -505,6 +507,66 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         description: "Text case transformation. Default: none (preserve authored case). Use 'uppercase' for retro/block-title rendering.",
         default_text: Some("none"), default_number: None, enum_options: Some(&["none", "uppercase"]),
         min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "max-width",
+        value_kind: ValueKind::Integer,
+        requirement: Requirement::Optional,
+        description: "Optional maximum wrapped line width in cells for text sprites.",
+        default_text: None, default_number: None, enum_options: None,
+        min: Some(1.0), max: None, step: Some(1.0), unit: Some("cells"),
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "overflow-mode",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Overflow behaviour for width-constrained text. clip keeps current clipping, ellipsis replaces the tail with … when space runs out.",
+        default_text: Some("clip"), default_number: None, enum_options: Some(TEXT_OVERFLOW_MODE_OPTIONS),
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "wrap-mode",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Wrap policy for width-constrained text: none keeps authored newlines only, word wraps on whitespace, char wraps at any glyph boundary.",
+        default_text: Some("none"), default_number: None, enum_options: Some(TEXT_WRAP_MODE_OPTIONS),
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "line-clamp",
+        value_kind: ValueKind::Integer,
+        requirement: Requirement::Optional,
+        description: "Optional maximum number of lines after wrapping.",
+        default_text: None, default_number: None, enum_options: None,
+        min: Some(1.0), max: None, step: Some(1.0), unit: Some("lines"),
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "reserve-width-ch",
+        value_kind: ValueKind::Integer,
+        requirement: Requirement::Optional,
+        description: "Optional reserved width in monospace character cells for value-like HUD text.",
+        default_text: None, default_number: None, enum_options: None,
+        min: Some(1.0), max: None, step: Some(1.0), unit: Some("ch"),
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "line-height",
+        value_kind: ValueKind::Integer,
+        requirement: Requirement::Optional,
+        description: "Per-line advance multiplier for wrapped/rasterized text.",
+        default_text: None, default_number: Some(1.0), enum_options: None,
+        min: Some(1.0), max: None, step: Some(1.0), unit: Some("x"),
         sources: LIT_ONLY,
     },
     // ── Colour ──────────────────────────────────────────────────────────────
@@ -1383,7 +1445,7 @@ pub static OBJECT_FIELDS: &[FieldMetadata] = &[
 #[cfg(test)]
 mod tests {
     use super::{OBJECT_FIELDS, SPRITE_FIELDS};
-    use crate::authoring::metadata::Requirement;
+    use crate::authoring::metadata::{Requirement, ValueKind};
 
     #[test]
     fn sprite_content_is_required_for_text_type() {
@@ -1398,6 +1460,30 @@ mod tests {
                 equals: "text"
             }
         );
+    }
+
+    #[test]
+    fn text_layout_fields_are_exposed_in_sprite_metadata() {
+        let max_width = SPRITE_FIELDS
+            .iter()
+            .find(|f| f.name == "max-width")
+            .expect("max-width metadata");
+        assert_eq!(max_width.value_kind, ValueKind::Integer);
+        assert_eq!(max_width.requirement, Requirement::Optional);
+
+        let overflow_mode = SPRITE_FIELDS
+            .iter()
+            .find(|f| f.name == "overflow-mode")
+            .expect("overflow-mode metadata");
+        assert_eq!(overflow_mode.value_kind, ValueKind::Select);
+        assert_eq!(overflow_mode.default_text, Some("clip"));
+
+        let wrap_mode = SPRITE_FIELDS
+            .iter()
+            .find(|f| f.name == "wrap-mode")
+            .expect("wrap-mode metadata");
+        assert_eq!(wrap_mode.value_kind, ValueKind::Select);
+        assert_eq!(wrap_mode.default_text, Some("none"));
     }
 
     #[test]

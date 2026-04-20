@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use engine_animation::SceneStage;
 use engine_core::game_state::GameState;
 use engine_core::level_state::LevelState;
+use engine_core::scene::SceneTransitionTarget;
 use engine_persistence::PersistenceStore;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine};
 use serde_json::{Number as JsonNumber, Value as JsonValue};
@@ -68,14 +69,27 @@ impl ScriptGameApi {
     }
 
     fn jump(&mut self, to_scene_id: &str) -> bool {
-        if to_scene_id.trim().is_empty() {
+        let Some(target) = SceneTransitionTarget::current_mod(to_scene_id) else {
             return false;
-        }
+        };
         let Ok(mut queue) = self.queue.lock() else {
             return false;
         };
         queue.push(BehaviorCommand::SceneTransition {
-            to_scene_id: to_scene_id.to_string(),
+            to_scene_id: target.to_wire_string(),
+        });
+        true
+    }
+
+    fn jump_mod(&mut self, mod_ref: &str, scene_ref: &str) -> bool {
+        let Some(target) = SceneTransitionTarget::other_mod(mod_ref, scene_ref) else {
+            return false;
+        };
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::SceneTransition {
+            to_scene_id: target.to_wire_string(),
         });
         true
     }
@@ -363,6 +377,12 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         game.jump(scene_id)
     });
     engine.register_fn(
+        "jump_mod",
+        |game: &mut ScriptGameApi, mod_ref: &str, scene_ref: &str| {
+            game.jump_mod(mod_ref, scene_ref)
+        },
+    );
+    engine.register_fn(
         "get_i",
         |game: &mut ScriptGameApi, path: &str, fallback: rhai::INT| game.get_i(path, fallback),
     );
@@ -429,4 +449,48 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn("reload", |persist: &mut ScriptPersistenceApi| {
         persist.reload()
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScriptGameApi;
+    use crate::BehaviorCommand;
+    use engine_core::scene::SceneTransitionTarget;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn jump_preserves_legacy_local_scene_ref_format() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptGameApi::new(None, queue.clone());
+
+        assert!(api.jump("flight"));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(
+            queue.as_slice(),
+            [BehaviorCommand::SceneTransition {
+                to_scene_id: "flight".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn jump_mod_encodes_cross_mod_target() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = ScriptGameApi::new(None, queue.clone());
+
+        assert!(api.jump_mod("planet-generator", "/scenes/main/scene.yml"));
+
+        let queue = queue.lock().expect("queue lock");
+        let BehaviorCommand::SceneTransition { to_scene_id } = &queue[0] else {
+            panic!("expected scene transition");
+        };
+        assert_eq!(
+            SceneTransitionTarget::parse_wire(to_scene_id),
+            Some(
+                SceneTransitionTarget::other_mod("planet-generator", "/scenes/main/scene.yml")
+                    .expect("target")
+            )
+        );
+    }
 }

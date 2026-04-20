@@ -1022,6 +1022,33 @@ $defs:
             "Abril Fatface:ascii"  — ASCII-art glyph mode.
 
           Omit or set null for native terminal text (no rasterization).
+      max-width:
+        type: integer
+        minimum: 1
+        description: Optional maximum wrapped line width in cells for text sprites.
+      overflow-mode:
+        type: string
+        enum: [clip, ellipsis]
+        default: clip
+        description: Overflow behaviour for width-constrained text.
+      wrap-mode:
+        type: string
+        enum: [none, word, char]
+        default: none
+        description: Wrap policy used when text is width-constrained.
+      line-clamp:
+        type: integer
+        minimum: 1
+        description: Optional maximum number of lines after wrapping.
+      reserve-width-ch:
+        type: integer
+        minimum: 1
+        description: Optional reserved width in monospace character cells for value-like HUD text.
+      line-height:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Per-line advance multiplier for wrapped/rasterized text.
       width:
         type: integer
         minimum: 1

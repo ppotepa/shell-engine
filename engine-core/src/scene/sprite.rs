@@ -37,6 +37,30 @@ pub enum TextTransform {
     Uppercase,
 }
 
+/// Controls what happens when text exceeds its effective layout width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextOverflowMode {
+    /// Draw as much as fits in the available area and clip the rest.
+    #[default]
+    Clip,
+    /// Replace the tail with an ellipsis when content exceeds the available area.
+    Ellipsis,
+}
+
+/// Controls how text is split into multiple lines when width-constrained.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextWrapMode {
+    /// Keep authored lines only.
+    #[default]
+    None,
+    /// Wrap on whitespace boundaries when possible.
+    Word,
+    /// Wrap at any character boundary.
+    Char,
+}
+
 /// Glow halo effect for a text sprite.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Glow {
@@ -85,6 +109,10 @@ fn default_panel_shadow_y() -> i32 {
 
 fn default_scale() -> f32 {
     1.0
+}
+
+fn default_line_height() -> u16 {
+    1
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -226,6 +254,25 @@ pub enum Sprite {
         /// Default: `none` (preserve authored case).
         #[serde(default)]
         text_transform: TextTransform,
+        /// Optional maximum wrapped line width in cells for this text sprite.
+        /// Unset keeps the current unconstrained width behavior.
+        #[serde(default, rename = "max-width")]
+        max_width: Option<u16>,
+        /// Overflow behavior applied when the effective text layout width is constrained.
+        #[serde(default, rename = "overflow-mode")]
+        overflow_mode: TextOverflowMode,
+        /// Wrap policy used when the text is width-constrained.
+        #[serde(default, rename = "wrap-mode")]
+        wrap_mode: TextWrapMode,
+        /// Optional maximum number of rendered/measured lines after wrapping.
+        #[serde(default, rename = "line-clamp")]
+        line_clamp: Option<u16>,
+        /// Optional reserved width in monospace character cells for value-like text.
+        #[serde(default, rename = "reserve-width-ch")]
+        reserve_width_ch: Option<u16>,
+        /// Multiplier for per-line advance in wrapped/rasterized text layout.
+        #[serde(default = "default_line_height", rename = "line-height")]
+        line_height: u16,
         /// Horizontal scale factor applied when blitting the rasterized text.
         /// 1.0 = no change, 1.5 = 50% wider, 0.5 = half width.
         /// Only affects bitmap/raster font paths; has no effect on native terminal text.
@@ -1305,7 +1352,7 @@ impl Sprite {
 
 #[cfg(test)]
 mod tests {
-    use super::{Sprite, SpriteSizePreset};
+    use super::{Sprite, SpriteSizePreset, TextOverflowMode, TextWrapMode};
 
     #[test]
     fn supports_negative_sprite_offsets() {
@@ -1362,6 +1409,68 @@ force-font-mode: ascii
             | Sprite::Scene3D { .. } => {
                 panic!("expected text sprite")
             }
+        }
+    }
+
+    #[test]
+    fn parses_text_layout_semantics() {
+        let raw = r#"
+type: text
+content: "THIS IS A LONGER HUD STRING"
+max-width: 24
+overflow-mode: ellipsis
+wrap-mode: word
+line-clamp: 2
+reserve-width-ch: 12
+line-height: 2
+"#;
+        let sprite: Sprite = serde_yaml::from_str(raw).expect("text sprite should parse");
+        match sprite {
+            Sprite::Text {
+                max_width,
+                overflow_mode,
+                wrap_mode,
+                line_clamp,
+                reserve_width_ch,
+                line_height,
+                ..
+            } => {
+                assert_eq!(max_width, Some(24));
+                assert_eq!(overflow_mode, TextOverflowMode::Ellipsis);
+                assert_eq!(wrap_mode, TextWrapMode::Word);
+                assert_eq!(line_clamp, Some(2));
+                assert_eq!(reserve_width_ch, Some(12));
+                assert_eq!(line_height, 2);
+            }
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn text_layout_semantics_default_compatibility() {
+        let raw = r#"
+type: text
+content: "TEST"
+"#;
+        let sprite: Sprite = serde_yaml::from_str(raw).expect("text sprite should parse");
+        match sprite {
+            Sprite::Text {
+                max_width,
+                overflow_mode,
+                wrap_mode,
+                line_clamp,
+                reserve_width_ch,
+                line_height,
+                ..
+            } => {
+                assert_eq!(max_width, None);
+                assert_eq!(overflow_mode, TextOverflowMode::Clip);
+                assert_eq!(wrap_mode, TextWrapMode::None);
+                assert_eq!(line_clamp, None);
+                assert_eq!(reserve_width_ch, None);
+                assert_eq!(line_height, 1);
+            }
+            _ => panic!("expected text sprite"),
         }
     }
 

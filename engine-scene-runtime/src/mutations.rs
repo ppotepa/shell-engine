@@ -502,10 +502,7 @@ mod tests {
         };
 
         match mutation {
-            Render3DMutation::SetGroupedParams {
-                target,
-                params,
-            } => {
+            Render3DMutation::SetGroupedParams { target, params } => {
                 assert_eq!(target.as_deref(), Some("ship"));
                 assert_eq!(
                     params,
@@ -530,10 +527,7 @@ mod tests {
         };
 
         match mutation {
-            Render3DMutation::SetGroupedParams {
-                target,
-                params,
-            } => {
+            Render3DMutation::SetGroupedParams { target, params } => {
                 assert_eq!(target.as_deref(), Some("planet"));
                 assert_eq!(
                     params,

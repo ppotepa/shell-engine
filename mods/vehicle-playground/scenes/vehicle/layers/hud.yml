@@ -1,0 +1,262 @@
+- name: vehicle-hud
+  z_index: 12
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: vehicle-hud-panel
+      align-x: right
+      align-y: top
+      x: -16
+      y: 16
+      width: 384
+      height: 148
+      padding: 8
+      border-width: 1
+      corner-radius: 6
+      fg: "#2f7aa3"
+      bg: "#06111c"
+      border-colour: "#17445d"
+      shadow-x: 4
+      shadow-y: 4
+      shadow-colour: "#000000"
+      children:
+        - type: grid
+          columns: ["auto", "1fr", "auto", "1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+          gap-x: 8
+          gap-y: 2
+          children:
+            - { type: text, content: "FLIGHT",  grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#a8d7ff" }
+            - { type: text, content: "VEHICLE", grid-col: 3, grid-row: 1, at: cl, font: "generic:2", fg: "#a8d7ff" }
+
+            - { type: text, content: "STATE",   grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#74a8c8" }
+            - type: text
+              id: vehicle-hud-flight-state-value
+              content: "--"
+              grid-col: 2
+              grid-row: 2
+              at: cr
+              font: "generic:2"
+              fg: "#d8f0ff"
+              max-width: 8
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 8
+            - { type: text, content: "PROFILE", grid-col: 3, grid-row: 2, at: cl, font: "generic:2", fg: "#94e0d2" }
+            - type: text
+              id: vehicle-hud-vehicle-profile-value
+              content: "--"
+              grid-col: 4
+              grid-row: 2
+              at: cr
+              font: "generic:2"
+              fg: "#94e0d2"
+              max-width: 8
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 8
+
+            - { type: text, content: "ALT KM",  grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#74a8c8" }
+            - type: text
+              id: vehicle-hud-flight-alt-value
+              content: "--"
+              grid-col: 2
+              grid-row: 3
+              at: cr
+              font: "generic:2"
+              fg: "#d8f0ff"
+              max-width: 6
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 6
+            - { type: text, content: "ALT HOLD", grid-col: 3, grid-row: 3, at: cl, font: "generic:2", fg: "#94e0d2" }
+            - type: text
+              id: vehicle-hud-vehicle-alt-hold-value
+              content: "--"
+              grid-col: 4
+              grid-row: 3
+              at: cr
+              font: "generic:2"
+              fg: "#94e0d2"
+              max-width: 4
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 4
+
+            - { type: text, content: "SPD KM/S", grid-col: 1, grid-row: 4, at: cl, font: "generic:2", fg: "#74a8c8" }
+            - type: text
+              id: vehicle-hud-flight-spd-value
+              content: "--"
+              grid-col: 2
+              grid-row: 4
+              at: cr
+              font: "generic:2"
+              fg: "#d8f0ff"
+              max-width: 7
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 7
+            - { type: text, content: "HDG HOLD", grid-col: 3, grid-row: 4, at: cl, font: "generic:2", fg: "#94e0d2" }
+            - type: text
+              id: vehicle-hud-vehicle-hdg-hold-value
+              content: "--"
+              grid-col: 4
+              grid-row: 4
+              at: cr
+              font: "generic:2"
+              fg: "#94e0d2"
+              max-width: 4
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 4
+
+            - { type: text, content: "VRAD KM/S", grid-col: 1, grid-row: 5, at: cl, font: "generic:2", fg: "#74a8c8" }
+            - type: text
+              id: vehicle-hud-flight-vrad-value
+              content: "--"
+              grid-col: 2
+              grid-row: 5
+              at: cr
+              font: "generic:2"
+              fg: "#d8f0ff"
+              max-width: 7
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 7
+            - { type: text, content: "ESC",     grid-col: 3, grid-row: 5, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - type: text
+              id: vehicle-hud-flow-escape-value
+              content: "--"
+              grid-col: 4
+              grid-row: 5
+              at: cr
+              font: "generic:2"
+              fg: "#8fb7c7"
+              max-width: 6
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 6
+
+            - { type: text, content: "BODY",    grid-col: 1, grid-row: 6, at: cl, font: "generic:2", fg: "#74a8c8" }
+            - type: text
+              id: vehicle-hud-world-body-value
+              content: "--"
+              grid-col: 2
+              grid-row: 6
+              at: cr
+              font: "generic:2"
+              fg: "#d8f0ff"
+              max-width: 10
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 10
+            - { type: text, content: "SRC",     grid-col: 3, grid-row: 6, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - type: text
+              id: vehicle-hud-flow-source-value
+              content: "--"
+              grid-col: 4
+              grid-row: 6
+              at: cr
+              font: "generic:2"
+              fg: "#8fb7c7"
+              max-width: 8
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 8
+
+            - { type: text, content: "G M/S2",  grid-col: 1, grid-row: 7, at: cl, font: "generic:2", fg: "#74a8c8" }
+            - type: text
+              id: vehicle-hud-world-g-value
+              content: "--"
+              grid-col: 2
+              grid-row: 7
+              at: cr
+              font: "generic:2"
+              fg: "#d8f0ff"
+              max-width: 6
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 6
+            - { type: text, content: "SWAY",    grid-col: 3, grid-row: 7, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - type: text
+              id: vehicle-hud-vehicle-sway-value
+              content: "--"
+              grid-col: 4
+              grid-row: 7
+              at: cr
+              font: "generic:2"
+              fg: "#8fb7c7"
+              max-width: 6
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 6
+    - type: panel
+      id: vehicle-hud-controls-panel
+      align-x: left
+      align-y: bottom
+      x: 16
+      y: -16
+      width: 352
+      height: 102
+      padding: 8
+      border-width: 1
+      corner-radius: 6
+      fg: "#2f7aa3"
+      bg: "#06111c"
+      border-colour: "#17445d"
+      shadow-x: 4
+      shadow-y: 4
+      shadow-colour: "#000000"
+      children:
+        - type: grid
+          columns: ["auto", "1fr", "auto", "1fr"]
+          rows: ["1fr", "1fr", "1fr", "1fr", "1fr"]
+          gap-x: 8
+          gap-y: 2
+          children:
+            - { type: text, content: "CONTROLS", grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#a8d7ff" }
+
+            - { type: text, content: "THRUST",  grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "W/S UP/DN", grid-col: 2, grid-row: 2, at: cr, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "YAW",     grid-col: 3, grid-row: 2, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "A/D LT/RT", grid-col: 4, grid-row: 2, at: cr, font: "generic:2", fg: "#8fb7c7" }
+
+            - { type: text, content: "STRAFE",  grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "Q / E",   grid-col: 2, grid-row: 3, at: cr, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "LIFT",    grid-col: 3, grid-row: 3, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "SPACE",   grid-col: 4, grid-row: 3, at: cr, font: "generic:2", fg: "#8fb7c7" }
+
+            - { type: text, content: "ASSIST",  grid-col: 1, grid-row: 4, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "H / J",   grid-col: 2, grid-row: 4, at: cr, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "BOOST",   grid-col: 3, grid-row: 4, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "X",       grid-col: 4, grid-row: 4, at: cr, font: "generic:2", fg: "#8fb7c7" }
+
+            - { type: text, content: "ESC",     grid-col: 1, grid-row: 5, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - type: text
+              id: vehicle-hud-controls-escape-value
+              content: "--"
+              grid-col: 2
+              grid-row: 5
+              at: cr
+              font: "generic:2"
+              fg: "#8fb7c7"
+              max-width: 6
+              overflow-mode: ellipsis
+              wrap-mode: none
+              line-clamp: 1
+              reserve-width-ch: 6
+            - { type: text, content: "PROFILE", grid-col: 3, grid-row: 5, at: cl, font: "generic:2", fg: "#8fb7c7" }
+            - { type: text, content: "F9 / C",  grid-col: 4, grid-row: 5, at: cr, font: "generic:2", fg: "#8fb7c7" }

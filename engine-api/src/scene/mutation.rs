@@ -96,10 +96,7 @@ pub enum Render3dMutationRequest {
         value: JsonValue,
     },
     /// Additively set multiple material parameters by name.
-    SetMaterialParams {
-        target: String,
-        params: JsonValue,
-    },
+    SetMaterialParams { target: String, params: JsonValue },
     /// Set an atmosphere parameter by name.
     SetAtmosphereParam {
         target: String,
@@ -107,10 +104,7 @@ pub enum Render3dMutationRequest {
         value: JsonValue,
     },
     /// Additively set multiple atmosphere parameters by name.
-    SetAtmosphereParams {
-        target: String,
-        params: JsonValue,
-    },
+    SetAtmosphereParams { target: String, params: JsonValue },
     /// Set a world/profile parameter by name.
     SetWorldParam {
         target: String,
@@ -118,25 +112,13 @@ pub enum Render3dMutationRequest {
         value: JsonValue,
     },
     /// Additively set multiple surface parameters by name.
-    SetSurfaceParams {
-        target: String,
-        params: JsonValue,
-    },
+    SetSurfaceParams { target: String, params: JsonValue },
     /// Additively set multiple generator parameters by name.
-    SetGeneratorParams {
-        target: String,
-        params: JsonValue,
-    },
+    SetGeneratorParams { target: String, params: JsonValue },
     /// Additively set multiple body parameters by name.
-    SetBodyParams {
-        target: String,
-        params: JsonValue,
-    },
+    SetBodyParams { target: String, params: JsonValue },
     /// Additively set multiple view parameters by name.
-    SetViewParams {
-        target: String,
-        params: JsonValue,
-    },
+    SetViewParams { target: String, params: JsonValue },
     /// Set surface mode using a typed string value.
     SetSurfaceMode { target: String, mode: String },
 }

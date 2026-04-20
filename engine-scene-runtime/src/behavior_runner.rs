@@ -32,11 +32,11 @@ impl SceneRuntime {
         default_palette: Option<String>,
         debug_enabled: bool,
     ) -> Vec<BehaviorCommand> {
-        // Mark all per-frame derived caches dirty.
+        // reset_frame_state() reinitializes object runtime state each frame, so
+        // state-derived snapshots must be rebuilt even on mutation-free frames.
         self.effective_states_dirty = true;
         self.cached_object_states = None;
-        self.cached_object_props = None;
-        self.cached_object_text = None;
+        self.cached_effective_states = None;
         // sidecar_io: build Arc once if not already cached from a prior
         // mutation-free frame; invalidated at each sidecar write site.
         let sidecar_io = match &self.cached_sidecar_io {
@@ -50,7 +50,8 @@ impl SceneRuntime {
         // Wrap read-only per-frame data in Arc once — each behavior gets a
         // cheap O(1) refcount clone instead of a deep BTreeMap copy.
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
-        let object_regions = std::sync::Arc::clone(&self.cached_object_regions);
+        let object_regions = std::sync::Arc::clone(&self.object_regions);
+        let layout_regions_stale = self.layout_regions_stale();
         let object_kinds = self.object_kind_snapshot();
         let object_props = self.object_props_snapshot();
         let object_text = self.object_text_snapshot();
@@ -212,6 +213,7 @@ impl SceneRuntime {
             object_kinds,
             object_props,
             object_regions,
+            layout_regions_stale,
             object_text,
             ui_focused_target_id,
             ui_theme_id,
@@ -269,11 +271,16 @@ impl SceneRuntime {
                 .update(object, &self.scene, &ctx, &mut local_commands);
             self.apply_behavior_commands(&resolver, &local_commands);
             commands.extend(local_commands.iter().cloned());
-            // Update ctx object_states after each behavior emits commands, so subsequent
-            // behaviors see the mutations. effective_object_states_snapshot() uses gen-counter
-            // gating to skip rebuilds on mutation-free frames (the common case).
+            // Update snapshots after each behavior emits commands, so subsequent
+            // behaviors see same-frame text/property/state mutations.
+            // effective_object_states_snapshot() uses gen-counter gating to skip rebuilds
+            // on mutation-free frames (the common case).
             if !local_commands.is_empty() && idx + 1 < self.behaviors.len() {
                 ctx.object_states = self.effective_object_states_snapshot();
+                ctx.object_props = self.object_props_snapshot();
+                ctx.object_text = self.object_text_snapshot();
+                ctx.object_regions = std::sync::Arc::clone(&self.object_regions);
+                ctx.layout_regions_stale = self.layout_regions_stale();
             }
         }
         // Update effective_states once after all behaviors run, not per-behavior.
@@ -360,9 +367,7 @@ impl SceneRuntime {
             }
         }
         if any_changed {
-            self.effective_states_dirty = true;
-            self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
-            self.cached_object_text = None;
+            self.apply_runtime_mutation_impact(RuntimeMutationImpact::text().with_layout());
         }
         self.game_state_applied_version = current_version;
     }
@@ -377,17 +382,12 @@ impl SceneRuntime {
         if commands.is_empty() {
             return;
         }
-        self.effective_states_dirty = true;
-        self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
-        self.cached_object_states = None;
-        self.cached_object_props = None;
-        self.cached_object_text = None;
 
         // Collect despawn targets for batched removal (single graph rebuild).
         let mut pending_despawns: Vec<String> = Vec::new();
         // Enable batch spawn mode: defer refresh_runtime_caches() per spawn.
         self.spawn_batch_depth += 1;
-        let mut had_spawns = false;
+        let mut had_graph_spawns = false;
 
         for command in commands {
             if let Some(mutation) = self.scene_mutation_from_behavior_command(resolver, command) {
@@ -402,8 +402,11 @@ impl SceneRuntime {
                 BehaviorCommand::StopSong => {}
                 BehaviorCommand::ApplySceneMutation { request } => match request {
                     engine_api::scene::SceneMutationRequest::SpawnObject { template, target } => {
-                        if self.spawn_runtime_clone(resolver, template, target) {
-                            had_spawns = true;
+                        let impact = self.spawn_runtime_clone(resolver, template, target);
+                        if impact.graph {
+                            had_graph_spawns = true;
+                        } else {
+                            self.apply_runtime_mutation_impact(impact);
                         }
                     }
                     engine_api::scene::SceneMutationRequest::DespawnObject { target } => {
@@ -444,13 +447,14 @@ impl SceneRuntime {
 
         // End batch spawn mode and do a single cache refresh if any spawns happened.
         self.spawn_batch_depth -= 1;
-        if had_spawns && self.spawn_batch_depth == 0 {
+        if had_graph_spawns && self.spawn_batch_depth == 0 {
             self.refresh_runtime_caches();
+            self.apply_runtime_mutation_impact(RuntimeMutationImpact::graph());
         }
 
         // Batch-apply all collected despawns with a single graph rebuild.
-        if !pending_despawns.is_empty() {
-            self.batch_despawn_targets(resolver, &pending_despawns);
+        if !pending_despawns.is_empty() && self.batch_despawn_targets(resolver, &pending_despawns) {
+            self.apply_runtime_mutation_impact(RuntimeMutationImpact::graph());
         }
     }
 
@@ -545,6 +549,7 @@ impl SceneRuntime {
 
     fn apply_scene_mutation(&mut self, resolver: &TargetResolver, mutation: &SceneMutation) {
         let mut mutation_applied = false;
+        let mut impact = RuntimeMutationImpact::NONE;
         match mutation {
             SceneMutation::Set2DProps(props) => {
                 let Some(object_id) = resolver.resolve_alias(&props.target) else {
@@ -552,25 +557,38 @@ impl SceneRuntime {
                 };
                 if let Some(state) = self.object_states.get_mut(object_id) {
                     if let Some(next_visible) = props.visible {
-                        state.visible = next_visible;
-                        mutation_applied = true;
+                        if state.visible != next_visible {
+                            state.visible = next_visible;
+                            mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                     if let Some(delta_x) = props.dx {
-                        state.offset_x = state.offset_x.saturating_add(delta_x);
-                        mutation_applied = true;
+                        let next_offset_x = state.offset_x.saturating_add(delta_x);
+                        if state.offset_x != next_offset_x {
+                            state.offset_x = next_offset_x;
+                            mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                     if let Some(delta_y) = props.dy {
-                        state.offset_y = state.offset_y.saturating_add(delta_y);
-                        mutation_applied = true;
+                        let next_offset_y = state.offset_y.saturating_add(delta_y);
+                        if state.offset_y != next_offset_y {
+                            state.offset_y = next_offset_y;
+                            mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                 }
                 if let Some(next_text) = &props.text {
-                    let _ = self.apply_text_property_for_target(
+                    if self.apply_text_property_for_target(
                         object_id,
                         &props.target,
                         |runtime, alias| runtime.set_text_sprite_content(alias, next_text.clone()),
-                    );
-                    mutation_applied = true;
+                    ) {
+                        mutation_applied = true;
+                        impact.merge(RuntimeMutationImpact::text().with_layout());
+                    }
                 }
             }
             SceneMutation::SetSpriteProperty { target, mutation } => {
@@ -579,8 +597,12 @@ impl SceneRuntime {
                 };
                 match mutation {
                     SetSpritePropertyMutation::Heading { heading } => {
+                        let mut changed = false;
                         if let Some(state) = self.object_states.get_mut(object_id) {
-                            state.heading = *heading;
+                            if (state.heading - *heading).abs() > f32::EPSILON {
+                                state.heading = *heading;
+                                changed = true;
+                            }
                         }
                         if let Some(obj) = self.objects.get(object_id) {
                             if matches!(obj.kind, GameObjectKind::Layer) {
@@ -588,12 +610,18 @@ impl SceneRuntime {
                                 for i in 0..n {
                                     let cid = self.objects[object_id].children[i].clone();
                                     if let Some(state) = self.object_states.get_mut(&cid) {
-                                        state.heading = *heading;
+                                        if (state.heading - *heading).abs() > f32::EPSILON {
+                                            state.heading = *heading;
+                                            changed = true;
+                                        }
                                     }
                                 }
                             }
                         }
-                        mutation_applied = true;
+                        if changed {
+                            mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                     SetSpritePropertyMutation::TextFont { font } => {
                         if self.apply_text_property_for_target(
@@ -602,13 +630,14 @@ impl SceneRuntime {
                             |runtime, alias| runtime.set_text_sprite_font(alias, font.clone()),
                         ) {
                             mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::props().with_layout());
                         }
                     }
                     SetSpritePropertyMutation::TextColour { fg, value } => {
                         let Some(next_colour) = parse_term_colour(value) else {
                             return;
                         };
-                        let mut applied = if *fg {
+                        let text_applied = if *fg {
                             self.apply_text_property_for_target(
                                 object_id,
                                 &target,
@@ -625,6 +654,7 @@ impl SceneRuntime {
                                 },
                             )
                         };
+                        let mut applied = text_applied;
                         if !applied {
                             let path = if *fg { "style.fg" } else { "style.bg" };
                             for alias in self.object_alias_candidates(object_id, &target) {
@@ -636,6 +666,9 @@ impl SceneRuntime {
                         }
                         if applied {
                             mutation_applied = true;
+                            if text_applied {
+                                impact.merge(RuntimeMutationImpact::props());
+                            }
                         }
                     }
                     SetSpritePropertyMutation::VectorProperty { path, value } => {
@@ -650,6 +683,7 @@ impl SceneRuntime {
                         }
                         if applied {
                             mutation_applied = true;
+                            impact.merge(runtime_impact_for_vector_property(path));
                         }
                     }
                     SetSpritePropertyMutation::ImageFrame { frame_index } => {
@@ -664,15 +698,23 @@ impl SceneRuntime {
                         }
                         if applied {
                             mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::layout());
                         }
                     }
                 }
             }
             SceneMutation::SetCamera2D(camera) => {
-                self.set_camera_internal(camera.x, camera.y);
-                mutation_applied = true;
+                if self.camera_x != camera.x || self.camera_y != camera.y {
+                    self.set_camera_internal(camera.x, camera.y);
+                    mutation_applied = true;
+                    impact.merge(RuntimeMutationImpact::layout());
+                }
                 if let Some(zoom) = camera.zoom {
-                    self.set_camera_zoom_internal(zoom);
+                    if (self.camera_zoom - zoom).abs() > f32::EPSILON {
+                        self.set_camera_zoom_internal(zoom);
+                        mutation_applied = true;
+                        impact.merge(RuntimeMutationImpact::layout());
+                    }
                 }
             }
             SceneMutation::SetCamera3D(camera) => {
@@ -697,6 +739,7 @@ impl SceneRuntime {
                             value,
                         ) {
                             mutation_applied = true;
+                            impact.merge(runtime_impact_for_grouped_render3d_param(param));
                         }
                     }
                 }
@@ -749,8 +792,11 @@ impl SceneRuntime {
                         return;
                     };
                     if let Some(state) = self.object_states.get_mut(object_id) {
-                        state.visible = *visible;
-                        mutation_applied = true;
+                        if state.visible != *visible {
+                            state.visible = *visible;
+                            mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                 }
                 Render3DMutation::SetNodeTransform { target, transform } => {
@@ -758,9 +804,14 @@ impl SceneRuntime {
                         return;
                     };
                     if let Some(state) = self.object_states.get_mut(object_id) {
-                        state.offset_x = transform.translation[0].round() as i32;
-                        state.offset_y = transform.translation[1].round() as i32;
-                        mutation_applied = true;
+                        let next_offset_x = transform.translation[0].round() as i32;
+                        let next_offset_y = transform.translation[1].round() as i32;
+                        if state.offset_x != next_offset_x || state.offset_y != next_offset_y {
+                            state.offset_x = next_offset_x;
+                            state.offset_y = next_offset_y;
+                            mutation_applied = true;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                 }
                 Render3DMutation::SetSceneCamera { camera } => {
@@ -783,6 +834,7 @@ impl SceneRuntime {
                         return;
                     }
                     mutation_applied = true;
+                    impact.merge(RuntimeMutationImpact::layout());
                 }
                 Render3DMutation::SetObjMaterialParam {
                     target,
@@ -796,6 +848,7 @@ impl SceneRuntime {
                         runtime.set_obj_material_typed_wrapper(alias, param, value)
                     }) {
                         mutation_applied = true;
+                        impact.merge(runtime_impact_for_obj_material_param(param));
                     }
                 }
                 Render3DMutation::SetAtmosphereParamTyped {
@@ -868,6 +921,7 @@ impl SceneRuntime {
             self.render3d_dirty_mask.insert(dirty);
             self.track_render3d_rebuild_cause(dirty);
         }
+        self.apply_runtime_mutation_impact(impact);
     }
 
     fn apply_grouped_render3d_param(
@@ -880,7 +934,9 @@ impl SceneRuntime {
         match param {
             crate::mutations::Render3DGroupedParam::View(param) => {
                 let material_param = match param {
-                    crate::mutations::ViewParam::Distance => crate::mutations::ObjMaterialParam::CameraDistance,
+                    crate::mutations::ViewParam::Distance => {
+                        crate::mutations::ObjMaterialParam::CameraDistance
+                    }
                     crate::mutations::ViewParam::Yaw => crate::mutations::ObjMaterialParam::Yaw,
                     crate::mutations::ViewParam::Pitch => crate::mutations::ObjMaterialParam::Pitch,
                     crate::mutations::ViewParam::Roll => crate::mutations::ObjMaterialParam::Roll,
@@ -889,31 +945,26 @@ impl SceneRuntime {
                     runtime.set_obj_material_typed_wrapper(alias, &material_param, value)
                 })
             }
-            crate::mutations::Render3DGroupedParam::Material(param) => {
-                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+            crate::mutations::Render3DGroupedParam::Material(param) => self
+                .apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
                     runtime.set_obj_material_typed_wrapper(alias, param, value)
-                })
-            }
-            crate::mutations::Render3DGroupedParam::Atmosphere(param) => {
-                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                }),
+            crate::mutations::Render3DGroupedParam::Atmosphere(param) => self
+                .apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
                     runtime.set_obj_atmosphere_typed_wrapper(alias, param, value)
-                })
-            }
-            crate::mutations::Render3DGroupedParam::Surface(param) => {
-                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                }),
+            crate::mutations::Render3DGroupedParam::Surface(param) => self
+                .apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
                     runtime.set_obj_terrain_typed_wrapper(alias, param, value)
-                })
-            }
-            crate::mutations::Render3DGroupedParam::Generator(param) => {
-                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                }),
+            crate::mutations::Render3DGroupedParam::Generator(param) => self
+                .apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
                     runtime.set_obj_worldgen_typed_wrapper(alias, param, value)
-                })
-            }
-            crate::mutations::Render3DGroupedParam::Body(param) => {
-                self.apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
+                }),
+            crate::mutations::Render3DGroupedParam::Body(param) => self
+                .apply_targeted_grouped_render3d_param(resolver, target, |runtime, alias| {
                     runtime.set_planet_typed_wrapper(alias, param, value)
-                })
-            }
+                }),
         }
     }
 
@@ -930,7 +981,54 @@ impl SceneRuntime {
         let Some(object_id) = resolver.resolve_alias(target) else {
             return false;
         };
-        self.apply_text_property_for_target(object_id, target, |runtime, alias| apply(runtime, alias))
+        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+            apply(runtime, alias)
+        })
+    }
+
+    fn spawn_runtime_clone(
+        &mut self,
+        resolver: &TargetResolver,
+        template: &str,
+        target: &str,
+    ) -> RuntimeMutationImpact {
+        if template.trim().is_empty() || target.trim().is_empty() {
+            return RuntimeMutationImpact::NONE;
+        }
+        let current_resolver = self.build_target_resolver();
+        let existing = resolver
+            .resolve_alias(target)
+            .or_else(|| current_resolver.resolve_alias(target))
+            .map(str::to_string);
+        if let Some(object_id) = existing {
+            return if self.set_target_visibility_recursive(&object_id, true) {
+                RuntimeMutationImpact::state().with_layout()
+            } else {
+                RuntimeMutationImpact::NONE
+            };
+        }
+
+        let template_id = if let Some(id) = resolver.resolve_alias(template) {
+            id.to_string()
+        } else if let Some(id) = current_resolver.resolve_alias(template) {
+            id.to_string()
+        } else {
+            return RuntimeMutationImpact::NONE;
+        };
+        let Some(template_object) = self.objects.get(&template_id).cloned() else {
+            return RuntimeMutationImpact::NONE;
+        };
+        let spawned = if matches!(template_object.kind, GameObjectKind::Layer) {
+            self.spawn_layer_clone_from_object(template_object, target)
+        } else {
+            self.spawn_sprite_clone(&template_object, target)
+        };
+
+        if spawned {
+            RuntimeMutationImpact::graph()
+        } else {
+            RuntimeMutationImpact::NONE
+        }
     }
 
     pub(crate) fn attach_default_behaviors(&mut self) {
@@ -1018,6 +1116,48 @@ impl SceneRuntime {
     }
 }
 
+fn runtime_impact_for_vector_property(path: &str) -> RuntimeMutationImpact {
+    match path {
+        "vector.points" | "vector.closed" | "vector.draw_char" | "style.border"
+        | "style.shadow" => RuntimeMutationImpact::layout(),
+        _ => RuntimeMutationImpact::NONE,
+    }
+}
+
+fn runtime_impact_for_obj_material_param(
+    param: &crate::mutations::ObjMaterialParam,
+) -> RuntimeMutationImpact {
+    use crate::mutations::ObjMaterialParam;
+
+    match param {
+        ObjMaterialParam::Scale
+        | ObjMaterialParam::Yaw
+        | ObjMaterialParam::Pitch
+        | ObjMaterialParam::Roll
+        | ObjMaterialParam::OrbitSpeed
+        | ObjMaterialParam::SurfaceMode => RuntimeMutationImpact::props(),
+        ObjMaterialParam::ClipYMin | ObjMaterialParam::ClipYMax => RuntimeMutationImpact::layout(),
+        _ => RuntimeMutationImpact::NONE,
+    }
+}
+
+fn runtime_impact_for_grouped_render3d_param(
+    param: &crate::mutations::Render3DGroupedParam,
+) -> RuntimeMutationImpact {
+    match param {
+        crate::mutations::Render3DGroupedParam::Material(param) => {
+            runtime_impact_for_obj_material_param(param)
+        }
+        crate::mutations::Render3DGroupedParam::View(param) => match param {
+            crate::mutations::ViewParam::Yaw
+            | crate::mutations::ViewParam::Pitch
+            | crate::mutations::ViewParam::Roll => RuntimeMutationImpact::props(),
+            crate::mutations::ViewParam::Distance => RuntimeMutationImpact::NONE,
+        },
+        _ => RuntimeMutationImpact::NONE,
+    }
+}
+
 fn has_scene_audio(scene: &Scene) -> bool {
     !scene.audio.on_enter.is_empty()
         || !scene.audio.on_idle.is_empty()
@@ -1025,42 +1165,6 @@ fn has_scene_audio(scene: &Scene) -> bool {
 }
 
 impl SceneRuntime {
-    fn spawn_runtime_clone(
-        &mut self,
-        resolver: &TargetResolver,
-        template: &str,
-        target: &str,
-    ) -> bool {
-        if template.trim().is_empty() || target.trim().is_empty() {
-            return false;
-        }
-        let current_resolver = self.build_target_resolver();
-        let existing = resolver
-            .resolve_alias(target)
-            .or_else(|| current_resolver.resolve_alias(target))
-            .map(str::to_string);
-        if let Some(object_id) = existing {
-            self.set_target_visibility_recursive(&object_id, true);
-            return true;
-        }
-
-        let template_id = if let Some(id) = resolver.resolve_alias(template) {
-            id.to_string()
-        } else if let Some(id) = current_resolver.resolve_alias(template) {
-            id.to_string()
-        } else {
-            return false;
-        };
-        let Some(template_object) = self.objects.get(&template_id).cloned() else {
-            return false;
-        };
-        if matches!(template_object.kind, GameObjectKind::Layer) {
-            return self.spawn_layer_clone_from_object(template_object, target);
-        }
-
-        self.spawn_sprite_clone(&template_object, target)
-    }
-
     fn spawn_layer_clone_from_object(&mut self, template_object: GameObject, target: &str) -> bool {
         let layer_object_id = if matches!(template_object.kind, GameObjectKind::Layer) {
             template_object.id
@@ -1228,22 +1332,22 @@ impl SceneRuntime {
     }
 
     /// Batch-remove multiple scene targets with a single graph rebuild at the end.
-    fn batch_despawn_targets(&mut self, resolver: &TargetResolver, targets: &[String]) {
+    fn batch_despawn_targets(&mut self, resolver: &TargetResolver, targets: &[String]) -> bool {
         if targets.is_empty() {
-            return;
+            return false;
         }
 
         // For a single target, use the existing path (handles edge cases like
         // remove_target_recursive for non-layer sprites).
         if targets.len() == 1 {
-            let _ = self.soft_despawn_target(resolver, &targets[0]);
-            return;
+            return self.soft_despawn_target(resolver, &targets[0]);
         }
 
         // Build a fresh resolver once for the entire batch.
         let current_resolver = self.build_target_resolver();
         let mut layers_to_remove: Vec<usize> = Vec::new();
         let mut non_layer_targets: Vec<String> = Vec::new();
+        let mut any_removed = false;
 
         for target in targets {
             let object_id = if let Some(id) = current_resolver.resolve_alias(target) {
@@ -1257,7 +1361,9 @@ impl SceneRuntime {
             // Check if it's a sprite inside a layer
             if let Some((layer_idx, sprite_path)) = self.find_sprite_path_for_object(&object_id) {
                 if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                    let _ = remove_sprite_at_path(&mut layer.sprites, &sprite_path);
+                    if remove_sprite_at_path(&mut layer.sprites, &sprite_path).is_some() {
+                        any_removed = true;
+                    }
                     if layer.sprites.is_empty() {
                         layers_to_remove.push(layer_idx);
                     }
@@ -1286,6 +1392,7 @@ impl SceneRuntime {
         for &layer_idx in layers_to_remove.iter().rev() {
             if layer_idx < self.scene.layers.len() {
                 self.scene.layers.remove(layer_idx);
+                any_removed = true;
             }
         }
 
@@ -1296,8 +1403,10 @@ impl SceneRuntime {
 
         // Handle non-layer targets individually (rare path, typically 0).
         for object_id in non_layer_targets {
-            self.remove_target_recursive(&object_id);
+            any_removed |= self.remove_target_recursive(&object_id);
         }
+
+        any_removed
     }
 
     fn soft_despawn_target(&mut self, resolver: &TargetResolver, target: &str) -> bool {

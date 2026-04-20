@@ -527,7 +527,7 @@ Audio authoring is mod-root based:
 
 | Type   | Purpose              | Key Fields                                                          | Asset-backed? |
 |--------|----------------------|---------------------------------------------------------------------|---------------|
-| text   | Terminal/raster text | content, font, fg, bg, scale-x, scale-y, reveal_ms, glow           | Only with named fonts |
+| text   | Terminal/raster text | content, font, fg, bg, scale-x, scale-y, reveal_ms, glow, text-transform, max-width, overflow-mode, wrap-mode, line-clamp, reserve-width-ch, line-height | Only with named fonts |
 | image  | Display image        | source, width, height, stretch-to-area                              | Yes           |
 | obj    | 3D mesh render       | source, scale, yaw/pitch/roll, surface-mode                         | Yes           |
 | grid   | Layout container     | columns, rows, gap-x/y, children                                    | No            |
@@ -538,6 +538,17 @@ Audio authoring is mod-root based:
 `scale-x` / `scale-y` on `text` sprites are float multipliers applied during
 buffer blit (1.0 = identity). They work with all raster font paths (`generic:*`
 and named bitmap fonts) and are ignored on native terminal text.
+
+For HUD-style text, prefer bounded layout over long sentence rows:
+- `max-width` constrains the visible line width in cells.
+- `overflow-mode: clip | ellipsis` controls truncation at the width bound.
+  `ellipsis` only makes sense when text is bounded by `max-width` or `line-clamp`.
+- `wrap-mode: none | word | char` controls how constrained text breaks lines.
+- `line-clamp` limits the number of visible lines after wrapping.
+  Use it with `wrap-mode: word` or `wrap-mode: char`; with `wrap-mode: none` it has no authored multi-line contract.
+- `reserve-width-ch` keeps value fields visually stable by reserving width in character cells.
+- `line-height` is a per-line advance multiplier for wrapped/rasterized text.
+  `1` = normal line advance, `2` = double-spaced advance.
 
 **Transparent panels** — omit `bg_colour` entirely (or set `bg_colour: "reset"`)
 to make a panel box fully transparent. The engine will skip writing background
@@ -1318,7 +1329,7 @@ let msg = "line one\nline two";
        |
 4. Deserialize  into runtime Scene struct
        |
-5. Validate   timeline checks (debug mode)
+5. Validate   timeline + text-layout authoring checks (debug mode)
        |
 6. Execute    lifecycle -> input -> compositor -> postfx -> render
 ```

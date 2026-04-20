@@ -1,0 +1,11 @@
+profiles:
+  default:
+    bindings:
+      thrust: ["Up", "ArrowUp", "w", "W"]
+      brake: ["Down", "ArrowDown", "s", "S"]
+      turn_left: ["Left", "ArrowLeft", "a", "A"]
+      turn_right: ["Right", "ArrowRight", "d", "D"]
+      strafe_left: ["q", "Q", "PageUp"]
+      strafe_right: ["e", "E", "PageDown"]
+      boost: ["x", "X"]
+      lift: ["Space", " "]

@@ -37,7 +37,8 @@ fn cycle_debug_overlay_mode(world: &mut World) -> bool {
     }
     debug.overlay_mode = match debug.overlay_mode {
         DebugOverlayMode::Stats => DebugOverlayMode::Logs,
-        DebugOverlayMode::Logs => DebugOverlayMode::Stats,
+        DebugOverlayMode::Logs => DebugOverlayMode::Layout,
+        DebugOverlayMode::Layout => DebugOverlayMode::Stats,
     };
     logging::debug(
         "engine.debug.input",
@@ -135,7 +136,7 @@ pub(super) fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent])
             KeyCode::Char('~') | KeyCode::Char('`') => {
                 handled |= toggle_debug_overlay(world);
             }
-            // Tab switches between Stats and Logs panels while console is open.
+            // Tab cycles the Stats, Logs, and Layout panels while console is open.
             KeyCode::Tab => {
                 handled |= cycle_debug_overlay_mode(world);
             }
@@ -151,4 +152,48 @@ pub(super) fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent])
         }
     }
     handled
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cycle_debug_overlay_mode;
+    use crate::debug_features::{DebugFeatures, DebugOverlayMode};
+    use crate::world::World;
+
+    #[test]
+    fn cycles_overlay_mode_through_layout_view() {
+        let mut world = World::new();
+        world.register(DebugFeatures {
+            enabled: true,
+            overlay_visible: true,
+            overlay_mode: DebugOverlayMode::Stats,
+        });
+
+        assert!(cycle_debug_overlay_mode(&mut world));
+        assert_eq!(
+            world
+                .get::<DebugFeatures>()
+                .expect("debug features")
+                .overlay_mode,
+            DebugOverlayMode::Logs
+        );
+
+        assert!(cycle_debug_overlay_mode(&mut world));
+        assert_eq!(
+            world
+                .get::<DebugFeatures>()
+                .expect("debug features")
+                .overlay_mode,
+            DebugOverlayMode::Layout
+        );
+
+        assert!(cycle_debug_overlay_mode(&mut world));
+        assert_eq!(
+            world
+                .get::<DebugFeatures>()
+                .expect("debug features")
+                .overlay_mode,
+            DebugOverlayMode::Stats
+        );
+    }
 }

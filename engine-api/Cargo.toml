@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 engine-core.workspace = true
 engine-game = { path = "../engine-game" }
+engine-vehicle = { path = "../engine-vehicle" }
 engine-physics = { path = "../engine-physics" }
 rhai.workspace = true
 serde.workspace = true

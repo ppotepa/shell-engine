@@ -1,0 +1,8 @@
+regions:
+  vehicle-playground-local:
+    kind: sector
+    display-name: Vehicle Playground Local
+    children: [vehicle-playground-system]
+    map-position:
+      x: 0.0
+      y: 0.0

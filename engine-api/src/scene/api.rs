@@ -150,17 +150,35 @@ impl ScriptSceneApi {
         )))
     }
 
+    fn resolve_target(&self, target: &str) -> String {
+        self.target_resolver
+            .resolve_alias(target)
+            .unwrap_or(target)
+            .to_string()
+    }
+
     /// Get a single scene object API by target (alias or ID).
     pub fn get(&mut self, target: &str) -> ScriptObjectApi {
-        // Resolve alias → real object id.
-        let object_id = self.target_resolver.resolve_alias(target).unwrap_or(target);
-
-        let snapshot = self.build_object_entry(object_id);
+        let object_id = self.resolve_target(target);
+        let snapshot = self.build_object_entry(&object_id);
         ScriptObjectApi {
-            target: object_id.to_string(),
+            target: object_id,
             snapshot,
             queue: Arc::clone(&self.queue),
         }
+    }
+
+    /// Returns a snapshot map for the resolved object id.
+    pub fn inspect(&mut self, target: &str) -> RhaiMap {
+        self.build_object_entry(&self.resolve_target(target))
+    }
+
+    /// Returns the runtime region map for the resolved object id.
+    pub fn region(&mut self, target: &str) -> RhaiMap {
+        self.object_regions
+            .get(&self.resolve_target(target))
+            .map(region_to_rhai_map)
+            .unwrap_or_default()
     }
 
     fn build_object_entry(&self, object_id: &str) -> RhaiMap {
@@ -214,12 +232,7 @@ impl ScriptSceneApi {
         let Some(value) = rhai_dynamic_to_json(&value) else {
             return;
         };
-        // Resolve alias for the target.
-        let resolved = self
-            .target_resolver
-            .resolve_alias(target)
-            .unwrap_or(target)
-            .to_string();
+        let resolved = self.resolve_target(target);
         let Ok(mut queue) = self.queue.lock() else {
             return;
         };
@@ -231,6 +244,56 @@ impl ScriptSceneApi {
         ) {
             queue.push(BehaviorCommand::ApplySceneMutation { request });
         }
+    }
+
+    /// Set the text body of a scene text object.
+    pub fn set_text(&mut self, id: &str, text: &str) -> bool {
+        let resolved = self.resolve_target(id);
+        self.enqueue_scene_mutation(SceneMutationRequest::Set2dProps {
+            target: resolved,
+            visible: None,
+            dx: None,
+            dy: None,
+            text: Some(text.to_string()),
+        })
+    }
+
+    /// Set common text style fields using a small ergonomic map.
+    pub fn set_text_style(&mut self, id: &str, style: RhaiMap) -> bool {
+        if style.is_empty() {
+            return false;
+        }
+        let resolved = self.resolve_target(id);
+        let mut queued_any = false;
+        let current_state = self.object_states.get(&resolved);
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+
+        for (aliases, normalized_path) in [
+            (&["fg", "style.fg", "text.fg"][..], "style.fg"),
+            (&["bg", "style.bg", "text.bg"][..], "style.bg"),
+            (&["font", "text.font"][..], "text.font"),
+        ] {
+            let Some(value) = aliases.iter().find_map(|key| style.get(*key)) else {
+                continue;
+            };
+            let Some(value) = rhai_dynamic_to_json(value) else {
+                continue;
+            };
+            let Some(request) = crate::commands::scene_mutation_request_from_set_path(
+                &resolved,
+                normalized_path,
+                &value,
+                current_state,
+            ) else {
+                continue;
+            };
+            queue.push(BehaviorCommand::ApplySceneMutation { request });
+            queued_any = true;
+        }
+
+        queued_any
     }
     ///
     /// ```rhai
@@ -297,11 +360,7 @@ impl ScriptSceneApi {
 
     /// Set object visibility.
     pub fn set_visible(&mut self, id: &str, visible: bool) {
-        let resolved = self
-            .target_resolver
-            .resolve_alias(id)
-            .unwrap_or(id)
-            .to_string();
+        let resolved = self.resolve_target(id);
         let _ = self.enqueue_scene_mutation(SceneMutationRequest::Set2dProps {
             target: resolved,
             visible: Some(visible),
@@ -566,6 +625,12 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
     engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
         scene.get(target)
     });
+    engine.register_fn("inspect", |scene: &mut ScriptSceneApi, target: &str| {
+        scene.inspect(target)
+    });
+    engine.register_fn("region", |scene: &mut ScriptSceneApi, target: &str| {
+        scene.region(target)
+    });
     engine.register_fn(
         "set",
         |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
@@ -577,6 +642,14 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
         |scene: &mut ScriptSceneApi, targets: RhaiDynamic, path: &str, value: RhaiDynamic| {
             scene.set_multi(targets, path, value);
         },
+    );
+    engine.register_fn(
+        "set_text",
+        |scene: &mut ScriptSceneApi, id: &str, text: &str| scene.set_text(id, text),
+    );
+    engine.register_fn(
+        "set_text_style",
+        |scene: &mut ScriptSceneApi, id: &str, style: RhaiMap| scene.set_text_style(id, style),
     );
     engine.register_fn(
         "spawn_object",
@@ -735,17 +808,37 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
+    fn build_api(
+        object_states: HashMap<String, ObjectRuntimeState>,
+        object_kinds: HashMap<String, String>,
+        object_props: HashMap<String, serde_json::Value>,
+        object_regions: HashMap<String, Region>,
+        object_text: HashMap<String, String>,
+        resolver: TargetResolver,
+        queue: &Arc<Mutex<Vec<BehaviorCommand>>>,
+    ) -> ScriptSceneApi {
+        ScriptSceneApi::new(
+            Arc::new(object_states),
+            Arc::new(object_kinds),
+            Arc::new(object_props),
+            Arc::new(object_regions),
+            Arc::new(object_text),
+            Arc::new(resolver),
+            Arc::clone(queue),
+        )
+    }
+
     #[test]
     fn mutate_enqueues_typed_scene_mutation_command() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         let mut request = RhaiMap::new();
@@ -764,14 +857,14 @@ mod tests {
     #[test]
     fn set_camera3d_helpers_enqueue_typed_mutations() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         assert!(api.set_camera3d_look_at([1.0, 2.0, 3.0], [0.0, 0.0, 0.0]));
@@ -801,14 +894,14 @@ mod tests {
     #[test]
     fn set_view_helpers_enqueue_typed_mutations() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         assert!(api.set_view_profile("orbit-realistic"));
@@ -822,14 +915,14 @@ mod tests {
     #[test]
     fn set_view_param_helpers_enqueue_typed_mutations() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         assert!(api.set_lighting_param("exposure", 0.88.into()));
@@ -864,14 +957,14 @@ mod tests {
     #[test]
     fn set_neutral_profile_helpers_enqueue_typed_mutations() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         assert!(api.set_render3d_profile(Render3dProfileSlot::Lighting, "space-hard-vacuum"));
@@ -909,14 +1002,14 @@ mod tests {
     #[test]
     fn set_grouped_render_param_helpers_enqueue_typed_mutations() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         let mut material = RhaiMap::new();
@@ -1026,14 +1119,14 @@ mod tests {
     #[test]
     fn set_grouped_render_param_helpers_reject_empty_target_or_params() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         assert!(!api.set_material_params("", RhaiMap::new()));
@@ -1048,14 +1141,14 @@ mod tests {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
         let mut resolver = TargetResolver::new("scene-root".to_string());
         resolver.register_alias("hud".to_string(), "scene-root/layer:0:ui/hud".to_string());
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(resolver),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            resolver,
+            &queue,
         );
 
         api.set_visible("hud", false);
@@ -1079,14 +1172,14 @@ mod tests {
     #[test]
     fn spawn_and_despawn_enqueue_typed_mutations() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         assert!(api.spawn("enemy-basic", "enemy-01"));
@@ -1116,14 +1209,14 @@ mod tests {
     #[test]
     fn set_routes_render3d_paths_to_typed_mutation() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         api.set("planet-view", "obj.world.x", RhaiDynamic::from_float(2.5));
@@ -1148,14 +1241,14 @@ mod tests {
     #[test]
     fn set_routes_text_content_to_typed_2d_mutation() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         api.set("title", "text.content", "HELLO".into());
@@ -1189,14 +1282,14 @@ mod tests {
                 ..ObjectRuntimeState::default()
             },
         );
-        let mut api = ScriptSceneApi::new(
-            Arc::new(object_states),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            object_states,
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         api.set("title", "position.y", 9.into());
@@ -1219,14 +1312,14 @@ mod tests {
     #[test]
     fn object_set_routes_position_y_to_typed_2d_mutation_when_snapshot_has_state() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
         let mut object = api.get("title");
         map_set_path_dynamic(&mut object.snapshot, "state.visible", true.into());
@@ -1253,19 +1346,255 @@ mod tests {
     #[test]
     fn set_drops_unsupported_paths_without_enqueuing_commands() {
         let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        let mut api = ScriptSceneApi::new(
-            Arc::new(HashMap::<String, ObjectRuntimeState>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(HashMap::<String, serde_json::Value>::new()),
-            Arc::new(HashMap::<String, Region>::new()),
-            Arc::new(HashMap::<String, String>::new()),
-            Arc::new(TargetResolver::new("scene-root".to_string())),
-            Arc::clone(&queue),
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
         );
 
         api.set("title", "audio.pitch", 2.0.into());
 
         let queue = queue.lock().expect("queue lock");
         assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn inspect_and_region_return_runtime_snapshot_maps() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut resolver = TargetResolver::new("scene-root".to_string());
+        resolver.register_alias("hud-score".to_string(), "runtime-score".to_string());
+
+        let mut object_states = HashMap::new();
+        object_states.insert(
+            "runtime-score".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 2,
+                offset_y: 3,
+                ..ObjectRuntimeState::default()
+            },
+        );
+        let mut object_kinds = HashMap::new();
+        object_kinds.insert("runtime-score".to_string(), "text".to_string());
+        let mut object_regions = HashMap::new();
+        object_regions.insert(
+            "runtime-score".to_string(),
+            Region {
+                x: 10,
+                y: 20,
+                width: 30,
+                height: 4,
+            },
+        );
+        let mut object_text = HashMap::new();
+        object_text.insert("runtime-score".to_string(), "42".to_string());
+
+        let mut api = build_api(
+            object_states,
+            object_kinds,
+            HashMap::new(),
+            object_regions,
+            object_text,
+            resolver,
+            &queue,
+        );
+
+        let inspect = api.inspect("hud-score");
+        let region = api.region("hud-score");
+
+        assert_eq!(
+            inspect
+                .get("id")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("runtime-score".to_string())
+        );
+        assert_eq!(
+            inspect
+                .get("text")
+                .and_then(|value| value.clone().try_cast::<RhaiMap>())
+                .and_then(|map| map.get("content").cloned())
+                .and_then(|value| value.try_cast::<String>()),
+            Some("42".to_string())
+        );
+        assert_eq!(
+            region
+                .get("width")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(30)
+        );
+        assert_eq!(
+            inspect
+                .get("capabilities")
+                .and_then(|value| value.clone().try_cast::<RhaiMap>())
+                .and_then(|map| map.get("text.content").cloned())
+                .and_then(|value| value.try_cast::<bool>()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn set_text_enqueues_typed_2d_mutation() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
+        );
+
+        assert!(api.set_text("hud-score", "108"));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 1);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::Set2dProps {
+                    target: "hud-score".to_string(),
+                    visible: None,
+                    dx: None,
+                    dy: None,
+                    text: Some("108".to_string()),
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn set_text_style_enqueues_supported_properties() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut style = RhaiMap::new();
+        style.insert("fg".into(), "amber".into());
+        style.insert("bg".into(), "black".into());
+        style.insert("font".into(), "generic:2".into());
+
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
+        );
+
+        assert!(api.set_text_style("hud-score", style));
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 3);
+        assert_eq!(
+            queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty {
+                    target: "hud-score".to_string(),
+                    path: "style.fg".to_string(),
+                    value: serde_json::json!("amber"),
+                },
+            }
+        );
+        assert_eq!(
+            queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty {
+                    target: "hud-score".to_string(),
+                    path: "style.bg".to_string(),
+                    value: serde_json::json!("black"),
+                },
+            }
+        );
+        assert_eq!(
+            queue[2],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty {
+                    target: "hud-score".to_string(),
+                    path: "text.font".to_string(),
+                    value: serde_json::json!("generic:2"),
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn set_multi_routes_text_style_updates_for_each_target() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
+        );
+
+        api.set_multi(
+            RhaiDynamic::from_array(vec![
+                RhaiDynamic::from("score-left"),
+                RhaiDynamic::from("score-right"),
+            ]),
+            "style.fg",
+            "amber".into(),
+        );
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 2);
+        assert!(matches!(
+            &queue[0],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty { target, path, .. }
+            } if target == "score-left" && path == "style.fg"
+        ));
+        assert!(matches!(
+            &queue[1],
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty { target, path, .. }
+            } if target == "score-right" && path == "style.fg"
+        ));
+    }
+
+    #[test]
+    fn batch_routes_multiple_text_updates() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut props = RhaiMap::new();
+        props.insert("text.content".into(), "READY".into());
+        props.insert("style.fg".into(), "green".into());
+
+        let mut api = build_api(
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            TargetResolver::new("scene-root".to_string()),
+            &queue,
+        );
+
+        api.batch("hud-message", props);
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 2);
+        assert!(queue.iter().any(|command| matches!(
+            command,
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::Set2dProps {
+                    target,
+                    text: Some(text),
+                    ..
+                },
+            } if target == "hud-message" && text == "READY"
+        )));
+        assert!(queue.iter().any(|command| matches!(
+            command,
+            BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty { target, path, .. }
+            } if target == "hud-message" && path == "style.fg"
+        )));
     }
 }

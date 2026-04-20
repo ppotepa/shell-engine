@@ -104,6 +104,41 @@ impl SceneRuntime {
         arc
     }
 
+    pub fn layout_regions_stale(&self) -> bool {
+        std::sync::Arc::ptr_eq(&self.cached_object_regions, layout_stale_regions_sentinel())
+    }
+
+    pub(crate) fn apply_runtime_mutation_impact(&mut self, impact: RuntimeMutationImpact) {
+        if impact.is_empty() {
+            return;
+        }
+
+        if impact.invalidates_object_states() {
+            self.cached_object_states = None;
+            self.cached_effective_states = None;
+            self.effective_states_dirty = true;
+        }
+        if impact.invalidates_object_props() {
+            self.cached_object_props = None;
+        }
+        if impact.invalidates_object_text() {
+            self.cached_object_text = None;
+        }
+        if impact.graph {
+            self.cached_obj_camera_states = None;
+        }
+        if impact.invalidates_layout_regions() {
+            self.mark_layout_regions_stale();
+        }
+        if impact.bumps_object_mutation_gen() {
+            self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
+        }
+    }
+
+    fn mark_layout_regions_stale(&mut self) {
+        self.cached_object_regions = std::sync::Arc::clone(layout_stale_regions_sentinel());
+    }
+
     fn text_sprite_style(
         &self,
         sprite_id: &str,
@@ -121,6 +156,7 @@ impl SceneRuntime {
             .find_map(|layer| find_obj_properties_recursive(&layer.sprites, sprite_id))
     }
 
+    // These setters only mutate the scene graph; callers own cache and layout invalidation.
     pub(crate) fn set_text_sprite_content(
         &mut self,
         sprite_id: &str,
@@ -426,12 +462,9 @@ impl SceneRuntime {
         if sync_data.is_empty() {
             return;
         }
-        self.effective_states_dirty = true;
-        self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
-        self.cached_object_states = None;
-        self.cached_object_props = None;
 
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        let mut any_changed = false;
 
         for (visual_id, x, y, z, heading) in sync_data {
             let Some(object_id) = resolver.resolve_alias(visual_id) else {
@@ -441,10 +474,25 @@ impl SceneRuntime {
             // Round (not truncate) to the nearest pixel — truncation causes ±1px
             // jitter on fast-moving entities when the fractional part crosses 0.5.
             if let Some(state) = self.object_states.get_mut(object_id) {
-                state.offset_x = x.round() as i32;
-                state.offset_y = y.round() as i32;
-                state.offset_z = z.round() as i32;
-                state.heading = *heading;
+                let next_offset_x = x.round() as i32;
+                let next_offset_y = y.round() as i32;
+                let next_offset_z = z.round() as i32;
+                if state.offset_x != next_offset_x {
+                    state.offset_x = next_offset_x;
+                    any_changed = true;
+                }
+                if state.offset_y != next_offset_y {
+                    state.offset_y = next_offset_y;
+                    any_changed = true;
+                }
+                if state.offset_z != next_offset_z {
+                    state.offset_z = next_offset_z;
+                    any_changed = true;
+                }
+                if (state.heading - *heading).abs() > f32::EPSILON {
+                    state.heading = *heading;
+                    any_changed = true;
+                }
             }
 
             // Cascade heading to child sprites (avoid Vec clone).
@@ -460,11 +508,18 @@ impl SceneRuntime {
                         // For single-child particles this is one clone vs N clones before.
                         let cid = child_id.clone();
                         if let Some(state) = self.object_states.get_mut(&cid) {
-                            state.heading = *heading;
+                            if (state.heading - *heading).abs() > f32::EPSILON {
+                                state.heading = *heading;
+                                any_changed = true;
+                            }
                         }
                     }
                 }
             }
+        }
+
+        if any_changed {
+            self.apply_runtime_mutation_impact(RuntimeMutationImpact::state().with_layout());
         }
     }
 
@@ -479,10 +534,7 @@ impl SceneRuntime {
         if ramp_data.is_empty() {
             return;
         }
-        self.effective_states_dirty = true;
-        self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
-        self.cached_object_states = None;
-        self.cached_object_props = None;
+        let mut any_changed = false;
 
         for (visual_id, colour_str, radius) in ramp_data {
             let r = (*radius).max(0);
@@ -498,11 +550,22 @@ impl SceneRuntime {
                         visual_id,
                         next_colour.as_ref(),
                         &next_points,
+                        &mut any_changed,
                     );
                 }
             }
         }
+
+        if any_changed {
+            self.apply_runtime_mutation_impact(RuntimeMutationImpact::layout());
+        }
     }
+}
+
+fn layout_stale_regions_sentinel() -> &'static std::sync::Arc<HashMap<String, Region>> {
+    static SENTINEL: std::sync::OnceLock<std::sync::Arc<HashMap<String, Region>>> =
+        std::sync::OnceLock::new();
+    SENTINEL.get_or_init(|| std::sync::Arc::new(HashMap::new()))
 }
 
 fn find_text_content<'a>(sprites: &'a [Sprite], sprite_id: &str) -> Option<&'a str> {
@@ -2055,6 +2118,7 @@ fn set_particle_ramp_recursive(
     sprite_id: &str,
     next_colour: Option<&TermColour>,
     next_points: &[[i32; 2]],
+    updated: &mut bool,
 ) {
     for sprite in sprites.iter_mut() {
         match sprite {
@@ -2067,17 +2131,19 @@ fn set_particle_ramp_recursive(
                 if let Some(colour) = next_colour {
                     if fg_colour.as_ref() != Some(colour) {
                         *fg_colour = Some(colour.clone());
+                        *updated = true;
                     }
                 }
                 if *points != next_points {
                     *points = next_points.to_vec();
+                    *updated = true;
                 }
                 return;
             }
             Sprite::Grid { children, .. }
             | Sprite::Flex { children, .. }
             | Sprite::Panel { children, .. } => {
-                set_particle_ramp_recursive(children, sprite_id, next_colour, next_points);
+                set_particle_ramp_recursive(children, sprite_id, next_colour, next_points, updated);
             }
             _ => {}
         }

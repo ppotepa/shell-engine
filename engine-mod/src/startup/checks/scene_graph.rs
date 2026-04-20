@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use engine_core::scene::Scene;
 use engine_error::EngineError;
 
 use super::super::check::StartupCheck;
@@ -45,9 +46,12 @@ impl StartupCheck for SceneGraphCheck {
             for option in &sf.scene.menu_options {
                 edges.push(option.next.clone());
             }
+            let current_mod_name = ctx.manifest().get("name").and_then(|value| value.as_str());
+            edges.extend(collect_scripted_scene_jumps(&sf.scene, current_mod_name));
             id_to_edges.insert(sf.scene.id.clone(), edges);
             path_to_id.insert(normalize_scene_path(&sf.path), sf.scene.id.clone());
         }
+        let resolved_graph = resolve_graph_edges(&id_to_edges, &path_to_id);
 
         let entry_path = normalize_scene_path(ctx.entrypoint());
         let entry_id = path_to_id.get(&entry_path).cloned().ok_or_else(|| {
@@ -67,12 +71,11 @@ impl StartupCheck for SceneGraphCheck {
                 continue;
             }
 
-            let Some(edges) = id_to_edges.get(&current_id) else {
+            let Some(edges) = resolved_graph.get(&current_id) else {
                 continue;
             };
             for target in edges {
-                let resolved_target = resolve_scene_ref(target, &path_to_id);
-                if !id_to_edges.contains_key(&resolved_target) {
+                if !resolved_graph.contains_key(target) {
                     return Err(EngineError::StartupCheckFailed {
                         check: self.name().to_string(),
                         details: format!(
@@ -81,12 +84,15 @@ impl StartupCheck for SceneGraphCheck {
                         ),
                     });
                 }
-                stack.push(resolved_target);
+                stack.push(target.clone());
             }
         }
 
-        if has_cycle(&id_to_edges, &entry_id) {
-            report.add_warning(self.name(), "scene graph cycle detected".to_string());
+        if has_cycle(&resolved_graph, &entry_id) {
+            report.add_info(
+                self.name(),
+                "scene graph contains reachable cycles".to_string(),
+            );
         }
 
         let mut unreachable = Vec::new();
@@ -129,6 +135,172 @@ fn resolve_scene_ref(scene_ref: &str, path_to_id: &BTreeMap<String, String>) -> 
     scene_ref.to_string()
 }
 
+fn resolve_graph_edges(
+    graph: &BTreeMap<String, Vec<String>>,
+    path_to_id: &BTreeMap<String, String>,
+) -> BTreeMap<String, Vec<String>> {
+    graph
+        .iter()
+        .map(|(scene_id, edges)| {
+            let resolved = edges
+                .iter()
+                .map(|target| resolve_scene_ref(target, path_to_id))
+                .collect();
+            (scene_id.clone(), resolved)
+        })
+        .collect()
+}
+
+fn collect_scripted_scene_jumps(scene: &Scene, current_mod_name: Option<&str>) -> Vec<String> {
+    let mut jumps = Vec::new();
+    for behavior in &scene.behaviors {
+        jumps.extend(collect_behavior_jumps(
+            behavior.params.script.as_deref(),
+            current_mod_name,
+        ));
+    }
+    for layer in &scene.layers {
+        for behavior in &layer.behaviors {
+            jumps.extend(collect_behavior_jumps(
+                behavior.params.script.as_deref(),
+                current_mod_name,
+            ));
+        }
+        for sprite in &layer.sprites {
+            sprite.walk_recursive(&mut |node| {
+                for behavior in node.behaviors() {
+                    jumps.extend(collect_behavior_jumps(
+                        behavior.params.script.as_deref(),
+                        current_mod_name,
+                    ));
+                }
+            });
+        }
+    }
+    jumps.sort();
+    jumps.dedup();
+    jumps
+}
+
+fn collect_behavior_jumps(script: Option<&str>, current_mod_name: Option<&str>) -> Vec<String> {
+    let Some(script) = script else {
+        return Vec::new();
+    };
+    let mut jumps = collect_literal_game_jumps(script);
+    jumps.extend(collect_literal_game_jump_mods(script, current_mod_name));
+    jumps.sort();
+    jumps.dedup();
+    jumps
+}
+
+fn collect_literal_game_jumps(script: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let needle = "game.jump";
+    let mut offset = 0usize;
+    while let Some(pos) = script[offset..].find(needle) {
+        let start = offset + pos + needle.len();
+        let bytes = script.as_bytes();
+        let mut idx = start;
+        while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+        if idx >= bytes.len() || bytes[idx] != b'(' {
+            offset = start;
+            continue;
+        }
+        idx += 1;
+        while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+        if idx >= bytes.len() || (bytes[idx] != b'"' && bytes[idx] != b'\'') {
+            offset = start;
+            continue;
+        }
+        let quote = bytes[idx];
+        idx += 1;
+        let value_start = idx;
+        while idx < bytes.len() {
+            if bytes[idx] == quote && bytes[idx.saturating_sub(1)] != b'\\' {
+                let target = &script[value_start..idx];
+                if !target.trim().is_empty() {
+                    out.push(target.trim().to_string());
+                }
+                idx += 1;
+                break;
+            }
+            idx += 1;
+        }
+        offset = idx;
+    }
+    out
+}
+
+fn collect_literal_game_jump_mods(script: &str, current_mod_name: Option<&str>) -> Vec<String> {
+    let mut out = Vec::new();
+    let needle = "game.jump_mod";
+    let mut offset = 0usize;
+    while let Some(pos) = script[offset..].find(needle) {
+        let start = offset + pos + needle.len();
+        let bytes = script.as_bytes();
+        let mut idx = start;
+        while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+        if idx >= bytes.len() || bytes[idx] != b'(' {
+            offset = start;
+            continue;
+        }
+        idx += 1;
+        let Some((mod_ref, next_idx)) = parse_literal_string_arg(script, idx) else {
+            offset = start;
+            continue;
+        };
+        idx = next_idx;
+        while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+        if idx >= bytes.len() || bytes[idx] != b',' {
+            offset = start;
+            continue;
+        }
+        idx += 1;
+        let Some((scene_ref, next_idx)) = parse_literal_string_arg(script, idx) else {
+            offset = start;
+            continue;
+        };
+        if current_mod_name.is_some_and(|name| mod_ref.trim() == name) || mod_ref.trim().is_empty()
+        {
+            let scene_ref = scene_ref.trim();
+            if !scene_ref.is_empty() {
+                out.push(scene_ref.to_string());
+            }
+        }
+        offset = next_idx;
+    }
+    out
+}
+
+fn parse_literal_string_arg(script: &str, start: usize) -> Option<(String, usize)> {
+    let bytes = script.as_bytes();
+    let mut idx = start;
+    while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+        idx += 1;
+    }
+    if idx >= bytes.len() || (bytes[idx] != b'"' && bytes[idx] != b'\'') {
+        return None;
+    }
+    let quote = bytes[idx];
+    idx += 1;
+    let value_start = idx;
+    while idx < bytes.len() {
+        if bytes[idx] == quote && bytes[idx.saturating_sub(1)] != b'\\' {
+            return Some((script[value_start..idx].to_string(), idx + 1));
+        }
+        idx += 1;
+    }
+    None
+}
+
 fn has_cycle(graph: &BTreeMap<String, Vec<String>>, entry_id: &str) -> bool {
     fn visit(
         node: &str,
@@ -162,6 +334,7 @@ fn has_cycle(graph: &BTreeMap<String, Vec<String>>, entry_id: &str) -> bool {
 mod tests {
     use super::SceneGraphCheck;
     use crate::startup::{StartupCheck, StartupContext, StartupIssueLevel, StartupReport};
+    use engine_core::scene::Scene;
     use engine_error::EngineError;
     use serde_yaml::Value;
     use std::fs;
@@ -266,5 +439,186 @@ layers: []
             .iter()
             .any(|issue| issue.level == StartupIssueLevel::Info
                 && issue.message.contains("scene graph verified")));
+    }
+
+    #[test]
+    fn accepts_scripted_game_jump_transitions() {
+        let scene_loader = |_mod_source: &std::path::Path| -> Result<
+            Vec<crate::startup::StartupSceneFile>,
+            EngineError,
+        > {
+            let intro: Scene = serde_yaml::from_str(
+                r#"
+id: intro
+title: Intro
+layers: []
+behaviors:
+  - name: rhai-script
+    params:
+      src: /scenes/intro/main.rhai
+      script: |
+        if input.just_pressed("F10") {
+            game.jump("flight");
+        }
+"#,
+            )
+            .expect("intro scene");
+            let flight: Scene = serde_yaml::from_str(
+                r#"
+id: flight
+title: Flight
+layers: []
+"#,
+            )
+            .expect("flight scene");
+            Ok(vec![
+                crate::startup::StartupSceneFile {
+                    path: "/scenes/intro/scene.yml".to_string(),
+                    scene: intro,
+                },
+                crate::startup::StartupSceneFile {
+                    path: "/scenes/flight/scene.yml".to_string(),
+                    scene: flight,
+                },
+            ])
+        };
+
+        let mod_dir = tempdir().expect("temp dir");
+        let manifest: Value = serde_yaml::from_str(
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
+        )
+        .expect("manifest");
+        let ctx = StartupContext::new(
+            mod_dir.path(),
+            &manifest,
+            "/scenes/intro/scene.yml",
+            &scene_loader,
+        );
+        let mut report = StartupReport::default();
+
+        SceneGraphCheck
+            .run(&ctx, &mut report)
+            .expect("scene graph ok");
+
+        assert!(!report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Warning
+                && issue.message.contains("unreachable scenes")
+        }));
+    }
+
+    #[test]
+    fn accepts_scripted_same_mod_jump_mod_transitions() {
+        let scene_loader = |_mod_source: &std::path::Path| -> Result<
+            Vec<crate::startup::StartupSceneFile>,
+            EngineError,
+        > {
+            let intro: Scene = serde_yaml::from_str(
+                r#"
+id: intro
+title: Intro
+layers: []
+behaviors:
+  - name: rhai-script
+    params:
+      src: /scenes/intro/main.rhai
+      script: |
+        if input.just_pressed("F10") {
+            game.jump_mod("Test", "flight");
+        }
+"#,
+            )
+            .expect("intro scene");
+            let flight: Scene = serde_yaml::from_str(
+                r#"
+id: flight
+title: Flight
+layers: []
+"#,
+            )
+            .expect("flight scene");
+            Ok(vec![
+                crate::startup::StartupSceneFile {
+                    path: "/scenes/intro/scene.yml".to_string(),
+                    scene: intro,
+                },
+                crate::startup::StartupSceneFile {
+                    path: "/scenes/flight/scene.yml".to_string(),
+                    scene: flight,
+                },
+            ])
+        };
+
+        let mod_dir = tempdir().expect("temp dir");
+        let manifest: Value = serde_yaml::from_str(
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
+        )
+        .expect("manifest");
+        let ctx = StartupContext::new(
+            mod_dir.path(),
+            &manifest,
+            "/scenes/intro/scene.yml",
+            &scene_loader,
+        );
+        let mut report = StartupReport::default();
+
+        SceneGraphCheck
+            .run(&ctx, &mut report)
+            .expect("scene graph ok");
+
+        assert!(!report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Warning
+                && issue.message.contains("unreachable scenes")
+        }));
+    }
+
+    #[test]
+    fn ignores_scripted_external_jump_mod_targets_for_local_graph() {
+        let scene_loader = |_mod_source: &std::path::Path| -> Result<
+            Vec<crate::startup::StartupSceneFile>,
+            EngineError,
+        > {
+            let intro: Scene = serde_yaml::from_str(
+                r#"
+id: intro
+title: Intro
+layers: []
+behaviors:
+  - name: rhai-script
+    params:
+      src: /scenes/intro/main.rhai
+      script: |
+        if input.just_pressed("F10") {
+            game.jump_mod("OtherMod", "external-flight");
+        }
+"#,
+            )
+            .expect("intro scene");
+            Ok(vec![crate::startup::StartupSceneFile {
+                path: "/scenes/intro/scene.yml".to_string(),
+                scene: intro,
+            }])
+        };
+
+        let mod_dir = tempdir().expect("temp dir");
+        let manifest: Value = serde_yaml::from_str(
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
+        )
+        .expect("manifest");
+        let ctx = StartupContext::new(
+            mod_dir.path(),
+            &manifest,
+            "/scenes/intro/scene.yml",
+            &scene_loader,
+        );
+        let mut report = StartupReport::default();
+
+        SceneGraphCheck
+            .run(&ctx, &mut report)
+            .expect("scene graph ok");
+
+        assert!(!report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Warning
+                && issue.message.contains("missing target scene")
+        }));
     }
 }

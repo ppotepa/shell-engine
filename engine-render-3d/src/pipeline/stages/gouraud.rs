@@ -1,9 +1,7 @@
 use engine_asset::ObjMesh;
 
 use crate::geom::types::ProjectedVertex;
-use crate::pipeline::stages::classify::{
-    classify_and_sort_faces_into, FaceClassificationConfig,
-};
+use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::shade::{prepare_gouraud_faces_into, GouraudFace};
 

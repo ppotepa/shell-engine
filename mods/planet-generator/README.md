@@ -25,24 +25,28 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | `R` | Toggle planet auto-rotation on/off |
 | `Delete` | Reset to Earth defaults |
 | `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
-| `F10` or `Fly Around` button | Toggle `generator` / `flight` mode |
-| `Esc` | Exit `flight` mode and return to `generator` mode |
-| `F9` / `C` (flight mode) | Toggle flight profile: `arcade` / `sim-lite` |
-| `H` / `J` (flight mode) | Toggle assists: `HOLD ALT` / `HOLD HDG` |
-| Flight mode controls | `Up/Down` or `W/S` tangent thrust, `Left/Right` or `A/D` yaw, `Q/E` radial climb/descent, `X` boost, `Z` brake |
+| `F10` or `Vehicle` button | Package the current generator state and launch the configured vehicle scene |
+| `F9` / `C` | Toggle vehicle profile for the launch handoff: `arcade` / `sim-lite` |
+| `H` / `J` | Toggle launch assists: `HOLD ALT` / `HOLD HDG` |
 
 ## Runtime modes
 
 - `generator` mode is the default authoring/view mode; sliders, tabs, presets, randomize, and reset stay active.
-- `flight` mode is toggled by `F10` or `Fly Around`; the script syncs generated body runtime data, ensures one ship entity, and drives camera basis from ship-relative motion.
-- `flight profile` can be toggled with `F9` or `C` while flying:
-  - `arcade` keeps stronger response and easier correction.
-  - `sim-lite` keeps smoother input response and gentler stabilization.
-- `flight assists` are active in runtime and reflected in HUD:
+- `F10` or `Vehicle` writes a canonical vehicle launch packet into `/mods/planet-generator/vehicle/handoff` and jumps cross-mod to the configured vehicle consumer.
+- The default target is now `mods/vehicle-playground` scene `vehicle-playground-vehicle`.
+- Launch routing is controlled by:
+  - `/mods/planet-generator/vehicle/target_mod_ref`
+  - `/mods/planet-generator/vehicle/target_scene_id`
+- `vehicle profile` can be toggled with `F9` or `C` here to configure the handoff packet:
+  - `arcade` and `sim-lite` are handed off as typed profile ids only.
+  - Runtime handling of those profiles lives in the vehicle consumer / `engine-vehicle`, not in this scene.
+- `vehicle assists` can be toggled here to configure the handoff packet:
   - `HOLD ALT`
   - `HOLD HDG`
-- `flight profile` and both assist toggles are persisted in game state and restored on next run, so the next launch resumes the last flight setup.
-- `F10` or `Esc` returns to `generator` mode without resetting current generator parameters.
+- The generator is treated as a producer of generated-planet data and vehicle launch intent, not the place to evolve vehicle runtime behavior or packet kind/version semantics.
+- `engine-vehicle` owns the launch/return packet contract; this mod only supplies vehicle-domain environment, profile, assist, and UI state.
+- Return packets are applied here only to restore generator-facing state such as environment parameters, launch profile/assists, next spawn altitude, and the telemetry strip.
+- `vehicle profile` and both assist toggles are persisted in game state and restored on next run, so the next launch resumes the last vehicle setup.
 
 ## Scene structure
 
@@ -52,10 +56,11 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `scenes/main/layers/hud-models.yml` — model selector row (Planet/Sphere/Cube/Suzanne, authored as `type: segmented-control`)
 - `scenes/main/layers/hud-panel.yml` — right-side parameter rail background in native `1280x720` UI space
 - `scenes/main/layers/hud-sliders.yml` — compact slider layer with active-tab header, summary, widened tracks, and right-aligned live values
-- `scenes/main/layers/hud-actions.yml` — Randomize / Fly Around / Reset + flight hints
+- `scenes/main/layers/hud-actions.yml` — Randomize / Vehicle / Reset + compact bounded handoff/profile/assist status row
 - `scenes/main/layers/hud-presets.yml` — compact preset dropdown + popup list
-- `scenes/main/layers/hud-stats.yml` — live stats strip (bottom-left)
-- `scenes/main/main.rhai` — tab switching, mouse-drag slider input, preset loading, world param push with debounce
+- `scenes/main/layers/hud-stats.yml` — compact bounded telemetry strip (bottom-left)
+- `scenes/main/main.rhai` — tab switching, mouse-drag slider input, preset loading, world param push with debounce, canonical vehicle launch packet publish
+- `mods/vehicle-playground/scenes/vehicle/*` — canonical vehicle consumer, camera rig, HUD, body patch, and return flow
 
 ## Parameters
 

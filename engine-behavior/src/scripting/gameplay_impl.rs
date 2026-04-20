@@ -13,9 +13,8 @@ use engine_api::{
     EphemeralPrefabResolved, SceneMutationRequest, ScriptEntityContext, ScriptWorldContext,
 };
 use engine_game::components::{
-    AngularBody, ArcadeController, AtmosphereAffected2D, DespawnVisual, GravityAffected2D,
-    GravityMode2D, LifecyclePolicy, LinearBrake, ParticleColorRamp, ParticlePhysics,
-    ParticleThreadMode, ThrusterRamp,
+    AtmosphereAffected2D, DespawnVisual, GravityAffected2D, GravityMode2D, LifecyclePolicy,
+    ParticleColorRamp, ParticlePhysics, ParticleThreadMode,
 };
 use engine_game::{
     point_gravity_accel_3d, Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime,
@@ -28,6 +27,10 @@ use crate::palette::PaletteStore;
 use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json};
 use crate::scripting::ephemeral::{spawn_ephemeral_visual, EphemeralSpawn};
 use crate::scripting::physics::ScriptEntityPhysicsApi;
+use crate::scripting::vehicle::{
+    angular_body_from_rhai_map, attach_vehicle_stack, linear_brake_from_rhai_map,
+    thruster_ramp_from_rhai_map,
+};
 use crate::{catalog, BehaviorCommand, EmitterState};
 
 fn queue_set_property_or_mutation(
@@ -132,9 +135,8 @@ impl ScriptGameplayApi {
         if let Some(value) = Self::map_patch_number(patch, "gravity_mu") {
             body.gravity_mu = value;
         }
-        if let Some(value) =
-            Self::map_patch_opt_number(patch, "gravity_mu_km3_s2")
-                .or_else(|| Self::map_patch_opt_number(patch, "gravity-mu-km3-s2"))
+        if let Some(value) = Self::map_patch_opt_number(patch, "gravity_mu_km3_s2")
+            .or_else(|| Self::map_patch_opt_number(patch, "gravity-mu-km3-s2"))
         {
             body.gravity_mu_km3_s2 = value;
         }
@@ -293,6 +295,32 @@ impl ScriptGameplayApi {
             .and_then(|world| world.first_tag(tag))
             .map(|id| id as rhai::INT)
             .unwrap_or(0)
+    }
+
+    pub(crate) fn set_controlled_entity(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_controlled_entity(id as u64)
+    }
+
+    pub(crate) fn controlled_entity(&mut self) -> rhai::INT {
+        self.ctx
+            .world
+            .as_ref()
+            .and_then(|world| world.controlled_entity())
+            .map(|id| id as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn clear_controlled_entity(&mut self) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        world.clear_controlled_entity()
     }
 
     /// Returns a Rhai map with diagnostic info about current entity counts.
@@ -1296,7 +1324,10 @@ impl ScriptGameplayApi {
 
         // Apply controller component - merge catalog config with args["cfg"] overrides
         if let Some(ctrl) = &components.controller {
-            if ctrl.controller_type.as_str() == "ArcadeController" {
+            if matches!(
+                ctrl.controller_type.as_str(),
+                "ArcadeController" | "VehicleAssembly"
+            ) {
                 let mut config_map = if let Some(cfg) = &ctrl.config {
                     let mut m = RhaiMap::new();
                     for (k, v) in cfg {
@@ -2184,24 +2215,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
-            map.get(key)
-                .and_then(|v| v.as_float().ok())
-                .unwrap_or(default as rhai::FLOAT) as f32
-        };
-        let get_b = |map: &RhaiMap, key: &str, default: bool| -> bool {
-            map.get(key)
-                .and_then(|v| v.as_bool().ok())
-                .unwrap_or(default)
-        };
-        let body = AngularBody {
-            accel: get_f(&config, "accel", 5.5),
-            max: get_f(&config, "max", 7.0),
-            deadband: get_f(&config, "deadband", 0.10),
-            auto_brake: get_b(&config, "auto_brake", true),
-            angular_vel: get_f(&config, "angular_vel", 0.0),
-            ..Default::default()
-        };
+        let body = angular_body_from_rhai_map(&config);
         world.attach_angular_body(id as u64, body)
     }
 
@@ -2233,22 +2247,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
-            map.get(key)
-                .and_then(|v| v.as_float().ok())
-                .unwrap_or(default as rhai::FLOAT) as f32
-        };
-        let get_b = |map: &RhaiMap, key: &str, default: bool| -> bool {
-            map.get(key)
-                .and_then(|v| v.as_bool().ok())
-                .unwrap_or(default)
-        };
-        let brake = LinearBrake {
-            decel: get_f(&config, "decel", 45.0),
-            deadband: get_f(&config, "deadband", 2.5),
-            auto_brake: get_b(&config, "auto_brake", true),
-            active: false,
-        };
+        let brake = linear_brake_from_rhai_map(&config);
         world.attach_linear_brake(id as u64, brake)
     }
 
@@ -2270,28 +2269,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
-            map.get(key)
-                .and_then(|v| v.as_float().ok())
-                .unwrap_or(default as rhai::FLOAT) as f32
-        };
-        let get_u8 = |map: &RhaiMap, key: &str, default: u8| -> u8 {
-            map.get(key)
-                .and_then(|v| v.as_int().ok())
-                .unwrap_or(default as rhai::INT) as u8
-        };
-        let ramp = ThrusterRamp {
-            thrust_delay_ms: get_f(&config, "thrust_delay_ms", 8.0),
-            thrust_ramp_ms: get_f(&config, "thrust_ramp_ms", 12.0),
-            no_input_threshold_ms: get_f(&config, "no_input_threshold_ms", 30.0),
-            rot_factor_max_vel: get_f(&config, "rot_factor_max_vel", 7.0),
-            burst_speed_threshold: get_f(&config, "burst_speed_threshold", 15.0),
-            burst_wave_interval_ms: get_f(&config, "burst_wave_interval_ms", 150.0),
-            burst_wave_count: get_u8(&config, "burst_wave_count", 3),
-            rot_deadband: get_f(&config, "rot_deadband", 0.10),
-            move_deadband: get_f(&config, "move_deadband", 2.5),
-            ..Default::default()
-        };
+        let ramp = thruster_ramp_from_rhai_map(&config);
         world.attach_thruster_ramp(id as u64, ramp)
     }
 
@@ -2921,52 +2899,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let uid = id as u64;
-
-        // Extract config values; all fields are required
-        let Some(turn_step_ms_val) = config
-            .get("turn_step_ms")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-        else {
-            eprintln!("[attach_controller] missing required field: turn_step_ms");
-            return false;
-        };
-
-        let Some(thrust_power_val) = config
-            .get("thrust_power")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-        else {
-            eprintln!("[attach_controller] missing required field: thrust_power");
-            return false;
-        };
-
-        let Some(max_speed_val) = config
-            .get("max_speed")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-        else {
-            eprintln!("[attach_controller] missing required field: max_speed");
-            return false;
-        };
-
-        let Some(heading_bits_val) = config
-            .get("heading_bits")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-        else {
-            eprintln!("[attach_controller] missing required field: heading_bits");
-            return false;
-        };
-
-        let turn_step_ms = turn_step_ms_val as u32;
-        let thrust_power = thrust_power_val as f32;
-        let max_speed = max_speed_val as f32;
-        let heading_bits = heading_bits_val as u8;
-
-        let mut controller =
-            ArcadeController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
-        if let Some(xf) = world.transform(uid) {
-            controller.set_heading_radians(xf.heading);
-        }
-        world.attach_controller(uid, controller)
+        attach_vehicle_stack(world, id as u64, config)
     }
 
     pub(crate) fn poll_collision_events(&mut self) -> RhaiArray {
@@ -3626,46 +3559,7 @@ impl ScriptGameplayEntityApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        // Extract config values; all fields are required
-        let Some(turn_step_ms_val) = config
-            .get("turn_step_ms")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-        else {
-            eprintln!("[attach_controller] missing required field: turn_step_ms");
-            return false;
-        };
-
-        let Some(thrust_power_val) = config
-            .get("thrust_power")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-        else {
-            eprintln!("[attach_controller] missing required field: thrust_power");
-            return false;
-        };
-
-        let Some(max_speed_val) = config
-            .get("max_speed")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-        else {
-            eprintln!("[attach_controller] missing required field: max_speed");
-            return false;
-        };
-
-        let Some(heading_bits_val) = config
-            .get("heading_bits")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-        else {
-            eprintln!("[attach_controller] missing required field: heading_bits");
-            return false;
-        };
-
-        let controller = ArcadeController::new(
-            turn_step_ms_val as u32,
-            thrust_power_val as f32,
-            max_speed_val as f32,
-            heading_bits_val as u8,
-        );
-        world.attach_controller(self.ctx.id, controller)
+        attach_vehicle_stack(world, self.ctx.id, config)
     }
 
     pub(crate) fn set_turn(&mut self, dir: rhai::INT) -> bool {
@@ -3700,6 +3594,12 @@ impl ScriptGameplayEntityApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
+        if let Some(xf) = world.transform(self.ctx.id) {
+            let mut map = RhaiMap::new();
+            map.insert("x".into(), (xf.heading.sin() as rhai::FLOAT).into());
+            map.insert("y".into(), ((-xf.heading.cos()) as rhai::FLOAT).into());
+            return map;
+        }
         match world.controller(self.ctx.id) {
             Some(ctrl) => {
                 let (x, y) = ctrl.heading_vector();

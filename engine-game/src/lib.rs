@@ -19,9 +19,13 @@ pub use components::{
     AngularBody, AtmosphereAffected2D, Collider2D, ColliderShape, DespawnReason, EntityTimers,
     FollowAnchor2D, GravityAffected2D, GravityMode2D, LifecyclePolicy, Lifetime, LinearBrake,
     Ownership, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, PhysicsBody2D, Transform2D,
-    VisualBinding, WrapBounds,
+    VehicleRuntimePrimitives, VehicleStateCache, VisualBinding, WrapBounds,
 };
 pub use diagnostics::{EntityCountSnapshot, EntityEventLog};
+pub use engine_vehicle::{
+    BrakePhase, MotionFrame, MotionFrameInput, VehicleFacing, VehicleProfile, VehicleProfileInput,
+    VehicleTelemetry, VehicleTelemetryInput,
+};
 pub use game_object::{GameObject, GameObjectKind};
 pub use game_state::GameState;
 pub use gameplay::{GameplayEntity, GameplayWorld};

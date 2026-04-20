@@ -347,7 +347,11 @@ impl FrameLightingProfile {
             direction_lights: Vec::new(),
             point_lights: vec![
                 FramePointLightProfile {
-                    position: [params.light_point_x, params.light_point_y, params.light_point_z],
+                    position: [
+                        params.light_point_x,
+                        params.light_point_y,
+                        params.light_point_z,
+                    ],
                     intensity: params.light_point_intensity,
                     colour: params.light_point_colour,
                     falloff: params.light_point_falloff,

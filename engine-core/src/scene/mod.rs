@@ -15,6 +15,8 @@ pub mod model;
 pub mod sprite;
 /// Template substitution helpers.
 pub mod template;
+/// Typed scene transition references used across behavior and runtime seams.
+pub mod transition;
 /// UI theme registry and preset styles.
 pub mod ui_theme;
 /// Reusable 3D scene view, lighting, and environment profile contracts.
@@ -33,8 +35,10 @@ pub use model::{
     UiPersistence,
 };
 pub use sprite::{
-    CameraSource, FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign,
+    CameraSource, FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, TextOverflowMode,
+    TextTransform, TextWrapMode, VerticalAlign,
 };
+pub use transition::SceneTransitionTarget;
 pub use ui_theme::{
     normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default, ScrollListThemeStyle,
     UiThemeStyle, WindowThemeStyle,

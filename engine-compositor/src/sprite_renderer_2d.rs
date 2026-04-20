@@ -8,7 +8,9 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_core::markup::strip_markup;
-use engine_core::scene::{Layer, ResolvedViewProfile, Sprite};
+use engine_core::scene::{
+    Layer, ResolvedViewProfile, Sprite, TextOverflowMode, TextTransform, TextWrapMode,
+};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -20,9 +22,7 @@ use engine_render_2d::{
     resolve_x, resolve_y, text_sprite_dimensions, with_render_context, ClipRect, RenderArea,
 };
 #[cfg(feature = "render-3d")]
-use engine_render_3d::pipeline::{
-    prepare_render3d_item, PreparedRender3dItem,
-};
+use engine_render_3d::pipeline::{prepare_render3d_item, PreparedRender3dItem};
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -75,6 +75,15 @@ fn glow_cache_key(
     glow_col: Color,
     font: Option<&str>,
     sprite_bg: Color,
+    max_width: Option<u16>,
+    overflow_mode: TextOverflowMode,
+    wrap_mode: TextWrapMode,
+    line_clamp: Option<u16>,
+    reserve_width_ch: Option<u16>,
+    line_height: u16,
+    text_transform: &TextTransform,
+    scale_x: f32,
+    scale_y: f32,
     sprite_w: u16,
     sprite_h: u16,
 ) -> u64 {
@@ -84,9 +93,122 @@ fn glow_cache_key(
     hash_color(glow_col, &mut h);
     font.hash(&mut h);
     hash_color(sprite_bg, &mut h);
+    max_width.hash(&mut h);
+    match overflow_mode {
+        TextOverflowMode::Clip => 0u8.hash(&mut h),
+        TextOverflowMode::Ellipsis => 1u8.hash(&mut h),
+    }
+    match wrap_mode {
+        TextWrapMode::None => 0u8.hash(&mut h),
+        TextWrapMode::Word => 1u8.hash(&mut h),
+        TextWrapMode::Char => 2u8.hash(&mut h),
+    }
+    line_clamp.hash(&mut h);
+    reserve_width_ch.hash(&mut h);
+    line_height.hash(&mut h);
+    match text_transform {
+        TextTransform::None => 0u8.hash(&mut h),
+        TextTransform::Uppercase => 1u8.hash(&mut h),
+    }
+    scale_x.to_bits().hash(&mut h);
+    scale_y.to_bits().hash(&mut h);
     sprite_w.hash(&mut h);
     sprite_h.hash(&mut h);
     h.finish()
+}
+
+#[inline(always)]
+fn uses_bounded_text_layout(overflow_mode: TextOverflowMode, wrap_mode: TextWrapMode) -> bool {
+    overflow_mode != TextOverflowMode::Clip || wrap_mode != TextWrapMode::None
+}
+
+#[inline(always)]
+fn effective_text_max_width(
+    authored_max_width: Option<u16>,
+    area_width: u16,
+    clip_rect: Option<ClipRect>,
+    overflow_mode: TextOverflowMode,
+    wrap_mode: TextWrapMode,
+) -> Option<u16> {
+    let available_width = clip_rect
+        .map(|rect| rect.width.max(1).min(area_width.max(1)))
+        .unwrap_or_else(|| area_width.max(1));
+
+    match authored_max_width {
+        Some(authored) => Some(authored.max(1).min(available_width)),
+        None if uses_bounded_text_layout(overflow_mode, wrap_mode) => Some(available_width),
+        None => None,
+    }
+}
+
+fn visible_text_char_count(content: &str) -> usize {
+    let mut count = 0usize;
+    let mut chars = content.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '[' {
+            let mut closed = false;
+            for next in chars.by_ref() {
+                if next == ']' {
+                    closed = true;
+                    break;
+                }
+            }
+            if !closed {
+                count = count.saturating_add(1);
+            }
+            continue;
+        }
+        count = count.saturating_add(1);
+    }
+
+    count
+}
+
+fn reveal_text_content(content: &str, visible_chars: usize) -> Cow<'_, str> {
+    if visible_chars == 0 {
+        return Cow::Borrowed("");
+    }
+
+    let total_visible = visible_text_char_count(content);
+    if visible_chars >= total_visible {
+        return Cow::Borrowed(content);
+    }
+
+    let mut out = String::new();
+    let mut shown = 0usize;
+    let mut chars = content.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '[' {
+            let mut tag = String::from("[");
+            let mut closed = false;
+            while let Some(next) = chars.next() {
+                tag.push(next);
+                if next == ']' {
+                    closed = true;
+                    break;
+                }
+            }
+            if closed {
+                out.push_str(&tag);
+            } else if shown < visible_chars {
+                out.push('[');
+                shown = shown.saturating_add(1);
+            } else {
+                break;
+            }
+            continue;
+        }
+
+        if shown >= visible_chars {
+            break;
+        }
+        out.push(ch);
+        shown = shown.saturating_add(1);
+    }
+
+    Cow::Owned(out)
 }
 
 use super::render::{
@@ -189,25 +311,32 @@ pub(crate) fn render_sprites<'a>(
 
     // Reuse one path Vec across sprites; Grid extends/truncates it in-place per child.
     let mut sprite_path: Vec<usize> = Vec::with_capacity(8);
-    with_render_context(is_pixel_backend, default_font, ui_font_scale, || {
-        for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
-            sprite_path.clear();
-            sprite_path.push(sprite_idx);
-            render_sprite(
-                layer_idx,
-                &mut sprite_path,
-                sprite,
-                root_area,
-                None,
-                target_resolver,
-                object_regions,
-                object_states,
-                &mut ctx,
-                #[cfg(feature = "render-3d")]
-                render_3d,
-            );
-        }
-    });
+    with_render_context(
+        is_pixel_backend,
+        default_font,
+        ui_font_scale,
+        ui_layout_scale_x,
+        ui_layout_scale_y,
+        || {
+            for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
+                sprite_path.clear();
+                sprite_path.push(sprite_idx);
+                render_sprite(
+                    layer_idx,
+                    &mut sprite_path,
+                    sprite,
+                    root_area,
+                    None,
+                    target_resolver,
+                    object_regions,
+                    object_states,
+                    &mut ctx,
+                    #[cfg(feature = "render-3d")]
+                    render_3d,
+                );
+            }
+        },
+    );
 }
 
 #[inline]
@@ -387,6 +516,12 @@ fn render_text_sprite(
         reveal_ms,
         glow,
         text_transform,
+        max_width,
+        overflow_mode,
+        wrap_mode,
+        line_clamp,
+        reserve_width_ch,
+        line_height,
         scale_x,
         scale_y,
         ..
@@ -394,7 +529,7 @@ fn render_text_sprite(
     else {
         return;
     };
-    let total_chars = content.chars().count();
+    let total_chars = visible_text_char_count(content);
     // Build the visible slice without allocating: for the reveal case walk to
     // the char boundary and borrow; for the full case borrow directly.
     let rendered_content: Cow<'_, str> = match reveal_ms {
@@ -402,18 +537,10 @@ fn render_text_sprite(
             let since = ctx.scene_elapsed_ms - appear_at;
             let p = (since as f32 / *reveal as f32).clamp(0.0, 1.0);
             let visible_chars = ((total_chars as f32) * p).ceil() as usize;
-            let byte_end = content
-                .char_indices()
-                .nth(visible_chars)
-                .map(|(i, _)| i)
-                .unwrap_or(content.len());
-            Cow::Borrowed(&content[..byte_end])
+            reveal_text_content(content, visible_chars)
         }
         _ => Cow::Borrowed(content.as_str()),
     };
-    if rendered_content.is_empty() {
-        return;
-    }
 
     let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
     let sprite_bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
@@ -425,12 +552,26 @@ fn render_text_sprite(
         ctx.default_font,
     );
     let mod_source = ctx.asset_root.map(|root| root.mod_source());
+    let effective_max_width = effective_text_max_width(
+        *max_width,
+        area.width,
+        clip_rect,
+        *overflow_mode,
+        *wrap_mode,
+    );
     let (sprite_width, sprite_height) = text_sprite_dimensions(
         mod_source,
-        &rendered_content,
+        content,
         resolved_font.as_deref(),
         fg,
         sprite_bg,
+        text_transform,
+        effective_max_width,
+        *overflow_mode,
+        *wrap_mode,
+        *line_clamp,
+        *reserve_width_ch,
+        *line_height,
         *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
         *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
     );
@@ -461,7 +602,7 @@ fn render_text_sprite(
 
     let clip = clip_rect;
 
-    if let Some(glow_opts) = glow.as_ref() {
+    if let Some(glow_opts) = glow.as_ref().filter(|_| !rendered_content.is_empty()) {
         let glow_col = glow_opts
             .colour
             .as_ref()
@@ -475,6 +616,15 @@ fn render_text_sprite(
             glow_col,
             resolved_font.as_deref(),
             sprite_bg,
+            effective_max_width,
+            *overflow_mode,
+            *wrap_mode,
+            *line_clamp,
+            *reserve_width_ch,
+            *line_height,
+            text_transform,
+            *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
+            *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
             sprite_width,
             sprite_height,
         );
@@ -507,6 +657,12 @@ fn render_text_sprite(
                         None,
                         &mut scratch,
                         text_transform,
+                        effective_max_width,
+                        *overflow_mode,
+                        *wrap_mode,
+                        *line_clamp,
+                        *reserve_width_ch,
+                        *line_height,
                         *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
                         *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
                     );
@@ -548,20 +704,28 @@ fn render_text_sprite(
             }
         }
     }
-    render_text_content(
-        mod_source,
-        &rendered_content,
-        resolved_font.as_deref(),
-        fg,
-        sprite_bg,
-        draw_x,
-        draw_y,
-        clip,
-        ctx.layer_buf,
-        text_transform,
-        *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
-        *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
-    );
+    if !rendered_content.is_empty() {
+        render_text_content(
+            mod_source,
+            &rendered_content,
+            resolved_font.as_deref(),
+            fg,
+            sprite_bg,
+            draw_x,
+            draw_y,
+            clip,
+            ctx.layer_buf,
+            text_transform,
+            effective_max_width,
+            *overflow_mode,
+            *wrap_mode,
+            *line_clamp,
+            *reserve_width_ch,
+            *line_height,
+            *scale_x * ctx.ui_font_scale * ctx.ui_layout_scale_x,
+            *scale_y * ctx.ui_font_scale * ctx.ui_layout_scale_y,
+        );
+    }
     let sprite_region = Region {
         x: draw_x,
         y: draw_y,
@@ -577,6 +741,136 @@ fn render_text_sprite(
         target_resolver,
         object_regions,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        effective_text_max_width, glow_cache_key, reveal_text_content, visible_text_char_count,
+    };
+    use engine_core::color::Color;
+    use engine_core::scene::{TextOverflowMode, TextTransform, TextWrapMode};
+    use engine_render_2d::ClipRect;
+
+    #[test]
+    fn effective_text_max_width_uses_available_area_for_bounded_text() {
+        assert_eq!(
+            effective_text_max_width(
+                None,
+                18,
+                Some(ClipRect {
+                    x: 0,
+                    y: 0,
+                    width: 12,
+                    height: 4,
+                }),
+                TextOverflowMode::Ellipsis,
+                TextWrapMode::None,
+            ),
+            Some(12)
+        );
+        assert_eq!(
+            effective_text_max_width(None, 10, None, TextOverflowMode::Clip, TextWrapMode::Word),
+            Some(10)
+        );
+    }
+
+    #[test]
+    fn effective_text_max_width_keeps_clip_only_text_unbounded_without_authored_limit() {
+        assert_eq!(
+            effective_text_max_width(None, 18, None, TextOverflowMode::Clip, TextWrapMode::None),
+            None
+        );
+    }
+
+    #[test]
+    fn reveal_counts_visible_chars_not_markup_tags() {
+        assert_eq!(visible_text_char_count("[red]AB[/]"), 2);
+        assert_eq!(reveal_text_content("[red]AB[/]", 1), "[red]A");
+        assert_eq!(reveal_text_content("[red]AB[/]", 2), "[red]AB[/]");
+    }
+
+    #[test]
+    fn glow_cache_key_changes_when_layout_options_change() {
+        let base = glow_cache_key(
+            "HUD",
+            1,
+            Color::White,
+            Some("generic:2"),
+            Color::Reset,
+            Some(12),
+            TextOverflowMode::Clip,
+            TextWrapMode::Word,
+            Some(2),
+            Some(4),
+            2,
+            &TextTransform::None,
+            1.0,
+            1.0,
+            12,
+            4,
+        );
+        let wrapped = glow_cache_key(
+            "HUD",
+            1,
+            Color::White,
+            Some("generic:2"),
+            Color::Reset,
+            Some(12),
+            TextOverflowMode::Clip,
+            TextWrapMode::Char,
+            Some(2),
+            Some(4),
+            2,
+            &TextTransform::None,
+            1.0,
+            1.0,
+            12,
+            4,
+        );
+        assert_ne!(base, wrapped);
+    }
+
+    #[test]
+    fn glow_cache_key_changes_when_transform_or_scale_changes() {
+        let base = glow_cache_key(
+            "HUD",
+            1,
+            Color::White,
+            Some("generic:2"),
+            Color::Reset,
+            Some(12),
+            TextOverflowMode::Clip,
+            TextWrapMode::Word,
+            None,
+            None,
+            1,
+            &TextTransform::None,
+            1.0,
+            1.0,
+            12,
+            4,
+        );
+        let transformed = glow_cache_key(
+            "HUD",
+            1,
+            Color::White,
+            Some("generic:2"),
+            Color::Reset,
+            Some(12),
+            TextOverflowMode::Clip,
+            TextWrapMode::Word,
+            None,
+            None,
+            1,
+            &TextTransform::Uppercase,
+            1.5,
+            1.0,
+            12,
+            4,
+        );
+        assert_ne!(base, transformed);
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -348,6 +348,16 @@ where
         },
     );
     engine.register_fn(
+        "set_controlled_entity",
+        |world: &mut TWorld, id: rhai::INT| world.set_controlled_entity(id),
+    );
+    engine.register_fn("controlled_entity", |world: &mut TWorld| {
+        world.controlled_entity()
+    });
+    engine.register_fn("clear_controlled_entity", |world: &mut TWorld| {
+        world.clear_controlled_entity()
+    });
+    engine.register_fn(
         "despawn_children",
         |world: &mut TWorld, parent_id: rhai::INT| world.despawn_children_of(parent_id),
     );

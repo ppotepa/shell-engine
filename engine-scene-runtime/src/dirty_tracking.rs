@@ -1,13 +1,16 @@
 use engine_core::render_types::DirtyMask3D;
 
-use crate::mutations::{Render3DGroupedParam, Render3DMutation, Render3DProfileParam, SceneMutation};
+use crate::mutations::{
+    Render3DGroupedParam, Render3DMutation, Render3DProfileParam, SceneMutation,
+};
 
 pub fn dirty_for_render3d_mutation(mutation: &Render3DMutation) -> DirtyMask3D {
     match mutation {
-        Render3DMutation::SetGroupedParams { params, .. } => params.iter().fold(
-            DirtyMask3D::empty(),
-            |mask, (param, _)| mask | dirty_for_grouped_param(param),
-        ),
+        Render3DMutation::SetGroupedParams { params, .. } => params
+            .iter()
+            .fold(DirtyMask3D::empty(), |mask, (param, _)| {
+                mask | dirty_for_grouped_param(param)
+            }),
         Render3DMutation::SetProfile { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetViewProfile { .. } => DirtyMask3D::LIGHTING,
         Render3DMutation::SetLightingProfile { .. } => DirtyMask3D::LIGHTING,
@@ -65,7 +68,9 @@ mod tests {
                 Render3DMutation::SetGroupedParams {
                     target: Some("planet".to_string()),
                     params: vec![(
-                        crate::Render3DGroupedParam::Material(crate::mutations::ObjMaterialParam::Scale),
+                        crate::Render3DGroupedParam::Material(
+                            crate::mutations::ObjMaterialParam::Scale,
+                        ),
                         engine_core::render_types::MaterialValue::Scalar(0.8),
                     )],
                 },
@@ -75,7 +80,9 @@ mod tests {
                 Render3DMutation::SetGroupedParams {
                     target: Some("planet".to_string()),
                     params: vec![(
-                        crate::Render3DGroupedParam::Atmosphere(crate::mutations::AtmosphereParam::Density),
+                        crate::Render3DGroupedParam::Atmosphere(
+                            crate::mutations::AtmosphereParam::Density,
+                        ),
                         engine_core::render_types::MaterialValue::Scalar(1.2),
                     )],
                 },
@@ -85,7 +92,9 @@ mod tests {
                 Render3DMutation::SetGroupedParams {
                     target: Some("planet".to_string()),
                     params: vec![(
-                        crate::Render3DGroupedParam::Surface(crate::mutations::TerrainParam::Amplitude),
+                        crate::Render3DGroupedParam::Surface(
+                            crate::mutations::TerrainParam::Amplitude,
+                        ),
                         engine_core::render_types::MaterialValue::Scalar(0.5),
                     )],
                 },
@@ -95,7 +104,9 @@ mod tests {
                 Render3DMutation::SetGroupedParams {
                     target: Some("planet".to_string()),
                     params: vec![(
-                        crate::Render3DGroupedParam::Generator(crate::mutations::WorldgenParam::Seed),
+                        crate::Render3DGroupedParam::Generator(
+                            crate::mutations::WorldgenParam::Seed,
+                        ),
                         engine_core::render_types::MaterialValue::Scalar(42.0),
                     )],
                 },

@@ -493,7 +493,8 @@ pub fn dispatch_composite_with_render_2d_pipeline_filtered(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::scene::{LightingProfile, SpaceEnvironmentProfile};
+    use engine_core::scene::{LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile};
+    use engine_render_3d::scene::render_space_environment;
 
     #[test]
     fn starfield_pass_writes_pixels_when_environment_requests_it() {

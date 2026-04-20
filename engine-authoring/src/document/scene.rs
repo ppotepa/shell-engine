@@ -26,8 +26,9 @@ pub struct SceneDocument {
 impl SceneDocument {
     /// Normalizes authored YAML and materializes the runtime [`Scene`] model.
     ///
-    /// In debug mode, validates sprite timeline and logs warnings for sprites
-    /// that will never be visible.
+    /// In debug mode, validates sprite timeline and text-layout authoring and
+    /// logs warnings for configurations that are structurally valid but likely
+    /// ineffective at runtime.
     pub fn compile(self) -> Result<Scene, serde_yaml::Error> {
         let mut normalized = self.raw;
         normalize_scene_value(&mut normalized)?;
@@ -39,7 +40,7 @@ impl SceneDocument {
 
         #[cfg(debug_assertions)]
         {
-            use crate::validate::validate_sprite_timeline;
+            use crate::validate::{validate_sprite_timeline, validate_text_layout_semantics};
             let diagnostics = validate_sprite_timeline(&scene);
             for diag in diagnostics {
                 match diag {
@@ -63,6 +64,42 @@ impl SceneDocument {
                         eprintln!(
                             "⚠️  Scene '{}': sprite #{} in layer '{}' disappears at {}ms before appearing at {}ms (always hidden)",
                             scene.id, sprite_index, layer_name, disappear_at_ms, appear_at_ms
+                        );
+                    }
+                }
+            }
+
+            let text_layout_diagnostics = validate_text_layout_semantics(&scene);
+            for diag in text_layout_diagnostics {
+                match diag {
+                    crate::validate::TextLayoutDiagnostic::EllipsisWithoutBounds {
+                        layer_name,
+                        sprite_index,
+                    } => {
+                        eprintln!(
+                            "⚠️  Scene '{}': text sprite #{} in layer '{}' uses overflow-mode=ellipsis without max-width or line-clamp (ellipsis has no bounded layout contract)",
+                            scene.id, sprite_index, layer_name
+                        );
+                    }
+                    crate::validate::TextLayoutDiagnostic::LineClampWithoutWrap {
+                        layer_name,
+                        sprite_index,
+                        line_clamp,
+                    } => {
+                        eprintln!(
+                            "⚠️  Scene '{}': text sprite #{} in layer '{}' sets line-clamp={} with wrap-mode=none (clamp has no authored multi-line contract)",
+                            scene.id, sprite_index, layer_name, line_clamp
+                        );
+                    }
+                    crate::validate::TextLayoutDiagnostic::ReserveWidthTooSmall {
+                        layer_name,
+                        sprite_index,
+                        reserve_width_ch,
+                        max_width,
+                    } => {
+                        eprintln!(
+                            "⚠️  Scene '{}': text sprite #{} in layer '{}' sets reserve-width-ch={} below max-width={} (reserved HUD footprint is smaller than the visible line budget)",
+                            scene.id, sprite_index, layer_name, reserve_width_ch, max_width
                         );
                     }
                 }

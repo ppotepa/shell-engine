@@ -186,6 +186,15 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
     ) -> rhai::INT {
         self.spawn_child_entity(parent_id, kind, template, data)
     }
+    fn set_controlled_entity(&mut self, id: rhai::INT) -> bool {
+        self.set_controlled_entity(id)
+    }
+    fn controlled_entity(&mut self) -> rhai::INT {
+        self.controlled_entity()
+    }
+    fn clear_controlled_entity(&mut self) -> bool {
+        self.clear_controlled_entity()
+    }
     fn despawn_children_of(&mut self, parent_id: rhai::INT) {
         self.despawn_children_of(parent_id)
     }

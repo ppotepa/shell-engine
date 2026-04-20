@@ -116,12 +116,41 @@ fn rounded_i32(value: &JsonValue) -> Option<i32> {
         .and_then(|number| i32::try_from(number.round() as i64).ok())
 }
 
+pub fn is_supported_scene_set_path(path: &str) -> bool {
+    matches!(
+        path,
+        "visible"
+            | "text.content"
+            | "transform.heading"
+            | "text.font"
+            | "style.fg"
+            | "text.fg"
+            | "style.bg"
+            | "text.bg"
+            | "vector.points"
+            | "vector.closed"
+            | "vector.draw_char"
+            | "vector.fg"
+            | "vector.bg"
+            | "style.border"
+            | "style.shadow"
+            | "image.frame_index"
+            | "offset.x"
+            | "position.x"
+            | "offset.y"
+            | "position.y"
+    ) || is_render3d_set_path(path)
+}
+
 pub fn scene_mutation_request_from_set_path(
     target: &str,
     path: &str,
     value: &JsonValue,
     current_state: Option<&ObjectRuntimeState>,
 ) -> Option<crate::scene::SceneMutationRequest> {
+    if !is_supported_scene_set_path(path) {
+        return None;
+    }
     match path {
         "visible" => Some(crate::scene::SceneMutationRequest::Set2dProps {
             target: target.to_string(),
@@ -335,5 +364,14 @@ mod tests {
                 text: None,
             }
         );
+    }
+
+    #[test]
+    fn reports_supported_text_paths() {
+        assert!(is_supported_scene_set_path("text.content"));
+        assert!(is_supported_scene_set_path("text.font"));
+        assert!(is_supported_scene_set_path("style.fg"));
+        assert!(is_supported_scene_set_path("style.bg"));
+        assert!(!is_supported_scene_set_path("text.color"));
     }
 }

@@ -49,18 +49,19 @@ pub struct SystemTimings {
     pub physics_us: f32,
 }
 
-/// Debug overlay display mode.
+/// Debug overlay display mode (stats, logs, or layout/text diagnostics).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum DebugOverlayMode {
     #[default]
     Stats,
     Logs,
+    Layout,
 }
 
 /// Debug feature flags and transient UI state.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DebugFeatures {
-    /// Master switch for debug helpers (F1/F3/F4 and overlay).
+    /// Master switch for debug helpers and overlay shortcuts.
     pub enabled: bool,
     /// Whether the debug overlay is currently visible.
     pub overlay_visible: bool,

@@ -17,6 +17,8 @@ thread_local! {
     static PIXEL_BACKEND: Cell<bool> = const { Cell::new(false) };
     static DEFAULT_FONT_SPEC: RefCell<Option<String>> = const { RefCell::new(None) };
     static UI_FONT_SCALE: Cell<f32> = const { Cell::new(1.0) };
+    static UI_LAYOUT_SCALE_X: Cell<f32> = const { Cell::new(1.0) };
+    static UI_LAYOUT_SCALE_Y: Cell<f32> = const { Cell::new(1.0) };
 }
 
 #[inline]
@@ -24,6 +26,8 @@ pub fn with_render_context<R>(
     is_pixel: bool,
     default_font: Option<&str>,
     ui_font_scale: f32,
+    ui_layout_scale_x: f32,
+    ui_layout_scale_y: f32,
     f: impl FnOnce() -> R,
 ) -> R {
     PIXEL_BACKEND.with(|c| c.set(is_pixel));
@@ -31,12 +35,16 @@ pub fn with_render_context<R>(
         *slot.borrow_mut() = default_font.map(str::to_string);
     });
     UI_FONT_SCALE.with(|slot| slot.set(ui_font_scale.max(0.01)));
+    UI_LAYOUT_SCALE_X.with(|slot| slot.set(ui_layout_scale_x.max(0.01)));
+    UI_LAYOUT_SCALE_Y.with(|slot| slot.set(ui_layout_scale_y.max(0.01)));
     let result = f();
     PIXEL_BACKEND.with(|c| c.set(false));
     DEFAULT_FONT_SPEC.with(|slot| {
         *slot.borrow_mut() = None;
     });
     UI_FONT_SCALE.with(|slot| slot.set(1.0));
+    UI_LAYOUT_SCALE_X.with(|slot| slot.set(1.0));
+    UI_LAYOUT_SCALE_Y.with(|slot| slot.set(1.0));
     result
 }
 
@@ -49,6 +57,13 @@ pub fn measure_sprite_for_layout(sprite: &Sprite, asset_root: Option<&AssetRoot>
             force_font_mode,
             fg_colour,
             bg_colour,
+            text_transform,
+            max_width,
+            overflow_mode,
+            wrap_mode,
+            line_clamp,
+            reserve_width_ch,
+            line_height,
             scale_x,
             scale_y,
             ..
@@ -69,8 +84,19 @@ pub fn measure_sprite_for_layout(sprite: &Sprite, asset_root: Option<&AssetRoot>
                 resolved_font.as_deref(),
                 fg,
                 bg,
-                *scale_x * UI_FONT_SCALE.with(|slot| slot.get()),
-                *scale_y * UI_FONT_SCALE.with(|slot| slot.get()),
+                text_transform,
+                *max_width,
+                *overflow_mode,
+                *wrap_mode,
+                *line_clamp,
+                *reserve_width_ch,
+                *line_height,
+                *scale_x
+                    * UI_FONT_SCALE.with(|slot| slot.get())
+                    * UI_LAYOUT_SCALE_X.with(|slot| slot.get()),
+                *scale_y
+                    * UI_FONT_SCALE.with(|slot| slot.get())
+                    * UI_LAYOUT_SCALE_Y.with(|slot| slot.get()),
             )
         }
         Sprite::Image {

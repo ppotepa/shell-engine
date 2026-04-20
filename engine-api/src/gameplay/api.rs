@@ -198,6 +198,9 @@ where
         template: &str,
         data: RhaiMap,
     ) -> rhai::INT;
+    fn set_controlled_entity(&mut self, id: rhai::INT) -> bool;
+    fn controlled_entity(&mut self) -> rhai::INT;
+    fn clear_controlled_entity(&mut self) -> bool;
     fn despawn_children_of(&mut self, parent_id: rhai::INT);
     fn distance(&mut self, a: rhai::INT, b: rhai::INT) -> rhai::FLOAT;
     fn any_alive(&mut self, kind: &str) -> bool;

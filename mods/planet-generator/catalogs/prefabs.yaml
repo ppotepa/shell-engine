@@ -15,7 +15,7 @@ prefabs:
         gravity_mode: point
         gravity_body: generated-planet
         atmosphere_body: generated-planet
-        atmosphere_drag_scale: 0.0
+        atmosphere_drag_scale: 1.0
         atmosphere_heat_scale: 1.0
         atmosphere_cooling: 0.14
       collider:

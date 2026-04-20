@@ -5,7 +5,7 @@
 
 mod render3d;
 
-use engine_core::scene::{Scene, Sprite};
+use engine_core::scene::{Scene, Sprite, TextOverflowMode, TextWrapMode};
 pub use render3d::{validate_render_scene3d_document, Render3dDiagnostic};
 
 /// Validation diagnostic for sprite timeline issues.
@@ -24,6 +24,29 @@ pub enum TimelineDiagnostic {
         sprite_index: usize,
         appear_at_ms: u64,
         disappear_at_ms: u64,
+    },
+}
+
+/// Validation diagnostic for text layout semantics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TextLayoutDiagnostic {
+    /// Ellipsis was requested without any authored width/line bound.
+    EllipsisWithoutBounds {
+        layer_name: String,
+        sprite_index: usize,
+    },
+    /// A line clamp was set without a wrap contract to give it multi-line meaning.
+    LineClampWithoutWrap {
+        layer_name: String,
+        sprite_index: usize,
+        line_clamp: u16,
+    },
+    /// Reserved width smaller than the visible max width defeats the reserved layout footprint.
+    ReserveWidthTooSmall {
+        layer_name: String,
+        sprite_index: usize,
+        reserve_width_ch: u16,
+        max_width: u16,
     },
 }
 
@@ -108,6 +131,66 @@ pub fn validate_sprite_timeline(scene: &Scene) -> Vec<TimelineDiagnostic> {
     diagnostics
 }
 
+/// Validates authored text layout semantics for likely HUD mistakes.
+///
+/// These checks are warning-only and focus on contracts that authors are likely
+/// to assume exist:
+/// - `overflow-mode: ellipsis` needs `max-width` or `line-clamp`
+/// - `line-clamp` expects `wrap-mode: word|char`
+/// - `reserve-width-ch` should not be smaller than `max-width`
+pub fn validate_text_layout_semantics(scene: &Scene) -> Vec<TextLayoutDiagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for layer in &scene.layers {
+        for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
+            let Sprite::Text {
+                max_width,
+                overflow_mode,
+                wrap_mode,
+                line_clamp,
+                reserve_width_ch,
+                ..
+            } = sprite
+            else {
+                continue;
+            };
+
+            if matches!(overflow_mode, TextOverflowMode::Ellipsis)
+                && max_width.is_none()
+                && line_clamp.is_none()
+            {
+                diagnostics.push(TextLayoutDiagnostic::EllipsisWithoutBounds {
+                    layer_name: layer.name.clone(),
+                    sprite_index: sprite_idx,
+                });
+            }
+
+            if let Some(clamp) = line_clamp {
+                if matches!(wrap_mode, TextWrapMode::None) {
+                    diagnostics.push(TextLayoutDiagnostic::LineClampWithoutWrap {
+                        layer_name: layer.name.clone(),
+                        sprite_index: sprite_idx,
+                        line_clamp: *clamp,
+                    });
+                }
+            }
+
+            if let (Some(reserved), Some(max_width)) = (reserve_width_ch, max_width) {
+                if reserved < max_width {
+                    diagnostics.push(TextLayoutDiagnostic::ReserveWidthTooSmall {
+                        layer_name: layer.name.clone(),
+                        sprite_index: sprite_idx,
+                        reserve_width_ch: *reserved,
+                        max_width: *max_width,
+                    });
+                }
+            }
+        }
+    }
+
+    diagnostics
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,6 +264,12 @@ mod tests {
             behaviors: vec![],
             glow: None,
             text_transform: Default::default(),
+            max_width: None,
+            overflow_mode: Default::default(),
+            wrap_mode: Default::default(),
+            line_clamp: None,
+            reserve_width_ch: None,
+            line_height: 1,
             scale_x: 1.0,
             scale_y: 1.0,
         }
@@ -231,5 +320,109 @@ mod tests {
             diags[0],
             TimelineDiagnostic::SpriteDisappearsBeforeAppear { .. }
         ));
+    }
+
+    #[test]
+    fn text_layout_semantics_warn_for_ellipsis_without_bounds() {
+        let mut scene = make_test_scene(6000);
+        let mut sprite = make_text_sprite(None, None);
+        if let Sprite::Text { overflow_mode, .. } = &mut sprite {
+            *overflow_mode = TextOverflowMode::Ellipsis;
+        }
+        scene.layers.push(Layer {
+            name: "main".into(),
+            sprites: vec![sprite],
+            ..Default::default()
+        });
+
+        let diags = validate_text_layout_semantics(&scene);
+        assert_eq!(diags.len(), 1);
+        assert!(matches!(
+            diags[0],
+            TextLayoutDiagnostic::EllipsisWithoutBounds { .. }
+        ));
+    }
+
+    #[test]
+    fn text_layout_semantics_warn_for_line_clamp_without_wrap() {
+        let mut scene = make_test_scene(6000);
+        let mut sprite = make_text_sprite(None, None);
+        if let Sprite::Text { line_clamp, .. } = &mut sprite {
+            *line_clamp = Some(2);
+        }
+        scene.layers.push(Layer {
+            name: "main".into(),
+            sprites: vec![sprite],
+            ..Default::default()
+        });
+
+        let diags = validate_text_layout_semantics(&scene);
+        assert_eq!(diags.len(), 1);
+        assert!(matches!(
+            diags[0],
+            TextLayoutDiagnostic::LineClampWithoutWrap { .. }
+        ));
+    }
+
+    #[test]
+    fn text_layout_semantics_warn_for_reserved_width_smaller_than_max_width() {
+        let mut scene = make_test_scene(6000);
+        let mut sprite = make_text_sprite(None, None);
+        if let Sprite::Text {
+            max_width,
+            reserve_width_ch,
+            wrap_mode,
+            ..
+        } = &mut sprite
+        {
+            *max_width = Some(12);
+            *reserve_width_ch = Some(8);
+            *wrap_mode = TextWrapMode::Word;
+        }
+        scene.layers.push(Layer {
+            name: "main".into(),
+            sprites: vec![sprite],
+            ..Default::default()
+        });
+
+        let diags = validate_text_layout_semantics(&scene);
+        assert_eq!(diags.len(), 1);
+        assert!(matches!(
+            diags[0],
+            TextLayoutDiagnostic::ReserveWidthTooSmall {
+                reserve_width_ch: 8,
+                max_width: 12,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn valid_text_layout_semantics_pass() {
+        let mut scene = make_test_scene(6000);
+        let mut sprite = make_text_sprite(None, None);
+        if let Sprite::Text {
+            max_width,
+            overflow_mode,
+            wrap_mode,
+            line_clamp,
+            reserve_width_ch,
+            ..
+        } = &mut sprite
+        {
+            *max_width = Some(24);
+            *overflow_mode = TextOverflowMode::Ellipsis;
+            *wrap_mode = TextWrapMode::Word;
+            *line_clamp = Some(2);
+            *reserve_width_ch = Some(24);
+        }
+        scene.layers.push(Layer {
+            name: "main".into(),
+            sprites: vec![sprite],
+            ..Default::default()
+        });
+
+        let diags = validate_text_layout_semantics(&scene);
+        assert!(diags.is_empty(), "Valid text layout semantics should pass");
     }
 }

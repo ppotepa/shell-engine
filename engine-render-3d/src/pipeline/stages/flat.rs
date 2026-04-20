@@ -1,9 +1,7 @@
 use engine_asset::ObjMesh;
 
 use crate::geom::types::ProjectedVertex;
-use crate::pipeline::stages::classify::{
-    classify_and_sort_faces_into, FaceClassificationConfig,
-};
+use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
 use crate::pipeline::stages::raster_exec::execute_flat_rgb_faces;
 use crate::pipeline::stages::shade::{prepare_flat_faces_into, FlatShadingStageContext};
 

@@ -9,8 +9,14 @@ use crate::services::EngineWorldAccess;
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use engine_animation::{Animator, SceneStage};
+use engine_behavior::{catalog::ModCatalogs, palette::PaletteStore};
+use engine_core::assets::AssetRoot;
 use engine_core::logging;
+use engine_core::scene::SceneTransitionTarget;
 use engine_events::{InputEvent, KeyCode, KeyEvent, KeyModifiers};
+use engine_mod::load_mod_manifest;
+use engine_persistence::PersistenceStore;
+use std::path::{Path, PathBuf};
 
 pub struct SceneLifecycleManager;
 const PLAYGROUND_MENU_ID: &str = "playground-menu";
@@ -23,7 +29,7 @@ struct LifecycleEvents {
     key_releases: Vec<KeyEvent>,
     input_focus_lost: bool,
     last_key_snapshot: Option<RawKeyEvent>,
-    transitions: Vec<String>,
+    transitions: Vec<SceneTransitionTarget>,
     resizes: Vec<(u16, u16)>,
     input_events: Vec<InputEvent>,
 }
@@ -215,17 +221,15 @@ impl SceneLifecycleManager {
         }
     }
 
-    fn apply_transitions(world: &mut World, transitions: Vec<String>) -> bool {
-        for to_scene_ref in transitions {
+    fn apply_transitions(world: &mut World, transitions: Vec<SceneTransitionTarget>) -> bool {
+        for target in transitions {
+            let target_label = target.to_wire_string();
             logging::info(
                 "engine.scene",
-                format!("transition requested: to={to_scene_ref}"),
+                format!("transition requested: to={target_label}"),
             );
-            let Some(new_scene) = world
-                .scene_loader()
-                .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok())
-            else {
-                let msg = format!("transition target could not be resolved: to={to_scene_ref}");
+            let Some(new_scene) = load_transition_scene(world, &target) else {
+                let msg = format!("transition target could not be resolved: to={target_label}");
                 logging::warn("engine.scene", &msg);
                 if let Some(log) = world.get_mut::<DebugLogBuffer>() {
                     log.push_warn("scene", None, None, msg);
@@ -330,7 +334,11 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
                 lifecycle.input_focus_lost = true;
                 lifecycle.last_key_snapshot = None;
             }
-            EngineEvent::SceneTransition { to_scene_id } => lifecycle.transitions.push(to_scene_id),
+            EngineEvent::SceneTransition { to_scene_id } => {
+                if let Some(target) = SceneTransitionTarget::parse_wire(&to_scene_id) {
+                    lifecycle.transitions.push(target);
+                }
+            }
             EngineEvent::OutputResized { width, height } => {
                 lifecycle.resizes.push((width, height));
             }
@@ -338,6 +346,105 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
         }
     }
     lifecycle
+}
+
+fn load_transition_scene(
+    world: &mut World,
+    target: &SceneTransitionTarget,
+) -> Option<scene::Scene> {
+    match target {
+        SceneTransitionTarget::CurrentMod { scene_ref } => world
+            .scene_loader()
+            .and_then(|loader| loader.load_by_ref(scene_ref).ok()),
+        SceneTransitionTarget::OtherMod { mod_ref, scene_ref } => {
+            let current_mod_source = world.asset_root()?.mod_source().to_path_buf();
+            let next_mod_source = resolve_mod_source(&current_mod_source, mod_ref);
+            let manifest = load_mod_manifest(&next_mod_source).ok()?;
+            let loader = crate::scene_loader::SceneLoader::new(next_mod_source.clone()).ok()?;
+            let new_scene = loader.load_by_ref(scene_ref).ok()?;
+            switch_active_mod(world, next_mod_source, manifest, loader);
+            Some(new_scene)
+        }
+    }
+}
+
+fn resolve_mod_source(current_mod_source: &Path, mod_ref: &str) -> PathBuf {
+    let candidate = Path::new(mod_ref);
+    if candidate.is_absolute()
+        || mod_ref.contains('/')
+        || mod_ref.contains('\\')
+        || mod_ref.starts_with('.')
+        || mod_ref.ends_with(".zip")
+    {
+        return candidate.to_path_buf();
+    }
+    current_mod_source
+        .parent()
+        .map(|parent| parent.join(mod_ref))
+        .unwrap_or_else(|| candidate.to_path_buf())
+}
+
+fn switch_active_mod(
+    world: &mut World,
+    mod_source: PathBuf,
+    manifest: serde_yaml::Value,
+    loader: crate::scene_loader::SceneLoader,
+) {
+    let audio_enabled = world
+        .get::<crate::RuntimeSwitchOptions>()
+        .map(|options| options.audio_enabled)
+        .unwrap_or(false);
+    let mut runtime_settings = crate::runtime_settings::RuntimeSettings::from_manifest(&manifest);
+    runtime_settings.is_pixel_backend = world
+        .runtime_settings()
+        .map(|settings| settings.is_pixel_backend)
+        .unwrap_or(runtime_settings.is_pixel_backend);
+
+    world.register(AssetRoot::new(mod_source.clone()));
+    world.register(loader);
+    world.register(runtime_settings);
+    world.register(crate::audio_sequencer::AudioSequencerState::from_mod_source(&mod_source));
+    world.register(rebuild_audio_runtime(&mod_source, audio_enabled));
+    world.register(crate::mod_behaviors::load_mod_behaviors(&mod_source));
+    world.register(crate::level_state::load_level_state(&mod_source, &manifest));
+    world.register(crate::mod_manifest::ModManifestData::from_manifest(
+        &manifest,
+    ));
+    world.register(load_catalogs_for_mod(&mod_source));
+    world.register(load_palettes_for_mod(&mod_source));
+    world.register(PersistenceStore::new(
+        manifest
+            .get("name")
+            .and_then(serde_yaml::Value::as_str)
+            .unwrap_or("shell-engine"),
+    ));
+    engine_behavior::init_behavior_system(
+        mod_source
+            .to_str()
+            .expect("mod source path should be valid UTF-8"),
+    );
+}
+
+fn rebuild_audio_runtime(mod_source: &Path, audio_enabled: bool) -> crate::audio::AudioRuntime {
+    let mut audio_runtime =
+        crate::audio::AudioRuntime::from_options(audio_enabled, &mod_source.to_string_lossy());
+    let synth_cues =
+        crate::audio_sequencer::AudioSequencerState::synthesize_note_sheets_if_any(mod_source)
+            .unwrap_or_default();
+    for (cue, (sample_rate, samples)) in synth_cues {
+        audio_runtime.register_memory_cue(&cue, sample_rate, samples);
+    }
+    audio_runtime
+}
+
+fn load_catalogs_for_mod(mod_source: &Path) -> ModCatalogs {
+    let catalogs_dir = mod_source.join("catalogs");
+    ModCatalogs::load_from_directory(&catalogs_dir).unwrap_or_default()
+}
+
+fn load_palettes_for_mod(mod_source: &Path) -> PaletteStore {
+    let palettes_dir = mod_source.join("palettes");
+    PaletteStore::load_from_directory(&palettes_dir).unwrap_or_default()
 }
 
 pub(super) fn is_scene_idle(world: &World) -> bool {
@@ -535,9 +642,12 @@ fn key_event_to_raw(key: &KeyEvent, pressed: bool) -> RawKeyEvent {
 #[cfg(test)]
 mod tests {
     use super::{classify_events, SceneLifecycleManager};
+    use crate::assets::AssetRoot;
+    use crate::audio::AudioRuntime;
     use crate::buffer::Buffer;
     use crate::debug_features::{DebugFeatures, DebugOverlayMode};
     use crate::events::EngineEvent;
+    use crate::mod_manifest::ModManifestData;
     use crate::runtime_settings::{RenderSize, RuntimeSettings};
     use crate::scene::{
         MenuOption, Scene, SceneAudio, SceneStages, Sprite, Stage, StageTrigger, TermColour,
@@ -546,7 +656,9 @@ mod tests {
     use crate::scene_runtime::SceneRuntime;
     use crate::services::EngineWorldAccess;
     use crate::world::World;
+    use crate::RuntimeSwitchOptions;
     use engine_animation::{Animator, SceneStage};
+    use engine_core::scene::SceneTransitionTarget;
     use engine_events::{KeyCode, KeyEvent, KeyModifiers};
     use std::fs;
     use tempfile::tempdir;
@@ -656,6 +768,22 @@ mod tests {
             gui: Default::default(),
             spatial: Default::default(),
         }
+    }
+
+    fn write_mod(mod_root: &std::path::Path, name: &str, scene_id: &str) {
+        fs::create_dir_all(mod_root.join("scenes")).expect("create scenes dir");
+        fs::write(
+            mod_root.join("mod.yaml"),
+            format!(
+                "name: {name}\nversion: 0.1.0\nentrypoint: /scenes/{scene_id}.yml\ndefault_palette: {name}-palette\n"
+            ),
+        )
+        .expect("write mod manifest");
+        fs::write(
+            mod_root.join(format!("scenes/{scene_id}.yml")),
+            format!("id: {scene_id}\ntitle: {name}\nbg_colour: black\nlayers: []\nnext: null\n"),
+        )
+        .expect("write scene");
     }
 
     const OBJ_VIEWER_SCENE_YAML: &str = r#"
@@ -1068,7 +1196,10 @@ layers:
 
         assert!(lifecycle.quit);
         assert_eq!(lifecycle.resizes, vec![(120, 40)]);
-        assert_eq!(lifecycle.transitions, vec!["mainmenu".to_string()]);
+        assert_eq!(
+            lifecycle.transitions,
+            vec![SceneTransitionTarget::current_mod("mainmenu").expect("target")]
+        );
     }
 
     #[test]
@@ -1104,6 +1235,67 @@ layers:
         assert!(!quit);
         let scene = world.get::<SceneRuntime>().expect("scene present");
         assert_eq!(scene.scene().id, "mainmenu");
+    }
+
+    #[test]
+    fn cross_mod_scene_transition_reloads_mod_scoped_resources() {
+        let temp = tempdir().expect("temp dir");
+        let mods_root = temp.path().join("mods");
+        let current_mod = mods_root.join("playground");
+        let target_mod = mods_root.join("planet-generator");
+        write_mod(&current_mod, "CurrentMod", "intro");
+        write_mod(&target_mod, "TargetMod", "flight");
+
+        let mut world = World::new();
+        world.register(SceneLoader::new(current_mod.clone()).expect("scene loader"));
+        world.register(AssetRoot::new(current_mod.clone()));
+        world.register(AudioRuntime::null());
+        world.register(RuntimeSettings::default());
+        world.register(RuntimeSwitchOptions {
+            audio_enabled: false,
+        });
+        world.register_scoped(SceneRuntime::new(make_cutscene("intro", None)));
+        world.register_scoped(Animator::new());
+
+        let transition = SceneTransitionTarget::other_mod("planet-generator", "flight")
+            .expect("cross-mod target")
+            .to_wire_string();
+        let quit = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::SceneTransition {
+                to_scene_id: transition,
+            }],
+        );
+
+        assert!(!quit);
+        let scene = world.get::<SceneRuntime>().expect("scene present");
+        assert_eq!(scene.scene().id, "flight");
+        let asset_root = world.get::<AssetRoot>().expect("asset root");
+        assert_eq!(asset_root.mod_source(), target_mod.as_path());
+        let loader = world.get::<SceneLoader>().expect("scene loader");
+        assert_eq!(
+            loader
+                .load_by_ref("flight")
+                .expect("load scene from swapped loader")
+                .id,
+            "flight"
+        );
+        let manifest = world.get::<ModManifestData>().expect("manifest data");
+        assert_eq!(
+            manifest.default_palette.as_deref(),
+            Some("TargetMod-palette")
+        );
+        let persistence = world
+            .get::<engine_persistence::PersistenceStore>()
+            .expect("persistence");
+        assert!(
+            persistence
+                .file_path()
+                .to_string_lossy()
+                .contains("targetmod"),
+            "unexpected persistence path: {}",
+            persistence.file_path().display()
+        );
     }
 
     #[test]

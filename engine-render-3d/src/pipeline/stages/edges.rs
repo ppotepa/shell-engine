@@ -78,14 +78,12 @@ pub(crate) fn draw_wireframe_edges_with_depth(
         let y0 = pa.y.round() as i32;
         let x1 = pb.x.round() as i32;
         let y1 = pb.y.round() as i32;
-        if let Some((cx0, cy0, cx1, cy1)) =
-            clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
+        if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
         {
-            let (cz0, cz1) =
-                clipped_depths(x0, y0, x1, y1, cx0, cy0, cx1, cy1, pa.depth, pb.depth);
+            let (cz0, cz1) = clipped_depths(x0, y0, x1, y1, cx0, cy0, cx1, cy1, pa.depth, pb.depth);
             draw_line_depth(
-                canvas, depth_buf, virtual_w, virtual_h, cx0, cy0, cx1, cy1, line_color, cz0,
-                cz1, depth_near, depth_far,
+                canvas, depth_buf, virtual_w, virtual_h, cx0, cy0, cx1, cy1, line_color, cz0, cz1,
+                depth_near, depth_far,
             );
             drawn_edges += 1;
         }
@@ -112,8 +110,7 @@ pub(crate) fn draw_outline_edges_flat(
         let y0 = pa.y.round() as i32;
         let x1 = pb.x.round() as i32;
         let y1 = pb.y.round() as i32;
-        if let Some((cx0, cy0, cx1, cy1)) =
-            clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
+        if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
         {
             draw_line_flat(canvas, virtual_w, virtual_h, cx0, cy0, cx1, cy1, line_color);
         }

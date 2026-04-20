@@ -633,6 +633,7 @@ dependencies = [
  "engine-core",
  "engine-game",
  "engine-physics",
+ "engine-vehicle",
  "rhai",
  "serde",
  "serde_json",
@@ -698,6 +699,7 @@ dependencies = [
  "engine-persistence",
  "engine-physics",
  "engine-terrain",
+ "engine-vehicle",
  "indexmap",
  "rhai",
  "serde",
@@ -817,6 +819,7 @@ version = "0.1.0"
 dependencies = [
  "engine-core",
  "engine-physics",
+ "engine-vehicle",
  "rayon",
  "serde",
  "serde_json",
@@ -993,6 +996,15 @@ name = "engine-vector"
 version = "0.1.0"
 dependencies = [
  "engine-core",
+]
+
+[[package]]
+name = "engine-vehicle"
+version = "0.1.0"
+dependencies = [
+ "rhai",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

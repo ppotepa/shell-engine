@@ -118,7 +118,9 @@ impl SceneRuntime {
     /// Each control's [`visual_sync`](engine_gui::GuiControl::visual_sync) decides what to sync.
     pub fn sync_widget_visuals(&mut self) {
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        let fallback_resolver = self.build_target_resolver();
         let mut actions = Vec::new();
+        let mut impact = RuntimeMutationImpact::NONE;
         for widget in &self.gui_widgets {
             let Some(state) = self.gui_state.widgets.get(widget.id()) else {
                 continue;
@@ -135,9 +137,13 @@ impl SceneRuntime {
                 } => {
                     let object_id = resolver
                         .resolve_alias(&sprite_alias)
+                        .or_else(|| fallback_resolver.resolve_alias(&sprite_alias))
                         .unwrap_or(&sprite_alias);
                     if let Some(obj_state) = self.object_states.get_mut(object_id) {
-                        obj_state.offset_x = offset_x;
+                        if obj_state.offset_x != offset_x {
+                            obj_state.offset_x = offset_x;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                 }
                 VisualSyncAction::SetVisible {
@@ -146,16 +152,23 @@ impl SceneRuntime {
                 } => {
                     let object_id = resolver
                         .resolve_alias(&sprite_alias)
+                        .or_else(|| fallback_resolver.resolve_alias(&sprite_alias))
                         .unwrap_or(&sprite_alias);
                     if let Some(obj_state) = self.object_states.get_mut(object_id) {
-                        obj_state.visible = visible;
+                        if obj_state.visible != visible {
+                            obj_state.visible = visible;
+                            impact.merge(RuntimeMutationImpact::state().with_layout());
+                        }
                     }
                 }
                 VisualSyncAction::SetText { sprite_alias, text } => {
-                    let _ = self.set_text_sprite_content(&sprite_alias, text);
+                    if self.set_text_sprite_content(&sprite_alias, text) {
+                        impact.merge(RuntimeMutationImpact::text().with_layout());
+                    }
                 }
             }
         }
+        self.apply_runtime_mutation_impact(impact);
         self.cached_gui_state = None;
     }
 
@@ -164,7 +177,11 @@ impl SceneRuntime {
     /// GUI widgets can be authored with static x/y/w/h, but when `follow_layout`
     /// is enabled they move/scale together with their backing sprite.
     pub fn sync_widget_layout_bounds(&mut self) {
+        if self.layout_regions_stale() {
+            return;
+        }
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        let fallback_resolver = self.build_target_resolver();
         let object_regions = std::sync::Arc::clone(&self.object_regions);
         if self.gui_widgets.is_empty() || object_regions.is_empty() {
             return;
@@ -177,6 +194,7 @@ impl SceneRuntime {
             }
             let object_id = resolver
                 .resolve_alias(sprite_alias)
+                .or_else(|| fallback_resolver.resolve_alias(sprite_alias))
                 .unwrap_or(sprite_alias)
                 .to_string();
             if let Some(region) = object_regions.get(&object_id) {

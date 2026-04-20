@@ -38,8 +38,8 @@ pub use prepared_item_renderer::{
     render_prepared_render3d_item_to_buffer, PreparedRender3dRuntime,
 };
 pub use producers::{
-    prepare_render3d_item, GeneratedWorldFrameProducer, MeshFrameProducer,
-    PreparedRender3dItem, PreparedRender3dSource, Render3dProducer, SceneClipFrameProducer,
+    prepare_render3d_item, GeneratedWorldFrameProducer, MeshFrameProducer, PreparedRender3dItem,
+    PreparedRender3dSource, Render3dProducer, SceneClipFrameProducer,
 };
 pub use render3d_sprite_spec::{extract_render3d_sprite_spec, Render3dSpriteSpec};
 pub use renderer::{

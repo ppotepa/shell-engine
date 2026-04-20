@@ -1,6 +1,11 @@
 //! Typed gameplay components used by engine systems and scripts.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+pub use engine_vehicle::BrakePhase;
+use engine_vehicle::{
+    MotionFrameInput, VehicleProfile, VehicleProfileInput, VehicleTelemetry, VehicleTelemetryInput,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Transform2D {
@@ -562,29 +567,6 @@ impl Default for LinearBrake {
     }
 }
 
-/// Phase of the auto-brake sequence produced by [`ThrusterRamp`].
-#[derive(Clone, Debug, Default, PartialEq)]
-pub enum BrakePhase {
-    #[default]
-    Idle,
-    Rotation,
-    Linear,
-    Stopped,
-    Thrusting,
-}
-
-impl BrakePhase {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            BrakePhase::Idle => "idle",
-            BrakePhase::Rotation => "rotation",
-            BrakePhase::Linear => "linear",
-            BrakePhase::Stopped => "stopped",
-            BrakePhase::Thrusting => "thrusting",
-        }
-    }
-}
-
 /// Per-entity thruster ramp state.
 ///
 /// Tracks how long thrust/brake inputs have been active and produces normalised
@@ -665,6 +647,200 @@ impl Default for ThrusterRamp {
             final_burst_fired: false,
             final_burst_wave: 0,
         }
+    }
+}
+
+/// Cached neutral vehicle DTOs layered over the generic gameplay entity store.
+///
+/// `engine-game` does not own vehicle semantics here; it only caches the
+/// typed snapshots produced by `engine-vehicle` so gameplay/runtime systems can
+/// hand them across scene or script boundaries without re-deriving them every
+/// time.
+#[derive(Clone, Debug, Default)]
+pub struct VehicleStateCache {
+    pub controlled_entity: Option<u64>,
+    pub profiles: BTreeMap<u64, VehicleProfile>,
+    pub telemetry: BTreeMap<u64, VehicleTelemetry>,
+}
+
+impl VehicleStateCache {
+    pub fn clear_entity(&mut self, id: u64) {
+        if self.controlled_entity == Some(id) {
+            self.controlled_entity = None;
+        }
+        self.profiles.remove(&id);
+        self.telemetry.remove(&id);
+    }
+}
+
+/// Lower-level runtime primitives that can be projected into neutral
+/// `engine-vehicle` profile/telemetry inputs.
+///
+/// This is intentionally a projection bundle, not a vehicle controller model:
+/// the generic gameplay layer owns primitive components while `engine-vehicle`
+/// owns the higher-level vehicle vocabulary derived from them.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct VehicleRuntimePrimitives<'a> {
+    pub transform: Option<&'a Transform2D>,
+    pub physics: Option<&'a PhysicsBody2D>,
+    pub controller: Option<&'a ArcadeController>,
+    pub angular_body: Option<&'a AngularBody>,
+    pub linear_brake: Option<&'a LinearBrake>,
+    pub thruster_ramp: Option<&'a ThrusterRamp>,
+}
+
+impl<'a> VehicleRuntimePrimitives<'a> {
+    pub fn has_profile_primitives(&self) -> bool {
+        self.controller.is_some()
+            || self.angular_body.is_some()
+            || self.linear_brake.is_some()
+            || self.thruster_ramp.is_some()
+    }
+
+    pub fn has_telemetry_primitives(&self) -> bool {
+        self.transform.is_some()
+            || self.physics.is_some()
+            || self.controller.is_some()
+            || self.angular_body.is_some()
+            || self.linear_brake.is_some()
+            || self.thruster_ramp.is_some()
+    }
+
+    pub fn profile_input(&self) -> Option<VehicleProfileInput> {
+        if !self.has_profile_primitives() {
+            return None;
+        }
+
+        Some(VehicleProfileInput {
+            heading_bits: self
+                .controller
+                .map(|controller| controller.heading_bits.max(1)),
+            turn_step_ms: self
+                .controller
+                .map(|controller| controller.turn_step_ms.max(1)),
+            thrust_power: self
+                .controller
+                .map(|controller| controller.thrust_power)
+                .unwrap_or(0.0),
+            max_speed: self
+                .controller
+                .map(|controller| controller.max_speed)
+                .unwrap_or(0.0),
+            angular_accel: self.angular_body.map(|body| body.accel).unwrap_or(0.0),
+            angular_max: self.angular_body.map(|body| body.max).unwrap_or(0.0),
+            angular_deadband: self.angular_body.map(|body| body.deadband).unwrap_or(0.0),
+            angular_auto_brake: self
+                .angular_body
+                .map(|body| body.auto_brake)
+                .unwrap_or(false),
+            linear_brake_decel: self.linear_brake.map(|brake| brake.decel).unwrap_or(0.0),
+            linear_brake_deadband: self.linear_brake.map(|brake| brake.deadband).unwrap_or(0.0),
+            linear_auto_brake: self
+                .linear_brake
+                .map(|brake| brake.auto_brake)
+                .unwrap_or(false),
+            thruster_ramp_enabled: self.thruster_ramp.is_some(),
+        })
+    }
+
+    pub fn telemetry_input(&self) -> Option<VehicleTelemetryInput> {
+        if !self.has_telemetry_primitives() {
+            return None;
+        }
+
+        let is_thrusting = self
+            .controller
+            .map(|controller| controller.is_thrusting)
+            .unwrap_or(false);
+        let motion = self.motion_input();
+        let motion_speed = motion
+            .map(|motion| {
+                (motion.velocity_x * motion.velocity_x + motion.velocity_y * motion.velocity_y)
+                    .sqrt()
+            })
+            .unwrap_or(0.0);
+        let angular_settling = self
+            .angular_body
+            .map(|body| {
+                body.auto_brake && body.input == 0.0 && body.angular_vel.abs() > body.deadband
+            })
+            .unwrap_or(false);
+        let linear_settling = self
+            .linear_brake
+            .map(|brake| brake.auto_brake && !brake.active && motion_speed > brake.deadband)
+            .unwrap_or(false);
+        let derived_rot_factor = self
+            .angular_body
+            .map(|body| {
+                if body.max > 0.0 {
+                    (body.angular_vel.abs() / body.max).min(1.0)
+                } else {
+                    0.0
+                }
+            })
+            .unwrap_or(0.0);
+        let derived_brake_factor = if angular_settling || linear_settling {
+            1.0
+        } else {
+            0.0
+        };
+
+        Some(VehicleTelemetryInput {
+            heading: self
+                .transform
+                .map(|transform| transform.heading)
+                .or_else(|| self.controller.map(ArcadeController::heading_radians))
+                .unwrap_or(0.0),
+            motion,
+            turn_input: self
+                .angular_body
+                .map(|body| body.input)
+                .unwrap_or_else(|| {
+                    self.controller
+                        .map(|controller| controller.turn_direction as f32)
+                        .unwrap_or(0.0)
+                })
+                .clamp(-1.0, 1.0),
+            thrust_input: if is_thrusting { 1.0 } else { 0.0 },
+            is_thrusting,
+            angular_vel: self
+                .angular_body
+                .map(|body| body.angular_vel)
+                .unwrap_or(0.0),
+            angular_deadband: self.angular_body.map(|body| body.deadband).unwrap_or(0.0),
+            linear_deadband: self.linear_brake.map(|brake| brake.deadband).unwrap_or(0.0),
+            angular_settling,
+            linear_settling,
+            thrust_factor: self.thruster_ramp.map(|ramp| ramp.thrust_factor),
+            rot_factor: Some(
+                self.thruster_ramp
+                    .map(|ramp| ramp.rot_factor)
+                    .unwrap_or(derived_rot_factor),
+            ),
+            brake_factor: Some(
+                self.thruster_ramp
+                    .map(|ramp| ramp.brake_factor)
+                    .unwrap_or(derived_brake_factor),
+            ),
+            brake_phase: self.thruster_ramp.map(|ramp| ramp.brake_phase),
+            final_burst_fired: self
+                .thruster_ramp
+                .map(|ramp| ramp.final_burst_fired)
+                .unwrap_or(false),
+            final_burst_wave: self
+                .thruster_ramp
+                .map(|ramp| ramp.final_burst_wave)
+                .unwrap_or(0),
+        })
+    }
+
+    fn motion_input(&self) -> Option<MotionFrameInput> {
+        self.physics.map(|body| MotionFrameInput {
+            velocity_x: body.vx,
+            velocity_y: body.vy,
+            accel_x: body.ax,
+            accel_y: body.ay,
+        })
     }
 }
 

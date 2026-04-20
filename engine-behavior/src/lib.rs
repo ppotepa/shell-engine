@@ -55,6 +55,7 @@ use scripting::{
     io::ScriptInputApi,
     scene::ScriptSceneApi,
     ui::ScriptUiApi,
+    vehicle::ScriptVehicleApi,
 };
 
 fn push_set_property_command(
@@ -83,7 +84,12 @@ pub struct BehaviorContext {
     pub object_states: Arc<std::collections::HashMap<String, ObjectRuntimeState>>,
     pub object_kinds: Arc<std::collections::HashMap<String, String>>,
     pub object_props: Arc<std::collections::HashMap<String, JsonValue>>,
+    /// Last compositor-published object regions. When `layout_regions_stale`
+    /// is true these are still the last known bounds, not same-frame updates.
     pub object_regions: Arc<std::collections::HashMap<String, Region>>,
+    /// True when layout-affecting mutations happened after the last compositor
+    /// region publish, so `object_regions` is only the last known snapshot.
+    pub layout_regions_stale: bool,
     pub object_text: Arc<std::collections::HashMap<String, String>>,
     // Arc<str>: built once per frame, each behavior pays only an atomic refcount increment.
     pub ui_focused_target_id: Option<Arc<str>>,
@@ -608,6 +614,7 @@ impl Behavior for RhaiScriptBehavior {
                         .map(rhai::Dynamic::from)
                         .unwrap_or_else(|| RhaiMap::new().into()),
                 );
+                scope.push("layout_regions_stale", ctx.layout_regions_stale);
                 // OPT-3 + OPT-10: Skip build_objects_map entirely; push empty map for
                 // backward compat. All scripts use scene.get(target) for lazy lookup.
                 scope.push_dynamic("objects", RhaiMap::new().into());
@@ -713,6 +720,10 @@ impl Behavior for RhaiScriptBehavior {
                         ctx.persistence.clone(),
                         ctx.default_palette.clone(),
                     ),
+                );
+                scope.push(
+                    "vehicle",
+                    ScriptVehicleApi::from_gameplay_world(ctx.gameplay_world.clone()),
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
                 scope.push(
@@ -868,6 +879,7 @@ fn smoke_probe_context(
         object_kinds: Arc::new(HashMap::new()),
         object_props: Arc::new(HashMap::new()),
         object_regions: Arc::new(HashMap::new()),
+        layout_regions_stale: false,
         object_text: Arc::new(HashMap::new()),
         ui_focused_target_id: Some(Arc::from("login-hidden-prompt")),
         ui_theme_id: None,
@@ -1269,6 +1281,7 @@ mod tests {
             object_kinds: Arc::new(HashMap::new()),
             object_props: Arc::new(HashMap::new()),
             object_regions: Arc::new(HashMap::new()),
+            layout_regions_stale: false,
             object_text: Arc::new(HashMap::new()),
             ui_focused_target_id: None,
             ui_theme_id: None,
@@ -1350,10 +1363,7 @@ mod tests {
             offset_y,
         };
         object_states.insert("menu-item-0".to_string(), state.clone());
-        object_states.insert(
-            "obj:menu-item-0".to_string(),
-            state,
-        );
+        object_states.insert("obj:menu-item-0".to_string(), state);
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = Arc::new(object_states);
@@ -1460,6 +1470,69 @@ if id > 0 && world.exists(id) {
         assert_eq!(gameplay_world.kind_of(id).as_deref(), Some("enemy"));
         assert_eq!(gameplay_world.query_tag("enemy"), vec![id]);
         assert_eq!(gameplay_world.get(id, "/nested/hp"), Some(json!(7)));
+    }
+
+    #[test]
+    fn rhai_script_behavior_can_set_query_and_clear_controlled_entity() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let pilot = world.spawn_object("pilot", #{});
+let wingman = world.spawn_object("wingman", #{});
+if pilot > 0 && wingman > 0 {
+  world.set_controlled_entity(pilot);
+  game.set("/test/controlled_before_clear", world.controlled_entity());
+  game.set("/test/clear_result", world.clear_controlled_entity());
+  game.set("/test/controlled_after_clear", world.controlled_entity());
+  world.set_controlled_entity(wingman);
+  world.despawn_object(wingman);
+  game.set("/test/controlled_after_despawn", world.controlled_entity());
+}
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "controlled entity api should not produce ScriptError: {commands:?}"
+        );
+        let ids = gameplay_world.ids();
+        assert_eq!(ids.len(), 1);
+        let pilot_id = ids[0];
+        assert_eq!(
+            game_state
+                .get("/test/controlled_before_clear")
+                .and_then(|v| v.as_i64()),
+            Some(pilot_id as i64)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/clear_result")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/controlled_after_clear")
+                .and_then(|v| v.as_i64()),
+            Some(0)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/controlled_after_despawn")
+                .and_then(|v| v.as_i64()),
+            Some(0)
+        );
     }
 
     #[test]
@@ -2249,6 +2322,37 @@ out
             vec![BehaviorCommand::SetText {
                 target: "ram-counter-line".to_string(),
                 text: "Memory Check: 0640K".to_string()
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_exposes_layout_regions_stale_with_last_known_regions() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+if layout_regions_stale {
+  out.push(#{ op: "set-text", target: "ram-counter-line", text: `stale:${regions["scene:intro"]["w"]}` });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        let mut object_regions = HashMap::new();
+        object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
+        test_ctx.object_regions = Arc::new(object_regions);
+        test_ctx.layout_regions_stale = true;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetText {
+                target: "ram-counter-line".to_string(),
+                text: "stale:12".to_string()
             }]
         );
     }
@@ -3467,10 +3571,28 @@ let id = world.spawn_visual("item", "item-template", #{
 world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
 let vehicle = world.spawn_prefab("vehicle", #{
   cfg: #{
-    turn_step_ms: 50,
-    thrust_power: 80.0,
-    max_speed: 150.0,
-    heading_bits: 16
+    arcade: #{
+      turn_step_ms: 50,
+      thrust_power: 80.0,
+      max_speed: 150.0,
+      heading_bits: 16
+    },
+    angular_body: #{
+      accel: 6.0,
+      max: 8.0,
+      deadband: 0.2,
+      auto_brake: true
+    },
+    linear_brake: #{
+      decel: 55.0,
+      deadband: 1.5,
+      auto_brake: true
+    },
+    thruster_ramp: #{
+      thrust_delay_ms: 6.0,
+      thrust_ramp_ms: 10.0,
+      burst_wave_count: 4
+    }
   },
   invulnerable_ms: 3000
 });
@@ -3530,6 +3652,18 @@ let entity = world.spawn_prefab("entity", #{
         assert!(
             gameplay_world.controller(vehicle_id).is_some(),
             "vehicle should have controller"
+        );
+        assert!(
+            gameplay_world.angular_body(vehicle_id).is_some(),
+            "vehicle should have angular body"
+        );
+        assert!(
+            gameplay_world.linear_brake(vehicle_id).is_some(),
+            "vehicle should have linear brake"
+        );
+        assert!(
+            gameplay_world.thruster_ramp(vehicle_id).is_some(),
+            "vehicle should have thruster ramp"
         );
         assert!(gameplay_world.status_has(vehicle_id, "invulnerable"));
 

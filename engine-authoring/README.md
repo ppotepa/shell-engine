@@ -28,6 +28,9 @@ input, validates it, and exposes schema-generation metadata consumed by tooling.
 - named behavior definitions with `src` support so large Rhai scripts can live
   in external files (`behaviors/*.yml` wrappers).
 - stricter startup-path compatibility with runtime checks (`--check-scenes`).
+- debug-time authoring warnings for bounded text layout contracts such as
+  `overflow-mode: ellipsis`, `line-clamp`, `reserve-width-ch`, and
+  `line-height` guidance.
 
 ## Integration points
 

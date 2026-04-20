@@ -52,7 +52,7 @@ Every frame, the engine injects the following variables into the script scope:
 | `level`            | `LevelApi`        | Level list management                              |
 | `time`             | `TimeApi`         | Elapsed time, stage name                           |
 | `persist`          | `PersistApi`      | Disk-backed persistent key-value store             |
-| `debug`            | `DebugApi`        | Debug log output                                   |
+| `diag`             | `DebugApi`        | Debug/log diagnostics output                       |
 | `ui`               | `UiApi`           | TUI input widget queries                           |
 | `terminal`         | `TerminalApi`     | Terminal shell output (text push/clear)            |
 | `palette`          | `PaletteApi`      | Active colour palette — colors and particle ramps  |
@@ -552,10 +552,14 @@ Read and write properties on scene objects (sprites, layers) by their authored i
 
 ```rhai
 let obj = scene.get("object-id");   // Returns ScriptObjectApi handle
+let snap = scene.inspect("object-id") // Snapshot map for the resolved object id
+let box  = scene.region("object-id")  // Runtime layout box map for the resolved object id
 obj.get("path")                     // → Dynamic  Read property
 obj.get("position.x")               // float
 obj.get("text.content")             // str
 obj.get("visible")                  // bool
+snap.get("capabilities.text.content") // bool
+box.get("width")                    // int
 ```
 
 ### Write
@@ -571,6 +575,10 @@ scene.set("main-planet", "planet.sun_dir.x", 0.72)
 
 // Set the same property on multiple objects at once (cheaper than a Rhai for-loop):
 scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
+
+// Ergonomic text helpers for HUD/UI work:
+scene.set_text("hud-score", `${score}`)
+scene.set_text_style("hud-score", #{ fg: "amber", bg: "black", font: "generic:2" })
 
 // Typed mutation request (preferred for new 2D/3D camera + render mutations):
 scene.mutate(#{
@@ -637,6 +645,8 @@ scene.mutate(#{
 scene.spawn("template-id", "new-target-id")  // → bool  Clone a template object
 scene.despawn("target-id")                    // → bool  Remove a runtime clone
 scene.set_visible("id", false)                // Shorthand visibility toggle
+scene.set_text("id", "READY")                 // Typed text-content update
+scene.set_text_style("id", #{ fg: "green" })  // Ergonomic fg/bg/font update
 scene.set_vector("id", points, fg, bg)        // Set vector polygon + colours
 scene.batch("id", #{ path: val, ... })        // Bulk property update
 ```
@@ -772,15 +782,23 @@ persist.reload()               // Force reload from disk
 
 ---
 
-## `debug` — DebugApi
+## `diag` — DebugApi
 
-Emits messages to the debug overlay log (visible with `~` when `--debug-feature` is active).
+Emits messages to the debug overlay log (open the console with `~` / `` ` `` when
+`--debug-feature` is active; `Tab` cycles `Stats -> Logs -> Layout`).
 
 ```rhai
-debug.info("message")
-debug.warn("message")
-debug.error("message")
+diag.info("message")
+diag.warn("message")
+diag.error("message")
+diag.layout_info("hud-score", "layout refreshed")
+diag.layout_warn("hud-score", "text clipped")
+diag.layout_error("hud-score", "missing font")
 ```
+
+`diag.layout_*` entries are surfaced in the `Layout` debug overlay view alongside
+runtime text layout measurements, cheap overflow/clamp hints, and stale/clean
+layout status.
 
 ---
 

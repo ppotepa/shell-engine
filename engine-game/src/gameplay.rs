@@ -9,11 +9,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{
-    AngularBody, ArcadeController, AtmosphereAffected2D, BrakePhase, Collider2D, EntityTimers,
-    FollowAnchor2D, GameplayEvent, GravityAffected2D, LifecyclePolicy, Lifetime, LinearBrake,
-    Ownership, ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ThrusterRamp, Transform2D,
-    VisualBinding, WrapBounds,
+    AngularBody, ArcadeController, AtmosphereAffected2D, Collider2D, EntityTimers, FollowAnchor2D,
+    GameplayEvent, GravityAffected2D, LifecyclePolicy, Lifetime, LinearBrake, Ownership,
+    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ThrusterRamp, Transform2D,
+    VehicleRuntimePrimitives, VehicleStateCache, VisualBinding, WrapBounds,
 };
+use engine_vehicle::{BrakePhase, VehicleProfile, VehicleTelemetry};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -46,6 +47,7 @@ struct GameplayStore {
     angular_bodies: BTreeMap<u64, AngularBody>,
     linear_brakes: BTreeMap<u64, LinearBrake>,
     thruster_ramps: BTreeMap<u64, ThrusterRamp>,
+    vehicle_state: VehicleStateCache,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -85,6 +87,7 @@ impl Default for GameplayStore {
             angular_bodies: BTreeMap::new(),
             linear_brakes: BTreeMap::new(),
             thruster_ramps: BTreeMap::new(),
+            vehicle_state: VehicleStateCache::default(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -115,6 +118,51 @@ fn igf(elapsed_ms: f32, delay_ms: f32, ramp_ms: f32) -> f32 {
         return 0.0;
     }
     ((elapsed_ms - delay_ms) / ramp_ms).min(1.0)
+}
+
+fn vehicle_runtime_primitives(store: &GameplayStore, id: u64) -> VehicleRuntimePrimitives<'_> {
+    VehicleRuntimePrimitives {
+        transform: store.transforms.get(&id),
+        physics: store.physics.get(&id),
+        controller: store.controllers.get(&id),
+        angular_body: store.angular_bodies.get(&id),
+        linear_brake: store.linear_brakes.get(&id),
+        thruster_ramp: store.thruster_ramps.get(&id),
+    }
+}
+
+fn snapshot_vehicle_profile_from_store(store: &GameplayStore, id: u64) -> Option<VehicleProfile> {
+    if !store.entities.contains_key(&id) {
+        return None;
+    }
+
+    match (
+        store.vehicle_state.profiles.get(&id).cloned(),
+        vehicle_runtime_primitives(store, id).profile_input(),
+    ) {
+        (Some(mut profile), Some(input)) => {
+            profile.sync_from_runtime(input);
+            Some(profile)
+        }
+        (Some(profile), None) => Some(profile),
+        (None, Some(input)) => Some(VehicleProfile::from_runtime(input)),
+        (None, None) => None,
+    }
+}
+
+fn snapshot_vehicle_telemetry_from_store(
+    store: &GameplayStore,
+    id: u64,
+) -> Option<VehicleTelemetry> {
+    if !store.entities.contains_key(&id) {
+        return None;
+    }
+
+    if let Some(input) = vehicle_runtime_primitives(store, id).telemetry_input() {
+        Some(VehicleTelemetry::from_runtime(input))
+    } else {
+        store.vehicle_state.telemetry.get(&id).cloned()
+    }
 }
 
 impl GameplayWorld {
@@ -278,6 +326,7 @@ impl GameplayWorld {
             store.angular_bodies.remove(&id);
             store.linear_brakes.remove(&id);
             store.thruster_ramps.remove(&id);
+            store.vehicle_state.clear_entity(id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -1182,6 +1231,215 @@ impl GameplayWorld {
         if let Ok(mut store) = self.store.lock() {
             store.controllers.remove(&id);
         }
+    }
+
+    /// Set the currently controlled gameplay entity.
+    ///
+    /// Returns `false` if the entity does not exist.
+    pub fn set_controlled_entity(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.vehicle_state.controlled_entity = Some(id);
+        true
+    }
+
+    /// Read the currently controlled gameplay entity.
+    pub fn controlled_entity(&self) -> Option<u64> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.vehicle_state.controlled_entity
+    }
+
+    /// Clear the currently controlled gameplay entity.
+    ///
+    /// Returns `true` when a controlled entity was present.
+    pub fn clear_controlled_entity(&self) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.vehicle_state.controlled_entity.take().is_some()
+    }
+
+    // ── Vehicle snapshot seam ────────────────────────────────────────────
+
+    /// Returns all entity IDs that participate in the vehicle seam either via
+    /// cached neutral vehicle state or via the underlying generic motion
+    /// components.
+    pub fn ids_with_vehicle_state(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let mut ids = BTreeSet::new();
+        ids.extend(store.vehicle_state.profiles.keys().copied());
+        ids.extend(store.vehicle_state.telemetry.keys().copied());
+        ids.extend(store.controllers.keys().copied());
+        ids.extend(store.angular_bodies.keys().copied());
+        ids.extend(store.linear_brakes.keys().copied());
+        ids.extend(store.thruster_ramps.keys().copied());
+        ids.into_iter().collect()
+    }
+
+    /// Attach or replace a cached [`VehicleProfile`] DTO for an entity.
+    pub fn attach_vehicle_profile(&self, id: u64, profile: VehicleProfile) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.vehicle_state.profiles.insert(id, profile);
+        true
+    }
+
+    /// Read the cached [`VehicleProfile`] for an entity.
+    pub fn vehicle_profile(&self, id: u64) -> Option<VehicleProfile> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.vehicle_state.profiles.get(&id).cloned()
+    }
+
+    /// Mutate the cached [`VehicleProfile`] for an entity.
+    pub fn with_vehicle_profile<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut VehicleProfile),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(profile) = store.vehicle_state.profiles.get_mut(&id) else {
+            return false;
+        };
+        f(profile);
+        true
+    }
+
+    /// Returns all entity IDs with a cached [`VehicleProfile`].
+    pub fn ids_with_vehicle_profile(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.vehicle_state.profiles.keys().copied().collect()
+    }
+
+    /// Detach the cached [`VehicleProfile`] from an entity.
+    pub fn detach_vehicle_profile(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.vehicle_state.profiles.remove(&id).is_some()
+    }
+
+    /// Build a vehicle profile snapshot from the attached generic motion components.
+    ///
+    /// If a cached profile already exists, `profile_id` and `label` are preserved
+    /// and the motion-derived fields are refreshed from runtime state.
+    pub fn snapshot_vehicle_profile(&self, id: u64) -> Option<VehicleProfile> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        snapshot_vehicle_profile_from_store(&store, id)
+    }
+
+    /// Refresh the cached [`VehicleProfile`] from the current runtime motion state.
+    pub fn sync_vehicle_profile(&self, id: u64) -> Option<VehicleProfile> {
+        let Ok(mut store) = self.store.lock() else {
+            return None;
+        };
+        let profile = snapshot_vehicle_profile_from_store(&store, id)?;
+        store.vehicle_state.profiles.insert(id, profile.clone());
+        Some(profile)
+    }
+
+    /// Attach or replace cached [`VehicleTelemetry`] DTO for an entity.
+    pub fn attach_vehicle_telemetry(&self, id: u64, telemetry: VehicleTelemetry) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.vehicle_state.telemetry.insert(id, telemetry);
+        true
+    }
+
+    /// Read cached [`VehicleTelemetry`] for an entity.
+    pub fn vehicle_telemetry(&self, id: u64) -> Option<VehicleTelemetry> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.vehicle_state.telemetry.get(&id).cloned()
+    }
+
+    /// Mutate cached [`VehicleTelemetry`] for an entity.
+    pub fn with_vehicle_telemetry<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut VehicleTelemetry),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(telemetry) = store.vehicle_state.telemetry.get_mut(&id) else {
+            return false;
+        };
+        f(telemetry);
+        true
+    }
+
+    /// Returns all entity IDs with cached [`VehicleTelemetry`].
+    pub fn ids_with_vehicle_telemetry(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.vehicle_state.telemetry.keys().copied().collect()
+    }
+
+    /// Detach cached [`VehicleTelemetry`] from an entity.
+    pub fn detach_vehicle_telemetry(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.vehicle_state.telemetry.remove(&id).is_some()
+    }
+
+    /// Build a runtime telemetry snapshot directly from attached generic motion components.
+    ///
+    /// If no runtime inputs are attached, falls back to any cached telemetry.
+    pub fn snapshot_vehicle_telemetry(&self, id: u64) -> Option<VehicleTelemetry> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        snapshot_vehicle_telemetry_from_store(&store, id)
+    }
+
+    /// Refresh cached [`VehicleTelemetry`] from the current runtime motion state.
+    pub fn sync_vehicle_telemetry(&self, id: u64) -> Option<VehicleTelemetry> {
+        let Ok(mut store) = self.store.lock() else {
+            return None;
+        };
+        let telemetry = snapshot_vehicle_telemetry_from_store(&store, id)?;
+        store.vehicle_state.telemetry.insert(id, telemetry.clone());
+        Some(telemetry)
+    }
+
+    /// Refresh both cached vehicle surfaces in one lock acquisition.
+    pub fn sync_vehicle_runtime_state(
+        &self,
+        id: u64,
+    ) -> Option<(VehicleProfile, VehicleTelemetry)> {
+        let Ok(mut store) = self.store.lock() else {
+            return None;
+        };
+        let profile = snapshot_vehicle_profile_from_store(&store, id)?;
+        let telemetry = snapshot_vehicle_telemetry_from_store(&store, id)?;
+        store.vehicle_state.profiles.insert(id, profile.clone());
+        store.vehicle_state.telemetry.insert(id, telemetry.clone());
+        Some((profile, telemetry))
     }
 
     // === PARTICLE PHYSICS API ===
@@ -2182,7 +2440,11 @@ fn push_path(payload: &mut JsonValue, path: &str, value: JsonValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::GameplayWorld;
-    use crate::components::{FollowAnchor2D, LifecyclePolicy, Transform2D};
+    use crate::components::{
+        AngularBody, ArcadeController, FollowAnchor2D, LifecyclePolicy, LinearBrake, PhysicsBody2D,
+        ThrusterRamp, Transform2D,
+    };
+    use engine_vehicle::{BrakePhase, VehicleProfile};
     use serde_json::json;
 
     #[test]
@@ -2220,6 +2482,26 @@ mod tests {
         assert_eq!(world.count(), 0);
         assert!(world.ids().is_empty());
         assert_eq!(world.query_kind("enemy"), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn controlled_entity_round_trip_and_clears_on_despawn() {
+        let world = GameplayWorld::new();
+        let pilot = world.spawn("pilot", json!({})).expect("pilot");
+        let backup = world.spawn("backup", json!({})).expect("backup");
+
+        assert!(!world.set_controlled_entity(0));
+        assert_eq!(world.controlled_entity(), None);
+        assert!(world.set_controlled_entity(pilot));
+        assert_eq!(world.controlled_entity(), Some(pilot));
+        assert!(world.clear_controlled_entity());
+        assert_eq!(world.controlled_entity(), None);
+        assert!(!world.clear_controlled_entity());
+
+        assert!(world.set_controlled_entity(backup));
+        assert_eq!(world.controlled_entity(), Some(backup));
+        assert!(world.despawn(backup));
+        assert_eq!(world.controlled_entity(), None);
     }
 
     #[test]
@@ -2280,5 +2562,173 @@ mod tests {
         assert!((child_xf.x - 8.0).abs() < 0.001);
         assert!((child_xf.y - 16.0).abs() < 0.001);
         assert!((child_xf.heading - std::f32::consts::FRAC_PI_2).abs() < 0.001);
+    }
+
+    #[test]
+    fn vehicle_profile_snapshot_syncs_runtime_fields_and_preserves_metadata() {
+        let world = GameplayWorld::new();
+        let ship = world.spawn("vehicle", json!({})).expect("ship");
+
+        let mut controller = ArcadeController::new(90, 12.5, 18.0, 16);
+        controller.set_thrust(true);
+        assert!(world.attach_controller(ship, controller));
+        assert!(world.attach_angular_body(
+            ship,
+            AngularBody {
+                accel: 2.5,
+                max: 4.0,
+                deadband: 0.2,
+                auto_brake: false,
+                input: 0.0,
+                angular_vel: 0.0,
+            }
+        ));
+        assert!(world.attach_linear_brake(
+            ship,
+            LinearBrake {
+                decel: 9.5,
+                deadband: 1.25,
+                auto_brake: true,
+                active: false,
+            }
+        ));
+        assert!(world.attach_thruster_ramp(ship, ThrusterRamp::default()));
+        assert!(world.attach_vehicle_profile(
+            ship,
+            VehicleProfile {
+                profile_id: "sim-lite".to_string(),
+                label: Some("Sim Lite".to_string()),
+                ..VehicleProfile::default()
+            }
+        ));
+
+        let snapshot = world
+            .snapshot_vehicle_profile(ship)
+            .expect("vehicle profile snapshot");
+        assert_eq!(snapshot.profile_id, "sim-lite");
+        assert_eq!(snapshot.label.as_deref(), Some("Sim Lite"));
+        assert_eq!(snapshot.heading_bits, Some(16));
+        assert_eq!(snapshot.turn_step_ms, Some(90));
+        assert_eq!(snapshot.thrust_power, 12.5);
+        assert_eq!(snapshot.max_speed, 18.0);
+        assert_eq!(snapshot.angular_accel, 2.5);
+        assert_eq!(snapshot.angular_max, 4.0);
+        assert_eq!(snapshot.angular_deadband, 0.2);
+        assert!(!snapshot.angular_auto_brake);
+        assert_eq!(snapshot.linear_brake_decel, 9.5);
+        assert_eq!(snapshot.linear_brake_deadband, 1.25);
+        assert!(snapshot.linear_auto_brake);
+        assert!(snapshot.thruster_ramp_enabled);
+
+        let synced = world.sync_vehicle_profile(ship).expect("synced profile");
+        assert_eq!(synced, snapshot);
+        assert_eq!(world.vehicle_profile(ship), Some(snapshot.clone()));
+        assert_eq!(world.ids_with_vehicle_profile(), vec![ship]);
+        assert_eq!(world.ids_with_vehicle_state(), vec![ship]);
+        assert!(world.detach_vehicle_profile(ship));
+        assert_eq!(world.vehicle_profile(ship), None);
+    }
+
+    #[test]
+    fn vehicle_telemetry_snapshot_and_sync_follow_runtime_state() {
+        let world = GameplayWorld::new();
+        let ship = world.spawn("vehicle", json!({})).expect("ship");
+
+        assert!(world.set_transform(
+            ship,
+            Transform2D {
+                x: 12.0,
+                y: -3.0,
+                z: 0.0,
+                heading: std::f32::consts::FRAC_PI_2,
+            },
+        ));
+        assert!(world.set_physics(
+            ship,
+            PhysicsBody2D {
+                vx: 3.0,
+                vy: 4.0,
+                vz: 0.0,
+                ax: 1.0,
+                ay: 2.0,
+                az: 0.0,
+                drag: 0.0,
+                max_speed: 20.0,
+                mass: 1.0,
+                restitution: 0.7,
+            },
+        ));
+
+        let mut controller = ArcadeController::new(60, 8.0, 20.0, 32);
+        controller.set_turn(1);
+        controller.set_thrust(true);
+        assert!(world.attach_controller(ship, controller));
+        assert!(world.attach_angular_body(
+            ship,
+            AngularBody {
+                accel: 3.0,
+                max: 6.0,
+                deadband: 0.1,
+                auto_brake: true,
+                input: -0.25,
+                angular_vel: 1.5,
+            }
+        ));
+        assert!(world.attach_linear_brake(
+            ship,
+            LinearBrake {
+                decel: 12.0,
+                deadband: 0.5,
+                auto_brake: true,
+                active: false,
+            }
+        ));
+        assert!(world.attach_thruster_ramp(
+            ship,
+            ThrusterRamp {
+                thrust_factor: 0.8,
+                rot_factor: 0.25,
+                brake_factor: 0.6,
+                brake_phase: BrakePhase::Linear,
+                final_burst_fired: true,
+                final_burst_wave: 2,
+                ..ThrusterRamp::default()
+            }
+        ));
+
+        let snapshot = world
+            .snapshot_vehicle_telemetry(ship)
+            .expect("vehicle telemetry snapshot");
+        assert!((snapshot.facing.forward_x - 1.0).abs() < 0.001);
+        assert!(snapshot.facing.forward_y.abs() < 0.001);
+        assert_eq!(snapshot.motion.velocity_x, 3.0);
+        assert_eq!(snapshot.motion.velocity_y, 4.0);
+        assert!((snapshot.motion.speed - 5.0).abs() < 0.001);
+        assert!((snapshot.motion.forward_speed - 3.0).abs() < 0.001);
+        assert!((snapshot.motion.lateral_speed - 4.0).abs() < 0.001);
+        assert!((snapshot.motion.forward_accel - 1.0).abs() < 0.001);
+        assert!((snapshot.motion.lateral_accel - 2.0).abs() < 0.001);
+        assert_eq!(snapshot.turn_input, -0.25);
+        assert_eq!(snapshot.thrust_input, 1.0);
+        assert!(snapshot.is_thrusting);
+        assert!(snapshot.is_braking);
+        assert_eq!(snapshot.angular_vel, 1.5);
+        assert_eq!(snapshot.thrust_factor, 0.8);
+        assert_eq!(snapshot.rot_factor, 0.25);
+        assert_eq!(snapshot.brake_factor, 0.6);
+        assert_eq!(snapshot.brake_phase, BrakePhase::Linear);
+        assert!(snapshot.final_burst_fired);
+        assert_eq!(snapshot.final_burst_wave, 2);
+
+        let synced = world
+            .sync_vehicle_runtime_state(ship)
+            .expect("synced vehicle runtime state");
+        assert_eq!(synced.1, snapshot);
+        assert_eq!(world.vehicle_telemetry(ship), Some(snapshot));
+        assert_eq!(world.ids_with_vehicle_telemetry(), vec![ship]);
+
+        assert!(world.despawn(ship));
+        assert_eq!(world.vehicle_telemetry(ship), None);
+        assert_eq!(world.snapshot_vehicle_telemetry(ship), None);
     }
 }

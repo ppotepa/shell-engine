@@ -404,10 +404,7 @@ mod tests {
             scene_mutation_from_render_path("ship", "obj.scale", &serde_json::json!(1.25))
                 .expect("typed mutation");
         match mutation {
-            SceneMutation::SetRender3D(Render3DMutation::SetGroupedParams {
-                target,
-                params,
-            }) => {
+            SceneMutation::SetRender3D(Render3DMutation::SetGroupedParams { target, params }) => {
                 assert_eq!(target.as_deref(), Some("ship"));
                 assert_eq!(
                     params,

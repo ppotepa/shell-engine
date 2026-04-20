@@ -13,8 +13,6 @@ celestial:
   focus-site: generated-orbit
   frame: focus-relative
   clock-source: scene
-objects:
-  - { ref: ship }
 layers:
   - ref: planet
   - ref: hud-tabs
@@ -95,8 +93,8 @@ gui:
       h: 40
       follow-layout: false
     - type: button
-      id: planet-flyaround-button
-      sprite: planet-flyaround-button-label
+      id: planet-vehicle-button
+      sprite: planet-vehicle-button-label
       x: 992
       y: 616
       w: 132

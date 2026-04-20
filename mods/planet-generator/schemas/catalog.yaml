@@ -17,7 +17,8 @@ $defs:
     - planet-generator-main
   object_names:
     type: string
-    enum: []
+    enum:
+    - ship
   effect_names:
     type: string
     enum:
@@ -41,7 +42,9 @@ $defs:
     enum: []
   object_refs:
     type: string
-    enum: []
+    enum:
+    - /objects/ship.yml
+    - ship
   effect_refs:
     type: string
     enum: []
@@ -136,13 +139,28 @@ $defs:
     - planet-randomize-button-label
     - planet-reset-button
     - planet-reset-button-label
+    - planet-vehicle-button
+    - planet-vehicle-button-label
     - preset-arrow-label
     - preset-current-label
     - preset-popup
     - preset-prefix-label
     - preset-trigger-box
-    - stats-biomes
+    - stats-alt
+    - stats-atmo-top
+    - stats-biome-desert
+    - stats-biome-forest
+    - stats-biome-ocean
+    - stats-biome-snow
+    - stats-gravity
+    - stats-radius-real
+    - stats-radius-sim
     - stats-seed
+    - stats-spd
+    - stats-vehicle-assist-hint
+    - stats-vehicle-producer-hint
+    - stats-vehicle-profile-hint
+    - stats-vrad
     - tab-label-atmo
     - tab-label-climate
     - tab-label-continents

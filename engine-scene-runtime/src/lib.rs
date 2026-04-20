@@ -274,16 +274,127 @@ struct BehaviorBinding {
     specs: Vec<BehaviorSpec>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct RuntimeMutationImpact {
+    state: bool,
+    props: bool,
+    text: bool,
+    layout: bool,
+    graph: bool,
+}
+
+impl RuntimeMutationImpact {
+    const NONE: Self = Self {
+        state: false,
+        props: false,
+        text: false,
+        layout: false,
+        graph: false,
+    };
+
+    const fn state() -> Self {
+        Self {
+            state: true,
+            props: false,
+            text: false,
+            layout: false,
+            graph: false,
+        }
+    }
+
+    const fn props() -> Self {
+        Self {
+            state: false,
+            props: true,
+            text: false,
+            layout: false,
+            graph: false,
+        }
+    }
+
+    const fn text() -> Self {
+        Self {
+            state: false,
+            props: false,
+            text: true,
+            layout: false,
+            graph: false,
+        }
+    }
+
+    const fn layout() -> Self {
+        Self {
+            state: false,
+            props: false,
+            text: false,
+            layout: true,
+            graph: false,
+        }
+    }
+
+    const fn graph() -> Self {
+        Self {
+            state: false,
+            props: false,
+            text: false,
+            layout: false,
+            graph: true,
+        }
+    }
+
+    fn with_layout(mut self) -> Self {
+        self.layout = true;
+        self
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.state |= other.state;
+        self.props |= other.props;
+        self.text |= other.text;
+        self.layout |= other.layout;
+        self.graph |= other.graph;
+    }
+
+    fn is_empty(self) -> bool {
+        self == Self::NONE
+    }
+
+    fn bumps_object_mutation_gen(self) -> bool {
+        self.state || self.props || self.text || self.graph
+    }
+
+    fn invalidates_object_states(self) -> bool {
+        self.state || self.graph
+    }
+
+    fn invalidates_object_props(self) -> bool {
+        self.props || self.graph
+    }
+
+    fn invalidates_object_text(self) -> bool {
+        self.text || self.graph
+    }
+
+    fn invalidates_layout_regions(self) -> bool {
+        self.layout || self.graph
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ObjOrbitCameraState, SceneRuntime};
+    use super::{ObjOrbitCameraState, ObjectBehaviorRuntime, SceneRuntime};
+    use engine_animation::SceneStage;
     use engine_api::commands::scene_mutation_request_from_set_path;
     use engine_api::scene::{Render3dMutationRequest, SceneMutationRequest};
-    use engine_behavior::BehaviorCommand;
-    use engine_core::game_object::GameObjectKind;
+    use engine_behavior::{Behavior, BehaviorCommand, BehaviorContext};
+    use engine_core::effects::Region;
+    use engine_core::game_object::{GameObject, GameObjectKind};
     use engine_core::render_types::DirtyMask3D;
     use engine_core::scene::{Scene, Sprite, TermColour};
     use engine_core::scene_runtime_types::ObjectRuntimeState;
+    use engine_gui::{GuiControl, SliderControl, TextInputControl};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
     fn set_path(
         target: &str,
@@ -369,6 +480,93 @@ layers:
 {extra_fields}"#
         ))
         .expect("scene should parse")
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct ObservedBehaviorSnapshot {
+        text: Option<String>,
+        font: Option<String>,
+        offset_x: Option<i32>,
+        region_width: Option<u16>,
+        layout_regions_stale: bool,
+    }
+
+    struct MutateBehavior;
+
+    impl Behavior for MutateBehavior {
+        fn update(
+            &mut self,
+            _object: &GameObject,
+            _scene: &Scene,
+            _ctx: &BehaviorContext,
+            commands: &mut Vec<BehaviorCommand>,
+        ) {
+            commands.push(BehaviorCommand::SetText {
+                target: "title".to_string(),
+                text: "UPDATED".to_string(),
+            });
+            commands.push(set_path(
+                "title",
+                "text.font",
+                serde_json::json!("generic:2"),
+                None,
+            ));
+            commands.push(BehaviorCommand::SetOffset {
+                target: "title".to_string(),
+                dx: 4,
+                dy: 0,
+            });
+        }
+    }
+
+    struct VisibilityOnlyMutateBehavior;
+
+    impl Behavior for VisibilityOnlyMutateBehavior {
+        fn update(
+            &mut self,
+            _object: &GameObject,
+            _scene: &Scene,
+            _ctx: &BehaviorContext,
+            commands: &mut Vec<BehaviorCommand>,
+        ) {
+            commands.push(BehaviorCommand::SetVisibility {
+                target: "title".to_string(),
+                visible: false,
+            });
+        }
+    }
+
+    struct ObserveBehavior {
+        observed: Arc<Mutex<Option<ObservedBehaviorSnapshot>>>,
+    }
+
+    impl Behavior for ObserveBehavior {
+        fn update(
+            &mut self,
+            _object: &GameObject,
+            _scene: &Scene,
+            ctx: &BehaviorContext,
+            _commands: &mut Vec<BehaviorCommand>,
+        ) {
+            let Some(title_id) = ctx.resolve_target("title") else {
+                return;
+            };
+            let font = ctx
+                .object_props
+                .get(title_id)
+                .and_then(|props| props.get("text"))
+                .and_then(|text| text.get("font"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string);
+            let snapshot = ObservedBehaviorSnapshot {
+                text: ctx.object_text.get(title_id).cloned(),
+                font,
+                offset_x: ctx.object_state(title_id).map(|state| state.offset_x),
+                region_width: ctx.object_region(title_id).map(|region| region.width),
+                layout_regions_stale: ctx.layout_regions_stale,
+            };
+            *self.observed.lock().expect("observer lock") = Some(snapshot);
+        }
     }
 
     #[test]
@@ -883,6 +1081,22 @@ layers:
         );
         assert_eq!(runtime.text_sprite_content("title"), Some("PATH-SET"));
         let title_id = resolver.resolve_alias("title").expect("title id");
+        let object_props = runtime.object_props_snapshot();
+        let title_props = object_props
+            .get(title_id)
+            .and_then(|value| value.as_object())
+            .expect("title props");
+        let text_props = title_props
+            .get("text")
+            .and_then(|value| value.as_object())
+            .expect("text props");
+        assert_eq!(
+            text_props.get("font"),
+            Some(&serde_json::json!("generic:2"))
+        );
+        assert_eq!(text_props.get("fg"), Some(&serde_json::json!("yellow")));
+        assert_eq!(text_props.get("bg"), Some(&serde_json::json!("#112233")));
+        assert!(runtime.layout_regions_stale());
         let state = runtime
             .object_state(title_id)
             .expect("object runtime state");
@@ -1463,7 +1677,299 @@ layers:
             .expect("title text in snapshot");
 
         assert_eq!(title_text, "HELLO_TYPED");
+        assert!(runtime.layout_regions_stale());
         assert_eq!(runtime.take_render3d_dirty_mask(), DirtyMask3D::empty());
+    }
+
+    #[test]
+    fn sync_widget_visuals_refreshes_object_text_snapshot_and_layout_staleness() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let title_id = resolver
+            .resolve_alias("title")
+            .expect("title id")
+            .to_string();
+        runtime.set_object_regions(HashMap::from([(
+            title_id.clone(),
+            Region {
+                x: 0,
+                y: 0,
+                width: 5,
+                height: 1,
+            },
+        )]));
+        assert!(!runtime.layout_regions_stale());
+
+        let initial_text = runtime.object_text_snapshot();
+        assert_eq!(
+            initial_text.get(&title_id).map(String::as_str),
+            Some("HELLO")
+        );
+
+        let widget = TextInputControl {
+            id: "edit".to_string(),
+            sprite: "title".to_string(),
+            x: 0,
+            y: 0,
+            w: 10,
+            h: 1,
+            text_sprite: "title".to_string(),
+            placeholder: String::new(),
+            value: "SYNCED".to_string(),
+            max_length: 16,
+            follow_layout: false,
+        };
+        let state = widget.initial_state();
+        runtime.gui_widgets = vec![Box::new(widget)];
+        runtime.gui_state.widgets.insert("edit".to_string(), state);
+
+        runtime.sync_widget_visuals();
+
+        let object_text = runtime.object_text_snapshot();
+        assert_eq!(
+            object_text.get(&title_id).map(String::as_str),
+            Some("SYNCED")
+        );
+        assert!(runtime.layout_regions_stale());
+
+        runtime.set_object_regions(HashMap::from([(
+            title_id,
+            Region {
+                x: 0,
+                y: 0,
+                width: 6,
+                height: 1,
+            },
+        )]));
+        assert!(!runtime.layout_regions_stale());
+    }
+
+    #[test]
+    fn sync_widget_visuals_refreshes_state_snapshots() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let title_id = resolver
+            .resolve_alias("title")
+            .expect("title id")
+            .to_string();
+
+        let initial_states = runtime.object_states_snapshot();
+        assert_eq!(
+            initial_states
+                .get(&title_id)
+                .expect("title state before sync")
+                .offset_x,
+            0
+        );
+        let initial_effective = runtime.effective_object_states_snapshot();
+        assert_eq!(
+            initial_effective
+                .get(&title_id)
+                .expect("title effective state before sync")
+                .offset_x,
+            0
+        );
+
+        let widget = SliderControl {
+            id: "slider".to_string(),
+            sprite: "title".to_string(),
+            x: 0,
+            y: 0,
+            w: 40,
+            h: 1,
+            min: 0.0,
+            max: 1.0,
+            value: 0.5,
+            hit_padding: 0,
+            handle: "title".to_string(),
+            follow_layout: false,
+        };
+        let mut state = widget.initial_state();
+        state.value = 0.5;
+        runtime.gui_widgets = vec![Box::new(widget)];
+        runtime
+            .gui_state
+            .widgets
+            .insert("slider".to_string(), state);
+
+        runtime.sync_widget_visuals();
+
+        let object_states = runtime.object_states_snapshot();
+        assert_eq!(
+            object_states
+                .get(&title_id)
+                .expect("title state after sync")
+                .offset_x,
+            20
+        );
+        let effective_states = runtime.effective_object_states_snapshot();
+        assert_eq!(
+            effective_states
+                .get(&title_id)
+                .expect("title effective state after sync")
+                .offset_x,
+            20
+        );
+        assert!(runtime.layout_regions_stale());
+    }
+
+    #[test]
+    fn same_frame_behavior_refresh_exposes_last_known_regions_and_stale_flag() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let title_id = resolver
+            .resolve_alias("title")
+            .expect("title id")
+            .to_string();
+        runtime.set_object_regions(HashMap::from([(
+            title_id,
+            Region {
+                x: 0,
+                y: 0,
+                width: 5,
+                height: 1,
+            },
+        )]));
+
+        let observed = Arc::new(Mutex::new(None));
+        let root_id = runtime.root_id().to_string();
+        runtime.behaviors = vec![
+            ObjectBehaviorRuntime {
+                object_id: root_id.clone(),
+                behavior: Box::new(MutateBehavior),
+            },
+            ObjectBehaviorRuntime {
+                object_id: root_id,
+                behavior: Box::new(ObserveBehavior {
+                    observed: Arc::clone(&observed),
+                }),
+            },
+        ];
+
+        runtime.update_behaviors(
+            SceneStage::OnIdle,
+            16,
+            16,
+            0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(engine_behavior::catalog::ModCatalogs::default()),
+            Arc::new(engine_behavior::palette::PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert_eq!(
+            *observed.lock().expect("observer lock"),
+            Some(ObservedBehaviorSnapshot {
+                text: Some("UPDATED".to_string()),
+                font: Some("generic:2".to_string()),
+                offset_x: Some(4),
+                region_width: Some(5),
+                layout_regions_stale: true,
+            })
+        );
+    }
+
+    #[test]
+    fn same_frame_state_only_mutation_marks_layout_regions_stale() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let title_id = resolver
+            .resolve_alias("title")
+            .expect("title id")
+            .to_string();
+        runtime.set_object_regions(HashMap::from([(
+            title_id,
+            Region {
+                x: 0,
+                y: 0,
+                width: 5,
+                height: 1,
+            },
+        )]));
+
+        let observed = Arc::new(Mutex::new(None));
+        let root_id = runtime.root_id().to_string();
+        runtime.behaviors = vec![
+            ObjectBehaviorRuntime {
+                object_id: root_id.clone(),
+                behavior: Box::new(VisibilityOnlyMutateBehavior),
+            },
+            ObjectBehaviorRuntime {
+                object_id: root_id,
+                behavior: Box::new(ObserveBehavior {
+                    observed: Arc::clone(&observed),
+                }),
+            },
+        ];
+
+        runtime.update_behaviors(
+            SceneStage::OnIdle,
+            16,
+            16,
+            0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(engine_behavior::catalog::ModCatalogs::default()),
+            Arc::new(engine_behavior::palette::PaletteStore::default()),
+            None,
+            false,
+        );
+
+        let snapshot = observed
+            .lock()
+            .expect("observer lock")
+            .clone()
+            .expect("same-frame snapshot");
+        assert_eq!(snapshot.text.as_deref(), Some("HELLO"));
+        assert_eq!(snapshot.offset_x, Some(0));
+        assert_eq!(snapshot.region_width, Some(5));
+        assert!(snapshot.layout_regions_stale);
+
+        let state = runtime
+            .effective_object_states_snapshot()
+            .get(
+                resolver
+                    .resolve_alias("title")
+                    .expect("title id after update"),
+            )
+            .cloned()
+            .expect("title state after update");
+        assert!(!state.visible);
+    }
+
+    #[test]
+    fn set_camera_marks_layout_regions_stale() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let title_id = resolver
+            .resolve_alias("title")
+            .expect("title id")
+            .to_string();
+        runtime.set_object_regions(HashMap::from([(
+            title_id,
+            Region {
+                x: 0,
+                y: 0,
+                width: 5,
+                height: 1,
+            },
+        )]));
+        assert!(!runtime.layout_regions_stale());
+
+        runtime
+            .apply_behavior_commands(&resolver, &[BehaviorCommand::SetCamera { x: 12.0, y: 4.0 }]);
+
+        assert!(runtime.layout_regions_stale());
     }
 
     #[test]

@@ -12,7 +12,10 @@ per-system timings, and sampled process statistics.
 
 - `DebugLogBuffer` — recent runtime/script log entries
 - `DebugFeatures` — debug toggle state and overlay visibility
-- `DebugOverlayMode` — stats vs logs view
+- `DebugOverlayMode` — stats, logs, or layout/text diagnostics view
+  Layout mode shows measured text `fit`/`intr` sizes, authored text constraints,
+  runtime stale/clean status, cheap overflow/clamp hints, and recent
+  `diag.layout_*` messages
 - `FpsCounter` — smoothed FPS sample
 - `SystemTimings` — smoothed per-system timings
 - `ProcessStats` — sampled CPU and RSS statistics
@@ -22,3 +25,8 @@ per-system timings, and sampled process statistics.
 - keep debug helpers cheap when disabled,
 - prefer pushing meaningful runtime diagnostics here instead of scattering ad-hoc debug prints,
 - if new debug UI modes are added, update the launcher/help docs and keybinding docs too.
+
+## Runtime controls
+
+- `~` / `` ` `` — toggle the debug console
+- `Tab` — cycle `Stats -> Logs -> Layout`

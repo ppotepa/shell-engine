@@ -121,6 +121,11 @@ pub struct EngineConfig {
     pub sdl_vsync: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RuntimeSwitchOptions {
+    pub audio_enabled: bool,
+}
+
 const SDL_DEFAULT_OUTPUT_WIDTH: u16 = 120;
 const SDL_DEFAULT_OUTPUT_HEIGHT: u16 = 40;
 
@@ -336,6 +341,9 @@ impl ShellEngine {
         world.register(debug_features::SystemTimings::default());
         world.register(debug_features::ProcessStats::default());
         world.register(debug_log::DebugLogBuffer::new(64));
+        world.register(RuntimeSwitchOptions {
+            audio_enabled: self.config.audio,
+        });
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         // Load mod-defined behaviors from behaviors/*.yml
         let mod_behavior_registry = mod_behaviors::load_mod_behaviors(&self.mod_source);

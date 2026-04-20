@@ -7,39 +7,35 @@
 use std::cell::RefCell;
 use std::time::Instant;
 
-use engine_asset::{load_render_mesh, ObjMesh};
-use engine_core::assets::AssetRoot;
-use engine_core::buffer::Buffer;
-use engine_core::color::Color;
-use engine_core::scene::TonemapOperator;
 use crate::api::Render3dPipeline;
 use crate::effects::passes::postprocess::apply_rgb_post_passes;
 use crate::geom::clip::{clip_line_to_viewport, Viewport};
 use crate::geom::raster::edge;
 use crate::geom::types::ProjectedVertex;
 use crate::pipeline::stages::classify::{classify_and_sort_faces_into, FaceClassificationConfig};
-use crate::pipeline::stages::edges::{
-    draw_outline_edges_flat, render_wireframe_rgb,
-};
+use crate::pipeline::stages::edges::{draw_outline_edges_flat, render_wireframe_rgb};
 use crate::pipeline::stages::flat::render_flat_rgb_solid;
 use crate::pipeline::stages::frame_context::FrameShadingContext;
 use crate::pipeline::stages::gouraud::prepare_visible_gouraud_faces_into;
 use crate::pipeline::stages::light_motion::animate_point_lights;
 use crate::pipeline::stages::project::{
-    project_mesh_with_viewport, project_vertices_into, ProjectionPoseConfig,
-    ProjectionStageConfig, ProjectionStageInput, TerrainNoisePolicy,
+    project_mesh_with_viewport, project_vertices_into, ProjectionPoseConfig, ProjectionStageConfig,
+    ProjectionStageInput, TerrainNoisePolicy,
 };
 use crate::pipeline::stages::raster_exec::{
-    build_parallel_canvas_strips, execute_gouraud_rgb_faces, execute_gouraud_rgb_faces_parallel_strips,
-    execute_gouraud_rgba_faces_parallel_strips,
+    build_parallel_canvas_strips, execute_gouraud_rgb_faces,
+    execute_gouraud_rgb_faces_parallel_strips, execute_gouraud_rgba_faces_parallel_strips,
 };
-use crate::pipeline::stages::shade::{
-    prepare_gouraud_faces_into,
-};
+use crate::pipeline::stages::shade::prepare_gouraud_faces_into;
 use crate::prerender::ObjPrerenderedFrames;
 use crate::shading::color_to_rgb;
 use crate::ObjRenderParams;
+use engine_asset::{load_render_mesh, ObjMesh};
+use engine_core::assets::AssetRoot;
+use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::scene::SpriteSizePreset;
+use engine_core::scene::TonemapOperator;
 
 /// Safety cap on face count after early backface culling (front-facing only).
 const MAX_OBJ_FACE_RENDER: usize = 2_000_000;
@@ -222,9 +218,7 @@ fn release_sorted_faces_buffer(sorted_faces: Vec<(f32, usize)>) {
 }
 
 #[inline]
-fn release_shaded_gouraud_buffer(
-    shaded_gouraud: Vec<crate::pipeline::stages::shade::GouraudFace>,
-) {
+fn release_shaded_gouraud_buffer(shaded_gouraud: Vec<crate::pipeline::stages::shade::GouraudFace>) {
     OBJ_SHADED_GOURAUD.with(|g| *g.borrow_mut() = shaded_gouraud);
 }
 
@@ -907,9 +901,17 @@ fn render_mesh_projected(
                 MIN_PROJECTED_FACE_DOUBLE_AREA,
                 MAX_OBJ_FACE_RENDER,
                 frame_ctx.flat_stage_context(
-                    [point_lights.point_1_x, light_point_y, point_lights.point_1_z],
+                    [
+                        point_lights.point_1_x,
+                        light_point_y,
+                        point_lights.point_1_z,
+                    ],
                     light_point_intensity * point_lights.point_1_flicker,
-                    [point_lights.point_2_x, light_point_2_y, point_lights.point_2_z],
+                    [
+                        point_lights.point_2_x,
+                        light_point_2_y,
+                        point_lights.point_2_z,
+                    ],
                     light_point_2_intensity * point_lights.point_2_flicker,
                 ),
                 &mut sorted_faces,
@@ -1216,7 +1218,8 @@ pub fn render_obj_to_canvas(
             triangles_processed = triangles;
             faces_drawn as usize
         } else {
-            let mut shaded_faces = take_shaded_flat_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
+            let mut shaded_faces =
+                take_shaded_flat_buffer(mesh.faces.len().min(MAX_OBJ_FACE_RENDER));
             let (triangles, faces_drawn) = render_flat_rgb_solid(
                 &mesh,
                 &projected,
@@ -1231,9 +1234,17 @@ pub fn render_obj_to_canvas(
                 MIN_PROJECTED_FACE_DOUBLE_AREA,
                 MAX_OBJ_FACE_RENDER,
                 frame_ctx.flat_stage_context(
-                    [point_lights.point_1_x, light_point_y, point_lights.point_1_z],
+                    [
+                        point_lights.point_1_x,
+                        light_point_y,
+                        point_lights.point_1_z,
+                    ],
                     light_point_intensity * point_lights.point_1_flicker,
-                    [point_lights.point_2_x, light_point_2_y, point_lights.point_2_z],
+                    [
+                        point_lights.point_2_x,
+                        light_point_2_y,
+                        point_lights.point_2_z,
+                    ],
                     light_point_2_intensity * point_lights.point_2_flicker,
                 ),
                 &mut sorted_faces,

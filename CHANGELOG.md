@@ -2,10 +2,90 @@
 
 Daily progress updates for Shell Engine development.
 
+## 20-04-2026
+
+**Vehicle ownership slice transition/packet regression follow-up** ✅
+- **engine-vehicle**: added regression coverage for `ShipModel` surface-locked replay semantics so `ShipRuntimeOutput` only flips the surface-mode flag when grounding preference changes without moving the anchor frame.
+- **engine-vehicle**: added detached local-horizon launch/return packet roundtrip coverage so latest runtime-ownership packet DTOs preserve detached vs grounded state and anchored surface metadata.
+- **validation**: `cargo test -p engine-vehicle --lib`.
+
+**Vehicle ownership slice ship-runtime regression follow-up** ✅
+- **engine-vehicle**: added regression coverage around the extracted `ShipModel` runtime override so grounded replay keeps `ShipRuntimeOutput` change flags stable, and detach clears grounding/co-rotation while retaining the local-horizon anchor state owned by the vehicle slice.
+- **docs**: clarified in `engine-vehicle/README.md` that centralized ship profile tuning now sits alongside `ShipModel`-owned grounded/surface-locked/detached transition semantics and runtime-output flags.
+- **validation**: `cargo test -p engine-vehicle --lib`.
+
+**Vehicle ownership slice runtime DTO test/doc follow-up** ✅
+- **engine-vehicle**: added focused unit coverage for ship-runtime state reconstruction from telemetry, explicit inertial-vs-local-horizon transition precedence, and grounded packet/telemetry roundtrips through the centralized runtime DTOs.
+- **docs**: expanded `engine-vehicle/README.md` to call out the centralized ship profile helpers (`VehicleShipProfile`, `next_builtin_ship_profile_id`, hold toggles) and the Rust-side ship runtime DTO seam (`ShipRuntimeState/Input/Output`, `ShipReferenceFrameState`).
+- **validation**: `cargo test -p engine-vehicle --lib`.
+
+**Vehicle boundary audit follow-up** ✅
+- **engine-api**: trimmed the Rhai `vehicle.*` facade back to selection plus typed vehicle-value / handoff helpers; removed the concrete `ship_runtime_*` scripting helpers so `engine-api` stays a facade instead of becoming the owner of ship-runtime execution.
+- **engine-game**: clarified in-source boundary notes around `VehicleStateCache`, `VehicleRuntimePrimitives`, and the gameplay-side vehicle snapshot seam to keep ownership anchored on primitive components plus neutral DTO projection only.
+- **docs**: refreshed `engine-vehicle/README.md` to document the current slice more explicitly, including `VehicleButtonInput`, Rust-side ship runtime helpers, and the intended boundaries with `engine-game`, `engine-api`, and `engine-behavior`.
+- **validation**: `cargo test -p engine-api --lib vehicle::api`; `cargo test -p engine-behavior --lib scripting::vehicle`.
+
+**Vehicle domain hierarchy + crate ownership migration** ✅
+- **engine-vehicle**: promoted from a DTO-only crate into the canonical owner of the vehicle domain surface, including `VehicleKind`, `VehicleCapabilities`, `VehicleDescriptor`, enum-based `VehicleModel`, thin model traits (`VehicleAssemblyModel`, `VehicleControllerModel`, `VehicleReferenceFrameModel`, `VehicleTelemetryModel`), and the first concrete `ShipModel`.
+- **engine-vehicle**: expanded assembly/input/handoff/runtime seams with `VehicleAssemblyPlan`, `VehicleAssemblyDescriptor`, grouped motion intent types, `VehicleReferenceFrame`, `VehicleEnvironmentBinding`, and `VehicleTelemetrySnapshot`.
+- **engine-game**: moved toward primitive ownership only by introducing `VehicleRuntimePrimitives` and `VehicleStateCache`, so gameplay runtime caches vehicle profile/telemetry without re-owning vehicle-domain math and vocabulary.
+- **engine-api / engine-behavior**: kept the `vehicle` surface thin and typed; Rhai-facing helpers now sit on top of `engine-vehicle` DTOs and `engine-behavior` assembly glue routes through `VehicleAssemblyPlan` instead of local parsing branches.
+- **mods/planet-generator / mods/vehicle-playground**: packet launch/return shape is more cleanly centralized in `engine-vehicle`; mods now stay closer to producer/consumer roles instead of co-defining packet kind/version semantics.
+- **validation**: `cargo test -p engine-vehicle -p engine-game -p engine-api -p engine-behavior --lib`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`; `cargo run -p app -- --mod-source=mods/vehicle-playground --check-scenes`.
+
+**Vehicle slice test/doc follow-up** ✅
+- **engine-vehicle**: added unit coverage for typed `VehicleModelRef` dispatch, descriptor metadata refresh, legacy launch-packet compatibility, and reference-frame / telemetry normalization edges introduced by the crate migration.
+- **docs**: expanded `engine-vehicle/README.md` with a module map, packet compatibility note, and the scoped validation command for the crate.
+- **validation**: `cargo test -p engine-vehicle --lib`.
+
+**Vehicle playground flight controls + local-horizon ship frame cleanup** ✅
+- **mods/vehicle-playground**: replaced the old mixed radial/yaw controller with a clearer local-horizon vehicle loop, so yaw now rotates inside the tangent frame instead of blending tangent/radial movement into one ambiguous heading axis.
+- **mods/vehicle-playground**: added an explicit input profile (`thrust`, `brake`, `turn_left/right`, `strafe_left/right`, `boost`, `lift`) and synced the HUD + README controls legend to the real runtime actions.
+- **mods/vehicle-playground**: kept the same ship OBJ visual contract, but retuned the ship runtime to use body-scaled speed/acceleration ratios plus a cleaner chase camera and return/reset flow.
+- **mods/vehicle-playground / mods/planet-generator**: surface launch now defaults to grounded start (`spawn_altitude_km: 0.0`), the vehicle co-rotates with the planet at rest, and the vehicle playground ship mesh now uses the `asteroids` OBJ with a much smaller visual scale.
+- **validation**: `cargo run -p app -- --mod-source=mods/vehicle-playground --check-scenes`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`.
+
+**Scene text helper + layout debug overlay polish** ✅
+- **engine-api**: added ergonomic scene-side text/layout helpers on `ScriptSceneApi` (`inspect`, `region`, `set_text`, `set_text_style`) while keeping the typed mutation boundary behind `scene.set(...)`.
+- **engine-behavior**: added prefixed layout diagnostics helpers on `diag` (`diag.layout_info/warn/error`) so scripts can emit HUD/layout-specific signals without inventing new command types.
+- **engine-debug / engine**: added a `Layout` debug overlay mode and `Tab` now cycles `Stats -> Logs -> Layout`, with renderer-side snapshots of runtime text objects, measured `fit` vs `intr` sizes, cheap constraint/overflow hints, a small status legend, stale-region status, `--` for unavailable measurements, and recent `[layout:...]` diagnostics.
+- **docs**: synced crate READMEs to the new scene helper and debug overlay surface.
+- **validation**: `cargo test -p engine-api --lib`; `cargo test -p engine-behavior --lib scripting::debug`; `cargo test -p engine-debug --lib`; `cargo test -p engine --lib cycles_overlay_mode_through_layout_view`.
+
+**Bounded HUD rows for vehicle + generator mods** ✅
+- **mods/vehicle-playground**: split the HUD into bounded telemetry/value rows and tightened the controls legend grid so status strings are less likely to collide visually.
+- **mods/planet-generator**: split stats/actions into bounded telemetry slots plus short producer/profile/assist hints instead of sentence-length status lines.
+
 ## 19-04-2026
 
-**Planet-generator flight-mode docs cleanup** ✅
-- **mods/planet-generator**: refreshed the README controls table to match current bindings (`Randomize` button, `R` auto-rotation toggle, `Esc` exit flight mode) and clarified that flight profile plus assist toggles persist in game state across runs.
+**Vehicle domain seam + sandbox naming cleanup** ✅
+- **engine-api / engine-game / engine-behavior**: introduced a neutral `vehicle` domain surface on top of the existing controlled-entity seam, including `vehicle.set_active(...)`, runtime vehicle snapshot types (`VehicleProfile`, `VehicleFacing`, `MotionFrame`, `VehicleTelemetry`), and Rhai exposure through `engine-behavior`.
+- **engine-behavior**: `world.attach_controller(...)` and prefab controller application now accept either flat arcade config or grouped vehicle-stack maps (`arcade`, `angular_body`, `linear_brake`, `thruster_ramp`), keeping old behavior while opening a data-first vehicle path.
+- **mods/vehicle-playground / mods/planet-generator**: normalized the canonical target scene id to `vehicle-playground-vehicle` and switched handoff emission to the neutral `vehicle` payload while the consumer still tolerates older packet keys during transition.
+- **mods/vehicle-playground**: refreshed the HUD into shorter telemetry lines plus a dedicated on-screen controls panel so runtime labels stay readable and less prone to visual crowding during vehicle tuning.
+- **validation**: `cargo test -p engine-api`; `cargo test -p engine-game`; `cargo test -p engine-behavior`; `cargo run -p app -- --mod-source=mods/vehicle-playground --check-scenes`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`.
+
+**Cross-mod vehicle handoff: planet-generator -> vehicle-playground** ✅
+- **engine-core / engine / engine-behavior**: added a typed cross-mod scene-transition seam behind `game.jump_mod(mod_ref, scene_ref)` while preserving existing `game.jump("scene-id")` behavior for same-mod transitions.
+- **mods/planet-generator**: now acts as a pure vehicle-handoff producer and launches directly to `mods/vehicle-playground` by default through `/mods/planet-generator/vehicle/{target_mod_ref,target_scene_id}`.
+- **mods/vehicle-playground**: consumes `/mods/planet-generator/vehicle/handoff`, hydrates generated-body render + vehicle state from that seam, and returns cross-mod to the producer scene on `Esc` when launched from a packet.
+- **mods/planet-generator / mods/vehicle-playground**: refreshed READMEs to document the producer/consumer contract and removed the old local legacy-handoff wording.
+
+**Planet-generator vehicle handoff + controlled-entity gameplay seam** ✅
+- **mods/planet-generator**: moved runtime launch out of `planet-generator-main`; `F10` now serializes a handoff packet into game state and launches the canonical vehicle consumer instead of embedding local gameplay runtime in the generator scene.
+- **mods/vehicle-playground**: consumes the same generated-world render contract (`world://32` + atmosphere/light params) as the authoring preview so vehicle runtime renders the authored planet state instead of a preset-backed fallback.
+- **engine-game / engine-api / engine-behavior**: added a generic controlled-entity contract (`set_controlled_entity`, `controlled_entity`, `clear_controlled_entity`) for scene-agnostic gameplay ownership without mod-specific `player` semantics in engine core.
+- **engine-mod**: scene-graph startup validation now treats literal `game.jump("scene-id")` Rhai transitions as authored edges and reports reachable cycles as informational instead of warning noise.
+- **validation**: `cargo test -p engine-game`; `cargo test -p engine-behavior`; `cargo test -p engine-mod scene_graph -- --nocapture`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes` (0 warnings).
+
+**Vehicle runtime physics + physical scale retune** ✅
+- **mods/vehicle-playground**: switched vehicle runtime from kinematic orbit stepping to a physics-driven loop that updates ship thrust/acceleration while engine gravity + atmosphere systems own the actual motion integration.
+- **mods/planet-generator / mods/vehicle-playground**: restored physical scale defaults for vehicle handoff (`planet_radius_scale_divisor: 1.0`, atmosphere heights in km rather than preview-scaled values) so `meters-per-world-unit: 1000.0` now means `1 world unit = 1 km` during vehicle runtime.
+- **mods/vehicle-playground**: enabled atmosphere drag on the `ship` prefab and retuned vehicle profiles to physically smaller accelerations/speeds instead of the previous arcade-scale km/s² values.
+- **validation**: `cargo test -p engine-behavior`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`.
+
+**Planet-generator vehicle-handoff docs cleanup** ✅
+- **mods/planet-generator**: refreshed the README controls table to match current bindings (`Randomize` button, `R` auto-rotation toggle, `Vehicle` launch button) and clarified that vehicle profile plus assist toggles persist in game state across runs.
 - **validation**: checked the documented controls against `mods/planet-generator/scenes/main/main.rhai`.
 
 ## 18-04-2026
@@ -37,7 +117,7 @@ Daily progress updates for Shell Engine development.
 **3D ownership cleanup: compositor as frame assembler only** ✅
 - **engine-render-3d**: took ownership of Obj / GeneratedWorld / SceneClip sprite render paths via pipeline entry points (`render_obj_sprite_to_buffer`, `render_generated_world_sprite_to_buffer`, `render_scene_clip_sprite_to_buffer`) and shared generated-world profile synthesis.
 - **engine-compositor**: removed compositor-local 3D render adapters and now delegates directly to `engine-render-3d` from provider path, with consistent `finalize_sprite` handling across all region-returning 3D calls.
-- **docs**: synced `3drefactor.md`, `engine-compositor` crate docs, and runtime docs wording to the typed-mutation boundary contract.
+- **docs**: synced compositor and runtime docs wording to the typed-mutation boundary contract.
 - **validation**: `cargo check -p engine-render-3d -p engine-compositor -p engine`; `cargo run -p app -- --mod-source=mods/planet-generator --check-scenes`; `cargo run -p app -- --mod-source=mods/lighting-playground --check-scenes`.
 
 **Cloud-heavy LOD cap retune** ✅
@@ -232,7 +312,7 @@ Daily progress updates for Shell Engine development.
 
 **2D regression safeguards** ✅
 - **engine**: added 2D-only scene regression tests proving that the new scene pipeline does not schedule 3D preparers, scene3d atlas/runtime stores, or obj prerender state for pure-2D scenes.
-- **docs**: updated `3drefactor.md` and `left.md` with closed DoD entries and remaining follow-up scope.
+- **docs**: refreshed refactor tracking notes with closed DoD entries and remaining follow-up scope at that point in the migration.
 - **tests**: executed targeted verification with:
   - `cargo test -p engine scene_pipeline_2d_only_does_not_schedule_3d_preparation_steps -- --nocapture`
   - `cargo test -p engine composite_2d_only_scene_runs_without_3d_world_resources -- --nocapture`

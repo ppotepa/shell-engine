@@ -56,9 +56,11 @@ Current script-facing API surface includes:
   `gui.has_change`, `gui.changed_widget`, `gui.widget_hovered`, `gui.widget_pressed`,
   `gui.set_widget_value`, `gui.set_panel_visible`, `gui.mouse_x/y/mouse_left_down`),
 - gameplay world helpers (`world.spawn_visual`, `world.spawn_object`, `world.entity`, query/count APIs, `world.any_alive`, `world.distance`),
+- gameplay ownership helpers (`world.set_controlled_entity`, `world.controlled_entity`, `world.clear_controlled_entity`) for scene-agnostic active actor selection,
+- dedicated vehicle-domain helpers (`vehicle.set_active`, `vehicle.active`, `vehicle.clear_active`) layered over the same runtime ownership seam,
 - typed gameplay component helpers (`world.set_transform`, `world.set_physics`,
   `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`, `world.bind_visual`,
-  `world.attach_controller`),
+  `world.attach_controller` with support for flat arcade config or grouped vehicle stack maps like `arcade`, `angular_body`, `linear_brake`, `thruster_ramp`),
 - atomic spawn (`world.spawn_visual(kind, template, data)` — creates entity + visual + binding + transform + collider in one call),
 - auto-despawn (`world.despawn_object(id)` and `entity.despawn()` auto-clean all bound scene visuals),
 - entity ref API (`world.entity(id)` returns typed handle with `get_i`, `get_f`, `get_s`, `get_b`, `flag`, `set_flag`, `set_many`, `data`, `set_position`, `set_velocity`, `despawn`, `id`, cooldown/status timers, arcade controller, etc.),
@@ -68,13 +70,29 @@ Current script-facing API surface includes:
 - tags (`world.tag_add`, `world.tag_remove`, `world.tag_has`),
 - children (`world.spawn_child`, `world.despawn_children`),
 - input actions (`input.bind_action`, `input.action_down`) with `KEY_*` constants,
-- scene helpers (`scene.set_vector`, `scene.set_visible`, `scene.batch`),
+- scene helpers (`scene.inspect`, `scene.region`, `scene.set_text`, `scene.set_text_style`, `scene.set_vector`, `scene.set_visible`, `scene.batch`),
+- debug helpers (`diag.info/warn/error`, `diag.layout_info/warn/error`) which surface in the runtime debug console and `Layout` overlay panel,
 - game state typed getters (`game.get_i/s/b/f`),
 - audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`),
 - Rhai module system (`import "module-name" as alias;` resolves from `{mod}/scripts/` directory),
 - standalone math/geometry functions (`unit_vec32`, `sin32`, `clamp_i`, `clamp_f`, `rotate_points`, etc.).
 
-See `scripting.md` at repo root for the full API reference.
+See `SCRIPTING-API.md` at repo root for the full API reference.
+
+Vehicle-specific stack parsing now routes through
+`engine-vehicle::assembly::VehicleAssemblyPlan` from `scripting::vehicle`, so
+new neutral assembly/input/handoff helpers can be adopted there without
+growing more vehicle glue inside `gameplay_impl.rs`.
+
+The intended boundary is:
+
+- `engine-api` owns the script-facing `vehicle.*` facade,
+- `engine-game` owns only primitive components plus cached/projected vehicle DTOs,
+- `engine-behavior` adapts typed vehicle assembly/config maps onto those
+  primitives and should not re-own vehicle control semantics locally,
+- required ship runtime passthrough for mods still comes through
+  `engine-api::vehicle.*`; `engine-behavior` only forwards that surface when it
+  registers Rhai.
 
 ## Script API notes that matter in practice
 

@@ -28,15 +28,15 @@
           gap-x: 10
           gap-y: 4
           children:
-            - { type: text, id: stats-biomes,      content: "OCEAN --  FOREST --  DESERT --  SNOW --", grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
-            - { type: text, id: stats-flight-profile, content: "PROFILE: ARCADE  H[OFF] J[OFF]",        grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#4f8e7e" }
-            - { type: text, id: stats-assist-alt,     content: "HOLD ALT: OFF",                            grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#4f8e7e" }
-            - { type: text, id: stats-seed,        content: "SEED: 0",                                    grid-col: 4, grid-row: 1, at: cr, font: "generic:2", fg: "#304040" }
-            - { type: text, id: stats-flight-mode, content: "MODE: GENERATOR",                            grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#5bc0be" }
-            - { type: text, id: stats-radius-real, content: "R_REAL: -- km",                              grid-col: 2, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
-            - { type: text, id: stats-radius-sim,  content: "R_SIM: -- km",                               grid-col: 3, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
-            - { type: text, id: stats-gravity,     content: "G: -- m/s^2",                                grid-col: 4, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
-            - { type: text, id: stats-alt,         content: "ALT: -- km",                                 grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
-            - { type: text, id: stats-spd,         content: "SPD: --",                                    grid-col: 2, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
-            - { type: text, id: stats-vrad,        content: "VRAD: --",                                   grid-col: 3, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
-            - { type: text, id: stats-assist-hdg,   content: "HOLD HDG: OFF",                              grid-col: 4, grid-row: 3, at: cl, font: "generic:2", fg: "#4f8e7e" }
+            - { type: text, id: stats-biome-ocean,  content: "OCEAN:--%",      grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
+            - { type: text, id: stats-biome-forest, content: "FOREST:--%",     grid-col: 2, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
+            - { type: text, id: stats-biome-desert, content: "DESERT:--%",     grid-col: 3, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
+            - { type: text, id: stats-biome-snow,   content: "SNOW:--%",       grid-col: 4, grid-row: 1, at: cl, font: "generic:2", fg: "#507060" }
+            - { type: text, id: stats-seed,         content: "SEED:0",          grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#304040" }
+            - { type: text, id: stats-radius-real,  content: "REAL:--km",       grid-col: 2, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-radius-sim,   content: "SIM:--wu",        grid-col: 3, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-gravity,      content: "G:--m/s2",        grid-col: 4, grid-row: 2, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-alt,          content: "ALT:--km",        grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-spd,          content: "SPD:--km/s",      grid-col: 2, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-vrad,         content: "VR:--km/s",       grid-col: 3, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }
+            - { type: text, id: stats-atmo-top,     content: "ATM:--km",        grid-col: 4, grid-row: 3, at: cl, font: "generic:2", fg: "#4a6b60" }

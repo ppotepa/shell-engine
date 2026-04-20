@@ -1,7 +1,9 @@
 use rayon::prelude::*;
 
 use crate::effects::params::{PlanetBiomeParams, PlanetTerrainParams};
-use crate::effects::passes::surface::{rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba};
+use crate::effects::passes::surface::{
+    rasterize_triangle_gouraud, rasterize_triangle_gouraud_rgba,
+};
 use crate::pipeline::stages::shade::{FlatFace, GouraudFace};
 use crate::raster::rasterize_triangle;
 

@@ -13,6 +13,7 @@ pub mod input;
 pub mod rhai;
 pub mod scene;
 pub mod testing;
+pub mod vehicle;
 
 // Re-export key types and functions for easy access
 pub use audio::{register_audio_api, ScriptAudioApi};
@@ -40,4 +41,20 @@ pub use rhai::conversion::{
 pub use scene::{
     register_scene_api, Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot,
     SceneMutationRequest, ScriptObjectApi, ScriptSceneApi,
+};
+pub use vehicle::{
+    normalize_vehicle_profile_id, register_vehicle_api, register_vehicle_core_api,
+    AngularBodyConfig, ArcadeConfig, BrakePhase, LinearBrakeConfig, MotionFrame, MotionFrameInput,
+    ScriptVehicleApi, ShipModel, ThrusterRampConfig, VehicleAssembly, VehicleAssemblyContext,
+    VehicleAssemblyDescriptor, VehicleAssemblyError, VehicleAssemblyModel, VehicleAssemblyPlan,
+    VehicleAssemblySink, VehicleAssistState, VehicleBasis3, VehicleBodySnapshot,
+    VehicleCapabilities, VehicleControlState, VehicleControllerModel, VehicleCoreApi,
+    VehicleDescriptor, VehicleEnvironmentBinding, VehicleEnvironmentSnapshot, VehicleFacing,
+    VehicleInputIntent, VehicleKind, VehicleLaunchPacket, VehicleModel, VehicleModelRef,
+    VehicleMotionIntent, VehiclePacketEnvelope, VehiclePacketTelemetry, VehiclePacketVehicle,
+    VehicleProfile, VehicleProfileInput, VehicleReferenceFrame, VehicleReferenceFrameModel,
+    VehicleReturnPacket, VehicleRotationIntent, VehicleSelectionApi, VehicleTelemetry,
+    VehicleTelemetryInput, VehicleTelemetryModel, VehicleTelemetrySnapshot,
+    VehicleTranslationIntent, DEFAULT_VEHICLE_PROFILE_ID, LEGACY_VEHICLE_HANDOFF_PACKET_KIND,
+    VEHICLE_HANDOFF_VERSION, VEHICLE_LAUNCH_PACKET_KIND, VEHICLE_RETURN_PACKET_KIND,
 };
