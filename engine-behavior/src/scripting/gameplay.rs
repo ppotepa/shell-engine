@@ -1,12 +1,19 @@
 //! Gameplay domain APIs: ScriptGameplayApi for world management, ScriptGameplayEntityApi for entity interaction.
 
 use engine_api::gameplay::api::{GameplayEntityCoreApi, GameplayWorldCoreApi};
+use engine_api::gameplay::body::{
+    register_world_body_api, GameplayWorldBodyLookupCoreApi, GameplayWorldBodySnapshotCoreApi,
+};
+use engine_api::gameplay::objects::{GameplayWorldObjectCoreApi, GameplayWorldObjectsCoreApi};
 use engine_api::rhai::register::{
     register_gameplay_core_api, register_geometry_api, register_numeric_api,
 };
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 
-pub(crate) use super::gameplay_impl::{ScriptGameplayApi, ScriptGameplayEntityApi};
+pub(crate) use super::gameplay_impl::{
+    ScriptGameplayApi, ScriptGameplayBodySnapshotApi, ScriptGameplayEntityApi,
+    ScriptGameplayObjectApi, ScriptGameplayObjectsApi,
+};
 
 impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
     fn clear(&mut self) {
@@ -440,15 +447,182 @@ impl GameplayEntityCoreApi for ScriptGameplayEntityApi {
     }
 }
 
+impl GameplayWorldObjectsCoreApi<ScriptGameplayObjectApi> for ScriptGameplayObjectsApi {
+    fn find(&mut self, target: &str) -> ScriptGameplayObjectApi {
+        self.find(target)
+    }
+
+    fn find_id(&mut self, id: rhai::INT) -> ScriptGameplayObjectApi {
+        self.find_id(id)
+    }
+
+    fn all(&mut self) -> rhai::Array {
+        self.all()
+    }
+
+    fn by_tag(&mut self, tag: &str) -> rhai::Array {
+        self.by_tag(tag)
+    }
+
+    fn by_name(&mut self, name: &str) -> rhai::Array {
+        self.by_name(name)
+    }
+}
+
+impl GameplayWorldBodyLookupCoreApi<ScriptGameplayBodySnapshotApi> for ScriptGameplayApi {
+    fn body(&mut self, id: &str) -> ScriptGameplayBodySnapshotApi {
+        self.body(id)
+    }
+}
+
+impl GameplayWorldBodySnapshotCoreApi for ScriptGameplayBodySnapshotApi {
+    fn exists(&mut self) -> bool {
+        self.exists()
+    }
+
+    fn id(&mut self) -> String {
+        self.id()
+    }
+
+    fn center_x(&mut self) -> rhai::FLOAT {
+        self.center_x()
+    }
+
+    fn center_y(&mut self) -> rhai::FLOAT {
+        self.center_y()
+    }
+
+    fn orbit_radius(&mut self) -> rhai::FLOAT {
+        self.orbit_radius()
+    }
+
+    fn orbit_period_sec(&mut self) -> rhai::FLOAT {
+        self.orbit_period_sec()
+    }
+
+    fn orbit_phase_deg(&mut self) -> rhai::FLOAT {
+        self.orbit_phase_deg()
+    }
+
+    fn radius_px(&mut self) -> rhai::FLOAT {
+        self.radius_px()
+    }
+
+    fn surface_radius(&mut self) -> rhai::FLOAT {
+        self.surface_radius()
+    }
+
+    fn gravity_mu(&mut self) -> rhai::FLOAT {
+        self.gravity_mu()
+    }
+
+    fn gravity_mu_km3_s2(&mut self) -> rhai::FLOAT {
+        self.gravity_mu_km3_s2()
+    }
+
+    fn km_per_px(&mut self) -> rhai::FLOAT {
+        self.km_per_px()
+    }
+
+    fn km_per_world_unit(&mut self) -> rhai::FLOAT {
+        self.km_per_world_unit()
+    }
+
+    fn radius_km(&mut self) -> rhai::FLOAT {
+        self.radius_km()
+    }
+
+    fn resolved_radius_km(&mut self) -> rhai::FLOAT {
+        self.resolved_radius_km()
+    }
+
+    fn resolved_gravity_mu(&mut self) -> rhai::FLOAT {
+        self.resolved_gravity_mu()
+    }
+
+    fn atmosphere_top_km(&mut self) -> rhai::FLOAT {
+        self.atmosphere_top_km()
+    }
+
+    fn atmosphere_dense_start_km(&mut self) -> rhai::FLOAT {
+        self.atmosphere_dense_start_km()
+    }
+
+    fn resolved_atmosphere_top_km(&mut self) -> rhai::FLOAT {
+        self.resolved_atmosphere_top_km()
+    }
+
+    fn resolved_atmosphere_dense_start_km(&mut self) -> rhai::FLOAT {
+        self.resolved_atmosphere_dense_start_km()
+    }
+
+    fn atmosphere_drag_max(&mut self) -> rhai::FLOAT {
+        self.atmosphere_drag_max()
+    }
+
+    fn cloud_bottom_km(&mut self) -> rhai::FLOAT {
+        self.cloud_bottom_km()
+    }
+
+    fn cloud_top_km(&mut self) -> rhai::FLOAT {
+        self.cloud_top_km()
+    }
+
+    fn planet_type(&mut self) -> String {
+        self.planet_type()
+    }
+
+    fn parent(&mut self) -> String {
+        self.parent()
+    }
+
+    fn inspect(&mut self) -> RhaiMap {
+        self.inspect()
+    }
+}
+
+impl GameplayWorldObjectCoreApi for ScriptGameplayObjectApi {
+    fn exists(&mut self) -> bool {
+        self.exists()
+    }
+
+    fn id(&mut self) -> rhai::INT {
+        self.id()
+    }
+
+    fn kind(&mut self) -> String {
+        self.kind()
+    }
+
+    fn tags(&mut self) -> rhai::Array {
+        self.tags()
+    }
+
+    fn inspect(&mut self) -> RhaiMap {
+        self.inspect()
+    }
+
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        self.get(path)
+    }
+
+    fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        self.set(path, value)
+    }
+}
+
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     register_gameplay_core_api::<ScriptGameplayApi, ScriptGameplayEntityApi>(engine);
+    register_world_body_api::<ScriptGameplayApi, ScriptGameplayBodySnapshotApi>(engine);
+    engine_api::gameplay::objects::register_world_objects_api::<
+        ScriptGameplayObjectsApi,
+        ScriptGameplayObjectApi,
+    >(engine);
+    engine.register_get("objects", |world: &mut ScriptGameplayApi| world.objects());
+    engine.register_fn("objects", |world: &mut ScriptGameplayApi| world.objects());
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // PHASE 3: WORLD.* NAMESPACE WITH DUAL-NAME REGISTRATION
-    // Both flat names (for backward compatibility) and world.* names work
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    // Gameplay API - remaining world/collection operations not yet moved to engine-api
+    // Additional grouped `world.*` registrations that still live in behavior.
+    // Core typed gameplay contracts are registered above via `engine-api`.
 
     // --- SPAWN OPERATIONS (world.spawn_*) ---
     engine.register_fn(
@@ -523,9 +697,8 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     );
 
     // --- QUERY OPERATIONS (world.query_*, world.count_*, world.entity, world.exists) ---
-    // Note: count, count_kind, count_tag, query_kind, query_tag, entity, exists
-    //       are already registered in register_gameplay_core_api (flat names only for now)
-    //       Future expansion: add world.count(), world.query(), world.entity() versions
+    // `register_gameplay_core_api` already exposes the typed count/query/entity surface.
+    // Add grouped `world.*` aliases here when those calls are promoted together.
 
     // --- BOUNDS OPERATIONS (world.set_bounds, world.get_bounds) ---
     // These are accessed via set_world_bounds and world_bounds currently
@@ -542,14 +715,8 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         world.world_bounds()
     });
 
-    // --- CATALOG QUERY OPERATIONS (world.body_info, world.planet_type_info) ---
-    engine.register_fn("body_info", |world: &mut ScriptGameplayApi, id: &str| {
-        world.body_info(id)
-    });
-    engine.register_fn(
-        "world.body_info",
-        |world: &mut ScriptGameplayApi, id: &str| world.body_info(id),
-    );
+    // --- CATALOG QUERY OPERATIONS ---
+    // `world.body(...)` is the public Rhai surface for celestial body snapshots.
     engine.register_fn(
         "body_upsert",
         |world: &mut ScriptGameplayApi, id: &str, patch: RhaiMap| world.body_upsert(id, patch),
@@ -700,4 +867,608 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
 
     register_geometry_api(engine);
     register_numeric_api(engine);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use engine_game::GameplayWorld;
+    use rhai::{Engine as RhaiEngine, Map as RhaiMap, Scope as RhaiScope};
+
+    use super::{register_with_rhai, ScriptGameplayApi};
+    use crate::{catalog, palette::PaletteStore};
+
+    fn build_world_api(world: GameplayWorld) -> ScriptGameplayApi {
+        ScriptGameplayApi::new(
+            Some(world),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            None,
+            Arc::new(catalog::ModCatalogs::default()),
+            None,
+            Arc::new(Mutex::new(Vec::new())),
+            Arc::new(PaletteStore::default()),
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn register_with_rhai_exposes_world_objects_lookup_by_visual_and_tag() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let ship_id = world.spawn_object("ship", #{ hp: 12, pilot: "Ada" });
+                    let rock_id = world.spawn_object("asteroid", #{ hp: 3 });
+                    world.set_visual(ship_id, "ship-main");
+                    world.bind_visual(ship_id, "ship-shadow");
+                    world.tag_add(ship_id, "player");
+                    world.tag_add(rock_id, "hazard");
+
+                    let found = world.objects.find("ship-shadow");
+                    let by_id = world.objects.find(ship_id);
+                    let all = world.objects.all();
+                    let tagged = world.objects.by_tag("player");
+                    found.set("hp", 42);
+
+                    #{
+                        found_exists: found.exists(),
+                        found_id: found.id(),
+                        found_kind: found.kind(),
+                        found_hp: found.get("hp"),
+                        inspect_visual: found.inspect()["visual_id"],
+                        inspect_visual_count: found.inspect()["visual_ids"].len(),
+                        by_id_kind: by_id.kind(),
+                        all_len: all.len(),
+                        tagged_len: tagged.len(),
+                        tagged_id: tagged[0].id()
+                    }
+                "#,
+            )
+            .expect("world.objects API should evaluate in behavior-owned engine");
+
+        assert_eq!(
+            result
+                .get("found_exists")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("found_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+        assert_eq!(
+            result
+                .get("found_kind")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("ship".to_string())
+        );
+        assert_eq!(
+            result
+                .get("found_hp")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(42)
+        );
+        assert_eq!(
+            result
+                .get("inspect_visual")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("ship-main".to_string())
+        );
+        assert_eq!(
+            result
+                .get("inspect_visual_count")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(2)
+        );
+        assert_eq!(
+            result
+                .get("by_id_kind")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("ship".to_string())
+        );
+        assert_eq!(
+            result
+                .get("all_len")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(2)
+        );
+        assert_eq!(
+            result
+                .get("tagged_len")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+        assert_eq!(
+            result
+                .get("tagged_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_exposes_world_objects_lookup_by_name() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let ship_id = world.spawn_object("ship", #{ name: "Ace" });
+                    let wing_id = world.spawn_object("wingman", #{ name: "Ace" });
+                    let named = world.objects.by_name("Ace");
+                    #{
+                        ship_id: ship_id,
+                        wing_id: wing_id,
+                        named_len: named.len(),
+                        first_named_id: named[0].id(),
+                        second_named_id: named[1].id()
+                    }
+                "#,
+            )
+            .expect("world.objects.by_name should evaluate in behavior-owned engine");
+
+        assert_eq!(
+            result
+                .get("ship_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+        assert_eq!(
+            result
+                .get("wing_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(2)
+        );
+        assert_eq!(
+            result
+                .get("named_len")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(2)
+        );
+        assert_eq!(
+            result
+                .get("first_named_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+        assert_eq!(
+            result
+                .get("second_named_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_exposes_full_world_objects_registry_and_iteration() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let ship_id = world.spawn_object("ship", #{ name: "Ace" });
+                    let wing_id = world.spawn_object("wingman", #{ name: "Ace" });
+                    let rock_id = world.spawn_object("asteroid", #{ name: "Rock" });
+                    world.set_visual(ship_id, "ship-main");
+                    world.bind_visual(ship_id, "ship-shadow");
+                    world.tag_add(ship_id, "player");
+                    world.tag_add(wing_id, "player");
+                    world.tag_add(rock_id, "hazard");
+
+                    let found_visual = world.objects.find("ship-shadow");
+                    let found_name = world.objects.find("Ace");
+                    let all_ids = [];
+                    for object in world.objects.all() {
+                        all_ids.push(object.id());
+                    }
+                    let player_kinds = [];
+                    for object in world.objects.by_tag("player") {
+                        player_kinds.push(object.kind());
+                    }
+                    let ace_ids = world.objects.by_name("Ace").map(|object| object.id());
+
+                    #{
+                        found_visual_id: found_visual.id(),
+                        found_name_id: found_name.id(),
+                        all_ids: all_ids,
+                        player_kinds: player_kinds,
+                        ace_ids: ace_ids
+                    }
+                "#,
+            )
+            .expect("world.objects registry queries and iteration should evaluate");
+
+        let all_ids = result
+            .get("all_ids")
+            .and_then(|value| value.clone().into_array().ok())
+            .expect("all_ids");
+        let player_kinds = result
+            .get("player_kinds")
+            .and_then(|value| value.clone().into_array().ok())
+            .expect("player_kinds");
+        let ace_ids = result
+            .get("ace_ids")
+            .and_then(|value| value.clone().into_array().ok())
+            .expect("ace_ids");
+
+        let all_ids: Vec<rhai::INT> = all_ids
+            .into_iter()
+            .filter_map(|value| value.try_cast::<rhai::INT>())
+            .collect();
+        let player_kinds: Vec<String> = player_kinds
+            .into_iter()
+            .filter_map(|value| value.try_cast::<String>())
+            .collect();
+        let ace_ids: Vec<rhai::INT> = ace_ids
+            .into_iter()
+            .filter_map(|value| value.try_cast::<rhai::INT>())
+            .collect();
+
+        assert_eq!(
+            result
+                .get("found_visual_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+        assert_eq!(
+            result
+                .get("found_name_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(1)
+        );
+        assert_eq!(all_ids, vec![1, 2, 3]);
+        assert_eq!(
+            player_kinds,
+            vec!["ship".to_string(), "wingman".to_string()]
+        );
+        assert_eq!(ace_ids, vec![1, 2]);
+    }
+
+    #[test]
+    fn register_with_rhai_returns_missing_world_object_handle_for_unknown_target() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let missing = world.objects.find("missing-visual");
+                    #{
+                        exists: missing.exists(),
+                        id: missing.id(),
+                        kind: missing.kind(),
+                        tags_len: missing.tags().len(),
+                        inspect_len: missing.inspect().len()
+                    }
+                "#,
+            )
+            .expect("missing world object handle should still evaluate");
+
+        assert_eq!(
+            result
+                .get("exists")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(false)
+        );
+        assert_eq!(
+            result
+                .get("id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(0)
+        );
+        assert_eq!(
+            result
+                .get("kind")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some(String::new())
+        );
+        assert_eq!(
+            result
+                .get("tags_len")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(0)
+        );
+        assert_eq!(
+            result
+                .get("inspect_len")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_returns_false_for_stale_world_object_handle_set() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let ship_id = world.spawn_object("ship", #{ hp: 12 });
+                    world.set_visual(ship_id, "ship-main");
+                    let found = world.objects.find("ship-main");
+                    let despawned = world.despawn(ship_id);
+                    let stale_exists = found.exists();
+                    let stale_id = found.id();
+                    let stale_set = found.set("hp", 99);
+                    let stale_inspect_len = found.inspect().len();
+
+                    #{
+                        despawned: despawned,
+                        stale_exists: stale_exists,
+                        stale_id: stale_id,
+                        stale_set: stale_set,
+                        stale_inspect_len: stale_inspect_len
+                    }
+                "#,
+            )
+            .expect("stale world object handle should still evaluate in behavior-owned engine");
+
+        assert_eq!(
+            result
+                .get("despawned")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("stale_exists")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(false)
+        );
+        assert_eq!(
+            result
+                .get("stale_id")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(0)
+        );
+        assert_eq!(
+            result
+                .get("stale_set")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(false)
+        );
+        assert_eq!(
+            result
+                .get("stale_inspect_len")
+                .and_then(|value| value.clone().try_cast::<rhai::INT>()),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_exposes_typed_world_body_snapshot_surface() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let ok = world.body_patch("generated-planet", #{
+                        center_x: 12.0,
+                        center_y: -4.0,
+                        radius_px: 210.0,
+                        surface_radius: 205.0,
+                        radius_km: 210.0,
+                        gravity_mu_km3_s2: 4321.5,
+                        atmosphere_top_km: 88.0,
+                        atmosphere_dense_start_km: 18.0,
+                        atmosphere_drag_max: 1.5,
+                        cloud_bottom_km: 6.0,
+                        cloud_top_km: 12.0,
+                        planet_type: "earth_like"
+                    });
+                    let body = world.body("generated-planet");
+                    let alias = world.body_snapshot("generated-planet");
+
+                    #{
+                        ok: ok,
+                        exists: body.exists,
+                        id: body.id,
+                        center_x: body.center_x,
+                        surface_radius: body.surface_radius,
+                        gravity_mu: body.gravity_mu,
+                        gravity_mu_km3_s2: body.gravity_mu_km3_s2,
+                        atmosphere_top_km: body.atmosphere_top_km,
+                        atmosphere_dense_start_km: body.atmosphere_dense_start_km,
+                        cloud_top_km: body.cloud_top_km,
+                        planet_type: body.planet_type,
+                        alias_exists: alias.exists,
+                        inspect_id: body.inspect()["id"]
+                    }
+                "#,
+            )
+            .expect("typed world body snapshot should evaluate in behavior-owned engine");
+
+        assert_eq!(
+            result
+                .get("ok")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("exists")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("id")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("generated-planet".to_string())
+        );
+        assert_eq!(
+            result
+                .get("center_x")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(12.0)
+        );
+        assert_eq!(
+            result
+                .get("surface_radius")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(205.0)
+        );
+        assert_eq!(
+            result
+                .get("gravity_mu")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(4321.5)
+        );
+        assert_eq!(
+            result
+                .get("gravity_mu_km3_s2")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(4321.5)
+        );
+        assert_eq!(
+            result
+                .get("atmosphere_top_km")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(88.0)
+        );
+        assert_eq!(
+            result
+                .get("atmosphere_dense_start_km")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(18.0)
+        );
+        assert_eq!(
+            result
+                .get("cloud_top_km")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            Some(12.0)
+        );
+        assert_eq!(
+            result
+                .get("planet_type")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("earth_like".to_string())
+        );
+        assert_eq!(
+            result
+                .get("alias_exists")
+                .and_then(|value| value.clone().try_cast::<bool>()),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("inspect_id")
+                .and_then(|value| value.clone().try_cast::<String>()),
+            Some("generated-planet".to_string())
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_resolves_canonical_km_fields_for_body_inspect() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let ok = world.body_patch("derived-planet", #{
+                        radius_px: 210.0,
+                        surface_radius: 205.0,
+                        km_per_px: 2.0,
+                        atmosphere_top: 40.0,
+                        atmosphere_dense_start: 8.0
+                    });
+                    let body = world.body("derived-planet");
+                    let inspect = body.inspect();
+
+                    #{
+                        ok: ok,
+                        radius_km: body.radius_km,
+                        inspect_radius_km: inspect["radius_km"],
+                        atmosphere_top_km: body.atmosphere_top_km,
+                        inspect_atmosphere_top_km: inspect["atmosphere_top_km"],
+                        atmosphere_dense_start_km: body.atmosphere_dense_start_km,
+                        inspect_atmosphere_dense_start_km: inspect["atmosphere_dense_start_km"],
+                        km_per_px: body.km_per_px,
+                        inspect_km_per_px: inspect["km_per_px"]
+                    }
+                "#,
+            )
+            .expect("typed world body inspect should resolve canonical km fields");
+
+        for key in [
+            "radius_km",
+            "inspect_radius_km",
+            "atmosphere_top_km",
+            "inspect_atmosphere_top_km",
+            "atmosphere_dense_start_km",
+            "inspect_atmosphere_dense_start_km",
+        ] {
+            assert_eq!(
+                result
+                    .get(key)
+                    .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+                Some(match key {
+                    "radius_km" | "inspect_radius_km" | "info_radius_km" => 420.0,
+                    "atmosphere_top_km"
+                    | "inspect_atmosphere_top_km"
+                    | "info_atmosphere_top_km" => 80.0,
+                    _ => 16.0,
+                }),
+                "unexpected value for {key}"
+            );
+        }
+        for key in ["km_per_px", "inspect_km_per_px"] {
+            assert_eq!(
+                result
+                    .get(key)
+                    .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+                Some(2.0),
+                "unexpected km_per_px for {key}"
+            );
+        }
+    }
 }

@@ -2,13 +2,13 @@
 // Selected item: bright colour + gentle horizontal sine-wave float.
 // Idle items: dim colour, reset to x=0.
 
-if type_of(local) == "()" { local = #{}; }
+local = local ?? #{};
 if !(local.initialized ?? false) {
     local.initialized = true;
     local.sel = 0;
 }
 
-let count = 2;
+let count = 3;
 let sel   = local.sel;
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -28,14 +28,15 @@ let col_idle  = palette.get("menu_idle"); if col_idle  == "" { col_idle  = "#2e5
 let t = time.scene_elapsed_ms;
 let float_x = sin(t.to_float() / 400.0) * 3.0;
 
-let items = ["item-0", "item-1"];
+let items = ["item-0", "item-1", "item-2"];
 for i in 0..count {
+    let item = scene.object(items[i]);
     if i == sel {
-        scene.set(items[i], "style.fg", col_sel);
-        scene.set(items[i], "position.x", float_x);
+        item.set("style.fg", col_sel);
+        item.set("position.x", float_x);
     } else {
-        scene.set(items[i], "style.fg", col_idle);
-        scene.set(items[i], "position.x", 0.0);
+        item.set("style.fg", col_idle);
+        item.set("position.x", 0.0);
     }
 }
 
@@ -44,6 +45,8 @@ if input.just_pressed("Enter") || input.just_pressed("Space") {
     if sel == 0 {
         game.jump("asteroids-game");
     } else if sel == 1 {
+        game.jump("asteroids-bench-cloud");
+    } else if sel == 2 {
         scene.quit();
     }
 }

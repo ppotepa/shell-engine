@@ -60,6 +60,26 @@ fn env_index(name) {
     if name == "deep-space-rich" { 1 } else if name == "orbit-bright-star" { 2 } else { 0 }
 }
 
+fn scene_set(scene, target, path, value) {
+    scene.object(target).set(path, value);
+}
+
+fn scene_text(scene, target, value) {
+    scene_set(scene, target, "text.content", value);
+}
+
+fn scene_fg(scene, target, value) {
+    scene_set(scene, target, "text.fg", value);
+}
+
+fn scene_visible(scene, target, value) {
+    scene_set(scene, target, "visible", value);
+}
+
+fn scene_vector(scene, target, points) {
+    scene_set(scene, target, "vector.points", points);
+}
+
 if local.bootstrapped == () {
     local.bootstrapped = true;
     local.active_model = "planet";
@@ -351,10 +371,10 @@ scene.set_space_environment_param("primary_star_glare_strength", glare);
 // on the night side when black = 0.0 and still allow artistic shadow lift.
 let ambient_world = (black * 1.0).min(0.22);
 let ambient_ref = (black * 0.8).min(0.18);
-scene.set("world-atmo", "obj.ambient", ambient_world);
-scene.set("sphere-ref", "obj.ambient", ambient_ref);
-scene.set("cube-ref", "obj.ambient", ambient_ref);
-scene.set("suzanne-ref", "obj.ambient", ambient_ref);
+scene_set(scene, "world-atmo", "obj.ambient", ambient_world);
+scene_set(scene, "sphere-ref", "obj.ambient", ambient_ref);
+scene_set(scene, "cube-ref", "obj.ambient", ambient_ref);
+scene_set(scene, "suzanne-ref", "obj.ambient", ambient_ref);
 
 let az_rad = sun_azimuth * 0.01745329;
 let el_rad = sun_elevation * 0.01745329;
@@ -387,38 +407,38 @@ if local.camera_preset_dirty {
     }
     local.camera_preset_dirty = false;
 }
-scene.set("world-atmo", "obj.light.x", sun_x);
-scene.set("world-atmo", "obj.light.y", sun_y);
-scene.set("world-atmo", "obj.light.z", sun_z);
-scene.set("sphere-ref", "obj.light.x", sun_x);
-scene.set("sphere-ref", "obj.light.y", sun_y);
-scene.set("sphere-ref", "obj.light.z", sun_z);
-scene.set("cube-ref", "obj.light.x", sun_x);
-scene.set("cube-ref", "obj.light.y", sun_y);
-scene.set("cube-ref", "obj.light.z", sun_z);
-scene.set("suzanne-ref", "obj.light.x", sun_x);
-scene.set("suzanne-ref", "obj.light.y", sun_y);
-scene.set("suzanne-ref", "obj.light.z", sun_z);
+scene_set(scene, "world-atmo", "obj.light.x", sun_x);
+scene_set(scene, "world-atmo", "obj.light.y", sun_y);
+scene_set(scene, "world-atmo", "obj.light.z", sun_z);
+scene_set(scene, "sphere-ref", "obj.light.x", sun_x);
+scene_set(scene, "sphere-ref", "obj.light.y", sun_y);
+scene_set(scene, "sphere-ref", "obj.light.z", sun_z);
+scene_set(scene, "cube-ref", "obj.light.x", sun_x);
+scene_set(scene, "cube-ref", "obj.light.y", sun_y);
+scene_set(scene, "cube-ref", "obj.light.z", sun_z);
+scene_set(scene, "suzanne-ref", "obj.light.x", sun_x);
+scene_set(scene, "suzanne-ref", "obj.light.y", sun_y);
+scene_set(scene, "suzanne-ref", "obj.light.z", sun_z);
 
-scene.set("world-atmo", "visible", local.active_model == "planet");
-scene.set("sphere-ref", "visible", local.active_model == "sphere");
-scene.set("cube-ref", "visible", local.active_model == "cube");
-scene.set("suzanne-ref", "visible", local.active_model == "suzanne");
+scene_visible(scene, "world-atmo", local.active_model == "planet");
+scene_visible(scene, "sphere-ref", local.active_model == "sphere");
+scene_visible(scene, "cube-ref", local.active_model == "cube");
+scene_visible(scene, "suzanne-ref", local.active_model == "suzanne");
 
-scene.set("model-label-planet", "text.fg", if local.active_model == "planet" { "#dbe4f6" } else { "#71819a" });
-scene.set("model-label-sphere", "text.fg", if local.active_model == "sphere" { "#dbe4f6" } else { "#71819a" });
-scene.set("model-label-cube", "text.fg", if local.active_model == "cube" { "#dbe4f6" } else { "#71819a" });
-scene.set("model-label-suzanne", "text.fg", if local.active_model == "suzanne" { "#dbe4f6" } else { "#71819a" });
+scene_fg(scene, "model-label-planet", if local.active_model == "planet" { "#dbe4f6" } else { "#71819a" });
+scene_fg(scene, "model-label-sphere", if local.active_model == "sphere" { "#dbe4f6" } else { "#71819a" });
+scene_fg(scene, "model-label-cube", if local.active_model == "cube" { "#dbe4f6" } else { "#71819a" });
+scene_fg(scene, "model-label-suzanne", if local.active_model == "suzanne" { "#dbe4f6" } else { "#71819a" });
 
 let view_open = gui.widget_open("lighting-view-dropdown");
 let light_open = gui.widget_open("lighting-profile-dropdown");
 let env_open = gui.widget_open("lighting-environment-dropdown");
-scene.set("lighting-view-dropdown-arrow", "text.content", if view_open { "^" } else { "v" });
-scene.set("lighting-view-dropdown-arrow", "text.fg", if view_open { "#cfe6ff" } else { "#8aa2c4" });
-scene.set("lighting-profile-dropdown-arrow", "text.content", if light_open { "^" } else { "v" });
-scene.set("lighting-profile-dropdown-arrow", "text.fg", if light_open { "#cfe6ff" } else { "#8aa2c4" });
-scene.set("lighting-environment-dropdown-arrow", "text.content", if env_open { "^" } else { "v" });
-scene.set("lighting-environment-dropdown-arrow", "text.fg", if env_open { "#cfe6ff" } else { "#8aa2c4" });
+scene_text(scene, "lighting-view-dropdown-arrow", if view_open { "^" } else { "v" });
+scene_fg(scene, "lighting-view-dropdown-arrow", if view_open { "#cfe6ff" } else { "#8aa2c4" });
+scene_text(scene, "lighting-profile-dropdown-arrow", if light_open { "^" } else { "v" });
+scene_fg(scene, "lighting-profile-dropdown-arrow", if light_open { "#cfe6ff" } else { "#8aa2c4" });
+scene_text(scene, "lighting-environment-dropdown-arrow", if env_open { "^" } else { "v" });
+scene_fg(scene, "lighting-environment-dropdown-arrow", if env_open { "#cfe6ff" } else { "#8aa2c4" });
 
 let fill_exposure = (clamp01(gui.slider_value("lighting-exposure-slider")) * TRACK_W.to_float()).round().to_int();
 let fill_black = (clamp01(gui.slider_value("lighting-black-level-slider")) * TRACK_W.to_float()).round().to_int();
@@ -430,26 +450,26 @@ let fill_sun_az = (clamp01(gui.slider_value("lighting-sun-azimuth-slider")) * TR
 let fill_sun_el = (clamp01(gui.slider_value("lighting-sun-elevation-slider")) * TRACK_W.to_float()).round().to_int();
 let fill_sun_int = (clamp01(gui.slider_value("lighting-sun-intensity-slider")) * TRACK_W.to_float()).round().to_int();
 
-scene.set("lighting-exposure-slider-fill", "vector.points", [[0, 0], [if fill_exposure < 1 { 1 } else { fill_exposure }, 0]]);
-scene.set("lighting-black-level-slider-fill", "vector.points", [[0, 0], [if fill_black < 1 { 1 } else { fill_black }, 0]]);
-scene.set("lighting-gamma-slider-fill", "vector.points", [[0, 0], [if fill_gamma < 1 { 1 } else { fill_gamma }, 0]]);
-scene.set("lighting-contrast-slider-fill", "vector.points", [[0, 0], [if fill_contrast < 1 { 1 } else { fill_contrast }, 0]]);
-scene.set("lighting-starfield-slider-fill", "vector.points", [[0, 0], [if fill_stars < 1 { 1 } else { fill_stars }, 0]]);
-scene.set("lighting-star-glare-slider-fill", "vector.points", [[0, 0], [if fill_glare < 1 { 1 } else { fill_glare }, 0]]);
-scene.set("lighting-sun-azimuth-slider-fill", "vector.points", [[0, 0], [if fill_sun_az < 1 { 1 } else { fill_sun_az }, 0]]);
-scene.set("lighting-sun-elevation-slider-fill", "vector.points", [[0, 0], [if fill_sun_el < 1 { 1 } else { fill_sun_el }, 0]]);
-scene.set("lighting-sun-intensity-slider-fill", "vector.points", [[0, 0], [if fill_sun_int < 1 { 1 } else { fill_sun_int }, 0]]);
+scene_vector(scene, "lighting-exposure-slider-fill", [[0, 0], [if fill_exposure < 1 { 1 } else { fill_exposure }, 0]]);
+scene_vector(scene, "lighting-black-level-slider-fill", [[0, 0], [if fill_black < 1 { 1 } else { fill_black }, 0]]);
+scene_vector(scene, "lighting-gamma-slider-fill", [[0, 0], [if fill_gamma < 1 { 1 } else { fill_gamma }, 0]]);
+scene_vector(scene, "lighting-contrast-slider-fill", [[0, 0], [if fill_contrast < 1 { 1 } else { fill_contrast }, 0]]);
+scene_vector(scene, "lighting-starfield-slider-fill", [[0, 0], [if fill_stars < 1 { 1 } else { fill_stars }, 0]]);
+scene_vector(scene, "lighting-star-glare-slider-fill", [[0, 0], [if fill_glare < 1 { 1 } else { fill_glare }, 0]]);
+scene_vector(scene, "lighting-sun-azimuth-slider-fill", [[0, 0], [if fill_sun_az < 1 { 1 } else { fill_sun_az }, 0]]);
+scene_vector(scene, "lighting-sun-elevation-slider-fill", [[0, 0], [if fill_sun_el < 1 { 1 } else { fill_sun_el }, 0]]);
+scene_vector(scene, "lighting-sun-intensity-slider-fill", [[0, 0], [if fill_sun_int < 1 { 1 } else { fill_sun_int }, 0]]);
 
-scene.set("lighting-exposure-slider-value", "text.content", to_fixed_2(exposure));
-scene.set("lighting-black-level-slider-value", "text.content", to_fixed_2(black));
-scene.set("lighting-gamma-slider-value", "text.content", to_fixed_2(gamma));
-scene.set("lighting-contrast-slider-value", "text.content", to_fixed_2(contrast));
-scene.set("lighting-starfield-slider-value", "text.content", to_fixed_2(stars));
-scene.set("lighting-star-glare-slider-value", "text.content", to_fixed_2(glare));
-scene.set("lighting-sun-azimuth-slider-value", "text.content", `${sun_azimuth.round()}`);
-scene.set("lighting-sun-elevation-slider-value", "text.content", `${sun_elevation.round()}`);
-scene.set("lighting-sun-intensity-slider-value", "text.content", to_fixed_2(sun_intensity));
+scene_text(scene, "lighting-exposure-slider-value", to_fixed_2(exposure));
+scene_text(scene, "lighting-black-level-slider-value", to_fixed_2(black));
+scene_text(scene, "lighting-gamma-slider-value", to_fixed_2(gamma));
+scene_text(scene, "lighting-contrast-slider-value", to_fixed_2(contrast));
+scene_text(scene, "lighting-starfield-slider-value", to_fixed_2(stars));
+scene_text(scene, "lighting-star-glare-slider-value", to_fixed_2(glare));
+scene_text(scene, "lighting-sun-azimuth-slider-value", `${sun_azimuth.round()}`);
+scene_text(scene, "lighting-sun-elevation-slider-value", `${sun_elevation.round()}`);
+scene_text(scene, "lighting-sun-intensity-slider-value", to_fixed_2(sun_intensity));
 
-scene.set("subtitle", "text.content", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env} | cam=${camera_preset_name(local.camera_preset_idx)} | sun=${sun_azimuth.round()}/${sun_elevation.round()} i=${to_fixed_2(sun_intensity)}`);
-scene.set("hint-1", "text.content", "keys: 1/2/3/4 model | Z/X/C view | Q/W/E light | A/S/D env");
-scene.set("hint-2", "text.content", `camera: F/V cycle | G/T/N/K direct | B compare=${if local.compare_show_baseline { "baseline" } else { "current" }} | R reset`);
+scene_text(scene, "subtitle", `model=${local.active_model} | view=${local.active_view} | light=${local.active_light} | env=${local.active_env} | cam=${camera_preset_name(local.camera_preset_idx)} | sun=${sun_azimuth.round()}/${sun_elevation.round()} i=${to_fixed_2(sun_intensity)}`);
+scene_text(scene, "hint-1", "keys: 1/2/3/4 model | Z/X/C view | Q/W/E light | A/S/D env");
+scene_text(scene, "hint-2", `camera: F/V cycle | G/T/N/K direct | B compare=${if local.compare_show_baseline { "baseline" } else { "current" }} | R reset`);

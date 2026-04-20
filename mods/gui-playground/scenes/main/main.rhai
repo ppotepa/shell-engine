@@ -39,6 +39,30 @@ fn lerp_byte(lo, hi, t) {
     (lo + (hi - lo) * t).round()
 }
 
+fn scene_set(scene, target, path, value) {
+    scene.object(target).set(path, value);
+}
+
+fn scene_text(scene, target, value) {
+    scene_set(scene, target, "text.content", value);
+}
+
+fn scene_fg(scene, target, value) {
+    scene_set(scene, target, "text.fg", value);
+}
+
+fn scene_style_fg(scene, target, value) {
+    scene_set(scene, target, "style.fg", value);
+}
+
+fn scene_visible(scene, target, value) {
+    scene_set(scene, target, "visible", value);
+}
+
+fn scene_vector(scene, target, points) {
+    scene_set(scene, target, "vector.points", points);
+}
+
 // â”€â”€ Read all widget state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let r = gui.slider_value("color-red-slider");
 let g = gui.slider_value("color-green-slider");
@@ -75,17 +99,17 @@ if fill_r < 1 { fill_r = 1; }
 if fill_g < 1 { fill_g = 1; }
 if fill_b < 1 { fill_b = 1; }
 
-scene.set("color-red-slider-fill", "vector.points", [[0, 0], [fill_r, 0]]);
-scene.set("color-green-slider-fill", "vector.points", [[0, 0], [fill_g, 0]]);
-scene.set("color-blue-slider-fill", "vector.points", [[0, 0], [fill_b, 0]]);
+scene_vector(scene, "color-red-slider-fill", [[0, 0], [fill_r, 0]]);
+scene_vector(scene, "color-green-slider-fill", [[0, 0], [fill_g, 0]]);
+scene_vector(scene, "color-blue-slider-fill", [[0, 0], [fill_b, 0]]);
 
 // Tint fill bars: brighter as value increases
 let r_hex = to_hex_byte(lerp_byte(40.0, 255.0, r / 255.0));
 let g_hex = to_hex_byte(lerp_byte(40.0, 255.0, g / 255.0));
 let b_hex = to_hex_byte(lerp_byte(40.0, 255.0, b / 255.0));
-scene.set("color-red-slider-fill", "style.fg", `#${r_hex}2020`);
-scene.set("color-green-slider-fill", "style.fg", `#20${g_hex}20`);
-scene.set("color-blue-slider-fill", "style.fg", `#2020${b_hex}`);
+scene_style_fg(scene, "color-red-slider-fill", `#${r_hex}2020`);
+scene_style_fg(scene, "color-green-slider-fill", `#20${g_hex}20`);
+scene_style_fg(scene, "color-blue-slider-fill", `#2020${b_hex}`);
 
 // â”€â”€ Handle theming (state-aware + channel-tinted) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let handle_ids = ["color-red-slider-handle", "color-green-slider-handle", "color-blue-slider-handle"];
@@ -96,13 +120,13 @@ for i in 0..3 {
     let color = if gui.widget_pressed(widget_ids[i]) { channel_hi[i] }
                 else if gui.widget_hovered(widget_ids[i]) { channel_lo[i] }
                 else { "#808090" };
-    scene.set(handle_ids[i], "style.fg", color);
+    scene_style_fg(scene, handle_ids[i], color);
 }
 
 // â”€â”€ Slider value labels (only update on change) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-if r != local.prev_r { scene.set("color-red-slider-value", "text.content", `${r.round()}`); }
-if g != local.prev_g { scene.set("color-green-slider-value", "text.content", `${g.round()}`); }
-if b != local.prev_b { scene.set("color-blue-slider-value", "text.content", `${b.round()}`); }
+if r != local.prev_r { scene_text(scene, "color-red-slider-value", `${r.round()}`); }
+if g != local.prev_g { scene_text(scene, "color-green-slider-value", `${g.round()}`); }
+if b != local.prev_b { scene_text(scene, "color-blue-slider-value", `${b.round()}`); }
 local.prev_r = r;
 local.prev_g = g;
 local.prev_b = b;
@@ -145,52 +169,44 @@ if gui.button_clicked("playground-randomize-button") {
 }
 
 // â”€â”€ Toggle visuals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-scene.set("display-hex-toggle-label", "text.content", `${if show_hex { "[x]" } else { "[ ]" }} Show Hex`);
-scene.set("display-swatch-toggle-label", "text.content", `${if show_swatch { "[x]" } else { "[ ]" }} Show Swatch`);
-scene.set("display-invert-toggle-label", "text.content", `${if invert { "[x]" } else { "[ ]" }} Invert Colors`);
+scene_text(scene, "display-hex-toggle-label", `${if show_hex { "[x]" } else { "[ ]" }} Show Hex`);
+scene_text(scene, "display-swatch-toggle-label", `${if show_swatch { "[x]" } else { "[ ]" }} Show Swatch`);
+scene_text(scene, "display-invert-toggle-label", `${if invert { "[x]" } else { "[ ]" }} Invert Colors`);
 
-scene.set("display-hex-toggle-label", "text.fg", if show_hex { "#90c090" } else { "#708070" });
-scene.set("display-swatch-toggle-label", "text.fg", if show_swatch { "#90c090" } else { "#708070" });
-scene.set("display-invert-toggle-label", "text.fg", if invert { "#90c090" } else { "#708070" });
+scene_fg(scene, "display-hex-toggle-label", if show_hex { "#90c090" } else { "#708070" });
+scene_fg(scene, "display-swatch-toggle-label", if show_swatch { "#90c090" } else { "#708070" });
+scene_fg(scene, "display-invert-toggle-label", if invert { "#90c090" } else { "#708070" });
 
 // â”€â”€ Button hover feedback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let reset_hov = gui.widget_hovered("playground-reset-button");
 let rand_hov  = gui.widget_hovered("playground-randomize-button");
-scene.set("playground-reset-button-label", "text.fg", if reset_hov { "#80c0ff" } else { "#4080ff" });
-scene.set("playground-randomize-button-label", "text.fg", if rand_hov { "#ffe060" } else { "#ffc030" });
+scene_fg(scene, "playground-reset-button-label", if reset_hov { "#80c0ff" } else { "#4080ff" });
+scene_fg(scene, "playground-randomize-button-label", if rand_hov { "#ffe060" } else { "#ffc030" });
 
 // â”€â”€ Dropdown visuals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-scene.set("view-mode-dropdown-arrow", "text.content", if mode_open { "^" } else { "v" });
-scene.set("view-mode-dropdown-arrow", "text.fg", if mode_open { "#cfe6ff" } else { "#8aa2c4" });
+scene_text(scene, "view-mode-dropdown-arrow", if mode_open { "^" } else { "v" });
+scene_fg(scene, "view-mode-dropdown-arrow", if mode_open { "#cfe6ff" } else { "#8aa2c4" });
 for i in 0..MODE_LABELS.len() {
     let visible = mode_open;
-    scene.set(`view-mode-dropdown-option-${i}`, "visible", visible);
-    scene.set(
-        `view-mode-dropdown-option-${i}`,
-        "text.content",
-        `${if i == mode_idx { ">" } else { " " }} ${MODE_LABELS[i]}`
-    );
-    scene.set(
-        `view-mode-dropdown-option-${i}`,
-        "text.fg",
-        if i == mode_idx { "#e9f2ff" } else { "#8ea0bb" }
-    );
+    scene_visible(scene, `view-mode-dropdown-option-${i}`, visible);
+    scene_text(scene, `view-mode-dropdown-option-${i}`, `${if i == mode_idx { ">" } else { " " }} ${MODE_LABELS[i]}`);
+    scene_fg(scene, `view-mode-dropdown-option-${i}`, if i == mode_idx { "#e9f2ff" } else { "#8ea0bb" });
 }
 
 // â”€â”€ Color swatch (real-time) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 for i in 0..SWATCH_N {
-    scene.set(`swatch-${i}`, "visible", show_swatch);
-    scene.set(`swatch-${i}`, "text.fg", hex_str);
+    scene_visible(scene, `swatch-${i}`, show_swatch);
+    scene_fg(scene, `swatch-${i}`, hex_str);
 }
 
 // Hex/RGB readout
-scene.set("hex-readout", "visible", show_hex);
-scene.set("hex-readout", "text.content", `HEX: ${hex_str}`);
-scene.set("hex-readout", "text.fg", hex_str);
-scene.set("rgb-readout", "text.content", `RGB: ${dr.round()}, ${dg.round()}, ${db.round()}`);
+scene_visible(scene, "hex-readout", show_hex);
+scene_text(scene, "hex-readout", `HEX: ${hex_str}`);
+scene_fg(scene, "hex-readout", hex_str);
+scene_text(scene, "rgb-readout", `RGB: ${dr.round()}, ${dg.round()}, ${db.round()}`);
 
 // Click counter
-scene.set("click-counter", "text.content", `Clicks: ${local.click_count}   Last: ${local.last_btn}`);
+scene_text(scene, "click-counter", `Clicks: ${local.click_count}   Last: ${local.last_btn}`);
 
 // â”€â”€ State readout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let all_ids = ["color-red-slider", "color-green-slider", "color-blue-slider", "display-hex-toggle", "display-swatch-toggle", "display-invert-toggle", "playground-reset-button", "playground-randomize-button", "planet-name-input", "planet-density-input", "view-mode-dropdown"];
@@ -202,36 +218,36 @@ for wid in all_ids {
     if gui.widget_pressed(wid) { pressed_name = wid; }
 }
 
-scene.set("state-hover",   "text.content", `Hover   : ${hover_name}`);
-scene.set("state-pressed", "text.content", `Pressed : ${pressed_name}`);
-scene.set("state-mouse",   "text.content", `Mouse   : ${gui.mouse_x}, ${gui.mouse_y}`);
-scene.set("state-lmb",     "text.content", `LMB     : ${if gui.mouse_left_down { "DOWN" } else { "up" }}`);
+scene_text(scene, "state-hover", `Hover   : ${hover_name}`);
+scene_text(scene, "state-pressed", `Pressed : ${pressed_name}`);
+scene_text(scene, "state-mouse", `Mouse   : ${gui.mouse_x}, ${gui.mouse_y}`);
+scene_text(scene, "state-lmb", `LMB     : ${if gui.mouse_left_down { "DOWN" } else { "up" }}`);
 if typed_name != local.prev_name {
-    scene.set("state-name", "text.content", `Name    : ${typed_name}`);
+    scene_text(scene, "state-name", `Name    : ${typed_name}`);
     local.prev_name = typed_name;
 }
 if gui.text("planet-density-input") != local.prev_density {
-    scene.set("state-density", "text.content", `Density : ${gui.text("planet-density-input")} (${density_value})`);
+    scene_text(scene, "state-density", `Density : ${gui.text("planet-density-input")} (${density_value})`);
     local.prev_density = gui.text("planet-density-input");
 }
 if mode_idx != local.prev_mode {
-    scene.set("state-mode", "text.content", `Mode    : ${mode_label}`);
+    scene_text(scene, "state-mode", `Mode    : ${mode_label}`);
     local.prev_mode = mode_idx;
 }
 
 if gui.has_change() {
-    scene.set("state-changed", "text.content", `Changed : ${gui.changed_widget()}`);
-    scene.set("state-changed", "text.fg", "#c0c060");
+    scene_text(scene, "state-changed", `Changed : ${gui.changed_widget()}`);
+    scene_fg(scene, "state-changed", "#c0c060");
 } else {
-    scene.set("state-changed", "text.fg", "#808090");
+    scene_fg(scene, "state-changed", "#808090");
 }
 
 // â”€â”€ Event log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 for i in 0..LOG_LINES {
     let line = if i < local.log.len() { local.log[local.log.len() - LOG_LINES + i] } else { "---" };
-    scene.set(`log-${i}`, "text.content", line);
+    scene_text(scene, `log-${i}`, line);
     let age_frac = (LOG_LINES - 1 - i).to_float() / (LOG_LINES - 1).to_float();
     let bright = 96 - (age_frac * 48.0).round();
     let hb = to_hex_byte(bright);
-    scene.set(`log-${i}`, "text.fg", `#${hb}${hb}${hb}`);
+    scene_fg(scene, `log-${i}`, `#${hb}${hb}${hb}`);
 }

@@ -28,32 +28,6 @@ fn trim_owned(value: &str) -> String {
 }
 
 #[inline]
-fn clamp01(value: f32) -> f32 {
-    finite_or_zero(value).clamp(0.0, 1.0)
-}
-
-#[inline]
-fn normalize_angle_rad(value: f32) -> f32 {
-    finite_or_zero(value).rem_euclid(std::f32::consts::TAU)
-}
-
-#[inline]
-fn nearest_angle_rad(angle: f32, reference: f32) -> f32 {
-    let tau = std::f32::consts::TAU;
-    let mut best = normalize_angle_rad(angle);
-    let reference = finite_or_zero(reference);
-    let mut best_delta = (best - reference).abs();
-    for candidate in [best + tau, best - tau] {
-        let delta = (candidate - reference).abs();
-        if delta < best_delta {
-            best = candidate;
-            best_delta = delta;
-        }
-    }
-    best
-}
-
-#[inline]
 fn json_number(value: &JsonValue) -> Option<f32> {
     match value {
         JsonValue::Number(number) => number.as_f64().map(|value| value as f32),
@@ -612,6 +586,69 @@ impl Default for ShipRuntimeInput {
 }
 
 impl ShipRuntimeInput {
+    pub fn from_parts(control: VehicleControlState, telemetry: VehicleTelemetrySnapshot) -> Self {
+        Self {
+            control,
+            telemetry,
+            ..Self::default()
+        }
+        .normalized()
+    }
+
+    pub fn from_parts_with_environment(
+        control: VehicleControlState,
+        telemetry: VehicleTelemetrySnapshot,
+        environment: VehicleEnvironmentBinding,
+    ) -> Self {
+        Self {
+            control,
+            telemetry,
+            environment: Some(environment),
+            ..Self::default()
+        }
+        .normalized()
+    }
+
+    pub fn with_dt_s(mut self, dt_s: f32) -> Self {
+        self.dt_s = dt_s;
+        self.normalized()
+    }
+
+    pub fn with_environment(mut self, environment: VehicleEnvironmentBinding) -> Self {
+        self.environment = Some(environment);
+        self.normalized()
+    }
+
+    pub fn with_surface_contact(mut self, surface_contact: bool) -> Self {
+        self.surface_contact = Some(surface_contact);
+        self.normalized()
+    }
+
+    pub fn with_surface_lock_request(mut self, enabled: bool) -> Self {
+        self.request_surface_lock = enabled;
+        self.normalized()
+    }
+
+    pub fn with_detach_request(mut self, enabled: bool) -> Self {
+        self.request_detach = enabled;
+        self.normalized()
+    }
+
+    pub fn with_local_horizon_request(mut self, enabled: bool) -> Self {
+        self.request_local_horizon = enabled;
+        self.normalized()
+    }
+
+    pub fn with_inertial_frame_request(mut self, enabled: bool) -> Self {
+        self.request_inertial_frame = enabled;
+        self.normalized()
+    }
+
+    pub fn with_prefer_grounded_on_contact(mut self, enabled: bool) -> Self {
+        self.prefer_grounded_on_contact = enabled;
+        self.normalized()
+    }
+
     pub fn normalized(mut self) -> Self {
         self.normalize();
         self
@@ -653,6 +690,19 @@ impl Default for ShipRuntimeOutput {
             reference_frame_changed: false,
             motion_changed: false,
         }
+    }
+}
+
+impl ShipRuntimeOutput {
+    pub fn normalized(mut self) -> Self {
+        self.state = self.state.normalized();
+        self.telemetry = self.telemetry.normalized();
+        self.report = self.report.normalized();
+        self
+    }
+
+    pub fn has_environment(&self) -> bool {
+        self.state.environment.is_some() || self.telemetry.environment.is_some()
     }
 }
 
@@ -768,8 +818,11 @@ pub trait ShipRuntimeModel: VehicleControllerModel {
                     || input.request_local_horizon;
         }
 
-        let motion =
-            ShipMotionState::from_telemetry(&input.telemetry, &reference_frame, environment.as_ref());
+        let motion = ShipMotionState::from_telemetry(
+            &input.telemetry,
+            &reference_frame,
+            environment.as_ref(),
+        );
         let state = ShipRuntimeState {
             surface_mode,
             reference_frame,

@@ -430,8 +430,13 @@ emitters fire proportionally to residual velocity components.
 
 ### Script State and Cross-Script Communication
 
-`local[]` storage belongs to a single behavior instance. Two Rhai behavior files
-attached to the same scene do **not** share the same `local[]` map.
+Treat `local` as one per-behavior state slot. New code should keep one owned
+state object there, typically `local.state`, and keep raw `local["..."]`
+mutation inside a dedicated `state.rhai` or `handoff.rhai` module instead of
+scattering keys through the scene entrypoint.
+
+`local.state` belongs to a single behavior instance. Two Rhai behavior files
+attached to the same scene do **not** share it.
 
 Use persistent game state for cross-script handoff:
 
@@ -443,8 +448,12 @@ game.set("/my-mod/player_id", ship_id);
 let ship_id = game.get_i("/my-mod/player_id", 0);
 ```
 
-Use `local[]` for frame-to-frame state that is private to one behavior script,
-and `game.set/get` when another behavior or scene needs to read it.
+Use `local.state` for frame-to-frame state that is private to one behavior
+script, and `game.set/get` when another behavior or scene needs to read it.
+
+Keep `main.rhai` thin: import domain modules, load/update/store `local.state`,
+and delegate gameplay/HUD/render/persist work to `mods/<mod>/scripts/...`
+modules.
 
 ### World Bounds and Wrapping
 
@@ -708,7 +717,7 @@ authoring remains useful for one-off art shots, background shells, or effects
 that are intentionally not tied to a body catalog.
 
 For cockpit-follow or parallax-heavy planet shots, Rhai can also drive
-per-sprite OBJ camera/view overrides via `scene.set(id, "obj.cam.wx", ...)`,
+per-sprite OBJ camera/view overrides via `runtime.scene.objects.find(id).set("obj.cam.wx", ...)`,
 `obj.cam.wy/wz`, and `obj.view.rx/ry/rz`, `obj.view.ux/uy/uz`,
 `obj.view.fx/fy/fz`.
 
@@ -754,12 +763,13 @@ The optional `world-base` YAML field selects the sphere topology:
 **Rhai parameter control:**
 
 ```rhai
-scene.set("planet-mesh", "world.seed", 42);
-scene.set("planet-mesh", "world.ocean_fraction", 0.55);
-scene.set("planet-mesh", "world.continent_scale", 2.5);
-scene.set("planet-mesh", "world.displacement_scale", 0.22);
-scene.set("planet-mesh", "world.coloring", "biome");
-scene.set("planet-mesh", "world.subdivisions", 64);
+let mesh = runtime.scene.objects.find("planet-mesh");
+mesh.set("world.seed", 42);
+mesh.set("world.ocean_fraction", 0.55);
+mesh.set("world.continent_scale", 2.5);
+mesh.set("world.displacement_scale", 0.22);
+mesh.set("world.coloring", "biome");
+mesh.set("world.subdivisions", 64);
 ```
 
 Any `world.*` property change rebuilds the URI key and triggers mesh
@@ -920,7 +930,7 @@ gui:
 
 **Key fields:**
 - `handle` (slider only) — sprite ID whose `offset_x` the engine sets automatically
-  based on slider value fraction. No Rhai `scene.set("handle", "position.x", ...)`
+  based on slider value fraction. No Rhai `runtime.scene.objects.find("handle").set("position.x", ...)`
   needed.
 - `hit-padding` (slider only) — expands the clickable area beyond the track bounds
   (useful for thin track sprites).
@@ -973,28 +983,80 @@ The optional `repeat` property (default `false`) indicates whether the action re
 
 ## Rhai Scripting
 
+### Canonical Runtime Model
+
+Write new Rhai against `runtime` as the root namespace.
+
+- `runtime.scene` owns live scene handles, snapshots, scene graph operations,
+  and typed scene mutations.
+- `runtime.world` owns gameplay-object lookup and entity/world mutation.
+- `runtime.services` groups transient engine services such as input, audio,
+  effects, collision, diagnostics, palette, and UI.
+- `runtime.stores` groups longer-lived stores such as game/session state,
+  level state, and persistent save state.
+
+Current builds may still inject convenience aliases such as `scene`, `world`,
+`game`, `level`, `persist`, `input`, and `audio`. Treat those as shorthand
+entry points, not as the canonical ownership model. Some domains are still
+reached through those shorthands in current builds while the runtime root
+surface is being aligned.
+
+### Recommended Module Layout
+
+Keep `main.rhai` as a thin orchestration file and move reusable logic into
+`mods/<mod>/scripts/`.
+
+```text
+mods/<mod>/
+  scenes/<scene>/main.rhai
+  scripts/
+    std/bootstrap.rhai
+    std/math.rhai
+    <domain>/state.rhai
+    <domain>/hud.rhai
+    <domain>/render.rhai
+```
+
+Recommended entrypoint shape:
+
+```rhai
+import "std/bootstrap" as bootstrap;
+import "vehicle/state" as state;
+import "vehicle/hud" as hud;
+
+local = bootstrap::ensure(local);
+let s = state::load(local);
+s = state::step(s, runtime, input, frame_ms);
+hud::render(s, runtime);
+local = state::store(local, s);
+```
+
 ### Scope Variables
 
-| Variable    | Type          | Contents                                             |
-|-------------|---------------|------------------------------------------------------|
-| `time`      | map           | `elapsed_ms`, `delta_ms`, `stage_elapsed_ms`         |
-| `params`    | map           | Effect/behavior parameters from YAML                 |
-| `regions`   | map           | Named layout regions                                 |
-| `objects`   | map           | Scene object instances                               |
-| `state`     | dynamic       | Persistent key-value state (JSON pointer paths)      |
-| `ui`        | UiApi         | Focus, visibility, submit/change events              |
-| `game`      | GameApi       | Global game state + scene transitions                |
-| `level`     | LevelApi      | Active level payload + level catalog                 |
-| `world`     | WorldApi      | Gameplay entity world (spawn/query/physics)          |
-| `collision` | CollisionApi  | Collision event queries for the current frame        |
-| `effects`   | EffectsApi    | Runtime-triggerable visual effects (shake, flash)    |
-| `audio`     | AudioApi      | SFX events, cues, sequenced songs                    |
-| `input`     | InputApi      | Key state + named action bindings                    |
-| `scene`     | SceneApi      | Scene object mutations (text, visibility, vector)    |
-| `persist`   | PersistApi    | On-disk save state                                   |
-| `diag`      | DebugApi      | Debug logging + diagnostics                          |
-| `key`       | map           | Current key event (`code`, `char`, `kind`)           |
-| `menu`      | map           | Menu state (`index`, `items`, `selection`)           |
+| Variable           | Type          | Preferred use |
+|--------------------|---------------|---------------|
+| `runtime`          | `RuntimeApi`  | Canonical root namespace for scene, world, service, and store access |
+| `scene`            | `SceneApi`    | Concise scene-root shorthand; prefer the runtime-root mental model |
+| `world`            | `WorldApi`    | Gameplay shorthand; canonical ownership lives under `runtime.world` |
+| `game`             | `GameApi`     | Session store shorthand; conceptually under `runtime.stores` |
+| `level`            | `LevelApi`    | Level store shorthand; conceptually under `runtime.stores` |
+| `persist`          | `PersistApi`  | Persistent store shorthand; conceptually under `runtime.stores` |
+| `input`            | `InputApi`    | Service shorthand; conceptually under `runtime.services` |
+| `audio`            | `AudioApi`    | Service shorthand; conceptually under `runtime.services` |
+| `effects`          | `EffectsApi`  | Service shorthand; conceptually under `runtime.services` |
+| `collision`        | `CollisionApi`| Service shorthand; conceptually under `runtime.services` |
+| `ui`               | `UiApi`       | UI service shorthand |
+| `diag`             | `DebugApi`    | Diagnostics service shorthand |
+| `time`             | `TimeApi`     | Typed frame/stage timing helpers |
+| `params`           | `map`         | Effect/behavior parameters from YAML |
+| `regions`          | `map`         | Named layout regions |
+| `local`            | `dynamic`     | Per-behavior state slot; prefer a single owned `local.state` object |
+| `frame_ms`         | `int`         | Actual frame delta in milliseconds |
+| `scene_elapsed_ms` | `int`         | Total elapsed ms since scene start |
+| `stage_elapsed_ms` | `int`         | Total elapsed ms since current stage start |
+
+This guide intentionally omits compatibility maps such as `objects`, `state`,
+`menu`, and `key` from the primary authoring surface.
 
 ### `world.*` — Entity World
 
@@ -1050,12 +1112,20 @@ e.set_heading(h)                              // set heading (0-31)
 e.lifetime_remaining()                        // ms until expiry, or -1
 e.despawn()                                   // despawn + auto-clean bound visuals
 
+// Lookup-oriented gameplay object handle
+let obj = world.objects.find("ship-shadow");  // bound visual id or numeric entity id
+obj.exists()                                  // lookup succeeded?
+obj.inspect()                                 // identity/data snapshot map
+obj.get("hp")                                 // generic data read
+obj.set("hp", 42)                             // generic data write
+
 // Transform & physics
 world.transform(id)                           // #{x, y, heading} map
 world.set_transform(id, x, y, heading)
 world.physics(id)                             // #{vx, vy, ax, ay, drag, max_speed}
 world.set_physics(id, vx, vy, ax, ay, drag, max_speed)
-world.body_info(body_id)                      // celestial body map (catalog + resolved fields)
+world.body(body_id)                           // typed celestial body snapshot
+world.body(body_id).inspect()                 // map snapshot only when typed fields are not enough
 world.body_upsert(body_id, patch_map)         // runtime mutate/create celestial body fields
 world.body_patch(body_id, patch_map)          // alias of body_upsert for patch-style usage
 world.body_gravity(body_id, x, y)             // gravity vector at world position
@@ -1187,34 +1257,44 @@ Audio event banks live at `<mod_root>/audio/sfx.yaml` (NOT `assets/audio/`).
 ### `scene.*` — Scene Object Mutations
 
 ```rhai
-scene.get(target)                           // read a scene object value
-scene.set(target, path, value)             // write a value
-scene.set_visible(id, bool)                 // show/hide a sprite or layer
-scene.set_vector(id, points, fg, bg)        // set all vector props at once
-scene.batch(id, map)                        // set multiple props: #{fg:.., bg:.., points:..}
+runtime.scene.objects.find("hud-score")       // primary live scene handle lookup
+scene.object("hud-score")                     // concise live scene handle shorthand
+scene.inspect(target)                         // stable snapshot map for last published scene state
+scene.region(target)                          // stable runtime layout snapshot
+runtime.scene.objects.find(target).set(path, value)
+scene.object(target).set(path, value)
 scene.mutate(#{ ... })                      // apply a typed scene mutation request
-scene.spawn_object(template, target)        // clone a scene object/layer template at runtime
-scene.despawn_object(target)                // soft-despawn a scene object/layer
+scene.instantiate(template, target)          // clone a scene object/layer template at runtime
+scene.despawn(target)                        // soft-despawn a scene object/layer
 ```
 
 Important runtime rules:
 
+- `runtime.scene.objects.find(target)` returns the primary live scene handle.
+  `scene.object(target)` is the concise root-scene shorthand for the same live
+  handle.
+- `scene.inspect(target)` and `scene.region(target)` return snapshots. Use them
+  for stable inspection, diagnostics, or capability checks rather than for
+  same-frame read-after-write flows.
+- `world.objects.find(target)` is the gameplay lookup surface for resolving an
+  entity from a runtime id or bound visual target. Use `world.entity(id)` when
+  the script needs transform/physics/controller helpers instead of generic
+  lookup and data access.
 - Scene runtime state is immediate-mode. Offsets, visibility, and similar
   transient runtime values are reset before behavior execution each frame, so
   camera-relative parallax and other scripted visual state must be re-applied
   every frame.
-- `scene.spawn_object(template, target)` reserves `target` for the cloned layer
+- `scene.instantiate(template, target)` reserves `target` for the cloned layer
   or object itself. If the template contains child sprites, continue mutating
   those by their authored sprite `id` values rather than by reusing the runtime
   clone target name for both parent and child lookups.
 - For camera-follow and parallax logic, keep values in float space inside Rhai
   and let the runtime perform the final rounding pass. Pre-truncating in script
   makes near layers and particle-bound visuals step more visibly on SDL2.
-- `scene.set(...)` is now typed-first. Supported paths are translated into typed
-  mutation requests before runtime application. Unsupported paths do not enqueue
-  runtime mutation work, so docs and scripts should treat `scene.mutate(...)` as
-  the strongest contract and `scene.set(...)` as the ergonomic typed alias for
-  supported authored property paths.
+- `runtime.scene.objects.find(...).set(...)` is the primary per-object write
+  path; `scene.object(target).set(...)` is the concise root-scene shorthand.
+  New authoring guidance should lead with runtime handles, not with compatibility
+  helper shorthands from older scripts.
 
 ### `game.*` — Global Game State & Navigation
 
@@ -1345,6 +1425,18 @@ let msg = "line one\nline two";
 5. Sprite timing falls within scene duration.
 6. A smoke run (`cargo run -p app`) starts without compile errors.
 7. `cargo run -p app -- --mod-source=mods/<mod> --check-scenes` reports zero warnings before merge.
+8. New Rhai uses `runtime` as the canonical root; top-level aliases are treated as shorthand, not as the primary model.
+9. `main.rhai` stays thin and delegates domain logic to `mods/<mod>/scripts/...` modules.
+10. Suggested migration grep gates for actively maintained mods stay clean:
+
+```bash
+rg -n "\\bscene\\.(get|set)\\(" mods AUTHORING.md ARCHITECTURE.md SCRIPTING-API.md
+rg -n "type_of\\(local\\)" mods -g '*.rhai'
+rg -n "runtime_scene_set\\(" mods -g '*.rhai'
+```
+
+As a policy, raw `local["..."]` access should stay inside dedicated
+`state*.rhai` / `handoff*.rhai` modules rather than in scene entrypoints.
 
 ---
 

@@ -21,10 +21,13 @@
 use engine_game::GameplayWorld;
 use engine_vehicle::{
     builtin_ship_profile_tuning, next_builtin_ship_profile_id, normalize_vehicle_profile_id,
-    ShipModel, ShipRuntimeInput, ShipRuntimeModel, ShipRuntimeOutput, ShipRuntimeState,
-    VehicleAssistState, VehicleButtonInput, VehicleControlState, VehicleInputIntent,
-    VehicleLaunchPacket, VehiclePacketEnvelope, VehiclePacketTelemetry, VehiclePacketVehicle,
-    VehicleReturnPacket, VehicleShipProfileTuning, DEFAULT_VEHICLE_PROFILE_ID,
+    ShipModel, ShipMotionState, ShipReferenceFrameState, ShipRuntimeInput, ShipRuntimeModel,
+    ShipRuntimeOutput, ShipRuntimeState, ShipRuntimeStepReport, VehicleAssistState, VehicleBasis3,
+    VehicleBodySnapshot, VehicleButtonInput, VehicleControlState, VehicleEnvironmentBinding,
+    VehicleEnvironmentSnapshot, VehicleInputIntent, VehicleLaunchPacket, VehiclePacketEnvelope,
+    VehiclePacketTelemetry, VehiclePacketVehicle, VehicleReferenceFrame, VehicleReturnPacket,
+    VehicleSessionState, VehicleShipProfileTuning, VehicleTelemetrySnapshot,
+    DEFAULT_VEHICLE_PROFILE_ID,
 };
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde::{de::DeserializeOwned, Serialize};
@@ -99,15 +102,31 @@ where
     rhai_map_to_typed(map).unwrap_or_default()
 }
 
+fn json_map_to_rhai_map(map: &serde_json::Map<String, serde_json::Value>) -> RhaiMap {
+    json_to_rhai_dynamic(&serde_json::Value::Object(map.clone()))
+        .try_cast::<RhaiMap>()
+        .unwrap_or_default()
+}
+
 fn register_vehicle_value_types(engine: &mut RhaiEngine) {
     engine.register_type_with_name::<VehicleAssistState>("VehicleAssistState");
     engine.register_type_with_name::<VehicleButtonInput>("VehicleButtonInput");
     engine.register_type_with_name::<VehicleShipProfileTuning>("VehicleShipProfileTuning");
     engine.register_type_with_name::<VehicleInputIntent>("VehicleInputIntent");
     engine.register_type_with_name::<VehicleControlState>("VehicleControlState");
+    engine.register_type_with_name::<VehicleReferenceFrame>("VehicleReferenceFrame");
+    engine.register_type_with_name::<VehicleEnvironmentBinding>("VehicleEnvironmentBinding");
+    engine.register_type_with_name::<VehicleTelemetrySnapshot>("VehicleTelemetrySnapshot");
+    engine.register_type_with_name::<VehicleBasis3>("VehicleBasis3");
+    engine.register_type_with_name::<VehicleBodySnapshot>("VehicleBodySnapshot");
+    engine.register_type_with_name::<VehicleEnvironmentSnapshot>("VehicleEnvironmentSnapshot");
+    engine.register_type_with_name::<ShipMotionState>("ShipMotionState");
+    engine.register_type_with_name::<ShipReferenceFrameState>("ShipReferenceFrameState");
     engine.register_type_with_name::<ShipRuntimeState>("ShipRuntimeState");
     engine.register_type_with_name::<ShipRuntimeInput>("ShipRuntimeInput");
+    engine.register_type_with_name::<ShipRuntimeStepReport>("ShipRuntimeStepReport");
     engine.register_type_with_name::<ShipRuntimeOutput>("ShipRuntimeOutput");
+    engine.register_type_with_name::<VehicleSessionState>("VehicleSessionState");
     engine.register_type_with_name::<VehiclePacketEnvelope>("VehiclePacketEnvelope");
     engine.register_type_with_name::<VehiclePacketTelemetry>("VehiclePacketTelemetry");
     engine.register_type_with_name::<VehiclePacketVehicle>("VehiclePacketVehicle");
@@ -116,16 +135,56 @@ fn register_vehicle_value_types(engine: &mut RhaiEngine) {
 }
 
 fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
+    engine.register_get("alt_hold", |assists: &mut VehicleAssistState| {
+        assists.alt_hold
+    });
+    engine.register_get("heading_hold", |assists: &mut VehicleAssistState| {
+        assists.heading_hold
+    });
     engine.register_fn("to_map", |assists: &mut VehicleAssistState| {
         typed_to_rhai_map(assists)
     });
     engine.register_fn("any_enabled", |assists: &mut VehicleAssistState| {
         assists.any_enabled()
     });
+    engine.register_fn(
+        "assist_state_with",
+        |_assists: &mut VehicleAssistState, alt_hold: bool, heading_hold: bool| {
+            VehicleAssistState::from_flags(alt_hold, heading_hold)
+        },
+    );
 
     engine.register_fn("normalized", |buttons: &mut VehicleButtonInput| *buttons);
     engine.register_fn("to_map", |buttons: &mut VehicleButtonInput| {
         typed_to_rhai_map(buttons)
+    });
+    engine.register_get("forward", |buttons: &mut VehicleButtonInput| {
+        buttons.forward
+    });
+    engine.register_get("reverse", |buttons: &mut VehicleButtonInput| {
+        buttons.reverse
+    });
+    engine.register_get("strafe_left", |buttons: &mut VehicleButtonInput| {
+        buttons.strafe_left
+    });
+    engine.register_get("strafe_right", |buttons: &mut VehicleButtonInput| {
+        buttons.strafe_right
+    });
+    engine.register_get("lift_up", |buttons: &mut VehicleButtonInput| {
+        buttons.lift_up
+    });
+    engine.register_get("lift_down", |buttons: &mut VehicleButtonInput| {
+        buttons.lift_down
+    });
+    engine.register_get("yaw_left", |buttons: &mut VehicleButtonInput| {
+        buttons.yaw_left
+    });
+    engine.register_get("yaw_right", |buttons: &mut VehicleButtonInput| {
+        buttons.yaw_right
+    });
+    engine.register_get("boost", |buttons: &mut VehicleButtonInput| buttons.boost);
+    engine.register_get("main_engine", |buttons: &mut VehicleButtonInput| {
+        buttons.main_engine
     });
     engine.register_fn("is_idle", |buttons: &mut VehicleButtonInput| {
         buttons.is_idle()
@@ -139,6 +198,42 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
             buttons.control_state(profile_id, assists).normalized()
         },
     );
+    engine.register_get("normal", |basis: &mut VehicleBasis3| {
+        basis.normal
+            .iter()
+            .map(|value| rhai::Dynamic::from_float(*value as rhai::FLOAT))
+            .collect::<rhai::Array>()
+    });
+    engine.register_get("forward", |basis: &mut VehicleBasis3| {
+        basis.forward
+            .iter()
+            .map(|value| rhai::Dynamic::from_float(*value as rhai::FLOAT))
+            .collect::<rhai::Array>()
+    });
+    engine.register_get("right", |basis: &mut VehicleBasis3| {
+        basis.right
+            .iter()
+            .map(|value| rhai::Dynamic::from_float(*value as rhai::FLOAT))
+            .collect::<rhai::Array>()
+    });
+    engine.register_get("normal_x", |basis: &mut VehicleBasis3| basis.normal[0] as rhai::FLOAT);
+    engine.register_get("normal_y", |basis: &mut VehicleBasis3| basis.normal[1] as rhai::FLOAT);
+    engine.register_get("normal_z", |basis: &mut VehicleBasis3| basis.normal[2] as rhai::FLOAT);
+    engine.register_get(
+        "forward_x",
+        |basis: &mut VehicleBasis3| basis.forward[0] as rhai::FLOAT,
+    );
+    engine.register_get(
+        "forward_y",
+        |basis: &mut VehicleBasis3| basis.forward[1] as rhai::FLOAT,
+    );
+    engine.register_get(
+        "forward_z",
+        |basis: &mut VehicleBasis3| basis.forward[2] as rhai::FLOAT,
+    );
+    engine.register_get("right_x", |basis: &mut VehicleBasis3| basis.right[0] as rhai::FLOAT);
+    engine.register_get("right_y", |basis: &mut VehicleBasis3| basis.right[1] as rhai::FLOAT);
+    engine.register_get("right_z", |basis: &mut VehicleBasis3| basis.right[2] as rhai::FLOAT);
 
     engine.register_fn("normalized", |tuning: &mut VehicleShipProfileTuning| {
         tuning.normalized()
@@ -146,12 +241,169 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_fn("to_map", |tuning: &mut VehicleShipProfileTuning| {
         typed_to_rhai_map(tuning)
     });
+    engine.register_get(
+        "forward_accel_g",
+        |tuning: &mut VehicleShipProfileTuning| tuning.forward_accel_g as rhai::FLOAT,
+    );
+    engine.register_get("side_accel_g", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.side_accel_g as rhai::FLOAT
+    });
+    engine.register_get("lift_accel_g", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.lift_accel_g as rhai::FLOAT
+    });
+    engine.register_get("main_engine_g", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.main_engine_g as rhai::FLOAT
+    });
+    engine.register_get(
+        "max_speed_ratio",
+        |tuning: &mut VehicleShipProfileTuning| tuning.max_speed_ratio as rhai::FLOAT,
+    );
+    engine.register_get("max_vrad_ratio", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.max_vrad_ratio as rhai::FLOAT
+    });
+    engine.register_get("yaw_response", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.yaw_response as rhai::FLOAT
+    });
+    engine.register_get("yaw_damp", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.yaw_damp as rhai::FLOAT
+    });
+    engine.register_get("yaw_max", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.yaw_max as rhai::FLOAT
+    });
+    engine.register_get(
+        "surface_contact_altitude_threshold_km",
+        |tuning: &mut VehicleShipProfileTuning| {
+            tuning.surface_contact_altitude_threshold_km as rhai::FLOAT
+        },
+    );
+    engine.register_get(
+        "surface_clearance_km",
+        |tuning: &mut VehicleShipProfileTuning| tuning.surface_clearance_km as rhai::FLOAT,
+    );
+    engine.register_get(
+        "surface_clearance_min_wu",
+        |tuning: &mut VehicleShipProfileTuning| tuning.surface_clearance_min_wu as rhai::FLOAT,
+    );
+    engine.register_get(
+        "takeoff_lift_threshold",
+        |tuning: &mut VehicleShipProfileTuning| tuning.takeoff_lift_threshold as rhai::FLOAT,
+    );
+    engine.register_get("linear_damp", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.linear_damp as rhai::FLOAT
+    });
+    engine.register_get("side_trim", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.side_trim as rhai::FLOAT
+    });
+    engine.register_get("side_thrust_trim", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.side_thrust_trim as rhai::FLOAT
+    });
+    engine.register_get("camera_sway_tau", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.camera_sway_tau as rhai::FLOAT
+    });
+    engine.register_get("camera_sway_gain", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.camera_sway_gain as rhai::FLOAT
+    });
+    engine.register_get("heading_hold_kp", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.heading_hold_kp as rhai::FLOAT
+    });
+    engine.register_get("alt_hold_kp", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.alt_hold_kp as rhai::FLOAT
+    });
+    engine.register_get("alt_hold_kd", |tuning: &mut VehicleShipProfileTuning| {
+        tuning.alt_hold_kd as rhai::FLOAT
+    });
+    engine.register_fn(
+        "forward_accel_wu_s2",
+        |tuning: &mut VehicleShipProfileTuning, surface_gravity_wu_s2: rhai::FLOAT| {
+            tuning.forward_accel_wu_s2(surface_gravity_wu_s2 as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "side_accel_wu_s2",
+        |tuning: &mut VehicleShipProfileTuning, surface_gravity_wu_s2: rhai::FLOAT| {
+            tuning.side_accel_wu_s2(surface_gravity_wu_s2 as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "lift_accel_wu_s2",
+        |tuning: &mut VehicleShipProfileTuning, surface_gravity_wu_s2: rhai::FLOAT| {
+            tuning.lift_accel_wu_s2(surface_gravity_wu_s2 as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "main_engine_accel_wu_s2",
+        |tuning: &mut VehicleShipProfileTuning, surface_gravity_wu_s2: rhai::FLOAT| {
+            tuning.main_engine_accel_wu_s2(surface_gravity_wu_s2 as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "max_speed_wu_s",
+        |tuning: &mut VehicleShipProfileTuning, surface_circular_speed_wu_s: rhai::FLOAT| {
+            tuning.max_speed_wu_s(surface_circular_speed_wu_s as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "max_radial_speed_wu_s",
+        |tuning: &mut VehicleShipProfileTuning, surface_circular_speed_wu_s: rhai::FLOAT| {
+            tuning.max_radial_speed_wu_s(surface_circular_speed_wu_s as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "surface_clearance_wu",
+        |tuning: &mut VehicleShipProfileTuning, km_per_wu: rhai::FLOAT| {
+            tuning.surface_clearance_wu(km_per_wu as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "yaw_blend",
+        |tuning: &mut VehicleShipProfileTuning, dt_s: rhai::FLOAT| {
+            tuning.yaw_blend(dt_s as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "camera_sway_alpha",
+        |tuning: &mut VehicleShipProfileTuning, dt_s: rhai::FLOAT| {
+            tuning.camera_sway_alpha(dt_s as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "camera_sway_target",
+        |tuning: &mut VehicleShipProfileTuning, yaw_rate_rad_s: rhai::FLOAT| {
+            tuning.camera_sway_target(yaw_rate_rad_s as f32) as rhai::FLOAT
+        },
+    );
 
     engine.register_fn("normalized", |intent: &mut VehicleInputIntent| {
         intent.normalized()
     });
     engine.register_fn("to_map", |intent: &mut VehicleInputIntent| {
         typed_to_rhai_map(intent)
+    });
+    engine.register_get("throttle", |intent: &mut VehicleInputIntent| {
+        intent.throttle as rhai::FLOAT
+    });
+    engine.register_get("yaw", |intent: &mut VehicleInputIntent| {
+        intent.yaw as rhai::FLOAT
+    });
+    engine.register_get("strafe", |intent: &mut VehicleInputIntent| {
+        intent.strafe as rhai::FLOAT
+    });
+    engine.register_get("lift", |intent: &mut VehicleInputIntent| {
+        intent.lift as rhai::FLOAT
+    });
+    engine.register_get("pitch", |intent: &mut VehicleInputIntent| {
+        intent.pitch as rhai::FLOAT
+    });
+    engine.register_get("roll", |intent: &mut VehicleInputIntent| {
+        intent.roll as rhai::FLOAT
+    });
+    engine.register_get("brake", |intent: &mut VehicleInputIntent| intent.brake);
+    engine.register_get("boost", |intent: &mut VehicleInputIntent| intent.boost);
+    engine.register_get("stabilize", |intent: &mut VehicleInputIntent| {
+        intent.stabilize
+    });
+    engine.register_get("main_engine", |intent: &mut VehicleInputIntent| {
+        intent.main_engine
     });
     engine.register_fn("is_idle", |intent: &mut VehicleInputIntent| {
         intent.is_idle()
@@ -169,6 +421,42 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_fn("to_map", |control: &mut VehicleControlState| {
         typed_to_rhai_map(control)
     });
+    engine.register_get("profile_id", |control: &mut VehicleControlState| {
+        control.profile_id.clone()
+    });
+    engine.register_get("throttle", |control: &mut VehicleControlState| {
+        control.throttle as rhai::FLOAT
+    });
+    engine.register_get("yaw", |control: &mut VehicleControlState| {
+        control.yaw as rhai::FLOAT
+    });
+    engine.register_get("strafe", |control: &mut VehicleControlState| {
+        control.strafe as rhai::FLOAT
+    });
+    engine.register_get("lift", |control: &mut VehicleControlState| {
+        control.lift as rhai::FLOAT
+    });
+    engine.register_get("pitch", |control: &mut VehicleControlState| {
+        control.pitch as rhai::FLOAT
+    });
+    engine.register_get("roll", |control: &mut VehicleControlState| {
+        control.roll as rhai::FLOAT
+    });
+    engine.register_get("boost_scale", |control: &mut VehicleControlState| {
+        control.boost_scale as rhai::FLOAT
+    });
+    engine.register_get("brake_active", |control: &mut VehicleControlState| {
+        control.brake_active
+    });
+    engine.register_get("stabilize_active", |control: &mut VehicleControlState| {
+        control.stabilize_active
+    });
+    engine.register_get("main_engine_active", |control: &mut VehicleControlState| {
+        control.main_engine_active
+    });
+    engine.register_get("assists", |control: &mut VehicleControlState| {
+        control.assists
+    });
     engine.register_fn("intent", |control: &mut VehicleControlState| {
         control.intent()
     });
@@ -184,6 +472,54 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
             .ship_profile()
             .map(|profile| profile.profile_id().to_string())
     });
+    engine.register_fn(
+        "has_target_altitude_km",
+        |control: &mut VehicleControlState| control.target_altitude_km.is_some(),
+    );
+    engine.register_fn(
+        "target_altitude_km",
+        |control: &mut VehicleControlState, fallback: rhai::FLOAT| {
+            control.target_altitude_km.unwrap_or(fallback as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "has_target_heading_rad",
+        |control: &mut VehicleControlState| control.target_heading_rad.is_some(),
+    );
+    engine.register_fn(
+        "target_heading_rad",
+        |control: &mut VehicleControlState, fallback: rhai::FLOAT| {
+            control.target_heading_rad.unwrap_or(fallback as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "set_target_altitude_km",
+        |control: &mut VehicleControlState, target_altitude_km: rhai::FLOAT| {
+            control.set_altitude_hold(true, Some(target_altitude_km as f32));
+            control.clone().normalized()
+        },
+    );
+    engine.register_fn(
+        "clear_target_altitude_km",
+        |control: &mut VehicleControlState| {
+            control.target_altitude_km = None;
+            control.clone().normalized()
+        },
+    );
+    engine.register_fn(
+        "set_target_heading_rad",
+        |control: &mut VehicleControlState, target_heading_rad: rhai::FLOAT| {
+            control.set_heading_hold(true, Some(target_heading_rad as f32));
+            control.clone().normalized()
+        },
+    );
+    engine.register_fn(
+        "clear_target_heading_rad",
+        |control: &mut VehicleControlState| {
+            control.target_heading_rad = None;
+            control.clone().normalized()
+        },
+    );
     engine.register_fn("cycle_ship_profile", |control: &mut VehicleControlState| {
         control.cycle_ship_profile().to_string()
     });
@@ -208,11 +544,338 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
         |control: &mut VehicleControlState| control.toggle_heading_hold(None),
     );
 
+    engine.register_get("heading_rad", |reference: &mut VehicleReferenceFrame| {
+        reference.heading_rad as rhai::FLOAT
+    });
+    engine.register_get("heading_deg", |reference: &mut VehicleReferenceFrame| {
+        reference.heading_deg() as rhai::FLOAT
+    });
+    engine.register_get("forward_x", |reference: &mut VehicleReferenceFrame| {
+        reference.forward_x as rhai::FLOAT
+    });
+    engine.register_get("forward_y", |reference: &mut VehicleReferenceFrame| {
+        reference.forward_y as rhai::FLOAT
+    });
+    engine.register_get("right_x", |reference: &mut VehicleReferenceFrame| {
+        reference.right_x as rhai::FLOAT
+    });
+    engine.register_get("right_y", |reference: &mut VehicleReferenceFrame| {
+        reference.right_y as rhai::FLOAT
+    });
+
+    engine.register_fn(
+        "normalized",
+        |environment: &mut VehicleEnvironmentBinding| environment.clone().normalized(),
+    );
+    engine.register_fn("to_map", |environment: &mut VehicleEnvironmentBinding| {
+        typed_to_rhai_map(environment)
+    });
+    engine.register_get("extras", |environment: &mut VehicleEnvironmentBinding| {
+        json_map_to_rhai_map(&environment.extras)
+    });
+    engine.register_get("body_extras", |environment: &mut VehicleEnvironmentBinding| {
+        json_map_to_rhai_map(&environment.body_extras)
+    });
+    engine.register_get("body_id", |environment: &mut VehicleEnvironmentBinding| {
+        environment.body_id.clone()
+    });
+    engine.register_get(
+        "body_kind",
+        |environment: &mut VehicleEnvironmentBinding| environment.body_kind.clone(),
+    );
+    engine.register_get(
+        "surface_radius_wu",
+        |environment: &mut VehicleEnvironmentBinding| environment.surface_radius_wu as rhai::FLOAT,
+    );
+    engine.register_get(
+        "render_radius_wu",
+        |environment: &mut VehicleEnvironmentBinding| environment.render_radius_wu as rhai::FLOAT,
+    );
+    engine.register_get(
+        "real_radius_km",
+        |environment: &mut VehicleEnvironmentBinding| environment.real_radius_km as rhai::FLOAT,
+    );
+    engine.register_get(
+        "scale_divisor",
+        |environment: &mut VehicleEnvironmentBinding| environment.scale_divisor as rhai::FLOAT,
+    );
+    engine.register_get(
+        "gravity_mu_km3_s2",
+        |environment: &mut VehicleEnvironmentBinding| environment.gravity_mu_km3_s2 as rhai::FLOAT,
+    );
+    engine.register_get(
+        "surface_gravity_mps2",
+        |environment: &mut VehicleEnvironmentBinding| {
+            environment.surface_gravity_mps2 as rhai::FLOAT
+        },
+    );
+    engine.register_get(
+        "atmosphere_top_km",
+        |environment: &mut VehicleEnvironmentBinding| environment.atmosphere_top_km as rhai::FLOAT,
+    );
+    engine.register_get(
+        "atmosphere_dense_start_km",
+        |environment: &mut VehicleEnvironmentBinding| {
+            environment.atmosphere_dense_start_km as rhai::FLOAT
+        },
+    );
+    engine.register_get(
+        "atmosphere_drag_max",
+        |environment: &mut VehicleEnvironmentBinding| {
+            environment.atmosphere_drag_max as rhai::FLOAT
+        },
+    );
+    engine.register_fn("has_body", |environment: &mut VehicleEnvironmentBinding| {
+        environment.has_body()
+    });
+    engine.register_fn(
+        "has_atmosphere",
+        |environment: &mut VehicleEnvironmentBinding| environment.has_atmosphere(),
+    );
+    engine.register_fn(
+        "km_per_wu",
+        |environment: &mut VehicleEnvironmentBinding| environment.km_per_wu() as rhai::FLOAT,
+    );
+    engine.register_fn(
+        "surface_gravity_wu_s2",
+        |environment: &mut VehicleEnvironmentBinding| {
+            environment.surface_gravity_wu_s2() as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "circular_orbit_speed_wu_s",
+        |environment: &mut VehicleEnvironmentBinding| {
+            environment.circular_orbit_speed_wu_s() as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "altitude_km_from_radius_wu",
+        |environment: &mut VehicleEnvironmentBinding, radius_wu: rhai::FLOAT| {
+            environment.altitude_km_from_radius_wu(radius_wu as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "radius_wu_from_altitude_km",
+        |environment: &mut VehicleEnvironmentBinding, altitude_km: rhai::FLOAT| {
+            environment.radius_wu_from_altitude_km(altitude_km as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "atmosphere_drag_factor",
+        |environment: &mut VehicleEnvironmentBinding, altitude_wu: rhai::FLOAT| {
+            environment.atmosphere_drag_factor(altitude_wu as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "carrier_speed_wu_s",
+        |environment: &mut VehicleEnvironmentBinding, radius_wu: rhai::FLOAT| {
+            environment.carrier_speed_wu_s(radius_wu as f32) as rhai::FLOAT
+        },
+    );
+    engine.register_fn(
+        "to_snapshot",
+        |environment: &mut VehicleEnvironmentBinding| environment.to_snapshot(),
+    );
+
+    engine.register_fn("normalized", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.clone().normalized()
+    });
+    engine.register_fn("to_map", |telemetry: &mut VehicleTelemetrySnapshot| {
+        typed_to_rhai_map(telemetry)
+    });
+    engine.register_get("basis", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.basis.unwrap_or_default()
+    });
+    engine.register_get("reference", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.reference
+    });
+    engine.register_get("heading_deg", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.heading_deg as rhai::FLOAT
+    });
+    engine.register_get(
+        "surface_mode",
+        |telemetry: &mut VehicleTelemetrySnapshot| {
+            serde_json::to_value(telemetry.surface_mode)
+                .ok()
+                .and_then(|value| value.as_str().map(str::to_string))
+                .unwrap_or_else(|| "detached".to_string())
+        },
+    );
+    engine.register_get(
+        "ship_reference",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.ship_reference.clone(),
+    );
+    engine.register_get("position_x", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.position_x as rhai::FLOAT
+    });
+    engine.register_get("position_y", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.position_y as rhai::FLOAT
+    });
+    engine.register_get("altitude_km", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.altitude_km as rhai::FLOAT
+    });
+    engine.register_get(
+        "tangent_speed_kms",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.tangent_speed_kms as rhai::FLOAT,
+    );
+    engine.register_get(
+        "radial_speed_kms",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.radial_speed_kms as rhai::FLOAT,
+    );
+    engine.register_get(
+        "spawn_angle_deg",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.spawn_angle_deg as rhai::FLOAT,
+    );
+    engine.register_get("camera_sway", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.camera_sway as rhai::FLOAT
+    });
+    engine.register_get("radius_wu", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.radius_wu as rhai::FLOAT
+    });
+    engine.register_get(
+        "forward_speed_wu_s",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.forward_speed_wu_s as rhai::FLOAT,
+    );
+    engine.register_get(
+        "lateral_speed_wu_s",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.lateral_speed_wu_s as rhai::FLOAT,
+    );
+    engine.register_get(
+        "radial_speed_wu_s",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.radial_speed_wu_s as rhai::FLOAT,
+    );
+    engine.register_get(
+        "yaw_rate_rad_s",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.yaw_rate_rad_s as rhai::FLOAT,
+    );
+    engine.register_get("grounded", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.grounded
+    });
+    engine.register_fn("heading_rad", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.heading_rad() as rhai::FLOAT
+    });
+    engine.register_fn("has_basis", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.has_basis()
+    });
+    engine.register_fn(
+        "has_environment",
+        |telemetry: &mut VehicleTelemetrySnapshot| telemetry.has_environment(),
+    );
+    engine.register_fn(
+        "with_environment",
+        |telemetry: &mut VehicleTelemetrySnapshot, environment: VehicleEnvironmentBinding| {
+            telemetry.clone().with_environment(environment)
+        },
+    );
+    engine.register_fn(
+        "with_ship_runtime_state",
+        |telemetry: &mut VehicleTelemetrySnapshot, state: ShipRuntimeState| {
+            telemetry.clone().with_ship_runtime_state(&state)
+        },
+    );
+    engine.register_fn("to_packet", |telemetry: &mut VehicleTelemetrySnapshot| {
+        telemetry.to_packet()
+    });
+
+    engine.register_get("radius_wu", |motion: &mut ShipMotionState| {
+        motion.radius_wu as rhai::FLOAT
+    });
+    engine.register_get("forward_speed_wu_s", |motion: &mut ShipMotionState| {
+        motion.forward_speed_wu_s as rhai::FLOAT
+    });
+    engine.register_get("lateral_speed_wu_s", |motion: &mut ShipMotionState| {
+        motion.lateral_speed_wu_s as rhai::FLOAT
+    });
+    engine.register_get("radial_speed_wu_s", |motion: &mut ShipMotionState| {
+        motion.radial_speed_wu_s as rhai::FLOAT
+    });
+    engine.register_get("yaw_rate_rad_s", |motion: &mut ShipMotionState| {
+        motion.yaw_rate_rad_s as rhai::FLOAT
+    });
+    engine.register_get("camera_sway", |motion: &mut ShipMotionState| {
+        motion.camera_sway as rhai::FLOAT
+    });
+    engine.register_fn("is_configured", |motion: &mut ShipMotionState| {
+        motion.is_configured()
+    });
+
+    engine.register_get("reference", |state: &mut ShipReferenceFrameState| {
+        state.reference
+    });
+    engine.register_get("body_id", |state: &mut ShipReferenceFrameState| {
+        state.body_id.clone()
+    });
+    engine.register_get("body_kind", |state: &mut ShipReferenceFrameState| {
+        state.body_kind.clone()
+    });
+    engine.register_get("anchor_angle_deg", |state: &mut ShipReferenceFrameState| {
+        state.anchor_angle_deg as rhai::FLOAT
+    });
+    engine.register_get("radius_wu", |state: &mut ShipReferenceFrameState| {
+        state.radius_wu as rhai::FLOAT
+    });
+    engine.register_get("altitude_km", |state: &mut ShipReferenceFrameState| {
+        state.altitude_km as rhai::FLOAT
+    });
+    engine.register_get("normal_x", |state: &mut ShipReferenceFrameState| {
+        state.normal_x as rhai::FLOAT
+    });
+    engine.register_get("normal_y", |state: &mut ShipReferenceFrameState| {
+        state.normal_y as rhai::FLOAT
+    });
+    engine.register_get("tangent_x", |state: &mut ShipReferenceFrameState| {
+        state.tangent_x as rhai::FLOAT
+    });
+    engine.register_get("tangent_y", |state: &mut ShipReferenceFrameState| {
+        state.tangent_y as rhai::FLOAT
+    });
+    engine.register_get(
+        "co_rotation_enabled",
+        |state: &mut ShipReferenceFrameState| state.co_rotation_enabled,
+    );
+    engine.register_get(
+        "carrier_speed_wu_s",
+        |state: &mut ShipReferenceFrameState| state.carrier_speed_wu_s as rhai::FLOAT,
+    );
+    engine.register_get("spin_omega_rad_s", |state: &mut ShipReferenceFrameState| {
+        state.spin_omega_rad_s as rhai::FLOAT
+    });
+    engine.register_fn("has_body", |state: &mut ShipReferenceFrameState| {
+        state.has_body()
+    });
+    engine.register_fn(
+        "has_surface_anchor",
+        |state: &mut ShipReferenceFrameState| state.has_surface_anchor(),
+    );
+    engine.register_fn(
+        "uses_local_horizon",
+        |state: &mut ShipReferenceFrameState| state.uses_local_horizon(),
+    );
+    engine.register_fn("uses_co_rotation", |state: &mut ShipReferenceFrameState| {
+        state.uses_co_rotation()
+    });
+    engine.register_fn("is_configured", |state: &mut ShipReferenceFrameState| {
+        state.is_configured()
+    });
+
     engine.register_fn("normalized", |state: &mut ShipRuntimeState| {
         state.clone().normalized()
     });
     engine.register_fn("to_map", |state: &mut ShipRuntimeState| {
         typed_to_rhai_map(state)
+    });
+    engine.register_get("surface_mode", |state: &mut ShipRuntimeState| {
+        serde_json::to_value(state.surface_mode)
+            .ok()
+            .and_then(|value| value.as_str().map(str::to_string))
+            .unwrap_or_else(|| "detached".to_string())
+    });
+    engine.register_get("reference_frame", |state: &mut ShipRuntimeState| {
+        state.reference_frame.clone()
+    });
+    engine.register_get("motion", |state: &mut ShipRuntimeState| state.motion);
+    engine.register_get("control", |state: &mut ShipRuntimeState| {
+        state.control.clone()
     });
     engine.register_fn("is_grounded", |state: &mut ShipRuntimeState| {
         state.is_grounded()
@@ -224,16 +887,135 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
         state.is_detached()
     });
 
+    engine.register_fn("has_environment", |state: &mut ShipRuntimeState| {
+        state.environment.is_some()
+    });
+
     engine.register_fn("normalized", |input: &mut ShipRuntimeInput| {
         input.clone().normalized()
     });
     engine.register_fn("to_map", |input: &mut ShipRuntimeInput| {
         typed_to_rhai_map(input)
     });
+    engine.register_get("dt_s", |input: &mut ShipRuntimeInput| {
+        input.dt_s as rhai::FLOAT
+    });
+    engine.register_get("control", |input: &mut ShipRuntimeInput| {
+        input.control.clone()
+    });
+    engine.register_get("telemetry", |input: &mut ShipRuntimeInput| {
+        input.telemetry.clone()
+    });
+    engine.register_get("request_surface_lock", |input: &mut ShipRuntimeInput| {
+        input.request_surface_lock
+    });
+    engine.register_get("request_detach", |input: &mut ShipRuntimeInput| {
+        input.request_detach
+    });
+    engine.register_get("request_local_horizon", |input: &mut ShipRuntimeInput| {
+        input.request_local_horizon
+    });
+    engine.register_get("request_inertial_frame", |input: &mut ShipRuntimeInput| {
+        input.request_inertial_frame
+    });
+    engine.register_fn("has_environment", |input: &mut ShipRuntimeInput| {
+        input.environment.is_some()
+    });
+    engine.register_fn(
+        "with_dt_s",
+        |input: &mut ShipRuntimeInput, dt_s: rhai::FLOAT| input.clone().with_dt_s(dt_s as f32),
+    );
+    engine.register_fn(
+        "with_environment",
+        |input: &mut ShipRuntimeInput, environment: VehicleEnvironmentBinding| {
+            input.clone().with_environment(environment)
+        },
+    );
+    engine.register_fn(
+        "with_surface_contact",
+        |input: &mut ShipRuntimeInput, surface_contact: bool| {
+            input.clone().with_surface_contact(surface_contact)
+        },
+    );
+    engine.register_fn(
+        "with_surface_lock_request",
+        |input: &mut ShipRuntimeInput, enabled: bool| {
+            input.clone().with_surface_lock_request(enabled)
+        },
+    );
+    engine.register_fn(
+        "with_detach_request",
+        |input: &mut ShipRuntimeInput, enabled: bool| input.clone().with_detach_request(enabled),
+    );
+    engine.register_fn(
+        "with_local_horizon_request",
+        |input: &mut ShipRuntimeInput, enabled: bool| {
+            input.clone().with_local_horizon_request(enabled)
+        },
+    );
+    engine.register_fn(
+        "with_inertial_frame_request",
+        |input: &mut ShipRuntimeInput, enabled: bool| {
+            input.clone().with_inertial_frame_request(enabled)
+        },
+    );
 
+    engine.register_get("state", |output: &mut ShipRuntimeOutput| {
+        output.state.clone()
+    });
+    engine.register_get("telemetry", |output: &mut ShipRuntimeOutput| {
+        output.telemetry.clone()
+    });
+    engine.register_get("report", |output: &mut ShipRuntimeOutput| output.report);
+    engine.register_get("surface_mode_changed", |output: &mut ShipRuntimeOutput| {
+        output.surface_mode_changed
+    });
+    engine.register_get(
+        "reference_frame_changed",
+        |output: &mut ShipRuntimeOutput| output.reference_frame_changed,
+    );
+    engine.register_get("motion_changed", |output: &mut ShipRuntimeOutput| {
+        output.motion_changed
+    });
     engine.register_fn("to_map", |output: &mut ShipRuntimeOutput| {
         typed_to_rhai_map(output)
     });
+    engine.register_fn("has_environment", |output: &mut ShipRuntimeOutput| {
+        output.has_environment()
+    });
+
+    engine.register_get("dt_s", |report: &mut ShipRuntimeStepReport| {
+        report.dt_s as rhai::FLOAT
+    });
+    engine.register_get("surface_radius_wu", |report: &mut ShipRuntimeStepReport| {
+        report.surface_radius_wu as rhai::FLOAT
+    });
+    engine.register_get(
+        "surface_clearance_wu",
+        |report: &mut ShipRuntimeStepReport| report.surface_clearance_wu as rhai::FLOAT,
+    );
+    engine.register_get(
+        "surface_gravity_wu_s2",
+        |report: &mut ShipRuntimeStepReport| report.surface_gravity_wu_s2 as rhai::FLOAT,
+    );
+    engine.register_get(
+        "surface_circular_speed_wu_s",
+        |report: &mut ShipRuntimeStepReport| report.surface_circular_speed_wu_s as rhai::FLOAT,
+    );
+    engine.register_get("altitude_wu", |report: &mut ShipRuntimeStepReport| {
+        report.altitude_wu as rhai::FLOAT
+    });
+    engine.register_get("atmosphere_drag", |report: &mut ShipRuntimeStepReport| {
+        report.atmosphere_drag as rhai::FLOAT
+    });
+    engine.register_get(
+        "carrier_speed_wu_s",
+        |report: &mut ShipRuntimeStepReport| report.carrier_speed_wu_s as rhai::FLOAT,
+    );
+    engine.register_get(
+        "signed_tangential_speed_wu_s",
+        |report: &mut ShipRuntimeStepReport| report.signed_tangential_speed_wu_s as rhai::FLOAT,
+    );
 
     engine.register_fn("normalized", |envelope: &mut VehiclePacketEnvelope| {
         envelope.clone().normalized()
@@ -257,6 +1039,30 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_fn("to_map", |envelope: &mut VehiclePacketEnvelope| {
         typed_to_rhai_map(envelope)
     });
+    engine.register_get("packet_kind", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.packet_kind.clone()
+    });
+    engine.register_get("packet_version", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.packet_version as rhai::INT
+    });
+    engine.register_get("producer_mod_id", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.producer_mod_id.clone()
+    });
+    engine.register_get("source_scene_id", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.source_scene_id.clone()
+    });
+    engine.register_get("target_mod_ref", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.target_mod_ref.clone()
+    });
+    engine.register_get("target_scene_id", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.target_scene_id.clone()
+    });
+    engine.register_get("return_scene_id", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.return_scene_id.clone()
+    });
+    engine.register_get("consumer_hint", |envelope: &mut VehiclePacketEnvelope| {
+        envelope.consumer_hint.clone()
+    });
 
     engine.register_fn("normalized", |telemetry: &mut VehiclePacketTelemetry| {
         telemetry.clone().normalized()
@@ -264,12 +1070,71 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_fn("to_map", |telemetry: &mut VehiclePacketTelemetry| {
         typed_to_rhai_map(telemetry)
     });
+    engine.register_get("basis", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.basis.unwrap_or_default()
+    });
+    engine.register_get("heading_deg", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.heading_deg as rhai::FLOAT
+    });
+    engine.register_get("altitude_km", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.altitude_km as rhai::FLOAT
+    });
+    engine.register_get(
+        "tangent_speed_kms",
+        |telemetry: &mut VehiclePacketTelemetry| telemetry.tangent_speed_kms as rhai::FLOAT,
+    );
+    engine.register_get(
+        "radial_speed_kms",
+        |telemetry: &mut VehiclePacketTelemetry| telemetry.radial_speed_kms as rhai::FLOAT,
+    );
+    engine.register_get(
+        "spawn_angle_deg",
+        |telemetry: &mut VehiclePacketTelemetry| telemetry.spawn_angle_deg as rhai::FLOAT,
+    );
+    engine.register_get("camera_sway", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.camera_sway as rhai::FLOAT
+    });
+    engine.register_get("radius_wu", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.radius_wu as rhai::FLOAT
+    });
+    engine.register_get("vfwd_wu_s", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.vfwd_wu_s as rhai::FLOAT
+    });
+    engine.register_get("vright_wu_s", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.vright_wu_s as rhai::FLOAT
+    });
+    engine.register_get("vrad_wu_s", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.vrad_wu_s as rhai::FLOAT
+    });
+    engine.register_get(
+        "yaw_rate_rad_s",
+        |telemetry: &mut VehiclePacketTelemetry| telemetry.yaw_rate_rad_s as rhai::FLOAT,
+    );
+    engine.register_get("grounded", |telemetry: &mut VehiclePacketTelemetry| {
+        telemetry.grounded
+    });
+    engine.register_fn("to_snapshot", |telemetry: &mut VehiclePacketTelemetry| {
+        VehicleTelemetrySnapshot::from_packet(telemetry)
+    });
 
     engine.register_fn("normalized", |vehicle: &mut VehiclePacketVehicle| {
         vehicle.clone().normalized()
     });
     engine.register_fn("to_map", |vehicle: &mut VehiclePacketVehicle| {
         typed_to_rhai_map(vehicle)
+    });
+    engine.register_get("profile_id", |vehicle: &mut VehiclePacketVehicle| {
+        vehicle.profile_id.clone()
+    });
+    engine.register_get("assist_alt_hold", |vehicle: &mut VehiclePacketVehicle| {
+        vehicle.assist_alt_hold
+    });
+    engine.register_get(
+        "assist_heading_hold",
+        |vehicle: &mut VehiclePacketVehicle| vehicle.assist_heading_hold,
+    );
+    engine.register_get("spawn_altitude_km", |vehicle: &mut VehiclePacketVehicle| {
+        vehicle.spawn_altitude_km as rhai::FLOAT
     });
     engine.register_fn("to_control_state", |vehicle: &mut VehiclePacketVehicle| {
         vehicle.to_control_state().normalized()
@@ -281,8 +1146,32 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_fn("to_map", |packet: &mut VehicleLaunchPacket| {
         typed_to_rhai_map(packet)
     });
+    engine.register_get("envelope", |packet: &mut VehicleLaunchPacket| {
+        packet.envelope.clone()
+    });
+    engine.register_get("environment", |packet: &mut VehicleLaunchPacket| {
+        packet.environment.clone()
+    });
+    engine.register_get("vehicle", |packet: &mut VehicleLaunchPacket| {
+        packet.vehicle.clone()
+    });
+    engine.register_get("ui", |packet: &mut VehicleLaunchPacket| {
+        json_map_to_rhai_map(&packet.ui)
+    });
     engine.register_fn("is_vehicle_handoff", |packet: &mut VehicleLaunchPacket| {
         packet.is_vehicle_handoff()
+    });
+    engine.register_fn("control_state", |packet: &mut VehicleLaunchPacket| {
+        packet.control_state()
+    });
+    engine.register_fn("environment_binding", |packet: &mut VehicleLaunchPacket| {
+        packet.environment_binding()
+    });
+    engine.register_fn("has_telemetry", |packet: &mut VehicleLaunchPacket| {
+        packet.telemetry.is_some()
+    });
+    engine.register_fn("telemetry_snapshot", |packet: &mut VehicleLaunchPacket| {
+        packet.telemetry_snapshot_or_default()
     });
 
     engine.register_fn("normalized", |packet: &mut VehicleReturnPacket| {
@@ -291,8 +1180,171 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_fn("to_map", |packet: &mut VehicleReturnPacket| {
         typed_to_rhai_map(packet)
     });
+    engine.register_get("envelope", |packet: &mut VehicleReturnPacket| {
+        packet.envelope.clone()
+    });
+    engine.register_get("environment", |packet: &mut VehicleReturnPacket| {
+        packet.environment.clone()
+    });
+    engine.register_get("vehicle", |packet: &mut VehicleReturnPacket| {
+        packet.vehicle.clone()
+    });
+    engine.register_get("telemetry", |packet: &mut VehicleReturnPacket| {
+        packet.telemetry.clone()
+    });
+    engine.register_get("ui", |packet: &mut VehicleReturnPacket| {
+        json_map_to_rhai_map(&packet.ui)
+    });
     engine.register_fn("is_vehicle_return", |packet: &mut VehicleReturnPacket| {
         packet.is_vehicle_return()
+    });
+    engine.register_fn("control_state", |packet: &mut VehicleReturnPacket| {
+        packet.control_state()
+    });
+    engine.register_fn("environment_binding", |packet: &mut VehicleReturnPacket| {
+        packet.environment_binding()
+    });
+    engine.register_fn("telemetry_snapshot", |packet: &mut VehicleReturnPacket| {
+        packet.telemetry_snapshot()
+    });
+
+    engine.register_fn("normalized", |body: &mut VehicleBodySnapshot| {
+        body.clone().normalized()
+    });
+    engine.register_fn("to_map", |body: &mut VehicleBodySnapshot| {
+        typed_to_rhai_map(body)
+    });
+    engine.register_get("extras", |body: &mut VehicleBodySnapshot| {
+        json_map_to_rhai_map(&body.extras)
+    });
+    engine.register_get("body_id", |body: &mut VehicleBodySnapshot| {
+        body.body_id.clone()
+    });
+    engine.register_get("body_kind", |body: &mut VehicleBodySnapshot| {
+        body.body_kind.clone()
+    });
+    engine.register_get("surface_radius_wu", |body: &mut VehicleBodySnapshot| {
+        body.surface_radius_wu as rhai::FLOAT
+    });
+    engine.register_get("render_radius_wu", |body: &mut VehicleBodySnapshot| {
+        body.render_radius_wu as rhai::FLOAT
+    });
+    engine.register_get("radius_km", |body: &mut VehicleBodySnapshot| {
+        body.radius_km as rhai::FLOAT
+    });
+
+    engine.register_fn(
+        "normalized",
+        |environment: &mut VehicleEnvironmentSnapshot| environment.clone().normalized(),
+    );
+    engine.register_fn("to_map", |environment: &mut VehicleEnvironmentSnapshot| {
+        typed_to_rhai_map(environment)
+    });
+    engine.register_get("extras", |environment: &mut VehicleEnvironmentSnapshot| {
+        json_map_to_rhai_map(&environment.extras)
+    });
+    engine.register_get("body", |environment: &mut VehicleEnvironmentSnapshot| {
+        environment.body.clone()
+    });
+    engine.register_get(
+        "real_radius_km",
+        |environment: &mut VehicleEnvironmentSnapshot| environment.real_radius_km as rhai::FLOAT,
+    );
+    engine.register_get(
+        "scale_divisor",
+        |environment: &mut VehicleEnvironmentSnapshot| environment.scale_divisor as rhai::FLOAT,
+    );
+    engine.register_get(
+        "surface_gravity_mps2",
+        |environment: &mut VehicleEnvironmentSnapshot| {
+            environment.surface_gravity_mps2 as rhai::FLOAT
+        },
+    );
+    engine.register_get(
+        "atmosphere_top_km",
+        |environment: &mut VehicleEnvironmentSnapshot| environment.atmosphere_top_km as rhai::FLOAT,
+    );
+    engine.register_get(
+        "atmosphere_dense_start_km",
+        |environment: &mut VehicleEnvironmentSnapshot| {
+            environment.atmosphere_dense_start_km as rhai::FLOAT
+        },
+    );
+    engine.register_get(
+        "atmosphere_drag_max",
+        |environment: &mut VehicleEnvironmentSnapshot| {
+            environment.atmosphere_drag_max as rhai::FLOAT
+        },
+    );
+
+    engine.register_fn("normalized", |session: &mut VehicleSessionState| {
+        session.clone().normalized()
+    });
+    engine.register_fn("to_map", |session: &mut VehicleSessionState| {
+        typed_to_rhai_map(session)
+    });
+    engine.register_get("control", |session: &mut VehicleSessionState| {
+        session.control.clone()
+    });
+    engine.register_get("runtime", |session: &mut VehicleSessionState| {
+        session.runtime.clone()
+    });
+    engine.register_get("telemetry", |session: &mut VehicleSessionState| {
+        session.telemetry.clone()
+    });
+    engine.register_get("spawn_altitude_km", |session: &mut VehicleSessionState| {
+        session.spawn_altitude_km as rhai::FLOAT
+    });
+    engine.register_get("spawn_angle_deg", |session: &mut VehicleSessionState| {
+        session.spawn_angle_deg as rhai::FLOAT
+    });
+    engine.register_fn("has_environment", |session: &mut VehicleSessionState| {
+        session.environment.is_some()
+    });
+    engine.register_fn(
+        "with_control",
+        |session: &mut VehicleSessionState, control: VehicleControlState| {
+            session.clone().with_control(control)
+        },
+    );
+    engine.register_fn(
+        "with_runtime",
+        |session: &mut VehicleSessionState, runtime: ShipRuntimeState| {
+            session.clone().with_runtime(runtime)
+        },
+    );
+    engine.register_fn(
+        "with_telemetry",
+        |session: &mut VehicleSessionState, telemetry: VehicleTelemetrySnapshot| {
+            session.clone().with_telemetry(telemetry)
+        },
+    );
+    engine.register_fn(
+        "with_environment",
+        |session: &mut VehicleSessionState, environment: VehicleEnvironmentBinding| {
+            session.clone().with_environment(environment)
+        },
+    );
+    engine.register_fn(
+        "with_spawn",
+        |session: &mut VehicleSessionState,
+         spawn_altitude_km: rhai::FLOAT,
+         spawn_angle_deg: rhai::FLOAT| {
+            session
+                .clone()
+                .with_spawn(spawn_altitude_km as f32, spawn_angle_deg as f32)
+        },
+    );
+    engine.register_fn(
+        "apply_runtime_output",
+        |session: &mut VehicleSessionState, output: ShipRuntimeOutput| {
+            let mut session = session.clone();
+            session.apply_runtime_output(&output);
+            session
+        },
+    );
+    engine.register_fn("packet_vehicle", |session: &mut VehicleSessionState| {
+        session.packet_vehicle()
     });
 }
 
@@ -312,6 +1364,12 @@ where
         VehicleAssistState::default()
     });
     engine.register_fn(
+        "assist_state_with",
+        |_vehicle: &mut TVehicle, alt_hold: bool, heading_hold: bool| {
+            VehicleAssistState::from_flags(alt_hold, heading_hold)
+        },
+    );
+    engine.register_fn(
         "assist_state_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
             rhai_map_to_typed_or_default::<VehicleAssistState>(args)
@@ -324,6 +1382,33 @@ where
     engine.register_fn("button_input", |_vehicle: &mut TVehicle| {
         VehicleButtonInput::default()
     });
+    engine.register_fn(
+        "button_input_pressed",
+        |_vehicle: &mut TVehicle,
+         forward: bool,
+         reverse: bool,
+         strafe_left: bool,
+         strafe_right: bool,
+         lift_up: bool,
+         yaw_left: bool,
+         yaw_right: bool,
+         boost: bool,
+         main_engine: bool| {
+            VehicleButtonInput {
+                forward,
+                reverse,
+                strafe_left,
+                strafe_right,
+                lift_up,
+                lift_down: false,
+                yaw_left,
+                yaw_right,
+                boost,
+                main_engine,
+                ..VehicleButtonInput::default()
+            }
+        },
+    );
     engine.register_fn(
         "button_input_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
@@ -354,6 +1439,14 @@ where
     engine.register_fn("control_state", |_vehicle: &mut TVehicle| {
         VehicleControlState::default()
     });
+    engine.register_fn(
+        "control_state_with",
+        |_vehicle: &mut TVehicle, profile_id: &str, alt_hold: bool, heading_hold: bool| {
+            let mut control = VehicleControlState::with_profile_id(profile_id);
+            control.assists = VehicleAssistState::from_flags(alt_hold, heading_hold);
+            control.normalized()
+        },
+    );
     engine.register_fn(
         "control_state_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
@@ -392,6 +1485,12 @@ where
         ShipRuntimeState::default().normalized()
     });
     engine.register_fn(
+        "ship_runtime_state_from_telemetry",
+        |_vehicle: &mut TVehicle, telemetry: VehicleTelemetrySnapshot| {
+            ShipModel::new(DEFAULT_VEHICLE_PROFILE_ID).ship_runtime_state_from_telemetry(telemetry)
+        },
+    );
+    engine.register_fn(
         "ship_runtime_state_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
             rhai_map_to_typed_or_default::<ShipRuntimeState>(args).normalized()
@@ -400,6 +1499,34 @@ where
     engine.register_fn("ship_runtime_input", |_vehicle: &mut TVehicle| {
         ShipRuntimeInput::default().normalized()
     });
+    engine.register_fn(
+        "ship_runtime_input_from_parts",
+        |_vehicle: &mut TVehicle,
+         control: VehicleControlState,
+         telemetry: VehicleTelemetrySnapshot| {
+            ShipRuntimeInput::from_parts(control, telemetry)
+        },
+    );
+    engine.register_fn(
+        "ship_runtime_input_from_parts",
+        |_vehicle: &mut TVehicle,
+         control: VehicleControlState,
+         telemetry: VehicleTelemetrySnapshot,
+         environment: VehicleEnvironmentBinding| {
+            ShipRuntimeInput::from_parts_with_environment(control, telemetry, environment)
+        },
+    );
+    engine.register_fn(
+        "ship_runtime_input_from_parts",
+        |_vehicle: &mut TVehicle,
+         dt_s: rhai::FLOAT,
+         control: VehicleControlState,
+         telemetry: VehicleTelemetrySnapshot,
+         environment: VehicleEnvironmentBinding| {
+            ShipRuntimeInput::from_parts_with_environment(control, telemetry, environment)
+                .with_dt_s(dt_s as f32)
+        },
+    );
     engine.register_fn(
         "ship_runtime_input_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
@@ -430,9 +1557,57 @@ where
         VehiclePacketTelemetry::default()
     });
     engine.register_fn(
+        "packet_telemetry_from_snapshot",
+        |_vehicle: &mut TVehicle, telemetry: VehicleTelemetrySnapshot| telemetry.to_packet(),
+    );
+    engine.register_fn(
         "packet_telemetry_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
             rhai_map_to_typed_or_default::<VehiclePacketTelemetry>(args).normalized()
+        },
+    );
+
+    engine.register_fn("environment_binding", |_vehicle: &mut TVehicle| {
+        VehicleEnvironmentBinding::default().normalized()
+    });
+    engine.register_fn(
+        "environment_binding_from",
+        |_vehicle: &mut TVehicle, args: RhaiMap| {
+            rhai_map_to_typed_or_default::<VehicleEnvironmentBinding>(args).normalized()
+        },
+    );
+    engine.register_fn(
+        "environment_binding_from_snapshot",
+        |_vehicle: &mut TVehicle, snapshot: VehicleEnvironmentSnapshot| {
+            VehicleEnvironmentBinding::from_snapshot(&snapshot)
+        },
+    );
+
+    engine.register_fn("telemetry_snapshot", |_vehicle: &mut TVehicle| {
+        VehicleTelemetrySnapshot::default().normalized()
+    });
+    engine.register_fn(
+        "telemetry_snapshot_from",
+        |_vehicle: &mut TVehicle, args: RhaiMap| {
+            rhai_map_to_typed_or_default::<VehicleTelemetrySnapshot>(args).normalized()
+        },
+    );
+    engine.register_fn(
+        "telemetry_snapshot_from_packet",
+        |_vehicle: &mut TVehicle, packet: VehiclePacketTelemetry| {
+            VehicleTelemetrySnapshot::from_packet(&packet)
+        },
+    );
+    engine.register_fn(
+        "telemetry_snapshot_from_launch_packet",
+        |_vehicle: &mut TVehicle, packet: VehicleLaunchPacket| {
+            VehicleTelemetrySnapshot::from_launch_packet(&packet)
+        },
+    );
+    engine.register_fn(
+        "telemetry_snapshot_from_return_packet",
+        |_vehicle: &mut TVehicle, packet: VehicleReturnPacket| {
+            VehicleTelemetrySnapshot::from_return_packet(&packet)
         },
     );
 
@@ -476,6 +1651,54 @@ where
         "return_packet_from",
         |_vehicle: &mut TVehicle, args: RhaiMap| {
             rhai_map_to_typed_or_default::<VehicleReturnPacket>(args).normalized()
+        },
+    );
+
+    engine.register_fn("session_state", |_vehicle: &mut TVehicle| {
+        VehicleSessionState::default().normalized()
+    });
+    engine.register_fn(
+        "session_state_from",
+        |_vehicle: &mut TVehicle, args: RhaiMap| {
+            rhai_map_to_typed_or_default::<VehicleSessionState>(args).normalized()
+        },
+    );
+    engine.register_fn(
+        "session_state_from_parts",
+        |_vehicle: &mut TVehicle,
+         control: VehicleControlState,
+         runtime: ShipRuntimeState,
+         telemetry: VehicleTelemetrySnapshot| {
+            VehicleSessionState::default()
+                .with_control(control)
+                .with_runtime(runtime)
+                .with_telemetry(telemetry)
+        },
+    );
+    engine.register_fn(
+        "session_state_from_parts",
+        |_vehicle: &mut TVehicle,
+         control: VehicleControlState,
+         runtime: ShipRuntimeState,
+         telemetry: VehicleTelemetrySnapshot,
+         environment: VehicleEnvironmentBinding| {
+            VehicleSessionState::default()
+                .with_control(control)
+                .with_runtime(runtime)
+                .with_telemetry(telemetry)
+                .with_environment(environment)
+        },
+    );
+    engine.register_fn(
+        "session_state_from_launch_packet",
+        |_vehicle: &mut TVehicle, packet: VehicleLaunchPacket| {
+            VehicleSessionState::from_launch_packet(&packet)
+        },
+    );
+    engine.register_fn(
+        "session_state_from_return_packet",
+        |_vehicle: &mut TVehicle, packet: VehicleReturnPacket| {
+            VehicleSessionState::from_return_packet(&packet)
         },
     );
 }
@@ -1210,6 +2433,156 @@ mod tests {
             .expect("step heading");
         assert_eq!(step_profile, "sim-lite");
         assert_eq!(heading_deg, 270.0);
+    }
+
+    #[test]
+    fn vehicle_registration_supports_typed_runtime_flow_without_primary_map_roundtrip() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_vehicle_api(&mut engine);
+
+        let mut scope = rhai::Scope::new();
+        scope.push("vehicle", test_vehicle_api(Some(world)));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let launch = vehicle.launch_packet_from(#{
+                        producer_mod_id: " planet-generator ",
+                        source_scene_id: " planet-generator-main ",
+                        target_mod_ref: " vehicle-playground ",
+                        target_scene_id: " vehicle-playground-vehicle ",
+                        return_scene_id: " planet-generator-main ",
+                        consumer_hint: " vehicle-runtime ",
+                        planet: #{
+                            body: #{
+                                id: " generated-planet ",
+                                planet_type: " earth_like ",
+                                surface_radius: 212.0,
+                                radius_px: 212.0,
+                                gravity_mu_km3_s2: 4410.0
+                            },
+                            real_radius_km: 6371.0,
+                            scale_divisor: 30.0,
+                            surface_gravity_mps2: 9.81,
+                            atmo_top_km: 80.0,
+                            atmo_dense_start_km: 12.0,
+                            atmo_drag_max: 2.0
+                        },
+                        vehicle: #{
+                            profile_id: " sim_lite ",
+                            assist_alt_hold: true,
+                            spawn_altitude_km: 4.0
+                        },
+                        telemetry: #{
+                            heading_deg: -90.0,
+                            altitude_km: 4.0,
+                            tangent_speed_kms: 1.25,
+                            radial_speed_kms: -0.1,
+                            spawn_angle_deg: -45.0,
+                            grounded: true,
+                            radius_wu: 216.0
+                        }
+                    });
+
+                    let env = launch.environment_binding();
+                    let telemetry = launch.telemetry_snapshot();
+                    let control = launch.control_state();
+                    let runtime = vehicle.ship_runtime_state_from_telemetry(telemetry);
+                    let input = vehicle
+                        .ship_runtime_input_from_parts(0.016, control, telemetry, env)
+                        .with_surface_lock_request(true);
+                    let step = vehicle.ship_runtime_step(" sim_lite ", runtime, input);
+                    let session = vehicle
+                        .session_state_from_launch_packet(launch)
+                        .apply_runtime_output(step);
+
+                    #{
+                        env_body: env.body_id,
+                        env_scale: env.scale_divisor,
+                        env_gravity: env.surface_gravity_wu_s2(),
+                        telemetry_heading: telemetry.heading_deg,
+                        telemetry_grounded: telemetry.grounded,
+                        runtime_mode: runtime.surface_mode,
+                        input_dt: input.dt_s,
+                        input_surface_lock: input.request_surface_lock,
+                        step_mode: step.state.surface_mode,
+                        step_radius: step.report.surface_radius_wu,
+                        session_profile: session.control.profile_id,
+                        session_spawn_altitude: session.spawn_altitude_km,
+                        session_packet_profile: session.packet_vehicle().profile_id
+                    }
+                "#,
+            )
+            .expect("typed runtime flow should resolve without maps");
+
+        let env_body = result
+            .get("env_body")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("env_body");
+        let env_scale = result
+            .get("env_scale")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("env_scale");
+        let env_gravity = result
+            .get("env_gravity")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("env_gravity");
+        let telemetry_heading = result
+            .get("telemetry_heading")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("telemetry_heading");
+        let telemetry_grounded = result
+            .get("telemetry_grounded")
+            .and_then(|value| value.clone().try_cast::<bool>())
+            .expect("telemetry_grounded");
+        let runtime_mode = result
+            .get("runtime_mode")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("runtime_mode");
+        let input_dt = result
+            .get("input_dt")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("input_dt");
+        let input_surface_lock = result
+            .get("input_surface_lock")
+            .and_then(|value| value.clone().try_cast::<bool>())
+            .expect("input_surface_lock");
+        let step_mode = result
+            .get("step_mode")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("step_mode");
+        let step_radius = result
+            .get("step_radius")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("step_radius");
+        let session_profile = result
+            .get("session_profile")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("session_profile");
+        let session_spawn_altitude = result
+            .get("session_spawn_altitude")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("session_spawn_altitude");
+        let session_packet_profile = result
+            .get("session_packet_profile")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("session_packet_profile");
+
+        assert_eq!(env_body, "generated-planet");
+        assert_eq!(env_scale, 30.0);
+        assert!(env_gravity > 0.0);
+        assert_eq!(telemetry_heading, 270.0);
+        assert!(telemetry_grounded);
+        assert_eq!(runtime_mode, "grounded");
+        assert!((input_dt - 0.016).abs() < 1.0e-6);
+        assert!(input_surface_lock);
+        assert_eq!(step_mode, "grounded");
+        assert!(step_radius >= 0.0);
+        assert_eq!(session_profile, "sim-lite");
+        assert_eq!(session_spawn_altitude, 4.0);
+        assert_eq!(session_packet_profile, "sim-lite");
     }
 
     #[derive(Clone)]

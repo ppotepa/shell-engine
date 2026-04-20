@@ -1,4 +1,8 @@
 //! Scene domain API: delegated to engine-api.
+//!
+//! Primary live-handle usage should go through `scene.object(...)` or
+//! `runtime.scene.objects.*`. `scene.inspect(...)` remains snapshot-only.
+//! Scene scripting registration for the runtime-first surface.
 
 use rhai::Engine as RhaiEngine;
 

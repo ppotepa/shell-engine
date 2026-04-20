@@ -68,7 +68,8 @@ The playground keeps the intended engine split:
 2. `layers/*.yml`
    Define authored visuals only: cards, labels, slider tracks, popup shells, readouts.
 3. `main.rhai`
-   Reads `gui.*` state and applies high-level visual updates via `scene.set(...)`.
+   Reads `gui.*` state and applies high-level visual updates via live scene
+   handles (`scene.object(...).set(...)` / `runtime.scene.objects.find(...).set(...)`).
 4. Engine GUI runtime
    Owns hit-testing, focus, widget state, dropdown open/close, and text/number entry semantics.
 
@@ -93,10 +94,10 @@ The renderer is not widget-aware in a mod-specific way. The mod just binds autho
 
 And scene-side mutation examples:
 
-- `scene.set(id, "text.content", ...)`
-- `scene.set(id, "text.fg", ...)`
-- `scene.set(id, "vector.points", ...)`
-- `scene.set(id, "visible", ...)`
+- `scene.object(id).set("text.content", ...)`
+- `scene.object(id).set("text.fg", ...)`
+- `scene.object(id).set("vector.points", ...)`
+- `scene.object(id).set("visible", ...)`
 
 ## Why this mod exists
 

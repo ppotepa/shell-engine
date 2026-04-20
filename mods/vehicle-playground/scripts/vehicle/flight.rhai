@@ -1,0 +1,582 @@
+import "std/math3" as math3;
+import "std/runtime_scene" as scene_rt;
+import "vehicle/control" as control;
+import "vehicle/environment" as environment;
+import "vehicle/handoff" as handoff;
+
+fn current_ship_runtime_state(state, vehicle) {
+    let runtime_state = state.vehicle_ship_runtime ?? ();
+    if type_of(runtime_state) == "()" {
+        return vehicle.ship_runtime_state();
+    }
+    runtime_state.normalized()
+}
+
+fn current_vehicle_surface_mode(state, vehicle) {
+    current_ship_runtime_state(state, vehicle).surface_mode ?? "detached"
+}
+
+fn build_vehicle_runtime_telemetry_snapshot(state, vehicle, ship_x, ship_y, ship_vx, ship_vy) {
+    vehicle.packet_telemetry_from(#{
+        x: ship_x,
+        y: ship_y,
+        vx: ship_vx,
+        vy: ship_vy,
+        heading_deg: math3::rad_to_deg(state.ship_heading ?? state.vehicle_heading ?? 0.0),
+        altitude_km: state.vehicle_altitude_km ?? 0.0,
+        tangent_speed_kms: state.vehicle_speed_kms ?? 0.0,
+        radial_speed_kms: state.vehicle_vrad_kms ?? 0.0,
+        spawn_angle_deg: state.vehicle_spawn_angle_deg ?? 0.0,
+        camera_sway: state.cam_sway ?? state.vehicle_camera_sway ?? 0.0,
+        radius_wu: state.radius ?? 0.0,
+        vfwd_wu_s: state.vfwd ?? 0.0,
+        vright_wu_s: state.vright ?? 0.0,
+        vrad_wu_s: state.vrad ?? 0.0,
+        yaw_rate_rad_s: state.yaw_rate ?? 0.0,
+        basis: handoff::build_vehicle_packet_basis_map(state),
+        grounded: state.vehicle_grounded ?? false
+    }).to_snapshot()
+}
+
+fn sync_vehicle_ship_runtime(
+    state,
+    vehicle,
+    body_snapshot,
+    control_state,
+    ship_x,
+    ship_y,
+    ship_vx,
+    ship_vy,
+    surface_contact,
+    request_detach
+) {
+    let telemetry = build_vehicle_runtime_telemetry_snapshot(
+        state,
+        vehicle,
+        ship_x,
+        ship_y,
+        ship_vx,
+        ship_vy
+    );
+    let environment_binding =
+        environment::build_vehicle_runtime_environment_binding(state, body_snapshot, vehicle);
+    let runtime_input = vehicle
+        .ship_runtime_input_from_parts(control_state, telemetry, environment_binding)
+        .with_surface_contact(surface_contact)
+        .with_detach_request(request_detach);
+    let step = vehicle.ship_runtime_step(
+        control::current_vehicle_profile_name(state, vehicle),
+        current_ship_runtime_state(state, vehicle),
+        runtime_input
+    );
+    state.vehicle_ship_runtime = step.state;
+    state.vehicle_grounded = step.telemetry.grounded ?? state.vehicle_grounded ?? false;
+    state
+}
+
+fn seed_vehicle_orbit_state(state, surface_radius, km_per_wu) {
+    let spawn_angle_deg = state.vehicle_spawn_angle_deg ?? 0.0;
+    let spawn_angle = math3::deg_to_rad(spawn_angle_deg);
+    let grounded = state.vehicle_grounded ?? true;
+    let spawn_altitude_km = if grounded { 0.0 } else { state.spawn_altitude_km ?? 1.5 };
+    let radius = surface_radius + (spawn_altitude_km / km_per_wu.max(0.0001));
+    let heading = state.vehicle_heading ?? 0.0;
+
+    let snx = spawn_angle.cos();
+    let sny = spawn_angle.sin();
+    let snz = 0.0;
+    let sfx = -spawn_angle.sin();
+    let sfy = spawn_angle.cos();
+    let sfz = 0.0;
+    let srx = 0.0;
+    let sry = 0.0;
+    let srz = 1.0;
+
+    let rotated_forward = math3::rotate_axis(sfx, sfy, sfz, snx, sny, snz, heading);
+    let rotated_right = math3::rotate_axis(srx, sry, srz, snx, sny, snz, heading);
+
+    state.snx = snx;
+    state.sny = sny;
+    state.snz = snz;
+    state.sfx = rotated_forward["x"] ?? sfx;
+    state.sfy = rotated_forward["y"] ?? sfy;
+    state.sfz = rotated_forward["z"] ?? sfz;
+    state.srx = rotated_right["x"] ?? srx;
+    state.sry = rotated_right["y"] ?? sry;
+    state.srz = rotated_right["z"] ?? srz;
+    state.radius = state.radius ?? radius;
+    state.vfwd = state.vfwd ?? ((state.vehicle_speed_kms ?? 0.0) / km_per_wu.max(0.0001));
+    state.vright = state.vright ?? 0.0;
+    state.vrad = state.vrad ?? ((state.vehicle_vrad_kms ?? 0.0) / km_per_wu.max(0.0001));
+    state.yaw_rate = state.yaw_rate ?? 0.0;
+    state.ship_heading = state.ship_heading ?? heading;
+    state.ship_vis_pitch = state.ship_vis_pitch ?? 3.1415926535;
+    state.ship_vis_yaw = state.ship_vis_yaw ?? -1.57079632675;
+    state.ship_vis_roll = state.ship_vis_roll ?? 0.0;
+    state.cam_nx = state.cam_nx ?? snx;
+    state.cam_ny = state.cam_ny ?? sny;
+    state.cam_nz = state.cam_nz ?? snz;
+    state.cam_fx = state.cam_fx ?? (rotated_forward["x"] ?? sfx);
+    state.cam_fy = state.cam_fy ?? (rotated_forward["y"] ?? sfy);
+    state.cam_fz = state.cam_fz ?? (rotated_forward["z"] ?? sfz);
+    state.cam_sway = state.cam_sway ?? state.vehicle_camera_sway ?? 0.0;
+    state.vehicle_grounded = state.vehicle_grounded ?? true;
+    state.vehicle_orbit_seeded = true;
+    state
+}
+
+fn step(state, runtime, world, input, vehicle, body_ctx, dt) {
+    let body_snapshot = body_ctx["body_snapshot"];
+    let cx = body_ctx["cx"] ?? 0.0;
+    let cy = body_ctx["cy"] ?? 0.0;
+    let surface_radius = body_ctx["surface_radius"] ?? 1.0;
+    let km_per_wu = body_ctx["km_per_wu"] ?? 1.0;
+    let gravity_mu = body_snapshot.gravity_mu.max(0.0);
+    let surface_gravity_wu = if gravity_mu > 0.0 {
+        gravity_mu / (surface_radius.max(0.1) * surface_radius.max(0.1))
+    } else {
+        0.01
+    };
+    let surface_circular_speed = if gravity_mu > 0.0 {
+        sqrtf(gravity_mu / surface_radius.max(0.1))
+    } else {
+        1.0
+    };
+    let ship_tuning = control::current_ship_profile_tuning(state, vehicle);
+    let acc_fwd = ship_tuning.forward_accel_wu_s2(surface_gravity_wu);
+    let acc_side = ship_tuning.side_accel_wu_s2(surface_gravity_wu);
+    let acc_lift = ship_tuning.lift_accel_wu_s2(surface_gravity_wu);
+    let acc_main = ship_tuning.main_engine_accel_wu_s2(surface_gravity_wu);
+    let max_spd = ship_tuning.max_speed_wu_s(surface_circular_speed).max(0.5);
+    let max_vrad = ship_tuning.max_radial_speed_wu_s(surface_circular_speed).max(0.25);
+    let lin_damp = ship_tuning.linear_damp;
+    let side_trim = ship_tuning.side_trim;
+    let side_thrust_trim = ship_tuning.side_thrust_trim;
+    let yaw_damp = ship_tuning.yaw_damp;
+    let yaw_max = ship_tuning.yaw_max;
+    let surface_contact_altitude_km = ship_tuning.surface_contact_altitude_threshold_km;
+    let takeoff_lift_threshold = ship_tuning.takeoff_lift_threshold;
+    let atmo_top_alt_wu =
+        if body_snapshot.exists {
+            (body_snapshot.atmosphere_top_km / km_per_wu.max(0.0001)).max(0.0)
+        } else {
+            0.0
+        };
+    let atmo_drag_max =
+        if body_snapshot.exists {
+            body_snapshot.atmosphere_drag_max
+        } else {
+            state.atmo_drag_max ?? 0.0
+        };
+    let surface_clearance_wu =
+        ship_tuning.surface_clearance_wu(km_per_wu.max(0.0001));
+    let surface_spin_omega = math3::deg_to_rad(state.rotspeed ?? 0.0);
+    let ship_id = if (state.ship_id ?? 0) > 0 { state.ship_id ?? 0 } else { vehicle.active() };
+
+    if ship_id > 0 {
+        state.ship_id = ship_id;
+    }
+    if !(state.vehicle_orbit_seeded ?? false) {
+        state = seed_vehicle_orbit_state(state, surface_radius, km_per_wu);
+    }
+
+    let snx = state.snx ?? 1.0;
+    let sny = state.sny ?? 0.0;
+    let snz = state.snz ?? 0.0;
+    let sfx = state.sfx ?? 0.0;
+    let sfy = state.sfy ?? 1.0;
+    let sfz = state.sfz ?? 0.0;
+    let srx = state.srx ?? 0.0;
+    let sry = state.sry ?? 0.0;
+    let srz = state.srz ?? 1.0;
+    let radius = (state.radius ?? (surface_radius + surface_clearance_wu)).max(surface_radius + surface_clearance_wu);
+    let vrad = state.vrad ?? 0.0;
+    let vfwd = state.vfwd ?? 0.0;
+    let vright = state.vright ?? 0.0;
+    let yaw_rate = state.yaw_rate ?? 0.0;
+    let ship_heading = state.ship_heading ?? (state.vehicle_heading ?? 0.0);
+    let ship_vis_pitch = state.ship_vis_pitch ?? 3.1415926535;
+    let ship_vis_yaw = state.ship_vis_yaw ?? -1.57079632675;
+    let ship_vis_roll = state.ship_vis_roll ?? 0.0;
+    let cam_nx = state.cam_nx ?? snx;
+    let cam_ny = state.cam_ny ?? sny;
+    let cam_nz = state.cam_nz ?? snz;
+    let cam_fx = state.cam_fx ?? sfx;
+    let cam_fy = state.cam_fy ?? sfy;
+    let cam_fz = state.cam_fz ?? sfz;
+    let cam_sway = state.cam_sway ?? state.vehicle_camera_sway ?? 0.0;
+    let active_ship_id = ship_id;
+
+    if active_ship_id <= 0 {
+        let ship_spawn_x = cx + snx * radius;
+        let ship_spawn_y = cy + sny * radius;
+        active_ship_id = environment::ensure_ship(world, ship_spawn_x, ship_spawn_y, ship_heading);
+        state.ship_id = active_ship_id;
+        if active_ship_id > 0 {
+            vehicle.set_active(active_ship_id);
+            world.set_transform(active_ship_id, ship_spawn_x, ship_spawn_y, ship_heading);
+            world.set_physics(active_ship_id, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        }
+    } else if vehicle.active() <= 0 {
+        vehicle.set_active(active_ship_id);
+    }
+
+    let ship_x = cx + snx * radius;
+    let ship_y = cy + sny * radius;
+    let thrust_axis = 0.0;
+    let strafe_axis = 0.0;
+    let yaw_axis = 0.0;
+    let main_engine_on = false;
+    let lift_on = false;
+
+    if active_ship_id > 0 {
+        let xf = world.transform(active_ship_id) ?? #{};
+        ship_x = xf["x"] ?? ship_x;
+        ship_y = xf["y"] ?? ship_y;
+
+        let frame_control = control::current_vehicle_frame_control(state, vehicle, input);
+        let frame_control_assists = frame_control.assists;
+        let vehicle_input = frame_control.intent();
+        thrust_axis = vehicle_input.throttle ?? 0.0;
+        strafe_axis = vehicle_input.strafe ?? 0.0;
+        yaw_axis = vehicle_input.yaw ?? 0.0;
+        main_engine_on = vehicle_input.main_engine ?? false;
+        lift_on = (vehicle_input.lift ?? 0.0) > takeoff_lift_threshold;
+
+        let altitude_wu = (radius - surface_radius).max(0.0);
+        let altitude_km = altitude_wu * km_per_wu;
+        let grounded = state.vehicle_grounded ?? false;
+
+        let yaw_target =
+            if absf(yaw_axis) > 0.001 {
+                state = control::set_vehicle_target_heading(state, vehicle, ship_heading);
+                yaw_axis * yaw_max
+            } else if frame_control_assists.heading_hold ?? false {
+                let target_heading = math3::nearest_angle(frame_control.target_heading_rad(ship_heading), ship_heading);
+                let heading_error = target_heading - ship_heading;
+                math3::clamp_unit(
+                    heading_error * ship_tuning.heading_hold_kp
+                ) * yaw_max
+            } else {
+                0.0
+            };
+        let yaw_blend = ship_tuning.yaw_blend(dt);
+        yaw_rate += (yaw_target - yaw_rate) * yaw_blend;
+        if absf(yaw_axis) <= 0.001 && !(frame_control_assists.heading_hold ?? false) {
+            yaw_rate *= 1.0 / (1.0 + yaw_damp * dt);
+        }
+        if absf(yaw_rate) > yaw_max {
+            yaw_rate = if yaw_rate > 0.0 { yaw_max } else { -yaw_max };
+        }
+
+        let dyaw = yaw_rate * dt;
+        if absf(dyaw) > 0.00001 {
+            let rotated_forward = math3::rotate_axis(sfx, sfy, sfz, snx, sny, snz, dyaw);
+            sfx = rotated_forward["x"] ?? sfx;
+            sfy = rotated_forward["y"] ?? sfy;
+            sfz = rotated_forward["z"] ?? sfz;
+            let rotated_right = math3::rotate_axis(srx, sry, srz, snx, sny, snz, dyaw);
+            srx = rotated_right["x"] ?? srx;
+            sry = rotated_right["y"] ?? sry;
+            srz = rotated_right["z"] ?? srz;
+        }
+
+        if grounded && lift_on {
+            state.vehicle_grounded = false;
+        }
+
+        if !(state.vehicle_grounded ?? false) {
+            vfwd += thrust_axis * acc_fwd * dt;
+            vright += strafe_axis * acc_side * dt;
+            if main_engine_on { vfwd += acc_main * dt; }
+
+            let trim = side_trim + thrust_axis.max(0.0) * side_thrust_trim;
+            vright *= 1.0 / (1.0 + trim * dt);
+            vfwd *= 1.0 / (1.0 + lin_damp * dt);
+            vright *= 1.0 / (1.0 + lin_damp * dt);
+        } else {
+            vfwd = 0.0;
+            vright = 0.0;
+            vrad = 0.0;
+            radius = surface_radius + surface_clearance_wu;
+            state = control::set_vehicle_target_altitude(state, vehicle, 0.0);
+        }
+
+        if atmo_top_alt_wu > 0.0 {
+            let atmo_alpha = math3::clamp01((atmo_top_alt_wu - altitude_wu) / atmo_top_alt_wu.max(0.1));
+            let atmo_drag = atmo_alpha * atmo_alpha * atmo_drag_max.max(0.0);
+            vrad *= 1.0 / (1.0 + atmo_drag * dt * 1.2);
+            vfwd *= 1.0 / (1.0 + atmo_drag * dt);
+            vright *= 1.0 / (1.0 + atmo_drag * dt);
+        }
+
+        if vfwd > max_spd { vfwd = max_spd; }
+        if vfwd < -max_spd * 0.5 { vfwd = -max_spd * 0.5; }
+        if vright > max_spd { vright = max_spd; }
+        if vright < -max_spd { vright = -max_spd; }
+
+        let ship_world_x = cx + snx * radius;
+        let ship_world_y = cy + sny * radius;
+        let vt2 = vfwd * vfwd + vright * vright;
+        if !(state.vehicle_grounded ?? false) {
+            let ship_gravity = world.body_gravity("generated-planet", ship_world_x, ship_world_y, snz * radius);
+            let grav_radial = (ship_gravity["ax"] ?? 0.0) * snx
+                + (ship_gravity["ay"] ?? 0.0) * sny
+                + (ship_gravity["az"] ?? 0.0) * snz;
+            let centrifugal = vt2 / radius.max(surface_radius + surface_clearance_wu);
+
+            let assist_radial_acc =
+                if (frame_control_assists.alt_hold ?? false) && !lift_on {
+                    let target_altitude_km = frame_control.target_altitude_km(altitude_km);
+                    let altitude_error_km = target_altitude_km - altitude_km;
+                    (altitude_error_km * ship_tuning.alt_hold_kp
+                        - (vrad * km_per_wu) * ship_tuning.alt_hold_kd)
+                        .max(-acc_lift * 0.75)
+                        .min(acc_lift * 0.75)
+                } else {
+                    0.0
+                };
+            let lift_acc = if lift_on { acc_lift } else { 0.0 };
+
+            vrad += (centrifugal + grav_radial + lift_acc + assist_radial_acc) * dt;
+            if vrad > max_vrad { vrad = max_vrad; }
+            if vrad < -max_vrad { vrad = -max_vrad; }
+            radius += vrad * dt;
+            if radius < surface_radius + surface_clearance_wu {
+                radius = surface_radius + surface_clearance_wu;
+                if vrad < 0.0 { vrad = 0.0; }
+                if !lift_on {
+                    state.vehicle_grounded = true;
+                    vfwd = 0.0;
+                    vright = 0.0;
+                    state = control::set_vehicle_target_altitude(state, vehicle, 0.0);
+                }
+            }
+        } else {
+            vrad = 0.0;
+            radius = surface_radius + surface_clearance_wu;
+        }
+
+        let spin_tang_x_raw = -sny;
+        let spin_tang_y_raw = snx;
+        let spin_tang_z_raw = 0.0;
+        let spin_tang_len = sqrtf(
+            spin_tang_x_raw * spin_tang_x_raw
+            + spin_tang_y_raw * spin_tang_y_raw
+            + spin_tang_z_raw * spin_tang_z_raw
+        );
+        let spin_tang_x = if spin_tang_len > 0.0001 { spin_tang_x_raw / spin_tang_len } else { sfx };
+        let spin_tang_y = if spin_tang_len > 0.0001 { spin_tang_y_raw / spin_tang_len } else { sfy };
+        let spin_tang_z = if spin_tang_len > 0.0001 { spin_tang_z_raw / spin_tang_len } else { sfz };
+        let carrier_speed = surface_spin_omega * radius * spin_tang_len;
+        let carrier_x = spin_tang_x * carrier_speed;
+        let carrier_y = spin_tang_y * carrier_speed;
+        let carrier_z = spin_tang_z * carrier_speed;
+        let total_tang_x = carrier_x + sfx * vfwd + srx * vright;
+        let total_tang_y = carrier_y + sfy * vfwd + sry * vright;
+        let total_tang_z = carrier_z + sfz * vfwd + srz * vright;
+        let tangential_speed = sqrtf(total_tang_x * total_tang_x + total_tang_y * total_tang_y + total_tang_z * total_tang_z);
+        if tangential_speed > 0.001 {
+            let delta = tangential_speed * dt / radius.max(surface_radius + surface_clearance_wu);
+            let tang_x = total_tang_x / tangential_speed;
+            let tang_y = total_tang_y / tangential_speed;
+            let tang_z = total_tang_z / tangential_speed;
+
+            let rotated_normal = math3::rotate_axis(snx, sny, snz, tang_x, tang_y, tang_z, delta);
+            snx = rotated_normal["x"] ?? snx;
+            sny = rotated_normal["y"] ?? sny;
+            snz = rotated_normal["z"] ?? snz;
+            let rotated_forward = math3::rotate_axis(sfx, sfy, sfz, tang_x, tang_y, tang_z, delta);
+            sfx = rotated_forward["x"] ?? sfx;
+            sfy = rotated_forward["y"] ?? sfy;
+            sfz = rotated_forward["z"] ?? sfz;
+            let rotated_right = math3::rotate_axis(srx, sry, srz, tang_x, tang_y, tang_z, delta);
+            srx = rotated_right["x"] ?? srx;
+            sry = rotated_right["y"] ?? sry;
+            srz = rotated_right["z"] ?? srz;
+        }
+
+        let normal_len = sqrtf(snx * snx + sny * sny + snz * snz).max(0.0001);
+        snx /= normal_len;
+        sny /= normal_len;
+        snz /= normal_len;
+        let forward_dot = sfx * snx + sfy * sny + sfz * snz;
+        sfx -= snx * forward_dot;
+        sfy -= sny * forward_dot;
+        sfz -= snz * forward_dot;
+        let forward_len = sqrtf(sfx * sfx + sfy * sfy + sfz * sfz).max(0.0001);
+        sfx /= forward_len;
+        sfy /= forward_len;
+        sfz /= forward_len;
+        srx = sfy * snz - sfz * sny;
+        sry = sfz * snx - sfx * snz;
+        srz = sfx * sny - sfy * snx;
+
+        ship_heading = math3::heading_from_forward(sfx, sfy, ship_heading);
+        let ship_euler = math3::ship_basis_euler(
+            srx, sry, srz,
+            sfx, sfy, sfz,
+            snx, sny, snz,
+            ship_vis_pitch, ship_vis_yaw, ship_vis_roll
+        );
+        ship_vis_pitch = ship_euler["pitch"] ?? ship_vis_pitch;
+        ship_vis_yaw = ship_euler["yaw"] ?? ship_vis_yaw;
+        ship_vis_roll = ship_euler["roll"] ?? ship_vis_roll;
+
+        let ship_scene_r = radius / surface_radius.max(0.0001);
+        scene_rt::visible(runtime, "vehicle-slot", true);
+        scene_rt::set(runtime, "vehicle-slot", "obj.pitch", math3::rad_to_deg(ship_vis_pitch));
+        scene_rt::set(runtime, "vehicle-slot", "obj.yaw", math3::rad_to_deg(ship_vis_yaw));
+        scene_rt::set(runtime, "vehicle-slot", "obj.roll", math3::rad_to_deg(ship_vis_roll));
+        scene_rt::set(runtime, "vehicle-slot", "obj.world.x", snx * ship_scene_r);
+        scene_rt::set(runtime, "vehicle-slot", "obj.world.y", sny * ship_scene_r);
+        scene_rt::set(runtime, "vehicle-slot", "obj.world.z", snz * ship_scene_r);
+        scene_rt::set(runtime, `ship-${active_ship_id}`, "visible", false);
+        world.entity(active_ship_id).set_heading(ship_heading);
+
+        state.snx = snx;
+        state.sny = sny;
+        state.snz = snz;
+        state.sfx = sfx;
+        state.sfy = sfy;
+        state.sfz = sfz;
+        state.srx = srx;
+        state.sry = sry;
+        state.srz = srz;
+        state.radius = radius;
+        state.vrad = vrad;
+        state.vfwd = vfwd;
+        state.vright = vright;
+        state.yaw_rate = yaw_rate;
+        state.ship_heading = ship_heading;
+        state.vehicle_heading = ship_heading;
+        state.ship_vis_pitch = ship_vis_pitch;
+        state.ship_vis_yaw = ship_vis_yaw;
+        state.ship_vis_roll = ship_vis_roll;
+
+        let next_ship_x = cx + snx * radius;
+        let next_ship_y = cy + sny * radius;
+        world.set_physics(active_ship_id, (next_ship_x - ship_x) / dt, (next_ship_y - ship_y) / dt, 0.0, 0.0, 0.0, 0.0);
+        ship_x = next_ship_x;
+        ship_y = next_ship_y;
+
+        let altitude_px_frac = math3::clamp01((radius - surface_radius) / surface_radius.max(0.1));
+        let cam_lift = 0.005 + altitude_px_frac * 0.04;
+        let cam_back = 0.04 + altitude_px_frac * 0.74;
+        let cam_ahead = 0.03 + altitude_px_frac * 0.55;
+
+        let alpha_n = dt / (0.30 + dt);
+        cam_nx += (snx - cam_nx) * alpha_n;
+        cam_ny += (sny - cam_ny) * alpha_n;
+        cam_nz += (snz - cam_nz) * alpha_n;
+        let cam_n_len = sqrtf(cam_nx * cam_nx + cam_ny * cam_ny + cam_nz * cam_nz).max(0.0001);
+        cam_nx /= cam_n_len;
+        cam_ny /= cam_n_len;
+        cam_nz /= cam_n_len;
+
+        let alpha_f = ship_tuning.camera_sway_alpha(dt);
+        cam_fx += (sfx - cam_fx) * alpha_f;
+        cam_fy += (sfy - cam_fy) * alpha_f;
+        cam_fz += (sfz - cam_fz) * alpha_f;
+        let cam_forward_dot = cam_fx * cam_nx + cam_fy * cam_ny + cam_fz * cam_nz;
+        cam_fx -= cam_nx * cam_forward_dot;
+        cam_fy -= cam_ny * cam_forward_dot;
+        cam_fz -= cam_nz * cam_forward_dot;
+        let cam_f_len = sqrtf(cam_fx * cam_fx + cam_fy * cam_fy + cam_fz * cam_fz).max(0.0001);
+        cam_fx /= cam_f_len;
+        cam_fy /= cam_f_len;
+        cam_fz /= cam_f_len;
+
+        let eye_x = cam_nx * (ship_scene_r + cam_lift) - cam_fx * cam_back;
+        let eye_y = cam_ny * (ship_scene_r + cam_lift) - cam_fy * cam_back;
+        let eye_z = cam_nz * (ship_scene_r + cam_lift) - cam_fz * cam_back;
+        let look_x = cam_nx * ship_scene_r + cam_fx * cam_ahead;
+        let look_y = cam_ny * ship_scene_r + cam_fy * cam_ahead;
+        let look_z = cam_nz * ship_scene_r + cam_fz * cam_ahead;
+
+        let sway_target = ship_tuning.camera_sway_target(yaw_rate);
+        let alpha_s = ship_tuning.camera_sway_alpha(dt);
+        cam_sway += (sway_target - cam_sway) * alpha_s;
+        let sway_up = math3::rotate_axis(cam_nx, cam_ny, cam_nz, cam_fx, cam_fy, cam_fz, cam_sway);
+
+        world.set_camera_3d_look_at(eye_x, eye_y, eye_z, look_x, look_y, look_z);
+        world.set_camera_3d_up(sway_up["x"] ?? cam_nx, sway_up["y"] ?? cam_ny, sway_up["z"] ?? cam_nz);
+
+        state.cam_nx = cam_nx;
+        state.cam_ny = cam_ny;
+        state.cam_nz = cam_nz;
+        state.cam_fx = cam_fx;
+        state.cam_fy = cam_fy;
+        state.cam_fz = cam_fz;
+        state.cam_sway = cam_sway;
+        state.vehicle_camera_sway = cam_sway;
+        state.vehicle_altitude_km = altitude_km;
+        state.vehicle_speed_kms = sqrtf(vfwd * vfwd + vright * vright) * km_per_wu;
+        state.vehicle_vrad_kms = vrad * km_per_wu;
+
+        let orbit_xy_len = sqrtf(snx * snx + sny * sny).max(0.0001);
+        let spawn_angle_rad = math3::angle_from_cos_sin(math3::clamp_unit(snx / orbit_xy_len), sny / orbit_xy_len);
+        state.vehicle_spawn_angle_deg = math3::rad_to_deg(math3::nearest_angle(spawn_angle_rad, 0.0));
+
+        if input.just_pressed("Escape") && !(handoff::resolve_return_scene_id(state) != "" && (state.handoff_source ?? "defaults") == "packet") {
+            state.radius = ();
+            state.vfwd = ();
+            state.vright = ();
+            state.vrad = ();
+            state.yaw_rate = ();
+            state.snx = ();
+            state.sny = ();
+            state.snz = ();
+            state.sfx = ();
+            state.sfy = ();
+            state.sfz = ();
+            state.srx = ();
+            state.sry = ();
+            state.srz = ();
+            state.cam_nx = ();
+            state.cam_ny = ();
+            state.cam_nz = ();
+            state.cam_fx = ();
+            state.cam_fy = ();
+            state.cam_fz = ();
+            state.cam_sway = ();
+            state.vehicle_heading = 0.0;
+            state.vehicle_speed_kms = 0.0;
+            state.vehicle_vrad_kms = 0.0;
+            state.vehicle_camera_sway = 0.0;
+            state.vehicle_orbit_seeded = false;
+            state.vehicle_grounded = true;
+            state.vehicle_ship_runtime = vehicle.ship_runtime_state();
+            state = control::set_vehicle_target_heading(state, vehicle, 0.0);
+            state = control::set_vehicle_target_altitude(state, vehicle, 0.0);
+            state = seed_vehicle_orbit_state(state, surface_radius, km_per_wu);
+            world.set_transform(active_ship_id, cx + (state.snx ?? 1.0) * (state.radius ?? surface_radius), cy + (state.sny ?? 0.0) * (state.radius ?? surface_radius), 0.0);
+            world.set_physics(active_ship_id, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+    if active_ship_id > 0 {
+        let frame_control = control::current_vehicle_frame_control(state, vehicle, input);
+        let ship_transform = world.transform(active_ship_id) ?? #{};
+        let ship_physics = world.physics(active_ship_id) ?? #{};
+        state = sync_vehicle_ship_runtime(
+            state,
+            vehicle,
+            body_snapshot,
+            frame_control,
+            ship_transform["x"] ?? ship_x,
+            ship_transform["y"] ?? ship_y,
+            ship_physics["vx"] ?? 0.0,
+            ship_physics["vy"] ?? 0.0,
+            (state.vehicle_altitude_km ?? 0.0) <= surface_contact_altitude_km || (state.vehicle_grounded ?? false),
+            input.action_down("lift")
+        );
+    }
+
+    #{
+        state: state,
+        ship_id: active_ship_id,
+        ship_x: ship_x,
+        ship_y: ship_y
+    }
+}

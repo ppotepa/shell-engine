@@ -3,10 +3,17 @@
 //! This module is additive: it introduces typed request payloads that can be
 //! produced by scripting/frontends and consumed by runtime adapters.
 
+pub use crate::scene::camera::Camera3dMutationRequest;
+pub use crate::scene::render::{
+    Render3dMutationDomain, Render3dMutationRequest, Render3dProfileSlot,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 /// Typed scene mutation request.
+///
+/// Camera requests primarily flow through object handles and render requests
+/// primarily flow through split render domains.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SceneMutationRequest {
@@ -28,106 +35,151 @@ pub enum SceneMutationRequest {
     },
     /// Mutate the shared 2D camera state.
     SetCamera2d { x: f32, y: f32, zoom: Option<f32> },
-    /// Mutate the shared 3D camera state.
+    /// Mutate camera state. Object-targeted camera variants are the primary
+    /// multi-camera path; scene-wide variants remain available for scene-level
+    /// camera state.
     SetCamera3d(Camera3dMutationRequest),
-    /// Mutate typed 3D render/domain state.
+    /// Mutate typed 3D render state through split transform/material/lighting/
+    /// atmosphere/generator/view domains.
     SetRender3d(Render3dMutationRequest),
+    /// Carry an explicit request-construction failure through typed request
+    /// building.
+    RequestError { error: SceneMutationRequestError },
     /// Spawn an authored object/template instance.
     SpawnObject { template: String, target: String },
     /// Despawn a runtime object.
     DespawnObject { target: String },
 }
 
-/// Typed 3D camera mutation request.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Camera3dMutationRequest {
-    /// Set camera eye/look-at pair.
-    LookAt { eye: [f32; 3], look_at: [f32; 3] },
-    /// Set camera up vector.
-    Up { up: [f32; 3] },
+impl SceneMutationRequest {
+    /// Stable request kind label used by diagnostics and logging.
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Self::Set2dProps { .. } => "set_2d_props",
+            Self::SetSpriteProperty { .. } => "set_sprite_property",
+            Self::SetCamera2d { .. } => "set_camera2d",
+            Self::SetCamera3d(_) => "set_camera3d",
+            Self::SetRender3d(_) => "set_render3d",
+            Self::RequestError { .. } => "request_error",
+            Self::SpawnObject { .. } => "spawn_object",
+            Self::DespawnObject { .. } => "despawn_object",
+        }
+    }
 }
 
-/// Neutral slot selector for scene-level 3D profile mutations.
+/// Explicit error returned while building a typed scene mutation request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SceneMutationRequestError {
+    UnsupportedSetPath { target: String, path: String },
+    InvalidValue { target: String, path: String },
+}
+
+impl SceneMutationRequestError {
+    pub fn unsupported_set_path(target: impl Into<String>, path: impl Into<String>) -> Self {
+        Self::UnsupportedSetPath {
+            target: target.into(),
+            path: path.into(),
+        }
+    }
+
+    pub fn invalid_value(target: impl Into<String>, path: impl Into<String>) -> Self {
+        Self::InvalidValue {
+            target: target.into(),
+            path: path.into(),
+        }
+    }
+}
+
+/// Explicit outcome for runtime scene mutation application.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Render3dProfileSlot {
-    View,
-    Lighting,
-    SpaceEnvironment,
+pub enum SceneMutationStatus {
+    Applied,
+    Rejected,
 }
 
-/// Typed 3D render mutation request.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Explicit runtime scene mutation error.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Render3dMutationRequest {
-    /// Switch an active scene-level render profile by slot.
-    SetProfile {
-        profile_slot: Render3dProfileSlot,
-        profile: String,
-    },
-    /// Override a single scene-level profile field by slot.
-    SetProfileParam {
-        profile_slot: Render3dProfileSlot,
-        name: String,
-        value: JsonValue,
-    },
-    /// Switch the active top-level scene view profile.
-    SetViewProfile { profile: String },
-    /// Switch the active lighting profile feeding the resolved scene view.
-    SetLightingProfile { profile: String },
-    /// Switch the active space-environment profile feeding the resolved scene view.
-    SetSpaceEnvironmentProfile { profile: String },
-    /// Override a single lighting-profile field on the active scene view.
-    SetLightingParam { name: String, value: JsonValue },
-    /// Override a single space-environment-profile field on the active scene view.
-    SetSpaceEnvironmentParam { name: String, value: JsonValue },
-    /// Set transform values for a render node.
-    SetNodeTransform {
-        target: String,
-        translation: Option<[f32; 3]>,
-        rotation_deg: Option<[f32; 3]>,
-        scale: Option<[f32; 3]>,
-    },
-    /// Set a material parameter by name.
-    SetMaterialParam {
-        target: String,
-        name: String,
-        value: JsonValue,
-    },
-    /// Additively set multiple material parameters by name.
-    SetMaterialParams { target: String, params: JsonValue },
-    /// Set an atmosphere parameter by name.
-    SetAtmosphereParam {
-        target: String,
-        name: String,
-        value: JsonValue,
-    },
-    /// Additively set multiple atmosphere parameters by name.
-    SetAtmosphereParams { target: String, params: JsonValue },
-    /// Set a world/profile parameter by name.
-    SetWorldParam {
-        target: String,
-        name: String,
-        value: JsonValue,
-    },
-    /// Additively set multiple surface parameters by name.
-    SetSurfaceParams { target: String, params: JsonValue },
-    /// Additively set multiple generator parameters by name.
-    SetGeneratorParams { target: String, params: JsonValue },
-    /// Additively set multiple body parameters by name.
-    SetBodyParams { target: String, params: JsonValue },
-    /// Additively set multiple view parameters by name.
-    SetViewParams { target: String, params: JsonValue },
-    /// Set surface mode using a typed string value.
-    SetSurfaceMode { target: String, mode: String },
+pub enum SceneMutationError {
+    InvalidRequest { request: String, detail: String },
+    UnsupportedRequest { request: String, detail: String },
+    TargetNotFound { target: String },
+}
+
+impl SceneMutationError {
+    pub fn from_request_error(error: &SceneMutationRequestError) -> Self {
+        match error {
+            SceneMutationRequestError::UnsupportedSetPath { target, path } => {
+                Self::unsupported_request(
+                    "set_path",
+                    format!("target `{target}` does not support `{path}`"),
+                )
+            }
+            SceneMutationRequestError::InvalidValue { target, path } => Self::invalid_request(
+                "set_path",
+                format!("target `{target}` received an invalid value for `{path}`"),
+            ),
+        }
+    }
+
+    pub fn invalid_request(request: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self::InvalidRequest {
+            request: request.into(),
+            detail: detail.into(),
+        }
+    }
+
+    pub fn unsupported_request(request: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self::UnsupportedRequest {
+            request: request.into(),
+            detail: detail.into(),
+        }
+    }
+
+    pub fn target_not_found(target: impl Into<String>) -> Self {
+        Self::TargetNotFound {
+            target: target.into(),
+        }
+    }
+}
+
+/// Explicit runtime scene mutation result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SceneMutationResult {
+    pub status: SceneMutationStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<SceneMutationError>,
+}
+
+impl SceneMutationResult {
+    pub fn applied() -> Self {
+        Self {
+            status: SceneMutationStatus::Applied,
+            error: None,
+        }
+    }
+
+    pub fn rejected(error: SceneMutationError) -> Self {
+        Self {
+            status: SceneMutationStatus::Rejected,
+            error: Some(error),
+        }
+    }
+
+    pub fn is_applied(&self) -> bool {
+        matches!(self.status, SceneMutationStatus::Applied)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot, SceneMutationRequest,
+        SceneMutationError, SceneMutationRequest, SceneMutationRequestError, SceneMutationResult,
+        SceneMutationStatus,
     };
+    use crate::scene::{Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot};
     use serde_json::json;
 
     #[test]
@@ -169,6 +221,58 @@ mod tests {
             decoded,
             SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::Up {
                 up: [0.0, 1.0, 0.0]
+            })
+        );
+    }
+
+    #[test]
+    fn camera_3d_object_requests_roundtrip_distinct_targets() {
+        let requests = [
+            SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::ObjectLookAt {
+                target: "cockpit-camera".to_string(),
+                eye: [1.0, 2.0, 3.0],
+                look_at: [0.0, 0.0, 0.0],
+                up: Some([0.0, 1.0, 0.0]),
+            }),
+            SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::ObjectBasis {
+                target: "chase-camera".to_string(),
+                eye: [10.0, 5.0, -2.0],
+                right: [1.0, 0.0, 0.0],
+                up: [0.0, 1.0, 0.0],
+                forward: [0.0, 0.0, 1.0],
+            }),
+        ];
+
+        for request in requests {
+            let encoded = serde_json::to_string(&request).expect("serialize request");
+            let decoded: SceneMutationRequest =
+                serde_json::from_str(&encoded).expect("deserialize request");
+            assert_eq!(decoded, request);
+        }
+    }
+
+    #[test]
+    fn deserialize_camera3d_object_basis_from_json_shape() {
+        let raw = json!({
+            "type": "set_camera3d",
+            "kind": "object_basis",
+            "target": "chase-camera",
+            "eye": [10.0, 5.0, -2.0],
+            "right": [1.0, 0.0, 0.0],
+            "up": [0.0, 1.0, 0.0],
+            "forward": [0.0, 0.0, 1.0]
+        });
+        let decoded: SceneMutationRequest =
+            serde_json::from_value(raw).expect("deserialize request");
+
+        assert_eq!(
+            decoded,
+            SceneMutationRequest::SetCamera3d(Camera3dMutationRequest::ObjectBasis {
+                target: "chase-camera".to_string(),
+                eye: [10.0, 5.0, -2.0],
+                right: [1.0, 0.0, 0.0],
+                up: [0.0, 1.0, 0.0],
+                forward: [0.0, 0.0, 1.0],
             })
         );
     }
@@ -332,5 +436,64 @@ mod tests {
         });
         let decoded = serde_json::from_value::<SceneMutationRequest>(raw);
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn scene_mutation_result_roundtrips_json() {
+        let input = SceneMutationResult::rejected(SceneMutationError::target_not_found("hud"));
+        let encoded = serde_json::to_string(&input).expect("serialize result");
+        let decoded: SceneMutationResult =
+            serde_json::from_str(&encoded).expect("deserialize result");
+
+        assert_eq!(
+            decoded,
+            SceneMutationResult {
+                status: SceneMutationStatus::Rejected,
+                error: Some(SceneMutationError::TargetNotFound {
+                    target: "hud".to_string(),
+                }),
+            }
+        );
+    }
+
+    #[test]
+    fn scene_mutation_request_error_roundtrips_json() {
+        let input = SceneMutationRequestError::invalid_value("hud", "visible");
+        let encoded = serde_json::to_string(&input).expect("serialize request error");
+        let decoded: SceneMutationRequestError =
+            serde_json::from_str(&encoded).expect("deserialize request error");
+
+        assert_eq!(
+            decoded,
+            SceneMutationRequestError::InvalidValue {
+                target: "hud".to_string(),
+                path: "visible".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn scene_mutation_error_maps_request_error() {
+        let unsupported = SceneMutationError::from_request_error(
+            &SceneMutationRequestError::unsupported_set_path("hud", "audio.pitch"),
+        );
+        let invalid = SceneMutationError::from_request_error(
+            &SceneMutationRequestError::invalid_value("hud", "visible"),
+        );
+
+        assert_eq!(
+            unsupported,
+            SceneMutationError::UnsupportedRequest {
+                request: "set_path".to_string(),
+                detail: "target `hud` does not support `audio.pitch`".to_string(),
+            }
+        );
+        assert_eq!(
+            invalid,
+            SceneMutationError::InvalidRequest {
+                request: "set_path".to_string(),
+                detail: "target `hud` received an invalid value for `visible`".to_string(),
+            }
+        );
     }
 }

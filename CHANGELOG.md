@@ -2,6 +2,12 @@
 
 Daily progress updates for Shell Engine development.
 
+> Historical framing: older entries below often describe transitional API
+> states during active refactors. Treat `AUTHORING.md`, `ARCHITECTURE.md`, and
+> `SCRIPTING-API.md` as the canonical source for the current authoring and
+> scripting contract; use the changelog as implementation history, not as the
+> primary API reference.
+
 ## 20-04-2026
 
 **Vehicle ownership slice transition/packet regression follow-up** ✅

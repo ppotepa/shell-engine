@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
-use crate::{normalize_vehicle_profile_id, VehicleAssistState, VehicleControlState};
+use crate::{
+    normalize_vehicle_profile_id, VehicleAssistState, VehicleControlState,
+    VehicleEnvironmentBinding, VehicleTelemetrySnapshot,
+};
 
 pub const VEHICLE_HANDOFF_VERSION: u32 = 1;
 pub const VEHICLE_LAUNCH_PACKET_KIND: &str = "vehicle_launch";
@@ -471,6 +474,27 @@ impl VehicleLaunchPacket {
     pub fn is_vehicle_handoff(&self) -> bool {
         self.envelope.is_vehicle_launch()
     }
+
+    pub fn control_state(&self) -> VehicleControlState {
+        self.vehicle.to_control_state().normalized()
+    }
+
+    pub fn environment_binding(&self) -> VehicleEnvironmentBinding {
+        VehicleEnvironmentBinding::from_snapshot(&self.environment)
+    }
+
+    pub fn telemetry_snapshot(&self) -> Option<VehicleTelemetrySnapshot> {
+        self.telemetry.as_ref().map(|telemetry| {
+            VehicleTelemetrySnapshot::from_packet(telemetry)
+                .with_environment(self.environment_binding())
+        })
+    }
+
+    pub fn telemetry_snapshot_or_default(&self) -> VehicleTelemetrySnapshot {
+        self.telemetry_snapshot().unwrap_or_else(|| {
+            VehicleTelemetrySnapshot::default().with_environment(self.environment_binding())
+        })
+    }
 }
 
 /// Typed return packet for restoring state back to a producer/runtime.
@@ -516,6 +540,19 @@ impl VehicleReturnPacket {
 
     pub fn is_vehicle_return(&self) -> bool {
         self.envelope.is_vehicle_return()
+    }
+
+    pub fn control_state(&self) -> VehicleControlState {
+        self.vehicle.to_control_state().normalized()
+    }
+
+    pub fn environment_binding(&self) -> VehicleEnvironmentBinding {
+        VehicleEnvironmentBinding::from_snapshot(&self.environment)
+    }
+
+    pub fn telemetry_snapshot(&self) -> VehicleTelemetrySnapshot {
+        VehicleTelemetrySnapshot::from_packet(&self.telemetry)
+            .with_environment(self.environment_binding())
     }
 }
 

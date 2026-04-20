@@ -5,6 +5,18 @@
 // ↑ / ↓   → cycle selected parameter (when panel open)
 // ← / →   → adjust selected parameter value
 
+fn scene_set(scene, target, path, value) {
+    scene.object(target).set(path, value);
+}
+
+fn scene_text(scene, target, value) {
+    scene_set(scene, target, "text.content", value);
+}
+
+fn scene_visible(scene, target, value) {
+    scene_set(scene, target, "visible", value);
+}
+
 // ── Persistent state ──────────────────────────────────────────────────────────
 if !(local.initialized ?? false) {
     local.initialized = true;
@@ -51,8 +63,8 @@ if !orbit_active && input.just_pressed("s") {
 }
 if orbit_active { panel_visible = false; }
 
-scene.set("settings-panel-box", "visible", panel_visible);
-scene.set("orbit-hint", "visible", orbit_active);
+scene_visible(scene, "settings-panel-box", panel_visible);
+scene_visible(scene, "orbit-hint", orbit_active);
 
 // ── Panel controls ────────────────────────────────────────────────────────────
 if panel_visible && !orbit_active {
@@ -115,43 +127,43 @@ if panel_visible && !orbit_active {
     let a10 = if sel == 10 { ">" } else { " " };
     let a11 = if sel == 11 { ">" } else { " " };
 
-    scene.set("amp-label",   "text.content", `${a0} AMPLITUDE  ${(amplitude * 10.0).round() / 10.0}`);
-    scene.set("freq-label",  "text.content", `${a1} FREQUENCY  ${(frequency * 10.0).round() / 10.0}`);
-    scene.set("oct-label",   "text.content", `${a2} OCTAVES    ${octaves.round()}`);
-    scene.set("rough-label", "text.content", `${a3} ROUGHNESS  ${(roughness * 100.0).round()}%`);
-    scene.set("lac-label",   "text.content", `${a4} LACUNARITY ${(lacunarity * 10.0).round() / 10.0}`);
-    scene.set("seedx-label", "text.content", `${a5} SEED X     ${(seed_x * 10.0).round() / 10.0}`);
-    scene.set("seedz-label", "text.content", `${a6} SEED Z     ${(seed_z * 10.0).round() / 10.0}`);
-    scene.set("plat-label",  "text.content", `${a7} PLATEAU    ${(plateau * 100.0).round()}%`);
-    scene.set("sea-label",   "text.content", `${a8} SEA LEVEL  ${(sea_level * 100.0).round()}%`);
-    scene.set("scx-label",   "text.content", `${a9} SCALE X    ${(scale_x * 10.0).round() / 10.0}`);
-    scene.set("scz-label",   "text.content", `${a10} SCALE Z    ${(scale_z * 10.0).round() / 10.0}`);
+    scene_text(scene, "amp-label", `${a0} AMPLITUDE  ${(amplitude * 10.0).round() / 10.0}`);
+    scene_text(scene, "freq-label", `${a1} FREQUENCY  ${(frequency * 10.0).round() / 10.0}`);
+    scene_text(scene, "oct-label", `${a2} OCTAVES    ${octaves.round()}`);
+    scene_text(scene, "rough-label", `${a3} ROUGHNESS  ${(roughness * 100.0).round()}%`);
+    scene_text(scene, "lac-label", `${a4} LACUNARITY ${(lacunarity * 10.0).round() / 10.0}`);
+    scene_text(scene, "seedx-label", `${a5} SEED X     ${(seed_x * 10.0).round() / 10.0}`);
+    scene_text(scene, "seedz-label", `${a6} SEED Z     ${(seed_z * 10.0).round() / 10.0}`);
+    scene_text(scene, "plat-label", `${a7} PLATEAU    ${(plateau * 100.0).round()}%`);
+    scene_text(scene, "sea-label", `${a8} SEA LEVEL  ${(sea_level * 100.0).round()}%`);
+    scene_text(scene, "scx-label", `${a9} SCALE X    ${(scale_x * 10.0).round() / 10.0}`);
+    scene_text(scene, "scz-label", `${a10} SCALE Z    ${(scale_z * 10.0).round() / 10.0}`);
     let ridge_str = if ridge { "ON " } else { "OFF" };
-    scene.set("ridge-label", "text.content", `${a11} RIDGE MODE [${ridge_str}]`);
+    scene_text(scene, "ridge-label", `${a11} RIDGE MODE [${ridge_str}]`);
 
-    scene.set("amp-handle",   "position.x", (TRACK_X + (amplitude - 0.1) / 4.9 * TRACK_W).round());
-    scene.set("freq-handle",  "position.x", (TRACK_X + (frequency - 0.1) / 7.9 * TRACK_W).round());
-    scene.set("oct-handle",   "position.x", (TRACK_X + (octaves - 1.0) / 2.0 * TRACK_W).round());
-    scene.set("rough-handle", "position.x", (TRACK_X + roughness * TRACK_W).round());
-    scene.set("lac-handle",   "position.x", (TRACK_X + (lacunarity - 1.0) / 3.0 * TRACK_W).round());
-    scene.set("seedx-handle", "position.x", (TRACK_X + (seed_x + 10.0) / 20.0 * TRACK_W).round());
-    scene.set("seedz-handle", "position.x", (TRACK_X + (seed_z + 10.0) / 20.0 * TRACK_W).round());
-    scene.set("plat-handle",  "position.x", (TRACK_X + plateau * TRACK_W).round());
-    scene.set("sea-handle",   "position.x", (TRACK_X + sea_level * TRACK_W).round());
-    scene.set("scx-handle",   "position.x", (TRACK_X + (scale_x - 0.25) / 3.75 * TRACK_W).round());
-    scene.set("scz-handle",   "position.x", (TRACK_X + (scale_z - 0.25) / 3.75 * TRACK_W).round());
-    scene.set("ridge-handle", "position.x", if ridge { TRACK_X + TRACK_W } else { TRACK_X });
+    scene_set(scene, "amp-handle", "position.x", (TRACK_X + (amplitude - 0.1) / 4.9 * TRACK_W).round());
+    scene_set(scene, "freq-handle", "position.x", (TRACK_X + (frequency - 0.1) / 7.9 * TRACK_W).round());
+    scene_set(scene, "oct-handle", "position.x", (TRACK_X + (octaves - 1.0) / 2.0 * TRACK_W).round());
+    scene_set(scene, "rough-handle", "position.x", (TRACK_X + roughness * TRACK_W).round());
+    scene_set(scene, "lac-handle", "position.x", (TRACK_X + (lacunarity - 1.0) / 3.0 * TRACK_W).round());
+    scene_set(scene, "seedx-handle", "position.x", (TRACK_X + (seed_x + 10.0) / 20.0 * TRACK_W).round());
+    scene_set(scene, "seedz-handle", "position.x", (TRACK_X + (seed_z + 10.0) / 20.0 * TRACK_W).round());
+    scene_set(scene, "plat-handle", "position.x", (TRACK_X + plateau * TRACK_W).round());
+    scene_set(scene, "sea-handle", "position.x", (TRACK_X + sea_level * TRACK_W).round());
+    scene_set(scene, "scx-handle", "position.x", (TRACK_X + (scale_x - 0.25) / 3.75 * TRACK_W).round());
+    scene_set(scene, "scz-handle", "position.x", (TRACK_X + (scale_z - 0.25) / 3.75 * TRACK_W).round());
+    scene_set(scene, "ridge-handle", "position.x", if ridge { TRACK_X + TRACK_W } else { TRACK_X });
 
-    scene.set("terrain-mesh", "terrain.amplitude",  amplitude);
-    scene.set("terrain-mesh", "terrain.frequency",  frequency);
-    scene.set("terrain-mesh", "terrain.octaves",    octaves);
-    scene.set("terrain-mesh", "terrain.roughness",  roughness);
-    scene.set("terrain-mesh", "terrain.lacunarity", lacunarity);
-    scene.set("terrain-mesh", "terrain.seed_x",     seed_x);
-    scene.set("terrain-mesh", "terrain.seed_z",     seed_z);
-    scene.set("terrain-mesh", "terrain.plateau",    plateau);
-    scene.set("terrain-mesh", "terrain.sea_level",  sea_level);
-    scene.set("terrain-mesh", "terrain.scale_x",    scale_x);
-    scene.set("terrain-mesh", "terrain.scale_z",    scale_z);
-    scene.set("terrain-mesh", "terrain.ridge",      ridge);
+    scene_set(scene, "terrain-mesh", "terrain.amplitude", amplitude);
+    scene_set(scene, "terrain-mesh", "terrain.frequency", frequency);
+    scene_set(scene, "terrain-mesh", "terrain.octaves", octaves);
+    scene_set(scene, "terrain-mesh", "terrain.roughness", roughness);
+    scene_set(scene, "terrain-mesh", "terrain.lacunarity", lacunarity);
+    scene_set(scene, "terrain-mesh", "terrain.seed_x", seed_x);
+    scene_set(scene, "terrain-mesh", "terrain.seed_z", seed_z);
+    scene_set(scene, "terrain-mesh", "terrain.plateau", plateau);
+    scene_set(scene, "terrain-mesh", "terrain.sea_level", sea_level);
+    scene_set(scene, "terrain-mesh", "terrain.scale_x", scale_x);
+    scene_set(scene, "terrain-mesh", "terrain.scale_z", scale_z);
+    scene_set(scene, "terrain-mesh", "terrain.ridge", ridge);
 }

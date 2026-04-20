@@ -15,6 +15,9 @@ mod package and provides startup validation before runtime boot.
 - verify that the configured scene entrypoint exists in that source,
 - run startup checks for scene graph, levels, Rhai scripts, effect names,
   image/font assets, display settings, and audio sequencer data,
+- enforce lightweight Rhai script policy checks during `--check-scenes`
+  for banned legacy patterns and oversized scene entrypoints without
+  modular imports,
 - expose startup helpers used before scene compilation begins.
 
 ## Main exports
@@ -28,4 +31,6 @@ mod package and provides startup validation before runtime boot.
 - keep directory and zip behavior aligned,
 - preserve good error reporting because this crate is part of the user-facing startup path,
 - keep `--check-scenes` validation deterministic and fast (CI-friendly),
+- keep Rhai script policy checks focused and actionable rather than growing
+  a generic lint framework,
 - if manifest requirements change, update authoring docs and example mods in the same change.

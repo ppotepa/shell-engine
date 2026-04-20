@@ -300,8 +300,11 @@ impl ShipRuntimeModel for ShipModel {
             reference_frame = reference_frame.with_environment(environment);
         }
 
-        let motion =
-            ShipMotionState::from_telemetry(&input.telemetry, &reference_frame, environment.as_ref());
+        let motion = ShipMotionState::from_telemetry(
+            &input.telemetry,
+            &reference_frame,
+            environment.as_ref(),
+        );
         let state = ShipRuntimeState {
             surface_mode,
             reference_frame,

@@ -25,10 +25,15 @@
 .PARAMETER MdOnly
     Include tracked *.md files only. Default output: concat.md.txt.
 
+.PARAMETER ChangedOnly
+    Restrict the report to files changed in the current worktree plus
+    untracked files.
+
 .EXAMPLE
     .\concat.ps1
     .\concat.ps1 -RustOnly
     .\concat.ps1 -MdOnly
+    .\concat.ps1 -ChangedOnly
     .\concat.ps1 -Output out.txt -ExcludeFrom .concatignore-rs
     .\concat.ps1 -Stdout | clip
 #>
@@ -43,7 +48,8 @@ param(
     [string]$ExcludeFrom = '',
     [Alias('rs')]
     [switch]$RustOnly,
-    [switch]$MdOnly
+    [switch]$MdOnly,
+    [switch]$ChangedOnly
 )
 
 Set-StrictMode -Version Latest
@@ -61,7 +67,10 @@ if ($RustOnly -and $MdOnly) {
 # ── Determine output file ──────────────────────────────────────────────────────
 $OutputFileExplicit = $Output -ne ''
 if (-not $OutputFileExplicit) {
-    if ($RustOnly) { $Output = 'concat.rs.txt' }
+    if ($ChangedOnly -and $RustOnly) { $Output = 'concat.changed.rs.txt' }
+    elseif ($ChangedOnly -and $MdOnly) { $Output = 'concat.changed.md.txt' }
+    elseif ($ChangedOnly) { $Output = 'concat.changed.txt' }
+    elseif ($RustOnly) { $Output = 'concat.rs.txt' }
     elseif ($MdOnly) { $Output = 'concat.md.txt' }
     else { $Output = 'concat-report.txt' }
 }
@@ -134,17 +143,48 @@ if ($ExcludeFrom) {
     Import-ExcludePatterns $ExcludeFrom
 }
 
-# ── Collect files via git ls-files ────────────────────────────────────────────
+# ── Collect files via git ─────────────────────────────────────────────────────
 $SkippedGenerated = 0
 
-$AllFiles = if ($RustOnly) {
-    git ls-files '*.rs' | Sort-Object
+function Test-InMode([string]$Path) {
+    if ($RustOnly) { return $Path -like '*.rs' }
+    if ($MdOnly) { return $Path -like '*.md' }
+    return (
+        $Path -like '*.rs' -or
+        $Path -like '*.rhai' -or
+        $Path -like '*.sh' -or
+        $Path -like '*.py' -or
+        $Path -like '*.ps1' -or
+        $Path -like 'mods/*.yml' -or
+        $Path -like 'mods/*.yaml' -or
+        $Path -like 'mods/*/*.yml' -or
+        $Path -like 'mods/*/*.yaml' -or
+        $Path -like 'mods/*/*/*.yml' -or
+        $Path -like 'mods/*/*/*.yaml' -or
+        $Path -like 'mods/*/*/*/*.yml' -or
+        $Path -like 'mods/*/*/*/*.yaml' -or
+        $Path -like 'mods/*/*/*/*/*.yml' -or
+        $Path -like 'mods/*/*/*/*/*.yaml'
+    )
+}
+
+$AllFiles = if ($ChangedOnly) {
+    @(
+        git diff --name-only --diff-filter=ACMRTUXB HEAD 2>$null
+        git ls-files --others --exclude-standard 2>$null
+    ) |
+        Where-Object { $_ } |
+        Sort-Object -Unique |
+        Where-Object { Test-InMode $_ }
+}
+elseif ($RustOnly) {
+    git ls-files '*.rs' 2>$null | Sort-Object
 }
 elseif ($MdOnly) {
-    git ls-files '*.md' | Sort-Object | Where-Object { Test-Path $_ }
+    git ls-files '*.md' 2>$null | Sort-Object | Where-Object { Test-Path $_ }
 }
 else {
-    git ls-files '*.rs' '*.rhai' '*.sh' '*.py' 'mods/**/*.yml' 'mods/**/*.yaml' | Sort-Object
+    git ls-files '*.rs' '*.rhai' '*.sh' '*.py' '*.ps1' 'mods/**/*.yml' 'mods/**/*.yaml' 2>$null | Sort-Object
 }
 
 $Files = [System.Collections.Generic.List[string]]::new()
@@ -156,14 +196,14 @@ foreach ($f in $AllFiles) {
 
 # ── Ignored non-source files (yml/yaml/blend not already included) ─────────────
 $IncludedSet = [System.Collections.Generic.HashSet[string]]::new($Files)
-$IgnoredNonSource = git ls-files '*.yml' '*.yaml' '*.blend' '*.blend1' |
+$IgnoredNonSource = git ls-files '*.yml' '*.yaml' '*.blend' '*.blend1' 2>$null |
     Sort-Object |
     Where-Object { (Test-Path $_) -and (-not $IncludedSet.Contains($_)) }
 
 if ($Files.Count -eq 0) {
     $msg = if ($RustOnly) { 'no tracked Rust files found after filtering' }
            elseif ($MdOnly) { 'no tracked Markdown files found after filtering' }
-           else { 'no tracked source files found (.rs/.rhai/.sh/.py + mods/**/*.yml|yaml)' }
+           else { 'no tracked source files found (.rs/.rhai/.sh/.py/.ps1 + mods/**/*.yml|yaml)' }
     Write-Error "[concat] $msg"
     exit 1
 }
@@ -182,6 +222,7 @@ function Build-Report {
     $null = $sb.AppendLine("files: $($Files.Count)")
     $null = $sb.AppendLine("lines_total: $totalLines")
     $null = $sb.AppendLine("include_generated: $(if ($IncludeGenerated) { 1 } else { 0 })")
+    $null = $sb.AppendLine("changed_only: $(if ($ChangedOnly) { 1 } else { 0 })")
     $null = $sb.AppendLine("rust_only: $(if ($RustOnly) { 1 } else { 0 })")
     $null = $sb.AppendLine("md_only: $(if ($MdOnly) { 1 } else { 0 })")
     $null = $sb.AppendLine("exclude_file: $ExcludeFileSource")

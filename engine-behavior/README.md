@@ -52,10 +52,11 @@ with the runtime behavior system and authored YAML expectations.
 
 Current script-facing API surface includes:
 
+- typed runtime root (`runtime.scene`, `runtime.world`, `runtime.services`, `runtime.stores`) with top-level aliases kept for compatibility,
 - GUI widget helpers (`gui.slider_value`, `gui.toggle_on`, `gui.button_clicked`,
   `gui.has_change`, `gui.changed_widget`, `gui.widget_hovered`, `gui.widget_pressed`,
   `gui.set_widget_value`, `gui.set_panel_visible`, `gui.mouse_x/y/mouse_left_down`),
-- gameplay world helpers (`world.spawn_visual`, `world.spawn_object`, `world.entity`, query/count APIs, `world.any_alive`, `world.distance`),
+- gameplay world helpers (`world.spawn_visual`, `world.spawn_object`, `world.entity`, `world.objects`, query/count APIs, `world.any_alive`, `world.distance`),
 - gameplay ownership helpers (`world.set_controlled_entity`, `world.controlled_entity`, `world.clear_controlled_entity`) for scene-agnostic active actor selection,
 - dedicated vehicle-domain helpers (`vehicle.set_active`, `vehicle.active`, `vehicle.clear_active`) layered over the same runtime ownership seam,
 - typed gameplay component helpers (`world.set_transform`, `world.set_physics`,
@@ -64,13 +65,14 @@ Current script-facing API surface includes:
 - atomic spawn (`world.spawn_visual(kind, template, data)` — creates entity + visual + binding + transform + collider in one call),
 - auto-despawn (`world.despawn_object(id)` and `entity.despawn()` auto-clean all bound scene visuals),
 - entity ref API (`world.entity(id)` returns typed handle with `get_i`, `get_f`, `get_s`, `get_b`, `flag`, `set_flag`, `set_many`, `data`, `set_position`, `set_velocity`, `despawn`, `id`, cooldown/status timers, arcade controller, etc.),
+- runtime scene handles (`runtime.scene.objects.find/all/by_tag/by_name`) and runtime world handles (`runtime.world.objects.find/all/by_tag/by_name`) for live discovery and mutation,
+- scene-root helpers (`scene.object`, `scene.objects.find/all/by_tag/by_name`, `scene.inspect`, `scene.region`, `scene.instantiate`, `scene.despawn`, `scene.set_bg`) backed by the same runtime-first scene surface,
 - collision events (`world.collision_enters/stays/exits(kind_a, kind_b)`) — kind-filtered, named-field maps,
 - toroidal wrap (`world.enable_wrap_bounds`, `world.set_world_bounds`, `world.enable_wrap`, `world.disable_wrap`),
 - RNG (`world.rand_i`, `world.rand_seed`),
 - tags (`world.tag_add`, `world.tag_remove`, `world.tag_has`),
 - children (`world.spawn_child`, `world.despawn_children`),
 - input actions (`input.bind_action`, `input.action_down`) with `KEY_*` constants,
-- scene helpers (`scene.inspect`, `scene.region`, `scene.set_text`, `scene.set_text_style`, `scene.set_vector`, `scene.set_visible`, `scene.batch`),
 - debug helpers (`diag.info/warn/error`, `diag.layout_info/warn/error`) which surface in the runtime debug console and `Layout` overlay panel,
 - game state typed getters (`game.get_i/s/b/f`),
 - audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`),
@@ -86,7 +88,8 @@ growing more vehicle glue inside `gameplay_impl.rs`.
 
 The intended boundary is:
 
-- `engine-api` owns the script-facing `vehicle.*` facade,
+- `engine-api` owns the root runtime handle contracts plus the script-facing
+  `runtime.*`, `scene.*`, `world.*`, and `vehicle.*` surfaces,
 - `engine-game` owns only primitive components plus cached/projected vehicle DTOs,
 - `engine-behavior` adapts typed vehicle assembly/config maps onto those
   primitives and should not re-own vehicle control semantics locally,
@@ -96,10 +99,25 @@ The intended boundary is:
 
 ## Script API notes that matter in practice
 
+- `runtime` is the canonical root. `runtime.scene`, `runtime.world`,
+  `runtime.services`, and `runtime.stores` are the behavior-side entry points.
+  Top-level `scene`, `world`, `game`, `level`, `persist`, `input`, `gui`, `ui`,
+  `diag`, `palette`, `audio`, `effects`, and `collision` remain compatibility
+  aliases to the same live APIs for now.
 - `world.set_world_bounds` uses the natural Rhai argument order
   `min_x, min_y, max_x, max_y`.
 - `spawn_prefab("ship", #{ cfg: ... })` merges `args["cfg"]` into the catalog
   controller config. This is the intended path for per-level controller tuning.
+- `runtime.scene.objects.find(target)` is the primary live scene-handle path.
+  `scene.object(target)` is the concise shorthand for the same live handle.
+  `scene.inspect(target)` stays a snapshot and will not reflect pending
+  same-frame handle writes.
+- There is no standalone `objects` compatibility map in scope anymore. Use
+  `runtime.scene.objects.*`, `scene.objects.*`, `runtime.world.objects.*`, or
+  `world.objects.*` depending on the domain you want.
+- `world.objects.find(target)` is the lookup-oriented gameplay object surface.
+  Use `world.entity(id)` when the script needs transform/physics/controller
+  methods rather than generic data inspection and mutation.
 - `world.spawn_visual(...)` and `world.set_visual(...)` target the runtime clone
   layer/object, not an arbitrary child sprite inside that clone. Use scene-side
   sprite `id` values when mutating a specific child after spawn.

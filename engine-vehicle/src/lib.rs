@@ -13,6 +13,7 @@ pub mod input;
 pub mod kind;
 pub mod models;
 pub mod runtime;
+pub mod session;
 mod types;
 
 pub use assembly::{
@@ -38,10 +39,12 @@ pub use input::{
 pub use kind::VehicleKind;
 pub use models::{ShipModel, VehicleModelRef};
 pub use runtime::{
-    ShipReferenceFrameKind, ShipReferenceFrameState, ShipRuntimeInput, ShipRuntimeModel,
-    ShipRuntimeOutput, ShipRuntimeState, ShipSurfaceMode, VehicleAssemblyModel,
-    VehicleControllerModel, VehicleReferenceFrameModel, VehicleTelemetryModel,
+    ShipMotionState, ShipReferenceFrameKind, ShipReferenceFrameState, ShipRuntimeInput,
+    ShipRuntimeModel, ShipRuntimeOutput, ShipRuntimeState, ShipRuntimeStepReport, ShipSurfaceMode,
+    VehicleAssemblyModel, VehicleControllerModel, VehicleReferenceFrameModel,
+    VehicleTelemetryModel,
 };
+pub use session::VehicleSessionState;
 pub use types::{
     BrakePhase, MotionFrame, MotionFrameInput, VehicleFacing, VehicleProfile, VehicleProfileInput,
     VehicleTelemetry, VehicleTelemetryInput,

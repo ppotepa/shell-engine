@@ -15,12 +15,14 @@ behaviors:
         let y = ((next_tick % 24) - 12) / 6;
         let visible = ((next_tick / 12) % 2) == 0;
 
-        scene.set("tux-image", "position.x", x);
-        scene.set("tux-image", "position.y", y);
-        scene.set("tux-image", "visible", visible);
+        let tux = scene.object("tux-image");
+        tux.set("position.x", x);
+        tux.set("position.y", y);
+        tux.set("visible", visible);
 
-        scene.set("image-status", "text.content", `tux x=${x} y=${y} visible=${visible}`);
-        scene.set("image-status", "style.fg", if visible { "yellow" } else { "gray" });
+        let status = scene.object("image-status");
+        status.set("text.content", `tux x=${x} y=${y} visible=${visible}`);
+        status.set("style.fg", if visible { "yellow" } else { "gray" });
 
         #{ state: #{ tick: next_tick } }
 stages-ref: /stages/anykey-fade-250-200.yml

@@ -148,61 +148,86 @@ pub fn scene_mutation_request_from_set_path(
     value: &JsonValue,
     current_state: Option<&ObjectRuntimeState>,
 ) -> Option<crate::scene::SceneMutationRequest> {
+    Some(
+        match scene_mutation_request_from_set_path_result(target, path, value, current_state) {
+            Ok(request) => request,
+            Err(error) => crate::scene::SceneMutationRequest::RequestError { error },
+        },
+    )
+}
+
+pub fn scene_mutation_request_from_set_path_result(
+    target: &str,
+    path: &str,
+    value: &JsonValue,
+    current_state: Option<&ObjectRuntimeState>,
+) -> Result<crate::scene::SceneMutationRequest, crate::scene::SceneMutationRequestError> {
     if !is_supported_scene_set_path(path) {
-        return None;
+        return Err(crate::scene::SceneMutationRequestError::unsupported_set_path(target, path));
     }
     match path {
-        "visible" => Some(crate::scene::SceneMutationRequest::Set2dProps {
+        "visible" => Ok(crate::scene::SceneMutationRequest::Set2dProps {
             target: target.to_string(),
-            visible: Some(value.as_bool()?),
+            visible: Some(value.as_bool().ok_or_else(|| {
+                crate::scene::SceneMutationRequestError::invalid_value(target, path)
+            })?),
             dx: None,
             dy: None,
             text: None,
         }),
-        "text.content" => Some(crate::scene::SceneMutationRequest::Set2dProps {
+        "text.content" => Ok(crate::scene::SceneMutationRequest::Set2dProps {
             target: target.to_string(),
             visible: None,
             dx: None,
             dy: None,
-            text: Some(value.as_str()?.to_string()),
+            text: Some(
+                value
+                    .as_str()
+                    .ok_or_else(|| {
+                        crate::scene::SceneMutationRequestError::invalid_value(target, path)
+                    })?
+                    .to_string(),
+            ),
         }),
-        "transform.heading" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+        "transform.heading" => Ok(crate::scene::SceneMutationRequest::SetSpriteProperty {
             target: target.to_string(),
             path: "transform.heading".to_string(),
             value: value.clone(),
         }),
-        "text.font" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+        "text.font" => Ok(crate::scene::SceneMutationRequest::SetSpriteProperty {
             target: target.to_string(),
             path: "text.font".to_string(),
             value: value.clone(),
         }),
-        "style.fg" | "text.fg" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+        "style.fg" | "text.fg" => Ok(crate::scene::SceneMutationRequest::SetSpriteProperty {
             target: target.to_string(),
             path: "style.fg".to_string(),
             value: value.clone(),
         }),
-        "style.bg" | "text.bg" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+        "style.bg" | "text.bg" => Ok(crate::scene::SceneMutationRequest::SetSpriteProperty {
             target: target.to_string(),
             path: "style.bg".to_string(),
             value: value.clone(),
         }),
         "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg" | "vector.bg"
         | "style.border" | "style.shadow" => {
-            Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+            Ok(crate::scene::SceneMutationRequest::SetSpriteProperty {
                 target: target.to_string(),
                 path: path.to_string(),
                 value: value.clone(),
             })
         }
-        "image.frame_index" => Some(crate::scene::SceneMutationRequest::SetSpriteProperty {
+        "image.frame_index" => Ok(crate::scene::SceneMutationRequest::SetSpriteProperty {
             target: target.to_string(),
             path: "image.frame_index".to_string(),
             value: value.clone(),
         }),
         "offset.x" | "position.x" => {
             let state = current_state.cloned().unwrap_or_default();
-            let next_x = rounded_i32(value)?;
-            Some(crate::scene::SceneMutationRequest::Set2dProps {
+            let next_x = rounded_i32(value).ok_or_else(|| {
+                crate::scene::SceneMutationRequestError::invalid_value(target, path)
+            })?;
+            Ok(crate::scene::SceneMutationRequest::Set2dProps {
                 target: target.to_string(),
                 visible: None,
                 dx: Some(next_x.saturating_sub(state.offset_x)),
@@ -212,8 +237,10 @@ pub fn scene_mutation_request_from_set_path(
         }
         "offset.y" | "position.y" => {
             let state = current_state.cloned().unwrap_or_default();
-            let next_y = rounded_i32(value)?;
-            Some(crate::scene::SceneMutationRequest::Set2dProps {
+            let next_y = rounded_i32(value).ok_or_else(|| {
+                crate::scene::SceneMutationRequestError::invalid_value(target, path)
+            })?;
+            Ok(crate::scene::SceneMutationRequest::Set2dProps {
                 target: target.to_string(),
                 visible: None,
                 dx: None,
@@ -222,8 +249,11 @@ pub fn scene_mutation_request_from_set_path(
             })
         }
         _ if is_render3d_set_path(path) => render3d_request_from_set_path(target, path, value)
-            .map(crate::scene::SceneMutationRequest::SetRender3d),
-        _ => None,
+            .map(crate::scene::SceneMutationRequest::SetRender3d)
+            .ok_or_else(|| {
+                crate::scene::SceneMutationRequestError::unsupported_set_path(target, path)
+            }),
+        _ => Err(crate::scene::SceneMutationRequestError::unsupported_set_path(target, path)),
     }
 }
 
@@ -373,5 +403,67 @@ mod tests {
         assert!(is_supported_scene_set_path("style.fg"));
         assert!(is_supported_scene_set_path("style.bg"));
         assert!(!is_supported_scene_set_path("text.color"));
+    }
+
+    #[test]
+    fn request_result_reports_unsupported_set_path() {
+        let error =
+            scene_mutation_request_from_set_path_result("hud", "audio.pitch", &2.0.into(), None)
+                .expect_err("unsupported path should be rejected");
+
+        assert_eq!(
+            error,
+            crate::scene::SceneMutationRequestError::UnsupportedSetPath {
+                target: "hud".to_string(),
+                path: "audio.pitch".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn request_result_reports_invalid_set_value() {
+        let error =
+            scene_mutation_request_from_set_path_result("hud", "visible", &"yes".into(), None)
+                .expect_err("invalid value should be rejected");
+
+        assert_eq!(
+            error,
+            crate::scene::SceneMutationRequestError::InvalidValue {
+                target: "hud".to_string(),
+                path: "visible".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn legacy_wrapper_carries_unsupported_path_as_request_error() {
+        let request = scene_mutation_request_from_set_path("hud", "audio.pitch", &2.0.into(), None)
+            .expect("legacy wrapper should preserve rejection");
+
+        assert_eq!(
+            request,
+            crate::scene::SceneMutationRequest::RequestError {
+                error: crate::scene::SceneMutationRequestError::UnsupportedSetPath {
+                    target: "hud".to_string(),
+                    path: "audio.pitch".to_string(),
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn legacy_wrapper_carries_invalid_value_as_request_error() {
+        let request = scene_mutation_request_from_set_path("hud", "visible", &"yes".into(), None)
+            .expect("legacy wrapper should preserve rejection");
+
+        assert_eq!(
+            request,
+            crate::scene::SceneMutationRequest::RequestError {
+                error: crate::scene::SceneMutationRequestError::InvalidValue {
+                    target: "hud".to_string(),
+                    path: "visible".to_string(),
+                },
+            }
+        );
     }
 }

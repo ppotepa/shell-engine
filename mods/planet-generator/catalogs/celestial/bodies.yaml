@@ -6,7 +6,8 @@ bodies:
     orbit_radius: 0.0
     orbit_period_sec: 0.0
     orbit_phase_deg: 0.0
-    radius_px: 100.0
+    radius_px: 1.0
+    km_per_px: 1.0
     surface_radius: 100.0
     radius_km: 100.0
     gravity_mu_km3_s2: 1000.0

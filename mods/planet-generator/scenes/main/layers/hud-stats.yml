@@ -7,9 +7,9 @@
     - type: panel
       id: hud-stats-box
       align-x: left
-      align-y: top
+      align-y: bottom
       x: 16
-      y: 660
+      y: -16
       width: 740
       height: 72
       padding: 6

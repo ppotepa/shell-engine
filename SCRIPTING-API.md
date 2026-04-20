@@ -9,57 +9,90 @@ All types and function names listed here are exact Rhai identifiers.
 
 ## Script Structure
 
-Scripts are plain Rhai files. Functions defined at the top are hoisted. The
-script body runs each frame. A map returned from the top-level body is treated
-as the `local` state and is passed back in on the next frame.
+Treat `main.rhai` as a thin entrypoint. Put reusable domain logic under
+`mods/<mod>/scripts/` and import modules from there. Import ids are resolved
+relative to that directory, so `import "vehicle/state" as state;` loads
+`mods/<mod>/scripts/vehicle/state.rhai`.
+
+Recommended entrypoint shape:
 
 ```rhai
-// Functions are hoisted — safe to define before use
-fn helper(x) { x * 2 }
+import "std/bootstrap" as bootstrap;
+import "vehicle/state" as state;
+import "vehicle/hud" as hud;
 
-// Guard: local is () until first run
-if type_of(local) == "()" { local = #{}; }
-
-// One-time init
-if !(local.initialized ?? false) {
-    local.counter = 0;
-    local.initialized = true;
-}
-
-local.counter += 1;
-
-// Return updated state — will be `local` next frame
-#{ state: local }
+local = bootstrap::ensure(local);
+let s = state::load(local);
+s = state::step(s, runtime, input, frame_ms);
+hud::render(s, runtime);
+local = state::store(local, s);
 ```
 
-> **Multiline strings**: use backtick templates `` `Hello ${name}` `` — never `"...\n..."`.
+Authoring rules:
+
+- Prefer one owned state object, usually `local.state`.
+- Keep raw `local["..."]` access inside dedicated `state*.rhai` /
+  `handoff*.rhai` modules instead of scattering keys through entrypoints.
+- Avoid `if type_of(local) == "()" { ... }` in entrypoints; hide bootstrap in a
+  helper module.
+- Use backtick templates for multiline strings: `` `Hello ${name}` `` — never
+  `"...\n..."`.
 
 ---
 
 ## Scope Variables
 
-Every frame, the engine injects the following variables into the script scope:
+Every frame, the engine injects a canonical `runtime` root plus frame/timing
+values and convenience aliases. Some domains are still reached through those
+aliases in current builds while the runtime root surface is being aligned.
 
 | Variable           | Type              | Description                                        |
 |--------------------|-------------------|----------------------------------------------------|
-| `world`            | `WorldApi`        | Entity lifecycle, queries, physics, collisions     |
-| `collision`        | `CollisionApi`    | Structured collision event queries                 |
-| `scene`            | `SceneApi`        | Scene graph property reads and writes              |
-| `input`            | `InputApi`        | Key/action queries and action binding              |
-| `audio`            | `AudioApi`        | Sound cue playback and music                       |
-| `effects`          | `EffectsApi`      | Screen shake and post-FX trigger                   |
-| `game`             | `GameApi`         | Cross-scene state store + scene transitions        |
-| `level`            | `LevelApi`        | Level list management                              |
+| `runtime`          | `RuntimeApi`      | Canonical root namespace for scene/world/services/stores |
+| `scene`            | `SceneApi`        | Concise scene-root shorthand; prefer the runtime-root mental model |
+| `world`            | `WorldApi`        | Gameplay shorthand; canonical ownership lives under `runtime.world` |
+| `game`             | `GameApi`         | Session store shorthand; conceptually under `runtime.stores` |
+| `level`            | `LevelApi`        | Level store shorthand; conceptually under `runtime.stores` |
+| `persist`          | `PersistApi`      | Persistent store shorthand; conceptually under `runtime.stores` |
+| `input`            | `InputApi`        | Input/action queries; service-domain alias |
+| `audio`            | `AudioApi`        | Sound cue playback and music; service-domain alias |
+| `effects`          | `EffectsApi`      | Screen shake and post-FX trigger; service-domain alias |
+| `collision`        | `CollisionApi`    | Structured collision event queries; service-domain alias |
+| `ui`               | `UiApi`           | TUI input widget queries; service-domain alias |
+| `terminal`         | `TerminalApi`     | Terminal shell output (text push/clear); service-domain alias |
+| `palette`          | `PaletteApi`      | Active colour palette and particle ramps; service-domain alias |
+| `diag`             | `DebugApi`        | Debug/log diagnostics output; service-domain alias |
 | `time`             | `TimeApi`         | Elapsed time, stage name                           |
-| `persist`          | `PersistApi`      | Disk-backed persistent key-value store             |
-| `diag`             | `DebugApi`        | Debug/log diagnostics output                       |
-| `ui`               | `UiApi`           | TUI input widget queries                           |
-| `terminal`         | `TerminalApi`     | Terminal shell output (text push/clear)            |
-| `palette`          | `PaletteApi`      | Active colour palette — colors and particle ramps  |
-| `local`            | `Dynamic`         | Per-script frame-to-frame state (`#{}` or `()`)   |
+| `local`            | `Dynamic`         | Per-script frame-to-frame state slot; prefer a single owned `local.state` object |
 | `frame_ms`         | `int`             | Actual elapsed time for this frame (milliseconds)  |
 | `scene_elapsed_ms` | `int`             | Total elapsed ms since scene start                 |
 | `stage_elapsed_ms` | `int`             | Total elapsed ms since current stage start         |
+
+This reference intentionally omits older compatibility maps such as `objects`,
+`state`, `menu`, and `key` from the primary authoring surface.
+
+---
+
+## Handle vs Snapshot Model
+
+The scripting surface now separates live handles from snapshot reads.
+
+- `runtime.scene.objects.find(target)` returns a live scene-object handle
+- `scene.object(target)` returns the same live scene-object handle through the
+  root-scene shorthand
+- `scene.inspect(target)` and `scene.region(target)` return snapshot maps
+- `world.objects.find(target)` returns a live gameplay lookup handle
+- `world.entity(id)` returns the richer gameplay entity handle for transform,
+  physics, controller, cooldown, status, and other component helpers
+
+Use live handles when same-frame writes should remain visible to later reads in
+the same script. Use snapshot helpers when the script needs a stable read-only
+view of the last published runtime state. `scene.object(target)` is the concise
+root-scene shorthand for the same live handle type.
+
+This reference intentionally omits older path-based scene compatibility helpers
+from the primary flow. If they still appear in older mods, treat them as
+migration-only syntax rather than as the authoring target.
 
 ---
 
@@ -155,6 +188,27 @@ world.remove(id, "path")      // → bool
 world.push(id, "path", value) // → bool     Append to JSON array field
 world.entity(id)              // → EntityApi  Per-entity method object (see below)
 ```
+
+### World Object Lookup
+
+`world.objects` is the lookup-oriented gameplay object registry. It resolves
+either a numeric entity id or a bound visual/runtime target back to the live
+gameplay object.
+
+```rhai
+let ship = world.objects.find("ship-shadow"); // bound visual id
+let also_ship = world.objects.find(1);        // numeric entity id
+ship.exists()                 // → bool
+ship.id()                     // → int
+ship.kind()                   // → str
+ship.tags()                   // → []
+ship.inspect()                // → #{} snapshot-ish identity/data map
+ship.get("hp")                // → Dynamic
+ship.set("hp", 42)            // → bool
+```
+
+Use `world.objects` to discover or relink gameplay objects from visuals/tags.
+Use `world.entity(id)` when the script needs the richer gameplay entity API.
 
 ### Tags
 
@@ -546,12 +600,34 @@ for hit in collision.enters("bullet", "enemy") {
 
 ## `scene` — SceneApi
 
-Read and write properties on scene objects (sprites, layers) by their authored id or alias.
+Resolve live scene handles through the runtime registry, then use snapshots or
+typed mutations only where they fit better than direct handle access.
+
+`runtime.scene.objects` is the primary discovery API for live scene handles.
+`scene.object(...)` is the concise root-scene live-handle shorthand.
+`scene.inspect(...)` and `scene.region(...)` remain the snapshot reads.
+
+### Runtime Scene Handles
+
+```rhai
+let hud = runtime.scene.objects.find("hud-score");
+hud.get("text.content")             // → Dynamic
+hud.set("text.content", `${score}`) // → bool
+
+let subtitle = scene.object("hud-subtitle");
+subtitle.set("text.content", "Ready")
+
+for object in runtime.scene.objects.all() {
+    if object.get("visible") {
+        // ...
+    }
+}
+```
 
 ### Read
 
 ```rhai
-let obj = scene.get("object-id");   // Returns ScriptObjectApi handle
+let obj = runtime.scene.objects.find("object-id");
 let snap = scene.inspect("object-id") // Snapshot map for the resolved object id
 let box  = scene.region("object-id")  // Runtime layout box map for the resolved object id
 obj.get("path")                     // → Dynamic  Read property
@@ -562,25 +638,23 @@ snap.get("capabilities.text.content") // bool
 box.get("width")                    // int
 ```
 
+`scene.inspect(...)` remains a snapshot surface. Pending live-handle writes made
+through `runtime.scene.objects.find(...).set(...)` do not rewrite the snapshot
+returned by `inspect(...)` during the same frame.
+
 ### Write
 
 ```rhai
-scene.set("id", "path", value)
-scene.set("hud-score", "text.content", `${score}`)
-scene.set("player",    "visible", false)
-scene.set("ship",      "position.x", 320.0)
-scene.set("polygon",   "vector.points", pts)
-scene.set("main-planet", "planet.spin_deg", 18.0)
-scene.set("main-planet", "planet.sun_dir.x", 0.72)
+runtime.scene.objects.find("hud-score").set("text.content", `${score}`)
+scene.object("hud-subtitle").set("text.content", "Ready")
+runtime.scene.objects.find("player").set("visible", false)
+runtime.scene.objects.find("ship").set("position.x", 320.0)
+runtime.scene.objects.find("polygon").set("vector.points", pts)
+runtime.scene.objects.find("main-planet").set("planet.spin_deg", 18.0)
+runtime.scene.objects.find("main-planet").set("planet.sun_dir.x", 0.72)
 
-// Set the same property on multiple objects at once (cheaper than a Rhai for-loop):
-scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
-
-// Ergonomic text helpers for HUD/UI work:
-scene.set_text("hud-score", `${score}`)
-scene.set_text_style("hud-score", #{ fg: "amber", bg: "black", font: "generic:2" })
-
-// Typed mutation request (preferred for new 2D/3D camera + render mutations):
+// Typed mutation request (preferred for camera/render mutations that are not
+// naturally expressed as per-object handle writes):
 scene.mutate(#{
   type: "set_camera3d",
   kind: "look_at",
@@ -642,14 +716,13 @@ scene.mutate(#{
 ### Scene Graph Mutations
 
 ```rhai
-scene.spawn("template-id", "new-target-id")  // → bool  Clone a template object
+scene.instantiate("template-id", "new-target-id")  // → bool  Clone a template object
 scene.despawn("target-id")                    // → bool  Remove a runtime clone
-scene.set_visible("id", false)                // Shorthand visibility toggle
-scene.set_text("id", "READY")                 // Typed text-content update
-scene.set_text_style("id", #{ fg: "green" })  // Ergonomic fg/bg/font update
-scene.set_vector("id", points, fg, bg)        // Set vector polygon + colours
-scene.batch("id", #{ path: val, ... })        // Bulk property update
+scene.mutate(#{ ... })                        // → bool  Typed scene/runtime mutation request
 ```
+
+Older helper shorthands may still exist in transitional code, but they are not
+part of the recommended authoring surface.
 
 ---
 
@@ -825,7 +898,7 @@ gui.mouse_left_down           // → bool  True while LMB is held outside any wi
 ```
 
 Slider handle positioning is automatic at the engine level via `GuiControl::visual_sync()`.
-Scripts only need to **read** slider values — no manual `scene.set("handle", "position.x", ...)`
+Scripts only need to **read** slider values — no manual `runtime.scene.objects.find("handle").set("position.x", ...)`
 required.
 
 ---

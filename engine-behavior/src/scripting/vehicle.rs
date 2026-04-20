@@ -507,4 +507,119 @@ mod tests {
             .expect("step heading");
         assert_eq!(heading, 270.0);
     }
+
+    #[test]
+    fn register_with_rhai_supports_typed_vehicle_flow_without_map_primary_path() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = rhai::Scope::new();
+        scope.push(
+            "vehicle",
+            ScriptVehicleApi::from_gameplay_world(Some(world)),
+        );
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let launch = vehicle.launch_packet_from(#{
+                        producer_mod_id: "planet-generator",
+                        source_scene_id: "planet-generator-main",
+                        target_mod_ref: "vehicle-playground",
+                        target_scene_id: "vehicle-playground-vehicle",
+                        return_scene_id: "planet-generator-main",
+                        consumer_hint: "vehicle-runtime",
+                        planet: #{
+                            body: #{
+                                id: "generated-planet",
+                                planet_type: "earth_like",
+                                surface_radius: 212.0,
+                                radius_px: 212.0,
+                                gravity_mu_km3_s2: 4410.0
+                            },
+                            real_radius_km: 6371.0,
+                            scale_divisor: 30.0,
+                            surface_gravity_mps2: 9.81,
+                            atmo_top_km: 80.0,
+                            atmo_dense_start_km: 12.0,
+                            atmo_drag_max: 2.0
+                        },
+                        vehicle: #{
+                            profile_id: "sim_lite",
+                            assist_alt_hold: true,
+                            spawn_altitude_km: 3.5
+                        },
+                        telemetry: #{
+                            heading_deg: -45.0,
+                            altitude_km: 3.5,
+                            tangent_speed_kms: 1.2,
+                            radial_speed_kms: -0.1,
+                            spawn_angle_deg: -30.0,
+                            grounded: true,
+                            radius_wu: 215.5
+                        }
+                    });
+
+                    let env = launch.environment_binding();
+                    let telemetry = launch.telemetry_snapshot();
+                    let control = launch.control_state();
+                    let runtime = vehicle.ship_runtime_state_from_telemetry(telemetry);
+                    let input = vehicle.ship_runtime_input_from_parts(0.02, control, telemetry, env);
+                    let step = vehicle.ship_runtime_step("sim_lite", runtime, input);
+                    let session = vehicle
+                        .session_state_from_launch_packet(launch)
+                        .apply_runtime_output(step);
+
+                    #{
+                        env_body: env.body_id,
+                        telemetry_heading: telemetry.heading_deg,
+                        telemetry_grounded: telemetry.grounded,
+                        input_dt: input.dt_s,
+                        step_mode: step.state.surface_mode,
+                        session_profile: session.control.profile_id,
+                        session_spawn_altitude: session.spawn_altitude_km
+                    }
+                "#,
+            )
+            .expect("typed vehicle flow should resolve in behavior-owned engine");
+
+        let env_body = result
+            .get("env_body")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("env_body");
+        let telemetry_heading = result
+            .get("telemetry_heading")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("telemetry_heading");
+        let telemetry_grounded = result
+            .get("telemetry_grounded")
+            .and_then(|value| value.clone().try_cast::<bool>())
+            .expect("telemetry_grounded");
+        let input_dt = result
+            .get("input_dt")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("input_dt");
+        let step_mode = result
+            .get("step_mode")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("step_mode");
+        let session_profile = result
+            .get("session_profile")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("session_profile");
+        let session_spawn_altitude = result
+            .get("session_spawn_altitude")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("session_spawn_altitude");
+
+        assert_eq!(env_body, "generated-planet");
+        assert_eq!(telemetry_heading, 315.0);
+        assert!(telemetry_grounded);
+        assert!((input_dt - 0.02).abs() < 1.0e-6);
+        assert_eq!(step_mode, "grounded");
+        assert_eq!(session_profile, "sim-lite");
+        assert_eq!(session_spawn_altitude, 3.5);
+    }
 }

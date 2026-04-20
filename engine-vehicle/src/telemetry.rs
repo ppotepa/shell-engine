@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::frame::{VehicleEnvironmentBinding, VehicleReferenceFrame};
 use crate::{
-    handoff::{VehicleBasis3, VehiclePacketTelemetry},
+    handoff::{VehicleBasis3, VehicleLaunchPacket, VehiclePacketTelemetry, VehicleReturnPacket},
     runtime::{ShipReferenceFrameKind, ShipReferenceFrameState, ShipRuntimeState, ShipSurfaceMode},
     types::{BrakePhase, MotionFrame, MotionFrameInput, VehicleTelemetry, VehicleTelemetryInput},
 };
@@ -168,6 +168,14 @@ impl VehicleTelemetrySnapshot {
         .normalized()
     }
 
+    pub fn from_launch_packet(packet: &VehicleLaunchPacket) -> Self {
+        packet.telemetry_snapshot_or_default()
+    }
+
+    pub fn from_return_packet(packet: &VehicleReturnPacket) -> Self {
+        packet.telemetry_snapshot()
+    }
+
     pub fn with_environment(mut self, environment: VehicleEnvironmentBinding) -> Self {
         let environment = environment.normalized();
         self.ship_reference = self.ship_reference.clone().with_environment(&environment);
@@ -193,6 +201,22 @@ impl VehicleTelemetrySnapshot {
         self.environment = state.environment.clone();
         self.grounded = state.surface_mode.is_grounded();
         self
+    }
+
+    pub fn heading_rad(&self) -> f32 {
+        self.reference.heading_rad
+    }
+
+    pub fn has_basis(&self) -> bool {
+        self.basis.is_some()
+    }
+
+    pub fn has_environment(&self) -> bool {
+        self.environment.is_some()
+    }
+
+    pub fn to_packet(&self) -> VehiclePacketTelemetry {
+        VehiclePacketTelemetry::from(self.clone()).normalized()
     }
 
     pub fn normalized(mut self) -> Self {

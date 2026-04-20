@@ -68,6 +68,24 @@ pub(crate) struct ScriptGameplayEntityApi {
     pub(crate) physics: ScriptEntityPhysicsApi,
 }
 
+#[derive(Clone)]
+pub(crate) struct ScriptGameplayObjectsApi {
+    pub(crate) world: Option<GameplayWorld>,
+}
+
+#[derive(Clone)]
+pub(crate) struct ScriptGameplayObjectApi {
+    pub(crate) world: Option<GameplayWorld>,
+    pub(crate) id: u64,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct ScriptGameplayBodySnapshotApi {
+    pub(crate) id: String,
+    pub(crate) body: Option<catalog::BodyDef>,
+    pub(crate) spatial_meters_per_world_unit: Option<f64>,
+}
+
 // ── ScriptGameplayApi Implementation ──────────────────────────────────────
 impl ScriptGameplayApi {
     fn map_patch_number(patch: &RhaiMap, key: &str) -> Option<f64> {
@@ -234,6 +252,26 @@ impl ScriptGameplayApi {
             physics: ScriptEntityPhysicsApi::new(world.clone(), id_u64),
             ctx: ScriptEntityContext::new(world, id_u64, Arc::clone(&self.ctx.queue)),
         }
+    }
+
+    pub(crate) fn objects(&mut self) -> ScriptGameplayObjectsApi {
+        ScriptGameplayObjectsApi {
+            world: self.ctx.world.clone(),
+        }
+    }
+
+    pub(crate) fn body(&mut self, id: &str) -> ScriptGameplayBodySnapshotApi {
+        let id = id.trim();
+        let body = self.catalogs.celestial.bodies.get(id).cloned();
+        ScriptGameplayBodySnapshotApi::new(
+            if body.is_some() {
+                id.to_string()
+            } else {
+                String::new()
+            },
+            body,
+            self.ctx.spatial_meters_per_world_unit,
+        )
     }
 
     pub(crate) fn clear(&mut self) {
@@ -1746,94 +1784,6 @@ impl ScriptGameplayApi {
         RhaiArray::new()
     }
 
-    /// Returns a map of orbital body parameters for the given body id.
-    /// Returns a map with all default values when the id is not found.
-    pub(crate) fn body_info(&mut self, id: &str) -> RhaiMap {
-        let body = self
-            .catalogs
-            .celestial
-            .bodies
-            .get(id)
-            .cloned()
-            .unwrap_or_default();
-        let scene_meters_per_world_unit = self.ctx.spatial_meters_per_world_unit;
-        let mut map = RhaiMap::new();
-        map.insert("center_x".into(), (body.center_x as rhai::FLOAT).into());
-        map.insert("center_y".into(), (body.center_y as rhai::FLOAT).into());
-        map.insert(
-            "orbit_radius".into(),
-            (body.orbit_radius as rhai::FLOAT).into(),
-        );
-        map.insert(
-            "orbit_period_sec".into(),
-            (body.orbit_period_sec as rhai::FLOAT).into(),
-        );
-        map.insert(
-            "orbit_phase_deg".into(),
-            (body.orbit_phase_deg as rhai::FLOAT).into(),
-        );
-        map.insert("radius_px".into(), (body.radius_px as rhai::FLOAT).into());
-        map.insert(
-            "surface_radius".into(),
-            (body.surface_radius as rhai::FLOAT).into(),
-        );
-        map.insert("gravity_mu".into(), (body.gravity_mu as rhai::FLOAT).into());
-        if let Some(v) = body.gravity_mu_km3_s2 {
-            map.insert("gravity_mu_km3_s2".into(), v.into());
-        }
-        if let Some(v) = body.km_per_world_unit(scene_meters_per_world_unit) {
-            map.insert("km_per_world_unit".into(), v.into());
-        }
-        if let Some(v) = body.resolved_radius_km(scene_meters_per_world_unit) {
-            map.insert("resolved_radius_km".into(), v.into());
-        }
-        map.insert(
-            "resolved_gravity_mu".into(),
-            body.resolved_gravity_mu_world_units(scene_meters_per_world_unit)
-                .into(),
-        );
-        if let Some(v) = body.resolved_atmosphere_top_km(scene_meters_per_world_unit) {
-            map.insert("resolved_atmosphere_top_km".into(), v.into());
-        }
-        if let Some(v) = body.resolved_atmosphere_dense_start_km(scene_meters_per_world_unit) {
-            map.insert("resolved_atmosphere_dense_start_km".into(), v.into());
-        }
-        if let Some(v) = body.radius_km {
-            map.insert("radius_km".into(), v.into());
-        }
-        if let Some(v) = body.km_per_px {
-            map.insert("km_per_px".into(), v.into());
-        }
-        if let Some(v) = body.atmosphere_top {
-            map.insert("atmosphere_top".into(), v.into());
-        }
-        if let Some(v) = body.atmosphere_dense_start {
-            map.insert("atmosphere_dense_start".into(), v.into());
-        }
-        if let Some(v) = body.atmosphere_drag_max {
-            map.insert("atmosphere_drag_max".into(), v.into());
-        }
-        if let Some(v) = body.atmosphere_top_km {
-            map.insert("atmosphere_top_km".into(), v.into());
-        }
-        if let Some(v) = body.atmosphere_dense_start_km {
-            map.insert("atmosphere_dense_start_km".into(), v.into());
-        }
-        if let Some(v) = body.cloud_bottom_km {
-            map.insert("cloud_bottom_km".into(), v.into());
-        }
-        if let Some(v) = body.cloud_top_km {
-            map.insert("cloud_top_km".into(), v.into());
-        }
-        if let Some(s) = body.planet_type {
-            map.insert("planet_type".into(), s.into());
-        }
-        if let Some(s) = body.parent {
-            map.insert("parent".into(), s.into());
-        }
-        map
-    }
-
     /// Returns body world position at `elapsed_sec`, including parent orbit chain.
     /// Returns empty map when body id is unknown or parent chain is invalid.
     pub(crate) fn body_position(&mut self, id: &str, elapsed_sec: rhai::FLOAT) -> RhaiMap {
@@ -2947,6 +2897,289 @@ impl ScriptGameplayApi {
     }
 }
 
+impl ScriptGameplayBodySnapshotApi {
+    fn new(
+        id: String,
+        body: Option<catalog::BodyDef>,
+        spatial_meters_per_world_unit: Option<f64>,
+    ) -> Self {
+        Self {
+            id,
+            body,
+            spatial_meters_per_world_unit,
+        }
+    }
+
+    fn body_ref(&self) -> Option<&catalog::BodyDef> {
+        self.body.as_ref()
+    }
+
+    fn km_per_world_unit_value(&self) -> f64 {
+        self.body_ref()
+            .and_then(|body| body.km_per_world_unit(self.spatial_meters_per_world_unit))
+            .unwrap_or(0.0)
+    }
+
+    fn radius_km_value(&self) -> f64 {
+        self.body_ref()
+            .and_then(|body| body.resolved_radius_km(self.spatial_meters_per_world_unit))
+            .unwrap_or(0.0)
+    }
+
+    fn atmosphere_top_km_value(&self) -> f64 {
+        self.body_ref()
+            .and_then(|body| body.resolved_atmosphere_top_km(self.spatial_meters_per_world_unit))
+            .unwrap_or(0.0)
+    }
+
+    fn atmosphere_dense_start_km_value(&self) -> f64 {
+        self.body_ref()
+            .and_then(|body| {
+                body.resolved_atmosphere_dense_start_km(self.spatial_meters_per_world_unit)
+            })
+            .unwrap_or(0.0)
+    }
+
+    fn gravity_mu_value(&self) -> f64 {
+        self.body_ref()
+            .map(|body| body.resolved_gravity_mu_world_units(self.spatial_meters_per_world_unit))
+            .unwrap_or(0.0)
+    }
+
+    fn km_per_px_value(&self) -> f64 {
+        self.body_ref()
+            .and_then(|body| {
+                body.km_per_px.or_else(|| {
+                    body.km_per_world_unit(self.spatial_meters_per_world_unit)
+                        .or_else(|| {
+                            body.resolved_radius_km(self.spatial_meters_per_world_unit)
+                                .map(|radius_km| radius_km / body.surface_radius.max(0.0001))
+                        })
+                })
+            })
+            .unwrap_or(0.0)
+    }
+
+    fn compat_info_map(
+        requested_id: &str,
+        body: Option<&catalog::BodyDef>,
+        spatial_meters_per_world_unit: Option<f64>,
+    ) -> RhaiMap {
+        let exists = body.is_some();
+        let body = body.cloned().unwrap_or_default();
+        let km_per_world_unit = body.km_per_world_unit(spatial_meters_per_world_unit);
+        let radius_km = body.resolved_radius_km(spatial_meters_per_world_unit);
+        let km_per_px = body.km_per_px.or_else(|| {
+            km_per_world_unit.or_else(|| {
+                radius_km
+                    .map(|resolved_radius_km| resolved_radius_km / body.surface_radius.max(0.0001))
+            })
+        });
+        let atmosphere_top_km = body.resolved_atmosphere_top_km(spatial_meters_per_world_unit);
+        let atmosphere_dense_start_km =
+            body.resolved_atmosphere_dense_start_km(spatial_meters_per_world_unit);
+        let mut map = RhaiMap::new();
+        if !requested_id.is_empty() {
+            map.insert("id".into(), requested_id.to_string().into());
+        }
+        map.insert("exists".into(), exists.into());
+        map.insert("center_x".into(), (body.center_x as rhai::FLOAT).into());
+        map.insert("center_y".into(), (body.center_y as rhai::FLOAT).into());
+        map.insert(
+            "orbit_radius".into(),
+            (body.orbit_radius as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "orbit_period_sec".into(),
+            (body.orbit_period_sec as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "orbit_phase_deg".into(),
+            (body.orbit_phase_deg as rhai::FLOAT).into(),
+        );
+        map.insert("radius_px".into(), (body.radius_px as rhai::FLOAT).into());
+        map.insert(
+            "surface_radius".into(),
+            (body.surface_radius as rhai::FLOAT).into(),
+        );
+        map.insert("gravity_mu".into(), (body.gravity_mu as rhai::FLOAT).into());
+        if let Some(v) = body.gravity_mu_km3_s2 {
+            map.insert("gravity_mu_km3_s2".into(), v.into());
+        }
+        if let Some(v) = km_per_world_unit {
+            map.insert("km_per_world_unit".into(), v.into());
+        }
+        if let Some(v) = radius_km {
+            map.insert("radius_km".into(), v.into());
+            map.insert("resolved_radius_km".into(), v.into());
+        }
+        map.insert(
+            "resolved_gravity_mu".into(),
+            body.resolved_gravity_mu_world_units(spatial_meters_per_world_unit)
+                .into(),
+        );
+        if let Some(v) = km_per_px {
+            map.insert("km_per_px".into(), v.into());
+        }
+        if let Some(v) = atmosphere_top_km {
+            map.insert("atmosphere_top_km".into(), v.into());
+            map.insert("resolved_atmosphere_top_km".into(), v.into());
+        }
+        if let Some(v) = atmosphere_dense_start_km {
+            map.insert("atmosphere_dense_start_km".into(), v.into());
+            map.insert("resolved_atmosphere_dense_start_km".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_top {
+            map.insert("atmosphere_top".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_dense_start {
+            map.insert("atmosphere_dense_start".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_drag_max {
+            map.insert("atmosphere_drag_max".into(), v.into());
+        }
+        if let Some(v) = body.cloud_bottom_km {
+            map.insert("cloud_bottom_km".into(), v.into());
+        }
+        if let Some(v) = body.cloud_top_km {
+            map.insert("cloud_top_km".into(), v.into());
+        }
+        if let Some(s) = body.planet_type {
+            map.insert("planet_type".into(), s.into());
+        }
+        if let Some(s) = body.parent {
+            map.insert("parent".into(), s.into());
+        }
+        map
+    }
+
+    pub(crate) fn exists(&mut self) -> bool {
+        self.body.is_some()
+    }
+
+    pub(crate) fn id(&mut self) -> String {
+        self.id.clone()
+    }
+
+    pub(crate) fn center_x(&mut self) -> rhai::FLOAT {
+        self.body_ref().map(|body| body.center_x).unwrap_or(0.0)
+    }
+
+    pub(crate) fn center_y(&mut self) -> rhai::FLOAT {
+        self.body_ref().map(|body| body.center_y).unwrap_or(0.0)
+    }
+
+    pub(crate) fn orbit_radius(&mut self) -> rhai::FLOAT {
+        self.body_ref().map(|body| body.orbit_radius).unwrap_or(0.0)
+    }
+
+    pub(crate) fn orbit_period_sec(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .map(|body| body.orbit_period_sec)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn orbit_phase_deg(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .map(|body| body.orbit_phase_deg)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn radius_px(&mut self) -> rhai::FLOAT {
+        self.body_ref().map(|body| body.radius_px).unwrap_or(0.0)
+    }
+
+    pub(crate) fn surface_radius(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .map(|body| body.surface_radius)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn gravity_mu(&mut self) -> rhai::FLOAT {
+        self.gravity_mu_value()
+    }
+
+    pub(crate) fn gravity_mu_km3_s2(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .and_then(|body| body.gravity_mu_km3_s2)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn km_per_px(&mut self) -> rhai::FLOAT {
+        self.km_per_px_value()
+    }
+
+    pub(crate) fn km_per_world_unit(&mut self) -> rhai::FLOAT {
+        self.km_per_world_unit_value()
+    }
+
+    pub(crate) fn radius_km(&mut self) -> rhai::FLOAT {
+        self.radius_km_value()
+    }
+
+    pub(crate) fn resolved_radius_km(&mut self) -> rhai::FLOAT {
+        self.radius_km_value()
+    }
+
+    pub(crate) fn resolved_gravity_mu(&mut self) -> rhai::FLOAT {
+        self.gravity_mu_value()
+    }
+
+    pub(crate) fn atmosphere_top_km(&mut self) -> rhai::FLOAT {
+        self.atmosphere_top_km_value()
+    }
+
+    pub(crate) fn atmosphere_dense_start_km(&mut self) -> rhai::FLOAT {
+        self.atmosphere_dense_start_km_value()
+    }
+
+    pub(crate) fn resolved_atmosphere_top_km(&mut self) -> rhai::FLOAT {
+        self.atmosphere_top_km_value()
+    }
+
+    pub(crate) fn resolved_atmosphere_dense_start_km(&mut self) -> rhai::FLOAT {
+        self.atmosphere_dense_start_km_value()
+    }
+
+    pub(crate) fn atmosphere_drag_max(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .and_then(|body| body.atmosphere_drag_max)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn cloud_bottom_km(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .and_then(|body| body.cloud_bottom_km)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn cloud_top_km(&mut self) -> rhai::FLOAT {
+        self.body_ref()
+            .and_then(|body| body.cloud_top_km)
+            .unwrap_or(0.0)
+    }
+
+    pub(crate) fn planet_type(&mut self) -> String {
+        self.body_ref()
+            .and_then(|body| body.planet_type.clone())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn parent(&mut self) -> String {
+        self.body_ref()
+            .and_then(|body| body.parent.clone())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn inspect(&mut self) -> RhaiMap {
+        Self::compat_info_map(
+            &self.id,
+            self.body.as_ref(),
+            self.spatial_meters_per_world_unit,
+        )
+    }
+}
+
 impl ScriptGameplayEntityApi {
     pub(crate) fn exists(&mut self) -> bool {
         let Some(world) = self.ctx.world.as_ref() else {
@@ -3610,5 +3843,216 @@ impl ScriptGameplayEntityApi {
             }
             None => RhaiMap::new(),
         }
+    }
+}
+
+impl ScriptGameplayObjectsApi {
+    fn object_handle(&self, id: u64) -> ScriptGameplayObjectApi {
+        ScriptGameplayObjectApi {
+            world: self.world.clone(),
+            id,
+        }
+    }
+
+    fn handle_array<I>(&self, ids: I) -> RhaiArray
+    where
+        I: IntoIterator<Item = u64>,
+    {
+        ids.into_iter()
+            .map(|id| RhaiDynamic::from(self.object_handle(id)))
+            .collect()
+    }
+
+    fn object_name(world: &GameplayWorld, id: u64) -> Option<String> {
+        world
+            .get(id, "/name")
+            .and_then(|value| value.as_str().map(|name| name.to_string()))
+    }
+
+    fn matches_visual_target(world: &GameplayWorld, id: u64, target: &str) -> bool {
+        world
+            .visual(id)
+            .map(|binding| {
+                binding
+                    .all_visual_ids()
+                    .into_iter()
+                    .any(|visual_id| visual_id == target)
+            })
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn find(&mut self, target: &str) -> ScriptGameplayObjectApi {
+        let Some(world) = self.world.as_ref() else {
+            return self.object_handle(0);
+        };
+        let target = target.trim();
+        if target.is_empty() {
+            return self.object_handle(0);
+        }
+        if let Ok(id) = target.parse::<u64>() {
+            if world.exists(id) {
+                return self.object_handle(id);
+            }
+        }
+        let ids = world.ids();
+        if let Some(id) = ids
+            .iter()
+            .copied()
+            .find(|id| Self::matches_visual_target(world, *id, target))
+        {
+            return self.object_handle(id);
+        }
+        if let Some(id) = ids
+            .iter()
+            .copied()
+            .find(|id| Self::object_name(world, *id).as_deref() == Some(target))
+        {
+            return self.object_handle(id);
+        }
+        self.object_handle(0)
+    }
+
+    pub(crate) fn find_id(&mut self, id: rhai::INT) -> ScriptGameplayObjectApi {
+        let Some(world) = self.world.as_ref() else {
+            return self.object_handle(0);
+        };
+        if id <= 0 {
+            return self.object_handle(0);
+        }
+        let id = id as u64;
+        if !world.exists(id) {
+            return self.object_handle(0);
+        }
+        self.object_handle(id)
+    }
+
+    pub(crate) fn all(&mut self) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        self.handle_array(world.ids())
+    }
+
+    pub(crate) fn by_tag(&mut self, tag: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        let mut ids = world.query_tag(tag);
+        ids.sort_unstable();
+        ids.dedup();
+        self.handle_array(ids)
+    }
+
+    pub(crate) fn by_name(&mut self, name: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        let name = name.trim();
+        if name.is_empty() {
+            return RhaiArray::new();
+        }
+        self.handle_array(
+            world
+                .ids()
+                .into_iter()
+                .filter(|id| Self::object_name(world, *id).as_deref() == Some(name)),
+        )
+    }
+}
+
+impl ScriptGameplayObjectApi {
+    // Live handles degrade to an inert empty view once the backing entity is gone.
+    fn live_world(&self) -> Option<&GameplayWorld> {
+        let world = self.world.as_ref()?;
+        (self.id > 0 && world.exists(self.id)).then_some(world)
+    }
+
+    pub(crate) fn exists(&mut self) -> bool {
+        self.live_world().is_some()
+    }
+
+    pub(crate) fn id(&mut self) -> rhai::INT {
+        if self.exists() {
+            self.id as rhai::INT
+        } else {
+            0
+        }
+    }
+
+    pub(crate) fn kind(&mut self) -> String {
+        let Some(world) = self.live_world() else {
+            return String::new();
+        };
+        world.kind_of(self.id).unwrap_or_default()
+    }
+
+    pub(crate) fn tags(&mut self) -> RhaiArray {
+        let Some(world) = self.live_world() else {
+            return RhaiArray::new();
+        };
+        world.tags(self.id).into_iter().map(Into::into).collect()
+    }
+
+    pub(crate) fn inspect(&mut self) -> RhaiMap {
+        let Some(world) = self.live_world() else {
+            return RhaiMap::new();
+        };
+        let Some(entity) = world.get_entity(self.id) else {
+            return RhaiMap::new();
+        };
+
+        let mut map = RhaiMap::new();
+        map.insert("id".into(), (entity.id as rhai::INT).into());
+        map.insert("kind".into(), entity.kind.into());
+        if let Some(name) = ScriptGameplayObjectsApi::object_name(world, self.id) {
+            map.insert("name".into(), name.into());
+        }
+        map.insert(
+            "tags".into(),
+            entity
+                .tags
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .collect::<RhaiArray>()
+                .into(),
+        );
+        map.insert("data".into(), json_to_rhai_dynamic(&entity.data));
+
+        if let Some(binding) = world.visual(self.id) {
+            if let Some(ref visual_id) = binding.visual_id {
+                map.insert("visual_id".into(), visual_id.clone().into());
+            }
+            let visual_ids = binding
+                .all_visual_ids()
+                .into_iter()
+                .map(|visual_id| visual_id.to_string().into())
+                .collect::<RhaiArray>();
+            if !visual_ids.is_empty() {
+                map.insert("visual_ids".into(), visual_ids.into());
+            }
+        }
+
+        map
+    }
+
+    pub(crate) fn get(&mut self, path: &str) -> RhaiDynamic {
+        let Some(world) = self.live_world() else {
+            return ().into();
+        };
+        world
+            .get(self.id, path)
+            .map(|value| json_to_rhai_dynamic(&value))
+            .unwrap_or_else(|| ().into())
+    }
+
+    pub(crate) fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(world) = self.live_world() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        world.set(self.id, path, value)
     }
 }

@@ -43,6 +43,16 @@ This split keeps behavior code testable and keeps runtime mutation centralized.
 
 ## Script-facing contract reminders
 
+- `runtime` is the canonical behavior-side root: use `runtime.scene`,
+  `runtime.world`, `runtime.services`, and `runtime.stores`.
+- Top-level `scene`, `world`, `game`, `level`, `persist`, `input`, `gui`,
+  `ui`, `diag`, `palette`, `audio`, `effects`, and `collision` are still
+  available as compatibility aliases to the same live APIs.
+- There is no standalone `objects` compatibility scope map anymore. Use
+  `scene.objects`, `runtime.scene.objects`, `world.objects`, or
+  `runtime.world.objects` depending on the domain.
+- `scene.inspect(...)` / `scene.region(...)` are snapshot reads; live mutation
+  goes through `scene.object(...)` or `runtime.scene.objects.find(...)`.
 - `local[]` is behavior-local, not scene-global. If two Rhai files need to
   share state, use `game.set/get`.
 - `world.set_world_bounds` is authored as

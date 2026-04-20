@@ -47,6 +47,10 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `engine-vehicle` owns the launch/return packet contract; this mod only supplies vehicle-domain environment, profile, assist, and UI state.
 - Return packets are applied here only to restore generator-facing state such as environment parameters, launch profile/assists, next spawn altitude, and the telemetry strip.
 - `vehicle profile` and both assist toggles are persisted in game state and restored on next run, so the next launch resumes the last vehicle setup.
+- `world.body_patch("generated-planet", ...)` now keeps the celestial runtime body in sync with the generator state every frame.
+- Free-look surface mode now follows the scene `focus-body` render shell from the
+  runtime body patch. In this mod the patched body keeps `radius_px = 1.0` for the
+  preview shell while `surface_radius` stays in simulation world units.
 
 ## Scene structure
 
@@ -59,7 +63,19 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `scenes/main/layers/hud-actions.yml` — Randomize / Vehicle / Reset + compact bounded handoff/profile/assist status row
 - `scenes/main/layers/hud-presets.yml` — compact preset dropdown + popup list
 - `scenes/main/layers/hud-stats.yml` — compact bounded telemetry strip (bottom-left)
-- `scenes/main/main.rhai` — tab switching, mouse-drag slider input, preset loading, world param push with debounce, canonical vehicle launch packet publish
+- `scenes/main/main.rhai` — thin scene orchestrator; imports the generator modules below
+- `scripts/std/bootstrap.rhai` — local bootstrap helper
+- `scripts/std/math.rhai` — shared numeric helpers used by generator render throttling
+- `scripts/std/runtime_scene.rhai` — scene object text/fg/visible helpers over `runtime.scene.objects.find(...)`
+- `scripts/generator/state.rhai` — generator bootstrap and derived radius state
+- `scripts/generator/input.rhai` — tab/model/actions/preset input flow
+- `scripts/generator/presets.rhai` — preset data and preset/randomize/reset application
+- `scripts/generator/params.rhai` — parameter schema, normalize/denormalize, per-tab labels and values
+- `scripts/generator/gui_sync.rhai` — local state <-> slider widget sync
+- `scripts/generator/body_sync.rhai` — generated body builder and runtime `world.body_patch("generated-planet", ...)`
+- `scripts/generator/vehicle_handoff.rhai` — vehicle profile/assist persistence plus launch/return packet flow
+- `scripts/generator/hud.rhai` — tab/model/action highlights, parameter labels, telemetry strip
+- `scripts/generator/render_push.rhai` — throttled mesh/generator push plus visual/atmosphere/light updates
 - `mods/vehicle-playground/scenes/vehicle/*` — canonical vehicle consumer, camera rig, HUD, body patch, and return flow
 
 ## Parameters

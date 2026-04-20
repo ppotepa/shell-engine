@@ -12,7 +12,7 @@ behaviors:
         let next_tick = tick + 1;
         let phase = (next_tick / 18) % 4;
 
-        let title = scene.get("text-main");
+        let title = scene.object("text-main");
         let phase_label = "PHASE 0";
 
         if phase == 0 {
@@ -37,8 +37,8 @@ behaviors:
           phase_label = "PHASE 3";
         }
 
-        scene.set("text-sub", "text.content", `OBJECT API: scene.get/set + obj.get/set`);
-        scene.set("text-status", "text.content", `tick=${next_tick}  ${phase_label}`);
+        scene.object("text-sub").set("text.content", `OBJECT API: runtime.scene.objects / scene.object`);
+        scene.object("text-status").set("text.content", `tick=${next_tick}  ${phase_label}`);
 
         #{ state: #{ tick: next_tick } }
 stages-ref: /stages/anykey-fade-250-200.yml

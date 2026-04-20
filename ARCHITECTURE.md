@@ -333,10 +333,17 @@ about keyboard/mouse receive `&[InputEvent]` rather than the full `EngineEvent`.
 
 **Rhai behavior state model**
 
-- `local[]` is scoped to a single behavior instance, not the whole scene.
+- Treat `runtime` as the canonical scripting root. `scene`, `world`, `game`,
+  `input`, and similar names are convenience aliases around that root rather
+  than separate ownership domains.
+- `local.state` should be the single owned state object for one behavior
+  instance, not a bag of ad-hoc top-level keys scattered through `main.rhai`.
+- Keep `main.rhai` thin and move reusable logic into `mods/<mod>/scripts/...`
+  imports by domain (`state`, `hud`, `render`, `physics`, `handoff`, etc.).
 - Use `game.set/get` for cross-script state handoff such as entity ids needed by
   both gameplay and render-sync behaviors.
-- Use `local[]` only for script-private frame-to-frame state.
+- Keep raw `local["..."]` access inside dedicated state/handoff modules rather
+  than in the scene entrypoint.
 - Scene runtime object state is immediate-mode. `reset_frame_state()` clears
   transient visibility/offset state before behaviors run, so scripts that drive
   parallax, camera-relative layers, or other runtime-only presentation state
@@ -460,7 +467,9 @@ percentages from the most recent generation.
 
 ### Rhai runtime properties (`world.*`)
 
-Scripts adjust planet parameters through `scene.set(id, path, value)`:
+Scripts adjust planet parameters through live scene handles such as
+`runtime.scene.objects.find(id).set(path, value)` or the concise
+`scene.object(id).set(path, value)` shorthand:
 
 | Path | Type | Description |
 |------|------|-------------|

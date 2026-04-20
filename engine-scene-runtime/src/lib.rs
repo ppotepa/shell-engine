@@ -1682,6 +1682,64 @@ layers:
     }
 
     #[test]
+    fn apply_behavior_commands_emits_debug_log_for_unsupported_typed_request() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let diagnostics = runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetSpriteProperty {
+                    target: "title".to_string(),
+                    path: "audio.pitch".to_string(),
+                    value: serde_json::json!(2.0),
+                },
+            }],
+        );
+
+        assert!(matches!(
+            diagnostics.as_slice(),
+            [BehaviorCommand::DebugLog {
+                scene_id,
+                source,
+                severity: engine_api::commands::DebugLogSeverity::Warn,
+                message,
+            }] if scene_id == "intro"
+                && source.as_deref() == Some("scene-mutation")
+                && message.contains("unsupported sprite property path `audio.pitch`")
+        ));
+    }
+
+    #[test]
+    fn apply_behavior_commands_emits_debug_log_for_missing_mutation_target() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let diagnostics = runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::Set2dProps {
+                    target: "missing".to_string(),
+                    visible: Some(false),
+                    dx: None,
+                    dy: None,
+                    text: None,
+                },
+            }],
+        );
+
+        assert!(matches!(
+            diagnostics.as_slice(),
+            [BehaviorCommand::DebugLog {
+                scene_id,
+                source,
+                severity: engine_api::commands::DebugLogSeverity::Warn,
+                message,
+            }] if scene_id == "intro"
+                && source.as_deref() == Some("scene-mutation")
+                && message.contains("target `missing` was not found")
+        ));
+    }
+
+    #[test]
     fn sync_widget_visuals_refreshes_object_text_snapshot_and_layout_staleness() {
         let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();

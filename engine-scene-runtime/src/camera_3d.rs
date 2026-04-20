@@ -10,6 +10,49 @@ const OBJ_ORBIT_DISTANCE_HARD_MIN: f32 = 0.3;
 const OBJ_ORBIT_DISTANCE_HARD_MAX: f32 = 10.0;
 
 impl SceneRuntime {
+    pub fn free_look_surface_mode_enabled(&self) -> bool {
+        self.free_look_camera
+            .as_ref()
+            .is_some_and(|state| state.surface_mode)
+    }
+
+    pub fn sync_free_look_surface_shell_2d(
+        &mut self,
+        center_x: f32,
+        center_y: f32,
+        radius: f32,
+    ) -> bool {
+        let Some(state) = self.free_look_camera.as_mut() else {
+            return false;
+        };
+        if !state.surface_mode {
+            return false;
+        }
+
+        let center_x = if center_x.is_finite() { center_x } else { 0.0 };
+        let center_y = if center_y.is_finite() { center_y } else { 0.0 };
+        let radius = if radius.is_finite() {
+            radius.max(0.001)
+        } else {
+            0.001
+        };
+
+        let mut updated = false;
+        if (state.surface_center[0] - center_x).abs() > f32::EPSILON {
+            state.surface_center[0] = center_x;
+            updated = true;
+        }
+        if (state.surface_center[1] - center_y).abs() > f32::EPSILON {
+            state.surface_center[1] = center_y;
+            updated = true;
+        }
+        if (state.surface_radius - radius).abs() > f32::EPSILON {
+            state.surface_radius = radius;
+            updated = true;
+        }
+        updated
+    }
+
     pub(crate) fn clamp_orbit_camera_bootstrap(&mut self) {
         let Some(state) = self.orbit_camera.as_ref() else {
             return;

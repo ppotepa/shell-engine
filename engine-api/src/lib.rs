@@ -11,6 +11,7 @@ pub mod effects;
 pub mod gameplay;
 pub mod input;
 pub mod rhai;
+pub mod runtime;
 pub mod scene;
 pub mod testing;
 pub mod vehicle;
@@ -23,6 +24,9 @@ pub use collision::{
 pub use commands::{BehaviorCommand, DebugLogSeverity};
 pub use effects::{register_effects_api, ScriptEffectsApi};
 pub use gameplay::api::{CommandQueue, ScriptEntityContext, ScriptWorldContext};
+pub use gameplay::body::{
+    register_world_body_api, GameplayWorldBodyLookupCoreApi, GameplayWorldBodySnapshotCoreApi,
+};
 pub use gameplay::emitters::EmitResolved;
 pub use gameplay::geometry::{
     jitter_points_i32, points_to_rhai_array, regular_polygon_i32, rhai_array_to_points,
@@ -38,9 +42,15 @@ pub use rhai::conversion::{
     map_int, map_number, map_set_path_dynamic, map_string, merge_rhai_maps, normalize_set_path,
     region_to_rhai_map, rhai_dynamic_to_json,
 };
+pub use runtime::{
+    register_runtime_core_api, ObjectRegistryCoreApi, RuntimeCoreApi, RuntimeSceneCoreApi,
+    RuntimeServicesCoreApi, RuntimeStoresCoreApi, RuntimeWorldCoreApi, ScriptRuntimeApi,
+};
 pub use scene::{
-    register_scene_api, Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot,
-    SceneMutationRequest, ScriptObjectApi, ScriptSceneApi,
+    register_scene_api, Camera3dMutationRequest, Camera3dObjectViewState, Render3dMutationDomain,
+    Render3dMutationRequest, Render3dProfileSlot, SceneMutationError, SceneMutationRequest,
+    SceneMutationRequestError, SceneMutationResult, SceneMutationStatus, ScriptObjectApi,
+    ScriptSceneApi,
 };
 pub use vehicle::{
     normalize_vehicle_profile_id, register_vehicle_api, register_vehicle_core_api,

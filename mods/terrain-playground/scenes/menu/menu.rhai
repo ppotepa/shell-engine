@@ -1,9 +1,13 @@
 // ── Terrain Playground Main Menu ─────────────────────────────────────────────
 
-if type_of(local) == "()" { local = #{}; }
+local = local ?? #{};
 if !(local.initialized ?? false) {
     local.initialized = true;
     local.sel = 0;
+}
+
+fn scene_set(scene, target, path, value) {
+    scene.object(target).set(path, value);
 }
 
 let count = 5;
@@ -30,11 +34,11 @@ let items = ["item-0", "item-1", "item-2", "item-3", "item-4"];
 for i in 0..count {
     let is_exit = (i == count - 1);
     if i == sel {
-        scene.set(items[i], "style.fg", col_sel);
-        scene.set(items[i], "position.x", float_x);
+        scene_set(scene, items[i], "style.fg", col_sel);
+        scene_set(scene, items[i], "position.x", float_x);
     } else {
-        scene.set(items[i], "style.fg", if is_exit { col_exit } else { col_idle });
-        scene.set(items[i], "position.x", 0.0);
+        scene_set(scene, items[i], "style.fg", if is_exit { col_exit } else { col_idle });
+        scene_set(scene, items[i], "position.x", 0.0);
     }
 }
 

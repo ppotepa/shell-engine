@@ -57,7 +57,16 @@ cargo run -p app -- --mod-source=mods/vehicle-playground
 - `scenes/vehicle/scene.yml` is the mod entrypoint.
 - The package uses scene id `vehicle-playground-vehicle` as the canonical
   producer/consumer target.
-- `scenes/vehicle/main.rhai` drives seam launch consume/return, spawn, body
-  patching, profile persistence, telemetry, assists, and the local-horizon
-  vehicle frame while delegating packet normalization to `engine-vehicle`.
+- `scenes/vehicle/main.rhai` is now a thin orchestrator that wires bootstrap,
+  body sync, flight step, HUD, and return flow.
+- `scripts/std/` holds shared Rhai helpers:
+  - `math3.rhai` for shared angle/orientation math
+  - `runtime_scene.rhai` for the small scene-object write seam
+- `scripts/vehicle/` holds the domain split:
+  - `state.rhai` owns bootstrap and `local -> local.state` persistence
+  - `control.rhai` owns control/profile/assist persistence and input shaping
+  - `environment.rhai` owns body patching and planet render pushes
+  - `handoff.rhai` owns launch/return packet consume/build helpers
+  - `flight.rhai` owns the local-horizon ship step and camera rig
+  - `hud.rhai` owns HUD formatting and writes
 - `scenes/vehicle/layers/*.yml` define the sphere view, vehicle slot, and HUD.

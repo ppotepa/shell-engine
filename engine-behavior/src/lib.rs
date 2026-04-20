@@ -53,6 +53,7 @@ use scripting::{
     game::{ScriptGameApi, ScriptLevelApi},
     gameplay::ScriptGameplayApi,
     io::ScriptInputApi,
+    runtime::{build_runtime_api, BehaviorRuntimeServicesApi, BehaviorRuntimeStoresApi},
     scene::ScriptSceneApi,
     ui::ScriptUiApi,
     vehicle::ScriptVehicleApi,
@@ -615,12 +616,12 @@ impl Behavior for RhaiScriptBehavior {
                         .unwrap_or_else(|| RhaiMap::new().into()),
                 );
                 scope.push("layout_regions_stale", ctx.layout_regions_stale);
-                // OPT-3 + OPT-10: Skip build_objects_map entirely; push empty map for
-                // backward compat. All scripts use scene.get(target) for lazy lookup.
-                scope.push_dynamic("objects", RhaiMap::new().into());
-                // `state` pushed per-frame for scripts using the compatibility return-state pattern.
+                // `state` is kept only for scripts still using the compatibility
+                // `{ state: ... }` return pattern. Prefer `local` for persistent
+                // per-behavior state.
                 scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
-                scope.push("ui", ScriptUiApi::new(ctx, Arc::clone(&helper_commands)));
+                let ui_api = ScriptUiApi::new(ctx, Arc::clone(&helper_commands));
+                scope.push("ui", ui_api.clone());
 
                 let ui_data = extract_ui_fields_data(ctx);
                 scope.push("ui_focused_target", ui_data.focused_target);
@@ -632,10 +633,8 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push("ui_has_submit", ui_data.has_submit);
                 scope.push("ui_has_change", ui_data.has_change);
 
-                scope.push(
-                    "gui",
-                    scripting::gui::ScriptGuiApi::new(ctx, Arc::clone(&helper_commands)),
-                );
+                let gui_api = scripting::gui::ScriptGuiApi::new(ctx, Arc::clone(&helper_commands));
+                scope.push("gui", gui_api.clone());
 
                 // Phase 7C: Use Arc-wrapped key map from context instead of rebuilding.
                 scope.push_dynamic("key", (*ctx.rhai_key_map).clone().into());
@@ -656,91 +655,98 @@ impl Behavior for RhaiScriptBehavior {
                 // External sidecar bridge exposed as object-shaped `ipc.*`.
                 scope.push_dynamic("ipc", build_sidecar_io_map(&ctx.sidecar_io).into());
 
-                // OPT-4: Reuse thread-local engine with all static registrations pre-done.
-                scope.push(
-                    "scene",
-                    ScriptSceneApi::new(
-                        Arc::clone(&ctx.object_states),
-                        Arc::clone(&ctx.object_kinds),
-                        Arc::clone(&ctx.object_props),
-                        Arc::clone(&ctx.object_regions),
-                        Arc::clone(&ctx.object_text),
-                        Arc::clone(&ctx.target_resolver),
-                        Arc::clone(&helper_commands),
-                    ),
+                let scene_api = ScriptSceneApi::new(
+                    Arc::clone(&ctx.object_states),
+                    Arc::clone(&ctx.object_kinds),
+                    Arc::clone(&ctx.object_props),
+                    Arc::clone(&ctx.object_regions),
+                    Arc::clone(&ctx.object_text),
+                    Arc::clone(&ctx.target_resolver),
+                    Arc::clone(&helper_commands),
                 );
-                scope.push(
-                    "game",
-                    ScriptGameApi::new(ctx.game_state.clone(), Arc::clone(&helper_commands)),
+                let game_api =
+                    ScriptGameApi::new(ctx.game_state.clone(), Arc::clone(&helper_commands));
+                let level_api = ScriptLevelApi::new(ctx.level_state.clone());
+                let input_api = ScriptInputApi::new(
+                    Arc::clone(&ctx.keys_down),
+                    Arc::clone(&ctx.keys_just_pressed),
+                    Arc::clone(&ctx.action_bindings),
+                    Arc::clone(&ctx.catalogs),
+                    Arc::clone(&helper_commands),
                 );
-                scope.push("level", ScriptLevelApi::new(ctx.level_state.clone()));
-                scope.push(
-                    "input",
-                    ScriptInputApi::new(
-                        Arc::clone(&ctx.keys_down),
-                        Arc::clone(&ctx.keys_just_pressed),
-                        Arc::clone(&ctx.action_bindings),
-                        Arc::clone(&ctx.catalogs),
-                        Arc::clone(&helper_commands),
-                    ),
+                let diag_api = ScriptDebugApi::new(
+                    scene.id.clone(),
+                    self.params.src.clone(),
+                    Arc::clone(&helper_commands),
                 );
-                scope.push(
-                    "diag",
-                    ScriptDebugApi::new(
-                        scene.id.clone(),
-                        self.params.src.clone(),
-                        Arc::clone(&helper_commands),
-                    ),
+                let persist_api = ScriptPersistenceApi::new(ctx.persistence.clone());
+                let palette_api = scripting::palette::ScriptPaletteApi::new(
+                    Arc::clone(&ctx.palettes),
+                    ctx.persistence.clone(),
+                    ctx.default_palette.clone(),
                 );
-                scope.push(
-                    "persist",
-                    ScriptPersistenceApi::new(ctx.persistence.clone()),
+                let world_api = ScriptGameplayApi::new(
+                    ctx.gameplay_world.clone(),
+                    std::sync::Arc::clone(&ctx.collisions),
+                    std::sync::Arc::clone(&ctx.collision_enters),
+                    std::sync::Arc::clone(&ctx.collision_stays),
+                    std::sync::Arc::clone(&ctx.collision_exits),
+                    ctx.spatial_meters_per_world_unit,
+                    Arc::clone(&ctx.catalogs),
+                    ctx.emitter_state.clone(),
+                    Arc::clone(&helper_commands),
+                    Arc::clone(&ctx.palettes),
+                    ctx.persistence.clone(),
+                    ctx.default_palette.clone(),
                 );
-                scope.push(
-                    "palette",
-                    scripting::palette::ScriptPaletteApi::new(
-                        Arc::clone(&ctx.palettes),
-                        ctx.persistence.clone(),
-                        ctx.default_palette.clone(),
-                    ),
+                let vehicle_api = ScriptVehicleApi::from_gameplay_world(ctx.gameplay_world.clone());
+                let audio_api = ScriptAudioApi::new(Arc::clone(&helper_commands));
+                let effects_api = ScriptEffectsApi::new(Arc::clone(&helper_commands));
+                let collision_api = ScriptCollisionApi::from_arcs(
+                    ctx.gameplay_world.clone(),
+                    std::sync::Arc::clone(&ctx.collisions),
+                    std::sync::Arc::clone(&ctx.collision_enters),
+                    std::sync::Arc::clone(&ctx.collision_stays),
+                    std::sync::Arc::clone(&ctx.collision_exits),
+                    Arc::clone(&helper_commands),
                 );
-                scope.push(
-                    "world",
-                    ScriptGameplayApi::new(
-                        ctx.gameplay_world.clone(),
-                        std::sync::Arc::clone(&ctx.collisions),
-                        std::sync::Arc::clone(&ctx.collision_enters),
-                        std::sync::Arc::clone(&ctx.collision_stays),
-                        std::sync::Arc::clone(&ctx.collision_exits),
-                        ctx.spatial_meters_per_world_unit,
-                        Arc::clone(&ctx.catalogs),
-                        ctx.emitter_state.clone(),
-                        Arc::clone(&helper_commands),
-                        Arc::clone(&ctx.palettes),
-                        ctx.persistence.clone(),
-                        ctx.default_palette.clone(),
-                    ),
+                let stores_api = BehaviorRuntimeStoresApi::new(
+                    game_api.clone(),
+                    level_api.clone(),
+                    persist_api.clone(),
                 );
-                scope.push(
-                    "vehicle",
-                    ScriptVehicleApi::from_gameplay_world(ctx.gameplay_world.clone()),
+                let services_api = BehaviorRuntimeServicesApi::new(
+                    input_api.clone(),
+                    gui_api.clone(),
+                    ui_api.clone(),
+                    diag_api.clone(),
+                    audio_api.clone(),
+                    effects_api.clone(),
+                    collision_api.clone(),
+                    palette_api.clone(),
                 );
-                scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
-                scope.push(
-                    "effects",
-                    ScriptEffectsApi::new(Arc::clone(&helper_commands)),
+                let runtime_api = build_runtime_api(
+                    scene_api.clone(),
+                    world_api.clone(),
+                    services_api,
+                    stores_api,
                 );
-                scope.push(
-                    "collision",
-                    ScriptCollisionApi::from_arcs(
-                        ctx.gameplay_world.clone(),
-                        std::sync::Arc::clone(&ctx.collisions),
-                        std::sync::Arc::clone(&ctx.collision_enters),
-                        std::sync::Arc::clone(&ctx.collision_stays),
-                        std::sync::Arc::clone(&ctx.collision_exits),
-                        Arc::clone(&helper_commands),
-                    ),
-                );
+
+                // `runtime` is the canonical typed root. Top-level `scene`, `world`,
+                // `game`, etc. stay as compatibility aliases to the same live APIs.
+                scope.push("runtime", runtime_api);
+                scope.push("scene", scene_api);
+                scope.push("game", game_api);
+                scope.push("level", level_api);
+                scope.push("input", input_api);
+                scope.push("diag", diag_api);
+                scope.push("persist", persist_api);
+                scope.push("palette", palette_api);
+                scope.push("world", world_api);
+                scope.push("vehicle", vehicle_api);
+                scope.push("audio", audio_api);
+                scope.push("effects", effects_api);
+                scope.push("collision", collision_api);
 
                 // OPT-4: Use thread-local engine + cached AST.
                 RHAI_ENGINE.with(|cell| {
@@ -2420,11 +2426,11 @@ out
     }
 
     #[test]
-    fn rhai_script_behavior_scene_object_set_emits_set_property() {
+    fn rhai_script_behavior_scene_object_handle_set_emits_set_property() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-scene.set("menu-item-0", "position.y", 6);
+scene.object("menu-item-0").set("position.y", 6);
 []
 "#
                 .to_string(),
@@ -2451,11 +2457,11 @@ scene.set("menu-item-0", "position.y", 6);
     }
 
     #[test]
-    fn rhai_script_behavior_scene_object_set_normalizes_props_prefix() {
+    fn rhai_script_behavior_runtime_scene_handle_set_normalizes_props_prefix() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-scene.set("menu-item-0", "props.position.y", 6);
+runtime.scene.objects.find("menu-item-0").set("props.position.y", 6);
 []
 "#
                 .to_string(),
@@ -2486,8 +2492,8 @@ scene.set("menu-item-0", "props.position.y", 6);
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-scene.spawn_object("item-0", "item-99");
-scene.despawn_object("item-99");
+scene.instantiate("item-0", "item-99");
+scene.despawn("item-99");
 []
 "#
                 .to_string(),
@@ -2609,13 +2615,13 @@ out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: next });
     }
 
     #[test]
-    fn rhai_script_behavior_exposes_objects_snapshot_by_alias_and_id() {
+    fn rhai_script_behavior_scene_object_and_registry_handles_resolve_alias_and_id() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
 let out = [];
-let obj_alias = scene.get("menu-item-0");
-let obj_real = scene.get("obj:menu-item-0");
+let obj_alias = scene.object("menu-item-0");
+let obj_real = scene.objects.find("obj:menu-item-0");
 let kind = obj_real.get("kind");
 let dy = obj_real.get("state.offset_y");
 let rx = obj_alias.get("region.x");
@@ -2663,12 +2669,12 @@ out
     }
 
     #[test]
-    fn rhai_script_behavior_scene_object_get_reads_object_snapshot() {
+    fn rhai_script_behavior_scene_object_get_reads_live_handle_snapshot_view() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
 let out = [];
-let obj = scene.get("menu-item-0");
+let obj = scene.object("menu-item-0");
 if obj.get("kind") == "text" {
   let dy = obj.get("state.offset_y");
   out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: dy });
@@ -2715,7 +2721,7 @@ out
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let obj = scene.get("menu-item-0");
+let obj = runtime.scene.objects.find("menu-item-0");
 let dy = obj.get("state.offset_y");
 obj.set("position.y", dy + 2);
 []
@@ -2766,7 +2772,7 @@ obj.set("position.y", dy + 2);
             script: Some(
                 r#"
 let out = [];
-let obj = scene.get("menu-item-0");
+let obj = scene.object("menu-item-0");
 if obj.get("props.text.font") == "generic:2" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 1, dy: 0 });
 }
@@ -2819,7 +2825,7 @@ out
             script: Some(
                 r#"
 let out = [];
-let obj = scene.get("menu-item-0");
+let obj = runtime.scene.objects.find("menu-item-0");
 if obj.get("text.font") == "generic:2" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
 }
@@ -2872,7 +2878,7 @@ out
             script: Some(
                 r#"
 let out = [];
-let obj = scene.get("menu-item-0");
+let obj = scene.object("menu-item-0");
 if obj.get("props.text.content") == "HELLO" && obj.get("props.text.font") == "generic:2" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 3, dy: 0 });
 }
@@ -3240,6 +3246,55 @@ if id > 0 {
         assert!(
             smoke_validate_rhai_script(script, Some("./probe.rhai"), &scene).is_ok(),
             "world API scripts should pass smoke validation"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_exposes_typed_runtime_scene_and_world_roots() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+runtime.scene.objects.find("menu-item-0").set("position.y", 6);
+let ship_id = runtime.world.spawn_object("ship", #{ name: "Ace" });
+let named = runtime.world.objects.by_name("Ace");
+runtime.stores.game.set("/session/pilot", "Ada");
+
+let out = [];
+out.push(#{ op: "offset", target: "menu-item-0", dx: named.len(), dy: if ship_id > 0 { 1 } else { 0 } });
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx_with_menu_item_state(0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+        test_ctx.gameplay_world = Some(GameplayWorld::new());
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+
+        assert_eq!(
+            game_state.get("/session/pilot"),
+            Some(serde_json::json!("Ada")),
+            "runtime.stores should expose the same game state backing store"
+        );
+        assert!(
+            commands.iter().any(|command| matches!(
+                command,
+                BehaviorCommand::ApplySceneMutation {
+                    request: engine_api::SceneMutationRequest::Set2dProps { target, dy: Some(6), .. }
+                } if target == "obj:menu-item-0"
+            )),
+            "runtime.scene live handle should enqueue scene mutation: {commands:?}"
+        );
+        assert!(
+            commands.iter().any(|command| matches!(
+                command,
+                BehaviorCommand::SetOffset { target, dx: 1, dy: 1 }
+                    if target == "menu-item-0"
+            )),
+            "runtime.world lookup should work through world.objects.by_name: {commands:?}"
         );
     }
 
@@ -3757,7 +3812,7 @@ game.set("/test/spawn_count", ids.len);
     }
 
     #[test]
-    fn rhai_script_behavior_body_upsert_and_patch_update_body_info() {
+    fn rhai_script_behavior_body_upsert_and_patch_update_body_snapshot() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
@@ -3769,13 +3824,13 @@ let ok_upsert = world.body_upsert("generated-planet", #{
     gravity_mu_km3_s2: 4321.5,
     atmosphere_top_km: 88.0
 });
-let info_a = world.body_info("generated-planet");
+let info_a = world.body("generated-planet").inspect();
 
 let ok_patch = world.body_patch("generated-planet", #{
     surface_radius: 199.0,
     atmosphere_dense_start_km: 18.0
 });
-let info_b = world.body_info("generated-planet");
+let info_b = world.body("generated-planet").inspect();
 
 game.set("/test/ok_upsert", ok_upsert);
 game.set("/test/ok_patch", ok_patch);
@@ -3840,7 +3895,7 @@ let ok_patch = world.body_patch("patched-body", #{
     gravity_mu_km3_s2: 9876.0,
     atmosphere_top_km: 25.0
 });
-let info = world.body_info("patched-body");
+let info = world.body("patched-body").inspect();
 
 game.set("/test/ok_patch", ok_patch);
 game.set("/test/radius_km", info["radius_km"]);

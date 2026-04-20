@@ -269,8 +269,9 @@ impl SceneRuntime {
             self.behaviors[idx]
                 .behavior
                 .update(object, &self.scene, &ctx, &mut local_commands);
-            self.apply_behavior_commands(&resolver, &local_commands);
+            let diagnostic_commands = self.apply_behavior_commands(&resolver, &local_commands);
             commands.extend(local_commands.iter().cloned());
+            commands.extend(diagnostic_commands);
             // Update snapshots after each behavior emits commands, so subsequent
             // behaviors see same-frame text/property/state mutations.
             // effective_object_states_snapshot() uses gen-counter gating to skip rebuilds
@@ -378,9 +379,9 @@ impl SceneRuntime {
         &mut self,
         resolver: &TargetResolver,
         commands: &[BehaviorCommand],
-    ) {
+    ) -> Vec<BehaviorCommand> {
         if commands.is_empty() {
-            return;
+            return Vec::new();
         }
 
         // Collect despawn targets for batched removal (single graph rebuild).
@@ -388,11 +389,22 @@ impl SceneRuntime {
         // Enable batch spawn mode: defer refresh_runtime_caches() per spawn.
         self.spawn_batch_depth += 1;
         let mut had_graph_spawns = false;
+        let mut diagnostics = Vec::new();
 
         for command in commands {
-            if let Some(mutation) = self.scene_mutation_from_behavior_command(resolver, command) {
-                self.apply_scene_mutation(resolver, &mutation);
-                continue;
+            match self.scene_mutation_from_behavior_command(resolver, command) {
+                Ok(Some(mutation)) => {
+                    let result = self.apply_scene_mutation(resolver, &mutation);
+                    if let Some(error) = result.error.as_ref() {
+                        diagnostics.push(self.scene_mutation_debug_log(error));
+                    }
+                    continue;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    diagnostics.push(self.scene_mutation_debug_log(&error));
+                    continue;
+                }
             }
 
             match command {
@@ -402,15 +414,22 @@ impl SceneRuntime {
                 BehaviorCommand::StopSong => {}
                 BehaviorCommand::ApplySceneMutation { request } => match request {
                     engine_api::scene::SceneMutationRequest::SpawnObject { template, target } => {
-                        let impact = self.spawn_runtime_clone(resolver, template, target);
-                        if impact.graph {
-                            had_graph_spawns = true;
-                        } else {
-                            self.apply_runtime_mutation_impact(impact);
+                        match self.apply_spawn_request(resolver, template, target) {
+                            Ok(impact) => {
+                                if impact.graph {
+                                    had_graph_spawns = true;
+                                } else {
+                                    self.apply_runtime_mutation_impact(impact);
+                                }
+                            }
+                            Err(error) => diagnostics.push(self.scene_mutation_debug_log(&error)),
                         }
                     }
                     engine_api::scene::SceneMutationRequest::DespawnObject { target } => {
-                        pending_despawns.push(target.clone());
+                        match self.validate_despawn_request(resolver, target) {
+                            Ok(()) => pending_despawns.push(target.clone()),
+                            Err(error) => diagnostics.push(self.scene_mutation_debug_log(&error)),
+                        }
                     }
                     _ => {}
                 },
@@ -456,40 +475,41 @@ impl SceneRuntime {
         if !pending_despawns.is_empty() && self.batch_despawn_targets(resolver, &pending_despawns) {
             self.apply_runtime_mutation_impact(RuntimeMutationImpact::graph());
         }
+        diagnostics
     }
 
     fn scene_mutation_from_behavior_command(
         &self,
         _resolver: &TargetResolver,
         command: &BehaviorCommand,
-    ) -> Option<SceneMutation> {
+    ) -> Result<Option<SceneMutation>, engine_api::scene::SceneMutationError> {
         match command {
             BehaviorCommand::SetVisibility { target, visible } => {
-                Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                Ok(Some(SceneMutation::Set2DProps(Set2DPropsMutation {
                     target: target.clone(),
                     visible: Some(*visible),
                     dx: None,
                     dy: None,
                     text: None,
-                }))
+                })))
             }
             BehaviorCommand::SetOffset { target, dx, dy } => {
-                Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                Ok(Some(SceneMutation::Set2DProps(Set2DPropsMutation {
                     target: target.clone(),
                     visible: None,
                     dx: Some(*dx),
                     dy: Some(*dy),
                     text: None,
-                }))
+                })))
             }
             BehaviorCommand::SetText { target, text } => {
-                Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+                Ok(Some(SceneMutation::Set2DProps(Set2DPropsMutation {
                     target: target.clone(),
                     visible: None,
                     dx: None,
                     dy: None,
                     text: Some(text.clone()),
-                }))
+                })))
             }
             BehaviorCommand::SetProps {
                 target,
@@ -497,64 +517,103 @@ impl SceneRuntime {
                 dx,
                 dy,
                 text,
-            } => Some(SceneMutation::Set2DProps(Set2DPropsMutation {
+            } => Ok(Some(SceneMutation::Set2DProps(Set2DPropsMutation {
                 target: target.clone(),
                 visible: *visible,
                 dx: *dx,
                 dy: *dy,
                 text: text.clone(),
-            })),
+            }))),
             BehaviorCommand::SetCamera { x, y } => {
-                Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
+                Ok(Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
                     x: x.round() as i32,
                     y: y.round() as i32,
                     zoom: None,
-                }))
+                })))
             }
             BehaviorCommand::SetCameraZoom { zoom } => {
-                Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
+                Ok(Some(SceneMutation::SetCamera2D(SetCamera2DMutation {
                     x: self.camera_x,
                     y: self.camera_y,
                     zoom: Some(*zoom),
-                }))
+                })))
             }
-            BehaviorCommand::SetCamera3DLookAt { eye, look_at } => scene_mutation_from_request(
-                &engine_api::scene::SceneMutationRequest::SetCamera3d(
-                    engine_api::scene::Camera3dMutationRequest::LookAt {
-                        eye: *eye,
-                        look_at: *look_at,
-                    },
-                ),
-                self.scene_camera_3d,
-            ),
-            BehaviorCommand::SetCamera3DUp { up } => scene_mutation_from_request(
-                &engine_api::scene::SceneMutationRequest::SetCamera3d(
-                    engine_api::scene::Camera3dMutationRequest::Up { up: *up },
-                ),
-                self.scene_camera_3d,
-            ),
+            BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
+                crate::request_adapter::scene_mutation_from_request_result(
+                    &engine_api::scene::SceneMutationRequest::SetCamera3d(
+                        engine_api::scene::Camera3dMutationRequest::LookAt {
+                            eye: *eye,
+                            look_at: *look_at,
+                        },
+                    ),
+                    self.scene_camera_3d,
+                )
+                .map(Some)
+            }
+            BehaviorCommand::SetCamera3DUp { up } => {
+                crate::request_adapter::scene_mutation_from_request_result(
+                    &engine_api::scene::SceneMutationRequest::SetCamera3d(
+                        engine_api::scene::Camera3dMutationRequest::Up { up: *up },
+                    ),
+                    self.scene_camera_3d,
+                )
+                .map(Some)
+            }
             BehaviorCommand::ApplySceneMutation { request } => {
                 if matches!(
                     request,
                     engine_api::scene::SceneMutationRequest::SpawnObject { .. }
                         | engine_api::scene::SceneMutationRequest::DespawnObject { .. }
                 ) {
-                    return None;
+                    return Ok(None);
                 }
-                scene_mutation_from_request(request, self.scene_camera_3d)
+                crate::request_adapter::scene_mutation_from_request_result(
+                    request,
+                    self.scene_camera_3d,
+                )
+                .map(Some)
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
-    fn apply_scene_mutation(&mut self, resolver: &TargetResolver, mutation: &SceneMutation) {
+    fn apply_scene_mutation(
+        &mut self,
+        resolver: &TargetResolver,
+        mutation: &SceneMutation,
+    ) -> engine_api::scene::SceneMutationResult {
         let mut mutation_applied = false;
         let mut impact = RuntimeMutationImpact::NONE;
         match mutation {
             SceneMutation::Set2DProps(props) => {
                 let Some(object_id) = resolver.resolve_alias(&props.target) else {
-                    return;
+                    return engine_api::scene::SceneMutationResult::rejected(
+                        engine_api::scene::SceneMutationError::target_not_found(
+                            props.target.clone(),
+                        ),
+                    );
                 };
+                if props.visible.is_none()
+                    && props.dx.is_none()
+                    && props.dy.is_none()
+                    && props.text.is_none()
+                {
+                    return engine_api::scene::SceneMutationResult::rejected(
+                        engine_api::scene::SceneMutationError::invalid_request(
+                            "set_2d_props",
+                            "set_2d_props requires at least one field",
+                        ),
+                    );
+                }
+                if props.text.is_some()
+                    && !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Text)
+                {
+                    return self.unsupported_target_mutation(
+                        "set_2d_props",
+                        &props.target,
+                        "text.content",
+                    );
+                }
                 if let Some(state) = self.object_states.get_mut(object_id) {
                     if let Some(next_visible) = props.visible {
                         if state.visible != next_visible {
@@ -593,7 +652,9 @@ impl SceneRuntime {
             }
             SceneMutation::SetSpriteProperty { target, mutation } => {
                 let Some(object_id) = resolver.resolve_alias(&target) else {
-                    return;
+                    return engine_api::scene::SceneMutationResult::rejected(
+                        engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                    );
                 };
                 match mutation {
                     SetSpritePropertyMutation::Heading { heading } => {
@@ -624,6 +685,13 @@ impl SceneRuntime {
                         }
                     }
                     SetSpritePropertyMutation::TextFont { font } => {
+                        if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Text) {
+                            return self.unsupported_target_mutation(
+                                "set_sprite_property",
+                                target,
+                                "text.font",
+                            );
+                        }
                         if self.apply_text_property_for_target(
                             object_id,
                             &target,
@@ -634,8 +702,25 @@ impl SceneRuntime {
                         }
                     }
                     SetSpritePropertyMutation::TextColour { fg, value } => {
+                        if !self.sprite_kind_matches_any(
+                            object_id,
+                            &[RuntimeSpriteKind::Text, RuntimeSpriteKind::Vector],
+                        ) {
+                            return self.unsupported_target_mutation(
+                                "set_sprite_property",
+                                target,
+                                if *fg { "style.fg" } else { "style.bg" },
+                            );
+                        }
                         let Some(next_colour) = parse_term_colour(value) else {
-                            return;
+                            return engine_api::scene::SceneMutationResult::rejected(
+                                engine_api::scene::SceneMutationError::invalid_request(
+                                    "set_sprite_property",
+                                    format!(
+                                        "target `{target}` received an unsupported colour value"
+                                    ),
+                                ),
+                            );
                         };
                         let text_applied = if *fg {
                             self.apply_text_property_for_target(
@@ -672,6 +757,13 @@ impl SceneRuntime {
                         }
                     }
                     SetSpritePropertyMutation::VectorProperty { path, value } => {
+                        if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Vector) {
+                            return self.unsupported_target_mutation(
+                                "set_sprite_property",
+                                target,
+                                path,
+                            );
+                        }
                         let mut applied = self.set_vector_sprite_property(&target, path, value);
                         if !applied {
                             for alias in self.object_alias_candidates(object_id, &target) {
@@ -687,6 +779,13 @@ impl SceneRuntime {
                         }
                     }
                     SetSpritePropertyMutation::ImageFrame { frame_index } => {
+                        if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Image) {
+                            return self.unsupported_target_mutation(
+                                "set_sprite_property",
+                                target,
+                                "image.frame_index",
+                            );
+                        }
                         let mut applied = self.set_image_sprite_frame_index(&target, *frame_index);
                         if !applied {
                             for alias in self.object_alias_candidates(object_id, &target) {
@@ -731,6 +830,36 @@ impl SceneRuntime {
             }
             SceneMutation::SetRender3D(render3d) => match render3d {
                 Render3DMutation::SetGroupedParams { target, params } => {
+                    if params.is_empty() {
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::invalid_request(
+                                "set_render3d",
+                                "grouped render params must not be empty",
+                            ),
+                        );
+                    }
+                    let Some(target_name) = target.as_deref() else {
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::unsupported_request(
+                                "set_render3d",
+                                "grouped render params require a target",
+                            ),
+                        );
+                    };
+                    let Some(object_id) = resolver.resolve_alias(target_name) else {
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target_name),
+                        );
+                    };
+                    for (param, _) in params {
+                        if !self.grouped_render_param_supported(object_id, param) {
+                            return self.unsupported_target_mutation(
+                                "set_render3d",
+                                target_name,
+                                grouped_render_param_label(param),
+                            );
+                        }
+                    }
                     for (param, value) in params {
                         if self.apply_grouped_render3d_param(
                             resolver,
@@ -789,7 +918,9 @@ impl SceneRuntime {
                 }
                 Render3DMutation::SetNodeVisibility { target, visible } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
                     };
                     if let Some(state) = self.object_states.get_mut(object_id) {
                         if state.visible != *visible {
@@ -801,7 +932,9 @@ impl SceneRuntime {
                 }
                 Render3DMutation::SetNodeTransform { target, transform } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
                     };
                     if let Some(state) = self.object_states.get_mut(object_id) {
                         let next_offset_x = transform.translation[0].round() as i32;
@@ -828,10 +961,20 @@ impl SceneRuntime {
                 }
                 Render3DMutation::SetScene3DFrame { target, frame } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
                     };
+                    if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Scene3D) {
+                        return self.unsupported_target_mutation(
+                            "set_render3d",
+                            target,
+                            "scene3d.frame",
+                        );
+                    }
                     if !self.apply_scene3d_frame_for_target(object_id, target, frame) {
-                        return;
+                        self.apply_runtime_mutation_impact(impact);
+                        return engine_api::scene::SceneMutationResult::applied();
                     }
                     mutation_applied = true;
                     impact.merge(RuntimeMutationImpact::layout());
@@ -842,7 +985,16 @@ impl SceneRuntime {
                     value,
                 } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
+                    };
+                    if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Obj) {
+                        return self.unsupported_target_mutation(
+                            "set_render3d",
+                            target,
+                            obj_material_param_label(param),
+                        );
                     };
                     if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
                         runtime.set_obj_material_typed_wrapper(alias, param, value)
@@ -857,7 +1009,16 @@ impl SceneRuntime {
                     value,
                 } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
+                    };
+                    if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Obj) {
+                        return self.unsupported_target_mutation(
+                            "set_render3d",
+                            target,
+                            atmosphere_param_label(param),
+                        );
                     };
                     if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
                         runtime.set_obj_atmosphere_typed_wrapper(alias, param, value)
@@ -871,7 +1032,16 @@ impl SceneRuntime {
                     value,
                 } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
+                    };
+                    if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Obj) {
+                        return self.unsupported_target_mutation(
+                            "set_render3d",
+                            target,
+                            terrain_param_label(param),
+                        );
                     };
                     if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
                         runtime.set_obj_terrain_typed_wrapper(alias, param, value)
@@ -885,7 +1055,16 @@ impl SceneRuntime {
                     value,
                 } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
+                    };
+                    if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Obj) {
+                        return self.unsupported_target_mutation(
+                            "set_render3d",
+                            target,
+                            worldgen_param_label(param),
+                        );
                     };
                     if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
                         runtime.set_obj_worldgen_typed_wrapper(alias, param, value)
@@ -899,7 +1078,16 @@ impl SceneRuntime {
                     value,
                 } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
-                        return;
+                        return engine_api::scene::SceneMutationResult::rejected(
+                            engine_api::scene::SceneMutationError::target_not_found(target.clone()),
+                        );
+                    };
+                    if !self.sprite_kind_matches(object_id, RuntimeSpriteKind::Planet) {
+                        return self.unsupported_target_mutation(
+                            "set_render3d",
+                            target,
+                            planet_param_label(param),
+                        );
                     };
                     if self.apply_text_property_for_target(object_id, target, |runtime, alias| {
                         runtime.set_planet_typed_wrapper(alias, param, value)
@@ -913,8 +1101,22 @@ impl SceneRuntime {
                     mutation_applied = true;
                 }
             },
-            SceneMutation::SpawnObject { .. } => {}
-            SceneMutation::DespawnObject { .. } => {}
+            SceneMutation::SpawnObject { .. } => {
+                return engine_api::scene::SceneMutationResult::rejected(
+                    engine_api::scene::SceneMutationError::unsupported_request(
+                        "spawn_object",
+                        "spawn_object must be applied through behavior command dispatch",
+                    ),
+                );
+            }
+            SceneMutation::DespawnObject { .. } => {
+                return engine_api::scene::SceneMutationResult::rejected(
+                    engine_api::scene::SceneMutationError::unsupported_request(
+                        "despawn_object",
+                        "despawn_object must be applied through behavior command dispatch",
+                    ),
+                );
+            }
         }
         if mutation_applied {
             let dirty = dirty_for_scene_mutation(mutation);
@@ -922,6 +1124,7 @@ impl SceneRuntime {
             self.track_render3d_rebuild_cause(dirty);
         }
         self.apply_runtime_mutation_impact(impact);
+        engine_api::scene::SceneMutationResult::applied()
     }
 
     fn apply_grouped_render3d_param(
@@ -986,6 +1189,91 @@ impl SceneRuntime {
         })
     }
 
+    fn scene_mutation_debug_log(
+        &self,
+        error: &engine_api::scene::SceneMutationError,
+    ) -> BehaviorCommand {
+        let severity = match error {
+            engine_api::scene::SceneMutationError::InvalidRequest { .. } => {
+                engine_api::commands::DebugLogSeverity::Error
+            }
+            engine_api::scene::SceneMutationError::UnsupportedRequest { .. }
+            | engine_api::scene::SceneMutationError::TargetNotFound { .. } => {
+                engine_api::commands::DebugLogSeverity::Warn
+            }
+        };
+        BehaviorCommand::DebugLog {
+            scene_id: self.scene.id.clone(),
+            source: Some("scene-mutation".to_string()),
+            severity,
+            message: format!(
+                "scene mutation rejected: {}",
+                format_scene_mutation_error(error)
+            ),
+        }
+    }
+
+    fn unsupported_target_mutation(
+        &self,
+        request: &str,
+        target: &str,
+        property: impl AsRef<str>,
+    ) -> engine_api::scene::SceneMutationResult {
+        engine_api::scene::SceneMutationResult::rejected(
+            engine_api::scene::SceneMutationError::unsupported_request(
+                request,
+                format!("target `{target}` does not support `{}`", property.as_ref()),
+            ),
+        )
+    }
+
+    fn grouped_render_param_supported(
+        &self,
+        object_id: &str,
+        param: &crate::mutations::Render3DGroupedParam,
+    ) -> bool {
+        match param {
+            crate::mutations::Render3DGroupedParam::View(_)
+            | crate::mutations::Render3DGroupedParam::Material(_)
+            | crate::mutations::Render3DGroupedParam::Atmosphere(_)
+            | crate::mutations::Render3DGroupedParam::Surface(_)
+            | crate::mutations::Render3DGroupedParam::Generator(_) => {
+                self.sprite_kind_matches(object_id, RuntimeSpriteKind::Obj)
+            }
+            crate::mutations::Render3DGroupedParam::Body(_) => {
+                self.sprite_kind_matches(object_id, RuntimeSpriteKind::Planet)
+            }
+        }
+    }
+
+    fn sprite_kind_matches(&self, object_id: &str, expected: RuntimeSpriteKind) -> bool {
+        self.runtime_sprite_kind(object_id) == Some(expected)
+    }
+
+    fn sprite_kind_matches_any(&self, object_id: &str, expected: &[RuntimeSpriteKind]) -> bool {
+        self.runtime_sprite_kind(object_id)
+            .is_some_and(|kind| expected.contains(&kind))
+    }
+
+    fn runtime_sprite_kind(&self, object_id: &str) -> Option<RuntimeSpriteKind> {
+        let (layer_idx, sprite_path) = self.find_sprite_path_for_object(object_id)?;
+        let sprite = sprite_at_path(
+            self.scene.layers.get(layer_idx)?.sprites.as_slice(),
+            &sprite_path,
+        )?;
+        Some(match sprite {
+            Sprite::Text { .. } => RuntimeSpriteKind::Text,
+            Sprite::Image { .. } => RuntimeSpriteKind::Image,
+            Sprite::Obj { .. } => RuntimeSpriteKind::Obj,
+            Sprite::Planet { .. } => RuntimeSpriteKind::Planet,
+            Sprite::Scene3D { .. } => RuntimeSpriteKind::Scene3D,
+            Sprite::Vector { .. } => RuntimeSpriteKind::Vector,
+            Sprite::Panel { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
+                RuntimeSpriteKind::Container
+            }
+        })
+    }
+
     fn spawn_runtime_clone(
         &mut self,
         resolver: &TargetResolver,
@@ -1029,6 +1317,69 @@ impl SceneRuntime {
         } else {
             RuntimeMutationImpact::NONE
         }
+    }
+
+    fn apply_spawn_request(
+        &mut self,
+        resolver: &TargetResolver,
+        template: &str,
+        target: &str,
+    ) -> Result<RuntimeMutationImpact, engine_api::scene::SceneMutationError> {
+        if template.trim().is_empty() || target.trim().is_empty() {
+            return Err(engine_api::scene::SceneMutationError::invalid_request(
+                "spawn_object",
+                "spawn_object requires non-empty template and target",
+            ));
+        }
+
+        let current_resolver = self.build_target_resolver();
+        let existing = resolver
+            .resolve_alias(target)
+            .or_else(|| current_resolver.resolve_alias(target));
+        if existing.is_none()
+            && resolver
+                .resolve_alias(template)
+                .or_else(|| current_resolver.resolve_alias(template))
+                .is_none()
+        {
+            return Err(engine_api::scene::SceneMutationError::invalid_request(
+                "spawn_object",
+                format!("template `{template}` was not found"),
+            ));
+        }
+
+        let impact = self.spawn_runtime_clone(resolver, template, target);
+        if impact.is_empty() && existing.is_none() {
+            return Err(engine_api::scene::SceneMutationError::invalid_request(
+                "spawn_object",
+                format!("template `{template}` could not be materialized"),
+            ));
+        }
+        Ok(impact)
+    }
+
+    fn validate_despawn_request(
+        &self,
+        resolver: &TargetResolver,
+        target: &str,
+    ) -> Result<(), engine_api::scene::SceneMutationError> {
+        if target.trim().is_empty() {
+            return Err(engine_api::scene::SceneMutationError::invalid_request(
+                "despawn_object",
+                "despawn_object requires a non-empty target",
+            ));
+        }
+        let current_resolver = self.build_target_resolver();
+        if resolver
+            .resolve_alias(target)
+            .or_else(|| current_resolver.resolve_alias(target))
+            .is_none()
+        {
+            return Err(engine_api::scene::SceneMutationError::target_not_found(
+                target.to_string(),
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn attach_default_behaviors(&mut self) {
@@ -1155,6 +1506,53 @@ fn runtime_impact_for_grouped_render3d_param(
             crate::mutations::ViewParam::Distance => RuntimeMutationImpact::NONE,
         },
         _ => RuntimeMutationImpact::NONE,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeSpriteKind {
+    Text,
+    Image,
+    Obj,
+    Planet,
+    Scene3D,
+    Vector,
+    Container,
+}
+
+fn grouped_render_param_label(param: &crate::mutations::Render3DGroupedParam) -> String {
+    format!("{param:?}")
+}
+
+fn obj_material_param_label(param: &crate::mutations::ObjMaterialParam) -> String {
+    format!("{param:?}")
+}
+
+fn atmosphere_param_label(param: &crate::mutations::AtmosphereParam) -> String {
+    format!("{param:?}")
+}
+
+fn terrain_param_label(param: &crate::mutations::TerrainParam) -> String {
+    format!("{param:?}")
+}
+
+fn worldgen_param_label(param: &crate::mutations::WorldgenParam) -> String {
+    format!("{param:?}")
+}
+
+fn planet_param_label(param: &crate::mutations::PlanetParam) -> String {
+    format!("{param:?}")
+}
+
+fn format_scene_mutation_error(error: &engine_api::scene::SceneMutationError) -> String {
+    match error {
+        engine_api::scene::SceneMutationError::InvalidRequest { request, detail }
+        | engine_api::scene::SceneMutationError::UnsupportedRequest { request, detail } => {
+            format!("request={request} detail={detail}")
+        }
+        engine_api::scene::SceneMutationError::TargetNotFound { target } => {
+            format!("target `{target}` was not found")
+        }
     }
 }
 
@@ -1934,5 +2332,337 @@ fn collect_sprite_ids_recursive(
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_api::{
+        commands::{scene_mutation_request_from_set_path, DebugLogSeverity},
+        scene::{SceneMutationError, SceneMutationRequest, SceneMutationResult},
+    };
+    use engine_behavior::BehaviorCommand;
+    use engine_core::scene::Scene;
+
+    fn intro_scene() -> Scene {
+        serde_yaml::from_str(
+            r#"
+id: intro
+title: Intro
+bg_colour: black
+layers:
+  - name: UI
+    sprites:
+      - type: grid
+        id: root-grid
+        width: 10
+        height: 5
+        columns: ["1fr"]
+        rows: ["1fr"]
+        children:
+          - type: text
+            id: title
+            content: HELLO
+"#,
+        )
+        .expect("scene should parse")
+    }
+
+    fn assert_single_debug_log(
+        diagnostics: &[BehaviorCommand],
+        severity: DebugLogSeverity,
+        expected_fragment: &str,
+    ) {
+        assert!(matches!(
+            diagnostics,
+            [BehaviorCommand::DebugLog {
+                scene_id,
+                source,
+                severity: actual_severity,
+                message,
+            }] if scene_id == "intro"
+                && source.as_deref() == Some("scene-mutation")
+                && *actual_severity == severity
+                && message.contains(expected_fragment)
+        ));
+    }
+
+    #[test]
+    fn missing_target_returns_rejected_result_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::Set2dProps {
+                target: "missing".to_string(),
+                visible: Some(false),
+                dx: None,
+                dy: None,
+                text: None,
+            },
+        };
+
+        let mutation = runtime
+            .scene_mutation_from_behavior_command(&resolver, &command)
+            .expect("translation should succeed")
+            .expect("typed mutation");
+        let result = runtime.apply_scene_mutation(&resolver, &mutation);
+
+        assert_eq!(
+            result,
+            SceneMutationResult::rejected(SceneMutationError::TargetNotFound {
+                target: "missing".to_string(),
+            })
+        );
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Warn,
+            "target `missing` was not found",
+        );
+    }
+
+    #[test]
+    fn invalid_payload_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SetSpriteProperty {
+                target: "title".to_string(),
+                path: "image.frame_index".to_string(),
+                value: serde_json::json!("next"),
+            },
+        };
+
+        let error = runtime
+            .scene_mutation_from_behavior_command(&resolver, &command)
+            .expect_err("invalid payload should be rejected");
+
+        assert_eq!(
+            error,
+            SceneMutationError::InvalidRequest {
+                request: "set_sprite_property".to_string(),
+                detail: "path `image.frame_index` expects a u16 frame index".to_string(),
+            }
+        );
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Error,
+            "path `image.frame_index` expects a u16 frame index",
+        );
+    }
+
+    #[test]
+    fn empty_set_2d_props_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::Set2dProps {
+                target: "title".to_string(),
+                visible: None,
+                dx: None,
+                dy: None,
+                text: None,
+            },
+        };
+
+        let error = runtime
+            .scene_mutation_from_behavior_command(&resolver, &command)
+            .expect_err("empty payload should be rejected");
+
+        assert_eq!(
+            error,
+            SceneMutationError::InvalidRequest {
+                request: "set_2d_props".to_string(),
+                detail: "set_2d_props requires at least one field".to_string(),
+            }
+        );
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Error,
+            "set_2d_props requires at least one field",
+        );
+    }
+
+    #[test]
+    fn unsupported_legacy_set_path_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: scene_mutation_request_from_set_path(
+                "title",
+                "audio.pitch",
+                &serde_json::json!(2.0),
+                None,
+            )
+            .expect("legacy wrapper should preserve rejection"),
+        };
+
+        let error = runtime
+            .scene_mutation_from_behavior_command(&resolver, &command)
+            .expect_err("unsupported path should be rejected");
+
+        assert_eq!(
+            error,
+            SceneMutationError::UnsupportedRequest {
+                request: "set_path".to_string(),
+                detail: "target `title` does not support `audio.pitch`".to_string(),
+            }
+        );
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Warn,
+            "target `title` does not support `audio.pitch`",
+        );
+    }
+
+    #[test]
+    fn empty_grouped_render_params_return_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SetRender3d(
+                engine_api::scene::Render3dMutationRequest::SetMaterialParams {
+                    target: "title".to_string(),
+                    params: serde_json::json!({}),
+                },
+            ),
+        };
+
+        let error = runtime
+            .scene_mutation_from_behavior_command(&resolver, &command)
+            .expect_err("empty grouped params should be rejected");
+
+        assert_eq!(
+            error,
+            SceneMutationError::InvalidRequest {
+                request: "set_material_params".to_string(),
+                detail: "grouped params must not be empty".to_string(),
+            }
+        );
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Error,
+            "grouped params must not be empty",
+        );
+    }
+
+    #[test]
+    fn spawn_missing_template_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SpawnObject {
+                template: "missing-template".to_string(),
+                target: "spawned".to_string(),
+            },
+        };
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Error,
+            "template `missing-template` was not found",
+        );
+    }
+
+    #[test]
+    fn spawn_empty_template_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::SpawnObject {
+                template: "".to_string(),
+                target: "spawned".to_string(),
+            },
+        };
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Error,
+            "spawn_object requires non-empty template and target",
+        );
+    }
+
+    #[test]
+    fn despawn_missing_target_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::DespawnObject {
+                target: "missing".to_string(),
+            },
+        };
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Warn,
+            "target `missing` was not found",
+        );
+    }
+
+    #[test]
+    fn despawn_empty_target_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::DespawnObject {
+                target: "".to_string(),
+            },
+        };
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Error,
+            "despawn_object requires a non-empty target",
+        );
+    }
+
+    #[test]
+    fn text_mutation_on_non_text_target_returns_explicit_error_and_debug_log() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let command = BehaviorCommand::ApplySceneMutation {
+            request: SceneMutationRequest::Set2dProps {
+                target: "root-grid".to_string(),
+                visible: None,
+                dx: None,
+                dy: None,
+                text: Some("HELLO".to_string()),
+            },
+        };
+
+        let mutation = runtime
+            .scene_mutation_from_behavior_command(&resolver, &command)
+            .expect("translation should succeed")
+            .expect("typed mutation");
+        let result = runtime.apply_scene_mutation(&resolver, &mutation);
+
+        assert_eq!(
+            result,
+            SceneMutationResult::rejected(SceneMutationError::UnsupportedRequest {
+                request: "set_2d_props".to_string(),
+                detail: "target `root-grid` does not support `text.content`".to_string(),
+            })
+        );
+
+        let diagnostics = runtime.apply_behavior_commands(&resolver, &[command]);
+        assert_single_debug_log(
+            &diagnostics,
+            DebugLogSeverity::Warn,
+            "target `root-grid` does not support `text.content`",
+        );
     }
 }

@@ -185,18 +185,30 @@ impl ObjMaterialParam {
             "obj.pitch" => Some(Self::Pitch),
             "obj.roll" => Some(Self::Roll),
             "obj.orbit_speed" => Some(Self::OrbitSpeed),
-            "obj.rotation-speed" => Some(Self::RotationSpeed),
+            "obj.rotation-speed" | "obj.rotation_speed" => Some(Self::RotationSpeed),
             "obj.ambient" => Some(Self::Ambient),
-            "obj.camera-distance" => Some(Self::CameraDistance),
-            "obj.surface_mode" => Some(Self::SurfaceMode),
-            "obj.clip_y_min" => Some(Self::ClipYMin),
-            "obj.clip_y_max" => Some(Self::ClipYMax),
+            "obj.camera-distance" | "obj.camera_distance" => Some(Self::CameraDistance),
+            "obj.surface_mode" | "obj.surface-mode" => Some(Self::SurfaceMode),
+            "obj.clip_y_min" | "obj.clip-y-min" => Some(Self::ClipYMin),
+            "obj.clip_y_max" | "obj.clip-y-max" => Some(Self::ClipYMax),
             "obj.light.x" => Some(Self::LightDirectionX),
             "obj.light.y" => Some(Self::LightDirectionY),
             "obj.light.z" => Some(Self::LightDirectionZ),
             "obj.world.x" => Some(Self::WorldX),
             "obj.world.y" => Some(Self::WorldY),
             "obj.world.z" => Some(Self::WorldZ),
+            "obj.cam.wx" | "obj.cam.world.x" | "obj.cam.world_x" => Some(Self::CamWorldX),
+            "obj.cam.wy" | "obj.cam.world.y" | "obj.cam.world_y" => Some(Self::CamWorldY),
+            "obj.cam.wz" | "obj.cam.world.z" | "obj.cam.world_z" => Some(Self::CamWorldZ),
+            "obj.view.rx" | "obj.view.right.x" | "obj.view.right_x" => Some(Self::ViewRightX),
+            "obj.view.ry" | "obj.view.right.y" | "obj.view.right_y" => Some(Self::ViewRightY),
+            "obj.view.rz" | "obj.view.right.z" | "obj.view.right_z" => Some(Self::ViewRightZ),
+            "obj.view.ux" | "obj.view.up.x" | "obj.view.up_x" => Some(Self::ViewUpX),
+            "obj.view.uy" | "obj.view.up.y" | "obj.view.up_y" => Some(Self::ViewUpY),
+            "obj.view.uz" | "obj.view.up.z" | "obj.view.up_z" => Some(Self::ViewUpZ),
+            "obj.view.fx" | "obj.view.fwd.x" | "obj.view.fwd_x" => Some(Self::ViewFwdX),
+            "obj.view.fy" | "obj.view.fwd.y" | "obj.view.fwd_y" => Some(Self::ViewFwdY),
+            "obj.view.fz" | "obj.view.fwd.z" | "obj.view.fwd_z" => Some(Self::ViewFwdZ),
             _ => None,
         }
     }
@@ -514,6 +526,46 @@ mod tests {
             }
             _ => panic!("unexpected mutation shape"),
         }
+    }
+
+    #[test]
+    fn obj_material_param_recognizes_object_camera_aliases() {
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.cam.wx"),
+            Some(ObjMaterialParam::CamWorldX)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.cam.world.x"),
+            Some(ObjMaterialParam::CamWorldX)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.cam.world_y"),
+            Some(ObjMaterialParam::CamWorldY)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.view.rx"),
+            Some(ObjMaterialParam::ViewRightX)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.view.right_y"),
+            Some(ObjMaterialParam::ViewRightY)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.view.up_z"),
+            Some(ObjMaterialParam::ViewUpZ)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.view.up.z"),
+            Some(ObjMaterialParam::ViewUpZ)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.view.fwd.z"),
+            Some(ObjMaterialParam::ViewFwdZ)
+        );
+        assert_eq!(
+            ObjMaterialParam::from_full_path("obj.view.fwd_x"),
+            Some(ObjMaterialParam::ViewFwdX)
+        );
     }
 
     #[test]

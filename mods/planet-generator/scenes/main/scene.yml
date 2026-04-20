@@ -48,6 +48,8 @@ input:
     surface-center-x: 0.0
     surface-center-y: 0.0
     surface-center-z: 0.0
+    # Bootstrap fallback only: runtime free-look surface mode now follows the
+    # focus-body render shell (`radius_px`) after body_sync patches the body.
     surface-radius: 1.0
     surface-altitude: 0.03
     surface-min-altitude: 0.01

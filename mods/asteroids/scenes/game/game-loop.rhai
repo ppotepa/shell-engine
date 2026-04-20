@@ -17,7 +17,7 @@
 // ============================================================================
 import "rcs" as rcs;
 
-if type_of(local) == "()" { local = #{}; }
+local = local ?? #{};
 
 let WORLD_W = 3200.0;
 let WORLD_H = 1800.0;
@@ -123,21 +123,21 @@ fn ensure_ship(world, spawn_x, spawn_y) {
 }
 
 // ======================== CONSTANTS =========================================
-let _body = world.body_info("main-planet");
-let PLANET_X = if type_of(_body["center_x"]) != "()" { _body["center_x"] } else { WORLD_W * 0.5 };
-let PLANET_Y = if type_of(_body["center_y"]) != "()" { _body["center_y"] } else { WORLD_H * 0.5 };
-let SURFACE_RADIUS = if type_of(_body["surface_radius"]) != "()" { _body["surface_radius"] } else { 200.0 };
-let BODY_RADIUS_PX = if type_of(_body["radius_px"]) != "()" { _body["radius_px"] } else { SURFACE_RADIUS };
-let BODY_GRAVITY_MU = if type_of(_body["gravity_mu"]) != "()" { _body["gravity_mu"] } else { 87861.0 };
-let BODY_RADIUS_KM = if type_of(_body["radius_km"]) != "()" { _body["radius_km"] } else { 66.85 };
-let KM_PER_PX = if type_of(_body["km_per_px"]) != "()" { _body["km_per_px"].max(0.001) } else { BODY_RADIUS_KM / BODY_RADIUS_PX.max(1.0) };
+let _body = world.body("main-planet");
+let PLANET_X = if _body.exists { _body.center_x } else { WORLD_W * 0.5 };
+let PLANET_Y = if _body.exists { _body.center_y } else { WORLD_H * 0.5 };
+let SURFACE_RADIUS = if _body.exists { _body.surface_radius } else { 200.0 };
+let BODY_RADIUS_PX = if _body.exists { _body.radius_px } else { SURFACE_RADIUS };
+let BODY_GRAVITY_MU = if _body.exists { _body.gravity_mu } else { 87861.0 };
+let BODY_RADIUS_KM = if _body.exists { _body.radius_km } else { 66.85 };
+let KM_PER_PX = if _body.exists { _body.km_per_px.max(0.001) } else { BODY_RADIUS_KM / BODY_RADIUS_PX.max(1.0) };
 let ATMO_TOP_ALT_PX =
-    if type_of(_body["atmosphere_top_km"]) != "()" { (_body["atmosphere_top_km"] / KM_PER_PX).max(0.0) }
+    if _body.exists { (_body.atmosphere_top_km / KM_PER_PX).max(0.0) }
     else { 42.0 };
 let ATMO_DENSE_ALT_PX =
-    if type_of(_body["atmosphere_dense_start_km"]) != "()" { (_body["atmosphere_dense_start_km"] / KM_PER_PX).max(0.0) }
+    if _body.exists { (_body.atmosphere_dense_start_km / KM_PER_PX).max(0.0) }
     else { 13.5 };
-let ATMO_DRAG_MAX = if type_of(_body["atmosphere_drag_max"]) != "()" { _body["atmosphere_drag_max"] } else { 2.2 };
+let ATMO_DRAG_MAX = if _body.exists { _body.atmosphere_drag_max } else { 2.2 };
 
 let PI = 3.1415926535;
 let ORBIT_R = SURFACE_RADIUS + 1.0;
@@ -159,7 +159,7 @@ let CAM_SWAY_GAIN  = 0.28;
 // Map physics surface radius to 3D unit sphere: surface → r=1.0
 let SCENE_SCALE    = 1.0 / SURFACE_RADIUS;
 
-let _ptype_id = if type_of(_body["planet_type"]) != "()" { _body["planet_type"] } else { "earth_like" };
+let _ptype_id = if _body.exists && _body.planet_type != "" { _body.planet_type } else { "earth_like" };
 let _ptype = world.planet_type_info(_ptype_id);
 let PLANET_SPIN_DPS = _ptype["surface_spin_dps"];
 let CLOUD_SPIN_DPS  = _ptype["cloud_spin_dps"];
@@ -217,7 +217,7 @@ let cam_sway = local.cam_sway ?? 0.0;
 // ======================== SHIP SPAWN ========================================
 let ship_id = ensure_ship(world, PLANET_X + snx * radius, PLANET_Y + sny * radius);
 local.ship_id = ship_id;
-scene.set("ship-scene-slot", "visible", ship_id > 0);
+scene.object("ship-scene-slot").set("visible", ship_id > 0);
 
 let ship_x = local.spawn_ship_x ?? (PLANET_X + radius);
 let ship_y = local.spawn_ship_y ?? PLANET_Y;
@@ -335,7 +335,7 @@ if ship_id > 0 {
     srz = sfx*sny - sfy*snx;
 
     // ── 3D ship visual ─────────────────────────────────────────────────────
-    let _ship_sprite = "ship-scene-slot";
+    let _ship_sprite = scene.object("ship-scene-slot");
     ship_heading = heading_from_forward(sfx, sfy, ship_heading);
     let _ship_euler = ship_basis_euler(
         srx, sry, srz, sfx, sfy, sfz, snx, sny, snz,
@@ -344,14 +344,14 @@ if ship_id > 0 {
     ship_vis_pitch = _ship_euler["pitch"] ?? ship_vis_pitch;
     ship_vis_yaw = _ship_euler["yaw"] ?? ship_vis_yaw;
     ship_vis_roll = _ship_euler["roll"] ?? ship_vis_roll;
-    scene.set("ship-" + ship_id, "visible", false);
-    scene.set(_ship_sprite, "obj.pitch", ship_vis_pitch * 57.29577951);
-    scene.set(_ship_sprite, "obj.yaw",   ship_vis_yaw   * 57.29577951);
-    scene.set(_ship_sprite, "obj.roll",  ship_vis_roll  * 57.29577951);
+    scene.object("ship-" + ship_id).set("visible", false);
+    _ship_sprite.set("obj.pitch", ship_vis_pitch * 57.29577951);
+    _ship_sprite.set("obj.yaw",   ship_vis_yaw   * 57.29577951);
+    _ship_sprite.set("obj.roll",  ship_vis_roll  * 57.29577951);
     let _ship_scene_r = radius * SCENE_SCALE;
-    scene.set(_ship_sprite, "obj.world.x", snx * _ship_scene_r);
-    scene.set(_ship_sprite, "obj.world.y", sny * _ship_scene_r);
-    scene.set(_ship_sprite, "obj.world.z", snz * _ship_scene_r);
+    _ship_sprite.set("obj.world.x", snx * _ship_scene_r);
+    _ship_sprite.set("obj.world.y", sny * _ship_scene_r);
+    _ship_sprite.set("obj.world.z", snz * _ship_scene_r);
     world.entity(ship_id).set_heading(ship_heading);
 
     // ── Persist state ──────────────────────────────────────────────────────
@@ -407,9 +407,10 @@ world.set_camera_zoom(ZOOM_SURFACE + (ZOOM_ORBIT - ZOOM_SURFACE) * _zoom_t2);
 local.planet_self_yaw  = (local.planet_self_yaw  ?? 0.0) + PLANET_SPIN_DPS  * dt;
 local.cloud_self_yaw   = (local.cloud_self_yaw   ?? 0.0) + CLOUD_SPIN_DPS   * dt;
 local.cloud_self_yaw_2 = (local.cloud_self_yaw_2 ?? 90.0) + CLOUD2_SPIN_DPS * dt;
-scene.set("main-planet-view", "planet.spin_deg", local.planet_self_yaw ?? 0.0);
-scene.set("main-planet-view", "planet.cloud_spin_deg", local.cloud_self_yaw ?? 0.0);
-scene.set("main-planet-view", "planet.cloud2_spin_deg", local.cloud_self_yaw_2 ?? 90.0);
+let _main_planet_view = scene.object("main-planet-view");
+_main_planet_view.set("planet.spin_deg", local.planet_self_yaw ?? 0.0);
+_main_planet_view.set("planet.cloud_spin_deg", local.cloud_self_yaw ?? 0.0);
+_main_planet_view.set("planet.cloud2_spin_deg", local.cloud_self_yaw_2 ?? 90.0);
 
 // ======================== 3D CHASE CAMERA ===================================
 let _cam_valid = snx*snx + sny*sny + snz*snz > 0.01;
@@ -465,7 +466,7 @@ let _rspd_km_s = vrad * _unit_km_s;
 let _alt_km = (_altitude_px * KM_PER_PX).to_int();
 let _v_circ_km_s = sqrtf(BODY_GRAVITY_MU / radius.max(SURFACE_RADIUS + 1.0)) * _unit_km_s;
 let _v_esc_km_s = sqrtf(2.0 * BODY_GRAVITY_MU / radius.max(SURFACE_RADIUS + 1.0)) * _unit_km_s;
-scene.set("main-planet-view", "planet.observer_altitude_km", _alt_km.to_float());
+_main_planet_view.set("planet.observer_altitude_km", _alt_km.to_float());
 
 let _atmo_alpha = clamp01((ATMO_TOP_ALT_PX - _altitude_px) / ATMO_TOP_ALT_PX.max(0.1));
 let hud_status =
@@ -480,11 +481,13 @@ let _status_colour =
     else if hud_status == "SURFACE" { "#7aff9e" }
     else { "#9ed8ff" };
 
-scene.set("hud-orbital-alt",    "content", "ALT  " + _alt_km + " km");
-scene.set("hud-orbital-status", "content", hud_status);
-scene.set("hud-orbital-tspd",   "content", fmt_kms("TSPD", _tspd_km_s));
-scene.set("hud-orbital-rspd",   "content", fmt_kms("RSPD", _rspd_km_s));
-scene.set("hud-orbital-heat",   "content", "");
-scene.set("hud-orbital-vxy",    "content", "REF  " + one_decimal_text(_v_circ_km_s) + "/" + one_decimal_text(_v_esc_km_s));
-scene.set("hud-orbital-status", "style.fg", _status_colour);
-scene.set("hud-orbital-vxy",    "style.fg", "#88a8c4");
+scene.object("hud-orbital-alt").set("content", "ALT  " + _alt_km + " km");
+let _hud_status = scene.object("hud-orbital-status");
+_hud_status.set("content", hud_status);
+scene.object("hud-orbital-tspd").set("content", fmt_kms("TSPD", _tspd_km_s));
+scene.object("hud-orbital-rspd").set("content", fmt_kms("RSPD", _rspd_km_s));
+scene.object("hud-orbital-heat").set("content", "");
+let _hud_vxy = scene.object("hud-orbital-vxy");
+_hud_vxy.set("content", "REF  " + one_decimal_text(_v_circ_km_s) + "/" + one_decimal_text(_v_esc_km_s));
+_hud_status.set("style.fg", _status_colour);
+_hud_vxy.set("style.fg", "#88a8c4");

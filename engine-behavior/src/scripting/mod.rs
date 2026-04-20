@@ -13,6 +13,7 @@ pub mod gui;
 pub mod io;
 pub mod palette;
 pub mod physics;
+pub mod runtime;
 pub mod scene;
 pub mod ui;
 pub mod vehicle;
@@ -36,4 +37,5 @@ pub(crate) fn register_all_domains(engine: &mut RhaiEngine) {
     world::register_with_rhai(engine);
     engine_api::register_effects_api(engine);
     engine_api::register_collision_api(engine);
+    runtime::register_with_rhai(engine);
 }

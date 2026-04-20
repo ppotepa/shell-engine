@@ -8,7 +8,17 @@
   sprites:
     - { type: text, id: param-kicker, content: "ACTIVE TAB", x: 874, y: 118, font: "generic:2", fg: "#487860" }
     - { type: text, id: param-title, content: "CONTINENTS", x: 874, y: 132, font: "generic:2", fg: "#aaffcc" }
-    - { type: text, id: param-summary, content: "Tune the current world profile and lighting mix.", x: 874, y: 148, font: "generic:2", fg: "#3e6a56" }
+    - type: text
+      id: param-summary
+      content: "Tune the current world profile and lighting mix."
+      x: 874
+      y: 148
+      font: "generic:2"
+      fg: "#3e6a56"
+      max-width: 42
+      overflow-mode: ellipsis
+      wrap-mode: none
+      reserve-width-ch: 42
     - { type: vector, id: param-divider, x: 874, y: 164, points: [[0,0],[334,0]], stroke-width: 1, fg: "#143224" }
 
     # ── Slot 0 ────────────────────────────────────────────────────────────────
@@ -60,4 +70,15 @@
     - { type: vector, id: param-handle-7, x: 874,  y: 510, points: [[0,0],[0,12]], stroke-width: 4, fg: "#3aaa50" }
 
     # ── Keyboard/mouse hint ───────────────────────────────────────────────────
-    - { type: text, id: param-hint, content: "drag sliders | Q/W/E/Y/U tabs | 1-4 models | F1-F7 presets", x: 1058, y: 576, at: cc, font: "generic:2", fg: "#2e5c46" }
+    - type: text
+      id: param-hint
+      content: "drag slider | tabs Q/W/E/Y/U | models 1-4 | presets F1-F7"
+      x: 1058
+      y: 576
+      at: cc
+      font: "generic:2"
+      fg: "#2e5c46"
+      max-width: 44
+      overflow-mode: ellipsis
+      wrap-mode: none
+      reserve-width-ch: 44

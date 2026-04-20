@@ -9,6 +9,10 @@ use crate::gameplay::geometry::{
     rotate_points_i32, scale_points_frac_i32, sin32_i32, split_polygon_half_i32, split_polygon_i32,
     to_i32,
 };
+use crate::runtime::api::{
+    ObjectRegistryCoreApi, RuntimeCoreApi, RuntimeSceneCoreApi, RuntimeServicesCoreApi,
+    RuntimeStoresCoreApi, RuntimeWorldCoreApi,
+};
 
 pub fn register_geometry_api(engine: &mut RhaiEngine) {
     engine.register_fn(
@@ -557,6 +561,28 @@ where
     engine.register_fn("set_radius", |entity: &mut TEntity, r: rhai::INT| {
         entity.set_radius(r)
     });
+}
+
+pub fn register_runtime_core_api<TRuntime, TScene, TRegistry, TObject, TWorld, TServices, TStores>(
+    engine: &mut RhaiEngine,
+) where
+    TRuntime: RuntimeCoreApi<TScene, TWorld, TServices, TStores>,
+    TScene: RuntimeSceneCoreApi<TRegistry>,
+    TRegistry: ObjectRegistryCoreApi<TObject>,
+    TObject: Clone + 'static,
+    TWorld: RuntimeWorldCoreApi,
+    TServices: RuntimeServicesCoreApi,
+    TStores: RuntimeStoresCoreApi,
+{
+    crate::runtime::register_runtime_core_api::<
+        TRuntime,
+        TScene,
+        TRegistry,
+        TObject,
+        TWorld,
+        TServices,
+        TStores,
+    >(engine);
 }
 
 pub fn register_all(_engine: &mut RhaiEngine) {}

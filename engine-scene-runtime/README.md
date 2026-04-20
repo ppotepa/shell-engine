@@ -103,6 +103,11 @@ Preferred mutations in this area are typed:
 This should stay the preferred path. Do not add new render-facing string-path
 semantics when typed scene mutations can express the same intent.
 
+Rejected typed scene mutations now stay explicit all the way through command
+application: request-adapter failures and missing/unsupported runtime targets
+produce `BehaviorCommand::DebugLog` diagnostics instead of disappearing as
+silent no-ops.
+
 ## Render3D grouped runtime mutations
 
 `materialization.rs` handles typed `Render3DMutation` variants for authored 3D
@@ -123,8 +128,9 @@ Canonical grouped mutations:
 Compatibility `scene.set(id, "obj.*", value)` / `scene.set(id, "planet.*",
 value)` / `scene.set(id, "terrain.*", value)` calls are still supported, but
 they are normalized into grouped typed mutations before runtime application.
-The runtime should converge on grouped/profile mutations, not add more
-render-facing string-path branches.
+They are migration shims, not the preferred script-facing direction. The
+runtime should converge on grouped/profile mutations and live runtime handles,
+not add more render-facing string-path branches.
 
 ## Integration points
 
