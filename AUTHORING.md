@@ -1323,6 +1323,8 @@ level.get(path)                     // read active level payload (JSON pointer)
 input.bind_action(name, keys)       // register named action binding
 input.action_down(name)             // true while action key is held
 input.action_just_pressed(name)     // true on the first frame of press
+input.scroll_y                      // signed mouse-wheel delta for this frame
+input.ctrl_scroll_y                 // signed mouse-wheel delta while Ctrl was held
 ```
 
 Key constants for `bind_action` (strings or symbolic constants):

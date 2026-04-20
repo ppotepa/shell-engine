@@ -69,7 +69,7 @@ fn step(local, input, gui, game, vehicle) {
 
     if model_changed {
         local.push_dirty = true;
-        local.push_timer = 150.0;
+        local.push_timer = local.render_push_throttle_ms ?? 0.0;
     }
 
     if input.just_pressed("r") {

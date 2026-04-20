@@ -147,6 +147,10 @@ pub struct BehaviorContext {
     /// Current mouse position in screen pixels (from SDL2, mapped to output coords).
     pub mouse_x: f32,
     pub mouse_y: f32,
+    /// Per-frame mouse wheel delta. Positive values mean scroll up.
+    pub scroll_y: f32,
+    /// Per-frame mouse wheel delta while Ctrl was held.
+    pub ctrl_scroll_y: f32,
     /// GUI widget runtime state — hit-test results, values, clicked flags.
     pub gui_state: Option<Arc<engine_gui::GuiRuntimeState>>,
     /// Active scene spatial scale for world-unit to physical conversions in scripts.
@@ -670,6 +674,8 @@ impl Behavior for RhaiScriptBehavior {
                 let input_api = ScriptInputApi::new(
                     Arc::clone(&ctx.keys_down),
                     Arc::clone(&ctx.keys_just_pressed),
+                    ctx.scroll_y,
+                    ctx.ctrl_scroll_y,
                     Arc::clone(&ctx.action_bindings),
                     Arc::clone(&ctx.catalogs),
                     Arc::clone(&helper_commands),
@@ -919,6 +925,8 @@ fn smoke_probe_context(
         frame_ms: 16,
         mouse_x: 0.0,
         mouse_y: 0.0,
+        scroll_y: 0.0,
+        ctrl_scroll_y: 0.0,
         gui_state: None,
         spatial_meters_per_world_unit: None,
     }
@@ -1321,6 +1329,8 @@ mod tests {
             frame_ms: 16,
             mouse_x: 0.0,
             mouse_y: 0.0,
+            scroll_y: 0.0,
+            ctrl_scroll_y: 0.0,
             gui_state: None,
             spatial_meters_per_world_unit: None,
         }

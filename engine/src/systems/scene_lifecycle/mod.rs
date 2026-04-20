@@ -84,24 +84,44 @@ impl SceneLifecycleManager {
             })
             .collect();
 
-        // Collect scroll wheel deltas for orbit camera zoom.
+        // Collect scroll wheel deltas for camera zoom and script-side consumers.
         let scroll_deltas: Vec<f32> = lifecycle
             .input_events
             .iter()
             .filter_map(|e| {
-                if let InputEvent::MouseWheel { delta_y } = e {
+                if let InputEvent::MouseWheel { delta_y, .. } = e {
                     Some(*delta_y)
                 } else {
                     None
                 }
             })
             .collect();
+        let ctrl_scroll_deltas: Vec<f32> = lifecycle
+            .input_events
+            .iter()
+            .filter_map(|e| {
+                if let InputEvent::MouseWheel { delta_y, modifiers } = e {
+                    modifiers
+                        .contains(KeyModifiers::CONTROL)
+                        .then_some(*delta_y)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if let Some(runtime) = world.scene_runtime_mut() {
+            let total_scroll: f32 = scroll_deltas.iter().copied().sum();
+            let total_ctrl_scroll: f32 = ctrl_scroll_deltas.iter().copied().sum();
+            runtime.accumulate_frame_scroll_state(total_scroll, total_ctrl_scroll);
+        }
 
         handle_scene_free_look_input(
             world,
             &lifecycle.key_presses,
             &lifecycle.key_releases,
             &mouse_moves,
+            &ctrl_scroll_deltas,
         );
         handle_scene_orbit_camera_input(
             world,
@@ -591,6 +611,7 @@ fn handle_scene_free_look_input(
     key_presses: &[KeyEvent],
     key_releases: &[KeyEvent],
     mouse_moves: &[(f32, f32)],
+    ctrl_scroll_deltas: &[f32],
 ) {
     if !is_scene_idle(world) {
         return;
@@ -599,6 +620,9 @@ fn handle_scene_free_look_input(
         let _ = runtime.apply_free_look_key_events(key_presses, key_releases);
         if !mouse_moves.is_empty() {
             runtime.apply_free_look_mouse_moves(mouse_moves);
+        }
+        if !ctrl_scroll_deltas.is_empty() {
+            runtime.apply_free_look_scroll(ctrl_scroll_deltas);
         }
     }
 }
@@ -681,6 +705,10 @@ mod tests {
             key: KeyEvent::new(code, modifiers),
             repeat: false,
         }
+    }
+
+    fn mouse_wheel(delta_y: f32, modifiers: KeyModifiers) -> EngineEvent {
+        EngineEvent::MouseWheel { delta_y, modifiers }
     }
 
     fn make_idle_animator() -> Animator {
@@ -1462,5 +1490,103 @@ next: null
         let eye = runtime.scene_camera_3d().eye;
         let max_radius = (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt();
         assert!((max_radius - 1.06).abs() < 0.03);
+    }
+
+    #[test]
+    fn ctrl_scroll_zooms_free_look_surface_camera() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-zoom-test
+title: Free Look Zoom
+bg_colour: black
+input:
+  free-look-camera:
+    surface-mode: true
+    surface-radius: 1.0
+    surface-altitude: 0.08
+    surface-min-altitude: 0.02
+    surface-max-altitude: 0.20
+    surface-vertical-speed: 1.0
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed_with_modifiers(
+                KeyCode::Char('f'),
+                KeyModifiers::CONTROL,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let initial_radius = {
+            let runtime = world.scene_runtime().expect("runtime");
+            let eye = runtime.scene_camera_3d().eye;
+            (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt()
+        };
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_wheel(1.0, KeyModifiers::CONTROL)],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let zoom_in_radius = {
+            let runtime = world.scene_runtime().expect("runtime");
+            let eye = runtime.scene_camera_3d().eye;
+            (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt()
+        };
+        assert!(zoom_in_radius < initial_radius);
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_wheel(-1.0, KeyModifiers::CONTROL)],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let zoom_out_radius = {
+            let runtime = world.scene_runtime().expect("runtime");
+            let eye = runtime.scene_camera_3d().eye;
+            (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt()
+        };
+        assert!(zoom_out_radius > zoom_in_radius);
+    }
+
+    #[test]
+    fn ctrl_scroll_survives_second_process_events_pass_in_same_frame() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-scroll-frame-state
+title: Free Look Scroll Frame State
+bg_colour: black
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        {
+            let runtime = world.scene_runtime_mut().expect("runtime");
+            runtime.set_frame_scroll_state(0.0, 0.0);
+        }
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_wheel(1.0, KeyModifiers::CONTROL)],
+        );
+        SceneLifecycleManager::process_events(&mut world, Vec::new());
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!((runtime.frame_scroll_y() - 1.0).abs() < f32::EPSILON);
+        assert!((runtime.frame_ctrl_scroll_y() - 1.0).abs() < f32::EPSILON);
     }
 }

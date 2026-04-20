@@ -27,6 +27,7 @@ fn apply_generator_ui_defaults(local) {
     local.model_mode = 1;
     local.preset_choice = 0;
     local.rotation_paused = false;
+    local.render_push_throttle_ms = 0.0;
     local["vehicle_launch_requested"] = false;
     local
 }

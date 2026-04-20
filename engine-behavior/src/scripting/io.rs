@@ -12,6 +12,8 @@ use crate::{catalog, BehaviorCommand};
 pub(crate) struct ScriptInputApi {
     keys_down: Arc<HashSet<String>>,
     keys_just_pressed: Arc<HashSet<String>>,
+    scroll_y: f32,
+    ctrl_scroll_y: f32,
     action_bindings: Arc<HashMap<String, Vec<String>>>,
     catalogs: Arc<catalog::ModCatalogs>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
@@ -21,6 +23,8 @@ impl ScriptInputApi {
     pub(crate) fn new(
         keys_down: Arc<HashSet<String>>,
         keys_just_pressed: Arc<HashSet<String>>,
+        scroll_y: f32,
+        ctrl_scroll_y: f32,
         action_bindings: Arc<HashMap<String, Vec<String>>>,
         catalogs: Arc<catalog::ModCatalogs>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
@@ -28,6 +32,8 @@ impl ScriptInputApi {
         Self {
             keys_down,
             keys_just_pressed,
+            scroll_y,
+            ctrl_scroll_y,
             action_bindings,
             catalogs,
             queue,
@@ -56,6 +62,14 @@ impl ScriptInputApi {
 
     fn down_count(&mut self) -> rhai::INT {
         self.keys_down.len() as rhai::INT
+    }
+
+    fn scroll_y(&mut self) -> rhai::FLOAT {
+        self.scroll_y as rhai::FLOAT
+    }
+
+    fn ctrl_scroll_y(&mut self) -> rhai::FLOAT {
+        self.ctrl_scroll_y as rhai::FLOAT
     }
 
     fn action_down(&mut self, action: &str) -> bool {
@@ -122,6 +136,10 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn("down_count", |input: &mut ScriptInputApi| {
         input.down_count()
     });
+    engine.register_get("scroll_y", |input: &mut ScriptInputApi| input.scroll_y());
+    engine.register_get("ctrl_scroll_y", |input: &mut ScriptInputApi| {
+        input.ctrl_scroll_y()
+    });
     engine.register_fn("action_down", |input: &mut ScriptInputApi, action: &str| {
         input.action_down(action)
     });
@@ -138,4 +156,28 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn("load_profile", |input: &mut ScriptInputApi, name: &str| {
         input.load_profile(name)
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScriptInputApi;
+    use crate::catalog;
+    use std::collections::{HashMap, HashSet};
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn exposes_frame_scroll_getters() {
+        let mut input = ScriptInputApi::new(
+            Arc::new(HashSet::new()),
+            Arc::new(HashSet::new()),
+            1.5,
+            -2.0,
+            Arc::new(HashMap::new()),
+            Arc::new(catalog::ModCatalogs::default()),
+            Arc::new(Mutex::new(Vec::new())),
+        );
+
+        assert!((input.scroll_y() - 1.5).abs() < f64::EPSILON);
+        assert!((input.ctrl_scroll_y() + 2.0).abs() < f64::EPSILON);
+    }
 }

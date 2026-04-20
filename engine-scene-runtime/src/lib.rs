@@ -261,6 +261,8 @@ struct UiRuntimeState {
     change_seq: u64,
     pub last_raw_key: Option<RawKeyEvent>,
     pub keys_down: HashSet<String>,
+    pub scroll_y: f32,
+    pub ctrl_scroll_y: f32,
     pub sidecar_io: SidecarIoFrameState,
 }
 

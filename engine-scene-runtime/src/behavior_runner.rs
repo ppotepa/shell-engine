@@ -255,6 +255,8 @@ impl SceneRuntime {
             },
             mouse_x: self.gui_state.mouse_x,
             mouse_y: self.gui_state.mouse_y,
+            scroll_y: self.frame_scroll_y(),
+            ctrl_scroll_y: self.frame_ctrl_scroll_y(),
             gui_state: Some(self.gui_state_arc()),
             spatial_meters_per_world_unit: Some(self.spatial_context.scale.meters_per_world_unit),
             orbit_active: self.orbit_camera_active(),

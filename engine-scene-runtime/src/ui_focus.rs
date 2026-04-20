@@ -49,6 +49,32 @@ impl SceneRuntime {
         self.ui_state.keys_down.clone()
     }
 
+    pub fn frame_scroll_y(&self) -> f32 {
+        self.ui_state.scroll_y
+    }
+
+    pub fn frame_ctrl_scroll_y(&self) -> f32 {
+        self.ui_state.ctrl_scroll_y
+    }
+
+    pub fn set_frame_scroll_state(&mut self, scroll_y: f32, ctrl_scroll_y: f32) {
+        self.ui_state.scroll_y = if scroll_y.is_finite() { scroll_y } else { 0.0 };
+        self.ui_state.ctrl_scroll_y = if ctrl_scroll_y.is_finite() {
+            ctrl_scroll_y
+        } else {
+            0.0
+        };
+    }
+
+    pub fn accumulate_frame_scroll_state(&mut self, scroll_y: f32, ctrl_scroll_y: f32) {
+        if scroll_y.is_finite() {
+            self.ui_state.scroll_y += scroll_y;
+        }
+        if ctrl_scroll_y.is_finite() {
+            self.ui_state.ctrl_scroll_y += ctrl_scroll_y;
+        }
+    }
+
     pub fn focused_ui_target_id(&self) -> Option<&str> {
         if self.ui_state.focus_order.is_empty() {
             return None;

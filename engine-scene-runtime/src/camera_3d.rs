@@ -540,6 +540,43 @@ impl SceneRuntime {
         }
     }
 
+    /// Apply Ctrl+mouse-wheel zoom to free-look camera.
+    /// Positive `delta_y` = zoom in (move closer), negative = zoom out.
+    pub fn apply_free_look_scroll(&mut self, scroll_deltas: &[f32]) {
+        let Some(state) = self.free_look_camera.as_mut() else {
+            return;
+        };
+        if !(state.active || state.pending_activate) || scroll_deltas.is_empty() {
+            return;
+        }
+
+        if state.surface_mode {
+            let min_alt = state.surface_min_altitude.max(0.0);
+            let max_alt = state.surface_max_altitude.max(min_alt);
+            let step = (state.surface_vertical_speed * 0.12)
+                .max(state.surface_radius * 0.04)
+                .max(0.01);
+            for &dy in scroll_deltas {
+                if dy > 0.0 {
+                    state.surface_altitude = (state.surface_altitude - step).max(min_alt);
+                } else if dy < 0.0 {
+                    state.surface_altitude = (state.surface_altitude + step).min(max_alt);
+                }
+            }
+            return;
+        }
+
+        let forward = free_look_forward(state.yaw_deg, state.pitch_deg);
+        let step = (state.move_speed * 0.16).max(0.05);
+        for &dy in scroll_deltas {
+            if dy > 0.0 {
+                state.position = add3(state.position, scale3(forward, step));
+            } else if dy < 0.0 {
+                state.position = add3(state.position, scale3(forward, -step));
+            }
+        }
+    }
+
     pub fn step_free_look_camera(&mut self, dt_ms: u64) -> bool {
         let current_camera = self.scene_camera_3d;
         let Some(state) = self.free_look_camera.as_mut() else {

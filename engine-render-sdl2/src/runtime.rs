@@ -877,7 +877,11 @@ fn poll_input(
                 }
             }
             Event::MouseWheel { y, .. } => {
-                events.push(EngineEvent::MouseWheel { delta_y: y as f32 });
+                let modifiers = map_modifiers(canvas.window().subsystem().sdl().keyboard().mod_state());
+                events.push(EngineEvent::MouseWheel {
+                    delta_y: y as f32,
+                    modifiers,
+                });
             }
             Event::Window {
                 win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _),

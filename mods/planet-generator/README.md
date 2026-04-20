@@ -75,7 +75,7 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `scripts/generator/body_sync.rhai` — generated body builder and runtime `world.body_patch("generated-planet", ...)`
 - `scripts/generator/vehicle_handoff.rhai` — vehicle profile/assist persistence plus launch/return packet flow
 - `scripts/generator/hud.rhai` — tab/model/action highlights, parameter labels, telemetry strip
-- `scripts/generator/render_push.rhai` — throttled mesh/generator push plus visual/atmosphere/light updates
+- `scripts/generator/render_push.rhai` — mesh/generator push plus visual/atmosphere/light updates; `local.render_push_throttle_ms` controls generator push throttling and now defaults to realtime (`0.0`)
 - `mods/vehicle-playground/scenes/vehicle/*` — canonical vehicle consumer, camera rig, HUD, body patch, and return flow
 
 ## Parameters

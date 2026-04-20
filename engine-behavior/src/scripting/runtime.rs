@@ -369,6 +369,8 @@ mod tests {
             frame_ms: 16,
             mouse_x: 0.0,
             mouse_y: 0.0,
+            scroll_y: 0.0,
+            ctrl_scroll_y: 0.0,
             gui_state: None,
             spatial_meters_per_world_unit: None,
         }
@@ -451,6 +453,8 @@ mod tests {
             super::super::io::ScriptInputApi::new(
                 Arc::clone(&ctx.keys_down),
                 Arc::clone(&ctx.keys_just_pressed),
+                ctx.scroll_y,
+                ctx.ctrl_scroll_y,
                 Arc::clone(&ctx.action_bindings),
                 Arc::clone(&ctx.catalogs),
                 Arc::clone(queue),

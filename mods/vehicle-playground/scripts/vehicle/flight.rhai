@@ -460,10 +460,20 @@ fn step(state, runtime, world, input, vehicle, body_ctx, dt) {
         ship_x = next_ship_x;
         ship_y = next_ship_y;
 
+        let ctrl_scroll_zoom = input.ctrl_scroll_y ?? 0.0;
+        if absf(ctrl_scroll_zoom) > 0.001 {
+            state.vehicle_camera_zoom =
+                ((state.vehicle_camera_zoom ?? 0.0) + ctrl_scroll_zoom * 0.10)
+                    .max(-0.70)
+                    .min(0.55);
+        }
         let altitude_px_frac = math3::clamp01((radius - surface_radius) / surface_radius.max(0.1));
-        let cam_lift = 0.005 + altitude_px_frac * 0.04;
-        let cam_back = 0.04 + altitude_px_frac * 0.74;
-        let cam_ahead = 0.03 + altitude_px_frac * 0.55;
+        let zoom_scale = (1.0 - (state.vehicle_camera_zoom ?? 0.0)).max(0.45).min(1.70);
+        let cam_lift = (0.004 + altitude_px_frac * 0.032) * (0.92 + zoom_scale * 0.08);
+        let cam_back = (0.024 + altitude_px_frac * 0.50) * zoom_scale;
+        let ship_center_x = snx * ship_scene_r;
+        let ship_center_y = sny * ship_scene_r;
+        let ship_center_z = snz * ship_scene_r;
 
         let alpha_n = dt / (0.30 + dt);
         cam_nx += (snx - cam_nx) * alpha_n;
@@ -487,12 +497,12 @@ fn step(state, runtime, world, input, vehicle, body_ctx, dt) {
         cam_fy /= cam_f_len;
         cam_fz /= cam_f_len;
 
-        let eye_x = cam_nx * (ship_scene_r + cam_lift) - cam_fx * cam_back;
-        let eye_y = cam_ny * (ship_scene_r + cam_lift) - cam_fy * cam_back;
-        let eye_z = cam_nz * (ship_scene_r + cam_lift) - cam_fz * cam_back;
-        let look_x = cam_nx * ship_scene_r + cam_fx * cam_ahead;
-        let look_y = cam_ny * ship_scene_r + cam_fy * cam_ahead;
-        let look_z = cam_nz * ship_scene_r + cam_fz * cam_ahead;
+        let eye_x = ship_center_x + cam_nx * cam_lift - cam_fx * cam_back;
+        let eye_y = ship_center_y + cam_ny * cam_lift - cam_fy * cam_back;
+        let eye_z = ship_center_z + cam_nz * cam_lift - cam_fz * cam_back;
+        let look_x = ship_center_x;
+        let look_y = ship_center_y;
+        let look_z = ship_center_z;
 
         let sway_target = ship_tuning.camera_sway_target(yaw_rate);
         let alpha_s = ship_tuning.camera_sway_alpha(dt);
@@ -544,6 +554,7 @@ fn step(state, runtime, world, input, vehicle, body_ctx, dt) {
             state.vehicle_speed_kms = 0.0;
             state.vehicle_vrad_kms = 0.0;
             state.vehicle_camera_sway = 0.0;
+            state.vehicle_camera_zoom = 0.0;
             state.vehicle_orbit_seeded = false;
             state.vehicle_grounded = true;
             state.vehicle_ship_runtime = vehicle.ship_runtime_state();

@@ -739,6 +739,8 @@ input.down("Right")            // → bool  Key held this frame
 input.just_pressed("Space")    // → bool  Key pressed this frame only
 input.any_down()               // → bool  Any key held
 input.down_count()             // → int   Number of keys held
+input.scroll_y                 // → float Signed mouse-wheel delta this frame
+input.ctrl_scroll_y            // → float Signed mouse-wheel delta with Ctrl held
 ```
 
 ### Action System

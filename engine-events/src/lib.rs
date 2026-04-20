@@ -41,6 +41,7 @@ pub enum EngineEvent {
     /// Mouse scroll wheel moved. Positive `delta_y` = scroll up, negative = scroll down.
     MouseWheel {
         delta_y: f32,
+        modifiers: KeyModifiers,
     },
     SceneLoaded {
         scene_id: String,
@@ -80,7 +81,10 @@ impl EngineEvent {
                 x: *x,
                 y: *y,
             }),
-            Self::MouseWheel { delta_y } => Some(InputEvent::MouseWheel { delta_y: *delta_y }),
+            Self::MouseWheel { delta_y, modifiers } => Some(InputEvent::MouseWheel {
+                delta_y: *delta_y,
+                modifiers: *modifiers,
+            }),
             Self::InputFocusLost => Some(InputEvent::FocusLost),
             _ => None,
         }
@@ -98,7 +102,10 @@ pub enum InputEvent {
     MouseMoved { x: f32, y: f32 },
     MouseDown { x: f32, y: f32, button: MouseButton },
     MouseUp { x: f32, y: f32, button: MouseButton },
-    MouseWheel { delta_y: f32 },
+    MouseWheel {
+        delta_y: f32,
+        modifiers: KeyModifiers,
+    },
     FocusLost,
 }
 

@@ -80,6 +80,18 @@ pub fn halo_temporal_key_from_obj_params(params: &ObjRenderParams) -> u64 {
     );
     mix_hash(&mut key, quantize_f32(params.camera_look_yaw, 0.2) as i64);
     mix_hash(&mut key, quantize_f32(params.camera_look_pitch, 0.2) as i64);
+    mix_hash(&mut key, quantize_f32(params.camera_world_x, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.camera_world_y, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.camera_world_z, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_right_x, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_right_y, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_right_z, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_up_x, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_up_y, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_up_z, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_forward_x, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_forward_y, 0.01) as i64);
+    mix_hash(&mut key, quantize_f32(params.view_forward_z, 0.01) as i64);
     mix_hash(
         &mut key,
         quantize_f32(params.object_translate_x, 0.08) as i64,
@@ -597,4 +609,180 @@ fn gaussian(x: f32, center: f32, width: f32) -> f32 {
     let w = width.max(0.001);
     let z = (x - center) / w;
     (-0.5 * z * z).exp()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::halo_temporal_key_from_obj_params;
+    use crate::ObjRenderParams;
+    use engine_core::scene::TonemapOperator;
+
+    fn test_params() -> ObjRenderParams {
+        ObjRenderParams {
+            scale: 1.0,
+            yaw_deg: 0.0,
+            pitch_deg: 0.0,
+            roll_deg: 0.0,
+            rotation_x: 0.0,
+            rotation_y: 0.0,
+            rotation_z: 0.0,
+            rotate_y_deg_per_sec: 0.0,
+            camera_distance: 3.0,
+            fov_degrees: 60.0,
+            near_clip: 0.001,
+            light_direction_x: -0.45,
+            light_direction_y: 0.70,
+            light_direction_z: -0.85,
+            light_2_direction_x: 0.0,
+            light_2_direction_y: 0.0,
+            light_2_direction_z: -1.0,
+            light_2_intensity: 0.0,
+            light_point_x: 0.0,
+            light_point_y: 2.0,
+            light_point_z: 0.0,
+            light_point_intensity: 0.0,
+            light_point_colour: None,
+            light_point_flicker_depth: 0.0,
+            light_point_flicker_hz: 0.0,
+            light_point_orbit_hz: 0.0,
+            light_point_snap_hz: 0.0,
+            light_point_2_x: 0.0,
+            light_point_2_y: 0.0,
+            light_point_2_z: 0.0,
+            light_point_2_intensity: 0.0,
+            light_point_2_colour: None,
+            light_point_2_flicker_depth: 0.0,
+            light_point_2_flicker_hz: 0.0,
+            light_point_2_orbit_hz: 0.0,
+            light_point_2_snap_hz: 0.0,
+            cel_levels: 0,
+            shadow_colour: None,
+            midtone_colour: None,
+            highlight_colour: None,
+            tone_mix: 0.0,
+            scene_elapsed_ms: 0,
+            camera_pan_x: 0.0,
+            camera_pan_y: 0.0,
+            camera_look_yaw: 0.0,
+            camera_look_pitch: 0.0,
+            object_translate_x: 0.0,
+            object_translate_y: 0.0,
+            object_translate_z: 0.0,
+            clip_y_min: 0.0,
+            clip_y_max: 1.0,
+            camera_world_x: 0.0,
+            camera_world_y: 0.0,
+            camera_world_z: -3.0,
+            view_right_x: 1.0,
+            view_right_y: 0.0,
+            view_right_z: 0.0,
+            view_up_x: 0.0,
+            view_up_y: 1.0,
+            view_up_z: 0.0,
+            view_forward_x: 0.0,
+            view_forward_y: 0.0,
+            view_forward_z: 1.0,
+            unlit: false,
+            ambient: 0.0,
+            ambient_floor: 0.06,
+            shadow_contrast: 1.0,
+            exposure: 1.0,
+            gamma: 2.2,
+            tonemap: TonemapOperator::Linear,
+            light_point_falloff: 0.7,
+            light_point_2_falloff: 0.7,
+            smooth_shading: false,
+            latitude_bands: 0,
+            latitude_band_depth: 0.0,
+            terrain_color: None,
+            terrain_threshold: 0.5,
+            terrain_noise_scale: 2.5,
+            terrain_noise_octaves: 2,
+            marble_depth: 0.0,
+            terrain_relief: 0.0,
+            noise_seed: 0.0,
+            warp_strength: 0.0,
+            warp_octaves: 2,
+            noise_lacunarity: 2.0,
+            noise_persistence: 0.5,
+            normal_perturb_strength: 0.0,
+            ocean_specular: 0.0,
+            crater_density: 0.0,
+            crater_rim_height: 0.35,
+            snow_line_altitude: 0.0,
+            terrain_displacement: 0.0,
+            below_threshold_transparent: false,
+            cloud_alpha_softness: 0.0,
+            polar_ice_color: None,
+            polar_ice_start: 0.78,
+            polar_ice_end: 0.92,
+            desert_color: None,
+            desert_strength: 0.0,
+            atmo_color: None,
+            atmo_height: 0.12,
+            atmo_density: 0.48,
+            atmo_strength: 0.0,
+            atmo_rayleigh_amount: 0.48,
+            atmo_rayleigh_color: None,
+            atmo_rayleigh_falloff: 0.32,
+            atmo_haze_amount: 0.22,
+            atmo_haze_color: None,
+            atmo_haze_falloff: 0.18,
+            atmo_absorption_amount: 0.0,
+            atmo_absorption_color: None,
+            atmo_absorption_height: 0.55,
+            atmo_absorption_width: 0.18,
+            atmo_forward_scatter: 0.72,
+            atmo_limb_boost: 1.0,
+            atmo_terminator_softness: 1.0,
+            atmo_night_glow: 0.0,
+            atmo_night_glow_color: None,
+            atmo_haze_night_leak: 0.0,
+            atmo_rim_power: 4.5,
+            atmo_haze_strength: 0.0,
+            atmo_haze_power: 1.8,
+            atmo_veil_strength: 0.0,
+            atmo_veil_power: 1.6,
+            atmo_halo_strength: 0.0,
+            atmo_halo_width: 0.12,
+            atmo_halo_power: 2.2,
+            ocean_noise_scale: 4.0,
+            ocean_color_rgb: None,
+            night_light_color: None,
+            night_light_threshold: 0.82,
+            night_light_intensity: 0.0,
+            heightmap: None,
+            heightmap_w: 0,
+            heightmap_h: 0,
+            heightmap_blend: 0.0,
+            depth_sort_faces: false,
+        }
+    }
+
+    #[test]
+    fn halo_temporal_key_changes_with_scene_camera_position() {
+        let base = test_params();
+        let mut moved = test_params();
+        moved.camera_world_x = 0.2;
+
+        assert_ne!(
+            halo_temporal_key_from_obj_params(&base),
+            halo_temporal_key_from_obj_params(&moved)
+        );
+    }
+
+    #[test]
+    fn halo_temporal_key_changes_with_scene_camera_basis() {
+        let base = test_params();
+        let mut tilted = test_params();
+        tilted.view_forward_x = 0.08;
+        tilted.view_forward_z = 0.996;
+        tilted.view_right_x = 0.996;
+        tilted.view_right_z = -0.08;
+
+        assert_ne!(
+            halo_temporal_key_from_obj_params(&base),
+            halo_temporal_key_from_obj_params(&tilted)
+        );
+    }
 }

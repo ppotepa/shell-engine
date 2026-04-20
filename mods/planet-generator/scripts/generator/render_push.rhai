@@ -6,6 +6,10 @@ fn near_map_number(cache, key, value, epsilon) {
     math::near(cache[key] ?? value, value, epsilon)
 }
 
+fn push_throttle_ms(local) {
+    (local.render_push_throttle_ms ?? 0.0).max(0.0)
+}
+
 fn current_world_state(local) {
     #{
         model_mode: local.model_mode ?? 1,
@@ -134,7 +138,7 @@ fn light_state_changed(previous, current) {
 }
 
 fn step(local, runtime, frame_ms) {
-    let throttle_ms = 150.0;
+    let throttle_ms = push_throttle_ms(local);
     let world_state = current_world_state(local);
     let previous_world_state = local["render_world_observed"] ?? world_state;
     let world_changed = world_state_changed(previous_world_state, world_state);
@@ -151,7 +155,7 @@ fn step(local, runtime, frame_ms) {
         local.push_dirty = true;
     }
 
-    let should_push = (local.push_dirty ?? false) && local.push_timer >= throttle_ms;
+    let should_push = (local.push_dirty ?? false) && (throttle_ms <= 0.0 || local.push_timer >= throttle_ms);
     if should_push {
         local.push_dirty = false;
         local.push_timer = 0.0;

@@ -67,6 +67,7 @@ fn default_state(vehicle) {
         vehicle_spawn_angle_deg: 0.0,
         ship_id: 0,
         vehicle_camera_sway: 0.0,
+        vehicle_camera_zoom: 0.0,
         seed: 1847.0,
         ocean: 0.55,
         cscale: 2.5,
