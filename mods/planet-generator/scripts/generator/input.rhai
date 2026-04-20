@@ -37,26 +37,6 @@ fn step(local, input, gui, game, vehicle) {
 
     let model_mode = local.model_mode ?? 1;
     let model_changed = false;
-    if input.just_pressed("1") {
-        local.model_mode = 1;
-        gui.set_widget_value("planet-model-selector", 0.0);
-        model_changed = true;
-    }
-    if input.just_pressed("2") {
-        local.model_mode = 2;
-        gui.set_widget_value("planet-model-selector", 1.0);
-        model_changed = true;
-    }
-    if input.just_pressed("3") {
-        local.model_mode = 3;
-        gui.set_widget_value("planet-model-selector", 2.0);
-        model_changed = true;
-    }
-    if input.just_pressed("4") {
-        local.model_mode = 4;
-        gui.set_widget_value("planet-model-selector", 3.0);
-        model_changed = true;
-    }
 
     let gui_model = gui.selected_index("planet-model-selector");
     if gui_model >= 0 {
@@ -91,31 +71,31 @@ fn step(local, input, gui, game, vehicle) {
     }
 
     let preset_choice = local.preset_choice ?? 0;
-    if input.just_pressed("F1") {
+    if input.just_pressed("1") || input.just_pressed("F1") {
         local = presets::apply_choice(local, 0);
         gui.set_widget_value("planet-preset-dropdown", 0.0);
     }
-    if input.just_pressed("F2") {
+    if input.just_pressed("2") || input.just_pressed("F2") {
         local = presets::apply_choice(local, 1);
         gui.set_widget_value("planet-preset-dropdown", 1.0);
     }
-    if input.just_pressed("F3") {
+    if input.just_pressed("3") || input.just_pressed("F3") {
         local = presets::apply_choice(local, 2);
         gui.set_widget_value("planet-preset-dropdown", 2.0);
     }
-    if input.just_pressed("F4") {
+    if input.just_pressed("4") || input.just_pressed("F4") {
         local = presets::apply_choice(local, 3);
         gui.set_widget_value("planet-preset-dropdown", 3.0);
     }
-    if input.just_pressed("F5") {
+    if input.just_pressed("5") || input.just_pressed("F5") {
         local = presets::apply_choice(local, 4);
         gui.set_widget_value("planet-preset-dropdown", 4.0);
     }
-    if input.just_pressed("F6") {
+    if input.just_pressed("6") || input.just_pressed("F6") {
         local = presets::apply_choice(local, 5);
         gui.set_widget_value("planet-preset-dropdown", 5.0);
     }
-    if input.just_pressed("F7") {
+    if input.just_pressed("7") || input.just_pressed("F7") {
         local = presets::apply_choice(local, 6);
         gui.set_widget_value("planet-preset-dropdown", 6.0);
     }

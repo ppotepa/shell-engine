@@ -14,8 +14,8 @@ fn model_source(mode) {
 
 fn seed_to_01(v)      { (v / 9999.0).max(0.0).min(1.0) }
 fn seed_from_01(v)    { v * 9999.0 }
-fn ocean_to_01(v)     { ((v - 0.01) / 0.98).max(0.0).min(1.0) }
-fn ocean_from_01(v)   { 0.01 + v * 0.98 }
+fn toggle_to_01(v)    { if v { 1.0 } else { 0.0 } }
+fn toggle_from_01(v)  { v >= 0.5 }
 fn cscale_to_01(v)    { ((v - 0.5) / 9.5).max(0.0).min(1.0) }
 fn cscale_from_01(v)  { 0.5 + v * 9.5 }
 fn cwarp_to_01(v)     { (v / 2.0).max(0.0).min(1.0) }
@@ -182,7 +182,7 @@ fn slot_label(tab, index) {
 
 fn slot_value(local, tab, index) {
     let seed = local.seed ?? 0.0;
-    let ocean = local.ocean ?? 0.55;
+    let has_ocean = local.has_ocean ?? true;
     let cscale = local.cscale ?? 2.5;
     let cwarp = local.cwarp ?? 0.65;
     let coct = local.coct ?? 5.0;
@@ -211,7 +211,7 @@ fn slot_value(local, tab, index) {
 
     if tab == 0 {
         if index == 0 { `${seed.round()}` }
-        else if index == 1 { `${(ocean * 100.0).round()}%` }
+        else if index == 1 { if has_ocean { "[ON]" } else { "[OFF]" } }
         else if index == 2 { `${(cscale * 10.0).round() / 10.0}` }
         else if index == 3 { `${(cwarp * 10.0).round() / 10.0}` }
         else if index == 4 { `${coct.round()}` }
@@ -251,7 +251,7 @@ fn slot_value(local, tab, index) {
 
 fn sync_widgets_from_state(local, gui, tab) {
     let seed = local.seed ?? 0.0;
-    let ocean = local.ocean ?? 0.55;
+    let has_ocean = local.has_ocean ?? true;
     let cscale = local.cscale ?? 2.5;
     let cwarp = local.cwarp ?? 0.65;
     let coct = local.coct ?? 5.0;
@@ -280,7 +280,7 @@ fn sync_widgets_from_state(local, gui, tab) {
 
     if tab == 0 {
         gui.set_widget_value("param-0", seed_to_01(seed));
-        gui.set_widget_value("param-1", ocean_to_01(ocean));
+        gui.set_widget_value("param-1", toggle_to_01(has_ocean));
         gui.set_widget_value("param-2", cscale_to_01(cscale));
         gui.set_widget_value("param-3", cwarp_to_01(cwarp));
         gui.set_widget_value("param-4", coct_to_01(coct));
@@ -317,7 +317,7 @@ fn sync_widgets_from_state(local, gui, tab) {
 fn read_widgets_into_state(local, gui, tab) {
     if tab == 0 {
         local.seed = seed_from_01(gui.slider_value("param-0"));
-        local.ocean = ocean_from_01(gui.slider_value("param-1"));
+        local.has_ocean = toggle_from_01(gui.slider_value("param-1"));
         local.cscale = cscale_from_01(gui.slider_value("param-2"));
         local.cwarp = cwarp_from_01(gui.slider_value("param-3"));
         let raw_coct = gui.slider_value("param-4");

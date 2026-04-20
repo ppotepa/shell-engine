@@ -2,6 +2,7 @@ import "std/runtime_scene" as scene_rt;
 import "vehicle/control" as control;
 import "vehicle/flight" as flight;
 import "vehicle/handoff" as handoff;
+import "vehicle/state" as vehicle_state;
 
 fn hud_bool_label(v) { if v { "ON" } else { "OFF" } }
 
@@ -9,14 +10,11 @@ fn hud_profile_label(profile_name) {
     if profile_name == "sim-lite" { "SIM-LITE" } else { "ARCADE" }
 }
 
-fn hud_status_label(surface_mode, alt_km, speed_kms, radial_speed_kms) {
-    if surface_mode == "grounded" { "SURFACE" }
-    else if surface_mode == "surface_locked" { "LOCKED" }
-    else if alt_km < 0.05 && speed_kms < 0.05 { "SURFACE" }
-    else if alt_km > 25.0 { "ORBIT" }
-    else if radial_speed_kms > 0.05 { "CLIMB" }
-    else if radial_speed_kms < -0.05 { "DECAY" }
-    else { "CRUISE" }
+fn hud_status_label(phase) {
+    if phase == "pad" { "PAD" }
+    else if phase == "hover" { "HOVER" }
+    else if phase == "orbit" { "ORBIT" }
+    else { "FLIGHT" }
 }
 
 fn hud_body_colour(body_patch_ok) {
@@ -38,6 +36,7 @@ fn hud_body_label(body_type) {
 fn render(state, runtime, vehicle, body_ctx) {
     let body_snapshot = body_ctx["body_snapshot"];
     let body_patch_ok = body_ctx["body_patch_ok"] ?? false;
+    let stats_vehicle_model_label = vehicle_state::vehicle_model_label(state);
     let stats_vehicle_control = control::current_vehicle_control_state(state, vehicle);
     let stats_vehicle_assists = stats_vehicle_control.assists;
     let stats_vehicle_profile = stats_vehicle_control.profile_id ?? control::current_vehicle_profile_name(state, vehicle);
@@ -48,7 +47,7 @@ fn render(state, runtime, vehicle, body_ctx) {
     let stats_alt = (state.vehicle_altitude_km ?? 0.0).max(0.0);
     let stats_spd = (state.vehicle_speed_kms ?? 0.0).abs();
     let stats_vrad = state.vehicle_vrad_kms ?? 0.0;
-    let stats_status = hud_status_label(flight::current_vehicle_surface_mode(state, vehicle), stats_alt, stats_spd, stats_vrad);
+    let stats_status = hud_status_label(flight::current_vehicle_phase(state, vehicle));
 
     let body_colour = hud_body_colour(body_patch_ok);
     let body_type_label =
@@ -67,6 +66,7 @@ fn render(state, runtime, vehicle, body_ctx) {
     scene_rt::text(runtime, "vehicle-hud-flight-alt-value", `${stats_alt.round()}`);
     scene_rt::text(runtime, "vehicle-hud-flight-spd-value", `${stats_speed_fmt}`);
     scene_rt::text(runtime, "vehicle-hud-flight-vrad-value", `${stats_vrad_fmt}`);
+    scene_rt::text(runtime, "vehicle-hud-vehicle-model-value", stats_vehicle_model_label);
     scene_rt::text(runtime, "vehicle-hud-vehicle-profile-value", stats_vehicle_profile_label);
     scene_rt::text(runtime, "vehicle-hud-vehicle-alt-hold-value", stats_alt_hold_label);
     scene_rt::text(runtime, "vehicle-hud-vehicle-hdg-hold-value", stats_hdg_hold_label);

@@ -14,7 +14,8 @@ fn build_generated_body_map(
     surface_gravity_mps2,
     atmo_top_km,
     atmo_dense_start_km,
-    atmo_drag_max
+    atmo_drag_max,
+    planet_type
 ) {
     let sim_radius = sim_radius_km(real_radius_km, scale_divisor);
     let mu_km3 = gravity_mu_km3_s2(surface_gravity_mps2, sim_radius);
@@ -33,7 +34,8 @@ fn build_generated_body_map(
         atmosphere_dense_start_km: atmo_dense_start_km.max(0.0),
         atmosphere_drag_max: atmo_drag_max.max(0.0),
         cloud_bottom_km: 0.0,
-        cloud_top_km: (atmo_top_km.max(0.0) * 0.35)
+        cloud_top_km: (atmo_top_km.max(0.0) * 0.35),
+        planet_type: planet_type ?? "earth_like"
     }
 }
 
@@ -44,7 +46,8 @@ fn build_generated_body_from_local(local) {
         local["surface_gravity_mps2"] ?? 9.81,
         local["atmo_top_km"] ?? 80.0,
         local["atmo_dense_start_km"] ?? 12.0,
-        local["atmo_drag_max"] ?? 2.0
+        local["atmo_drag_max"] ?? 2.0,
+        local["planet_type"] ?? "earth_like"
     )
 }
 

@@ -82,7 +82,7 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 
 ### Continents tab
 - **SEED** — world generation seed (0–9999)
-- **OCEAN** — ocean coverage fraction (1–99%)
+- **OCEAN** — toggle ocean rendering on/off; lowlands still keep the same terrain shaping when disabled
 - **CONTINENT SZ** — continent scale (0.5–10)
 - **COAST CHAOS** — continent warp / coastline complexity (0–2)
 - **OCTAVES** — noise octaves for continents (1–8)
@@ -113,11 +113,11 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 |-------|--------|-------------|
 | F1 | Earth | Balanced continents, biome climate |
 | F2 | Mars | Mostly dry, high mountains, red palette |
-| F3 | Ocean | High ocean coverage, tropical moisture |
-| F4 | Desert | Low ocean, minimal rainfall |
+| F3 | Ocean | Ocean enabled, tropical moisture |
+| F4 | Desert | Ocean disabled, minimal rainfall |
 | F5 | Ice | Strong polar caps, cold lapse rate |
 | F6 | Volcanic | Extreme terrain displacement, high ridges |
-| F7 | Archipelago | High ocean, island chains |
+| F7 | Archipelago | Ocean enabled, island-chain terrain bias |
 
 ## Performance presets (practical)
 

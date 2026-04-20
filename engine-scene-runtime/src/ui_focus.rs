@@ -44,9 +44,24 @@ impl SceneRuntime {
         }
     }
 
+    pub fn note_key_press(&mut self, key: &RawKeyEvent) {
+        let normalized = normalize_key_code(&key.code);
+        if !normalized.is_empty() {
+            self.ui_state.frame_keys_just_pressed.insert(normalized);
+        }
+    }
+
+    pub fn clear_frame_keys_just_pressed(&mut self) {
+        self.ui_state.frame_keys_just_pressed.clear();
+    }
+
     /// Returns a clone of the current held-key set for behavior context.
     pub fn keys_down_snapshot(&self) -> std::collections::HashSet<String> {
         self.ui_state.keys_down.clone()
+    }
+
+    pub fn frame_keys_just_pressed_snapshot(&self) -> std::collections::HashSet<String> {
+        self.ui_state.frame_keys_just_pressed.clone()
     }
 
     pub fn frame_scroll_y(&self) -> f32 {

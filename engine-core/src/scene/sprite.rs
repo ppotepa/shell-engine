@@ -746,6 +746,9 @@ pub enum Sprite {
         /// World generator seed (integer). Default 0.
         #[serde(default, rename = "world-seed")]
         world_gen_seed: Option<u64>,
+        /// Whether generated lowlands below sea level should render as ocean.
+        #[serde(default, rename = "world-has-ocean")]
+        world_gen_has_ocean: Option<bool>,
         /// Target ocean fraction 0.0–1.0 (default 0.55).
         #[serde(default, rename = "world-ocean-fraction")]
         world_gen_ocean_fraction: Option<f64>,

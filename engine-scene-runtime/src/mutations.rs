@@ -85,6 +85,7 @@ pub enum TerrainParam {
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorldgenParam {
     Seed,
+    HasOcean,
     OceanFraction,
     ContinentScale,
     ContinentWarp,
@@ -276,6 +277,7 @@ impl WorldgenParam {
         let bare = path.strip_prefix("world.").unwrap_or(path);
         match bare {
             "seed" => Some(Self::Seed),
+            "has_ocean" | "has-ocean" => Some(Self::HasOcean),
             "ocean_fraction" => Some(Self::OceanFraction),
             "continent_scale" => Some(Self::ContinentScale),
             "continent_warp" => Some(Self::ContinentWarp),

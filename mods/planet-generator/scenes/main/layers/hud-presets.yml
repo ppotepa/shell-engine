@@ -49,11 +49,11 @@
           rows: ["1fr","1fr","1fr","1fr","1fr","1fr","1fr"]
           gap-y: 4
           children:
-            - { type: text, content: "F1  EARTH",        grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#8cc08c" }
-            - { type: text, content: "F2  MARS",         grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#8cc08c" }
-            - { type: text, content: "F3  OCEAN",        grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#8cc08c" }
-            - { type: text, content: "F4  DESERT",       grid-col: 1, grid-row: 4, at: cl, font: "generic:2", fg: "#8cc08c" }
-            - { type: text, content: "F5  ICE",          grid-col: 1, grid-row: 5, at: cl, font: "generic:2", fg: "#8cc08c" }
-            - { type: text, content: "F6  VOLCANIC",     grid-col: 1, grid-row: 6, at: cl, font: "generic:2", fg: "#8cc08c" }
-            - { type: text, content: "F7  ARCHIPELAGO",  grid-col: 1, grid-row: 7, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "1/F1  EARTH",       grid-col: 1, grid-row: 1, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "2/F2  MARS",        grid-col: 1, grid-row: 2, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "3/F3  OCEAN",       grid-col: 1, grid-row: 3, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "4/F4  DESERT",      grid-col: 1, grid-row: 4, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "5/F5  ICE",         grid-col: 1, grid-row: 5, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "6/F6  VOLCANIC",    grid-col: 1, grid-row: 6, at: cl, font: "generic:2", fg: "#8cc08c" }
+            - { type: text, content: "7/F7  ARCHIPELAGO", grid-col: 1, grid-row: 7, at: cl, font: "generic:2", fg: "#8cc08c" }
 

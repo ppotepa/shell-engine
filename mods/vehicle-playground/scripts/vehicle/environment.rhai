@@ -30,6 +30,7 @@ fn build_vehicle_environment_map(state, body_snapshot) {
         atmo_dense_start_km: state.atmo_dense_start_km ?? 12.0,
         atmo_drag_max: state.atmo_drag_max ?? 2.0,
         seed: state.seed ?? 0.0,
+        has_ocean: state.has_ocean ?? true,
         ocean: state.ocean ?? 0.55,
         cscale: state.cscale ?? 2.5,
         cwarp: state.cwarp ?? 0.65,
@@ -211,6 +212,7 @@ fn apply_planet_state_to_scene(state, runtime) {
     let coloring_str = if coloring < 0.5 { "biome" } else if coloring < 1.5 { "elevation" } else { "moisture" };
     scene_rt::set(runtime, "vehicle-planet-view", "obj.source", "world://32");
     scene_rt::render_generator(runtime, "vehicle-planet-view", "seed", state.seed ?? 0.0);
+    scene_rt::render_generator(runtime, "vehicle-planet-view", "has_ocean", state.has_ocean ?? true);
     scene_rt::render_generator(runtime, "vehicle-planet-view", "ocean_fraction", state.ocean ?? 0.55);
     scene_rt::render_generator(runtime, "vehicle-planet-view", "continent_scale", state.cscale ?? 2.5);
     scene_rt::render_generator(runtime, "vehicle-planet-view", "continent_warp", state.cwarp ?? 0.65);

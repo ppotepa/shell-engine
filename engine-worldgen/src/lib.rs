@@ -9,6 +9,15 @@ pub struct GeneratedWorldMesh {
     pub face_colors: Vec<[u8; 3]>,
 }
 
+#[inline]
+fn mesh_surface_elevation(elevation: f32, has_ocean: bool) -> f32 {
+    if has_ocean {
+        elevation.max(0.5)
+    } else {
+        elevation
+    }
+}
+
 /// Parse a `world://N?...` URI into `WorldGenParams`.
 pub fn parse_world_params_from_uri(uri: &str) -> WorldGenParams {
     let rest = uri.strip_prefix("world://").unwrap_or(uri);
@@ -36,6 +45,10 @@ pub fn parse_world_params_from_uri(uri: &str) -> WorldGenParams {
                     if let Ok(n) = v.parse::<u64>() {
                         p.planet.seed = n;
                     }
+                }
+                "has_ocean" | "has-ocean" => {
+                    p.planet.has_ocean =
+                        matches!(v, "1" | "true" | "yes" | "on" | "TRUE" | "True");
                 }
                 "ocean" => {
                     if let Ok(f) = v.parse::<f64>() {
@@ -169,12 +182,13 @@ pub struct PreparedWorldGen {
 /// Canonical URI serialization for cache keys and runtime updates.
 pub fn world_uri_from_params(p: &WorldGenParams) -> String {
     format!(
-        "world://{}?shape={}&base={}&coloring={}&seed={}&ocean={}&cscale={}&cwarp={}&coct={}&mscale={}&mstr={}&mroct={}&moistscale={}&ice={}&lapse={}&rainshadow={}&disp={}",
+        "world://{}?shape={}&base={}&coloring={}&seed={}&has_ocean={}&ocean={}&cscale={}&cwarp={}&coct={}&mscale={}&mstr={}&mroct={}&moistscale={}&ice={}&lapse={}&rainshadow={}&disp={}",
         p.subdivisions,
         world_shape_str(p.shape),
         world_base_str(p.base),
         world_coloring_str(p.coloring),
         p.planet.seed,
+        if p.planet.has_ocean { 1 } else { 0 },
         p.planet.ocean_fraction,
         p.planet.continent_scale,
         p.planet.continent_warp,
@@ -267,7 +281,9 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                 .iter()
                 .map(|v| {
                     let cell = sample_planet_xyz(v, &planet);
-                    let disp = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
+                    let surface_elevation =
+                        mesh_surface_elevation(cell.elevation, p.planet.has_ocean);
+                    let disp = (surface_elevation - 0.5) * 2.0 * p.displacement_scale;
                     let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-6);
                     let nx = v[0] / len;
                     let ny = v[1] / len;
@@ -288,7 +304,9 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                     let cell = sample_planet_xyz(&[cx, cy, cz], &planet);
                     match p.coloring {
                         WorldColoring::Biome => engine_terrain::biome_color(cell.biome),
-                        WorldColoring::Altitude => engine_terrain::altitude_color(cell.elevation),
+                        WorldColoring::Altitude => {
+                            engine_terrain::altitude_color(cell.elevation, p.planet.has_ocean)
+                        }
                         WorldColoring::Moisture => moisture_color(cell.moisture),
                         WorldColoring::None => [200, 200, 200],
                     }
@@ -321,7 +339,9 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                     let gy =
                         ((v * (planet.height - 1) as f32).round() as usize).min(planet.height - 1);
                     let cell = planet.cell(gx, gy);
-                    let y = (cell.elevation - 0.5) * 2.0 * p.displacement_scale;
+                    let surface_elevation =
+                        mesh_surface_elevation(cell.elevation, p.planet.has_ocean);
+                    let y = (surface_elevation - 0.5) * 2.0 * p.displacement_scale;
                     vertices.push([x, y, z]);
                 }
             }
@@ -354,7 +374,9 @@ pub fn build_world_mesh(p: &WorldGenParams) -> GeneratedWorldMesh {
                     let cell = planet.cell(gx, gy);
                     match p.coloring {
                         WorldColoring::Biome => engine_terrain::biome_color(cell.biome),
-                        WorldColoring::Altitude => engine_terrain::altitude_color(cell.elevation),
+                        WorldColoring::Altitude => {
+                            engine_terrain::altitude_color(cell.elevation, p.planet.has_ocean)
+                        }
                         WorldColoring::Moisture => moisture_color(cell.moisture),
                         WorldColoring::None => [200, 200, 200],
                     }
@@ -435,8 +457,10 @@ mod tests {
 
     #[test]
     fn world_mesh_key_from_uri_normalizes_query_order() {
-        let a = "world://48?seed=7&shape=flat&base=uv&coloring=moisture&disp=0.3&ocean=0.2";
-        let b = "world://48?ocean=0.2&disp=0.3&coloring=moisture&base=uv&shape=flat&seed=7";
+        let a =
+            "world://48?seed=7&shape=flat&base=uv&coloring=moisture&disp=0.3&has_ocean=0&ocean=0.2";
+        let b =
+            "world://48?ocean=0.2&has_ocean=0&disp=0.3&coloring=moisture&base=uv&shape=flat&seed=7";
         assert_eq!(
             world_mesh_build_key_from_uri(a),
             world_mesh_build_key_from_uri(b)
@@ -445,7 +469,8 @@ mod tests {
 
     #[test]
     fn world_mesh_key_with_lod_appends_cache_domain_suffix() {
-        let base = "world://48?seed=7&shape=flat&base=uv&coloring=moisture&disp=0.3&ocean=0.2";
+        let base =
+            "world://48?seed=7&shape=flat&base=uv&coloring=moisture&disp=0.3&has_ocean=0&ocean=0.2";
         let key = world_mesh_build_key_with_lod_from_uri(base, 3);
         assert!(key.starts_with("world://48?"));
         assert!(key.ends_with(";lod=3"));
@@ -501,5 +526,72 @@ mod tests {
         let params = parse_world_params_from_uri("world://128?shape=sphere&seed=11;lod=3");
         assert_eq!(params.subdivisions, 128);
         assert_eq!(params.planet.seed, 11);
+    }
+
+    #[test]
+    fn parse_world_uri_reads_has_ocean_toggle() {
+        let params = parse_world_params_from_uri(
+            "world://32?shape=sphere&seed=11&has_ocean=0&ocean=0.15",
+        );
+        assert!(!params.planet.has_ocean);
+        assert_eq!(params.planet.ocean_fraction, 0.15);
+    }
+
+    #[test]
+    fn sphere_mesh_flattens_ocean_to_sea_level() {
+        let wet = parse_world_params_from_uri(
+            "world://32?shape=sphere&base=cube&seed=7&has_ocean=1&ocean=0.75&disp=0.3",
+        );
+        let dry = parse_world_params_from_uri(
+            "world://32?shape=sphere&base=cube&seed=7&has_ocean=0&ocean=0.75&disp=0.3",
+        );
+
+        let wet_mesh = build_world_mesh(&wet);
+        let dry_mesh = build_world_mesh(&dry);
+
+        let wet_min_radius = wet_mesh
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt())
+            .fold(f32::INFINITY, f32::min);
+        let dry_min_radius = dry_mesh
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt())
+            .fold(f32::INFINITY, f32::min);
+
+        assert!(wet_min_radius >= 0.999, "wet ocean should stay at sea level");
+        assert!(dry_min_radius < 0.999, "dry terrain may still dip below sea level");
+    }
+
+    #[test]
+    fn flat_mesh_flattens_ocean_to_zero_height() {
+        let wet = parse_world_params_from_uri(
+            "world://32?shape=flat&base=uv&seed=7&has_ocean=1&ocean=0.75&disp=0.3",
+        );
+        let dry = parse_world_params_from_uri(
+            "world://32?shape=flat&base=uv&seed=7&has_ocean=0&ocean=0.75&disp=0.3",
+        );
+
+        let wet_mesh = build_world_mesh(&wet);
+        let dry_mesh = build_world_mesh(&dry);
+
+        let wet_min_y = wet_mesh
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| v[1])
+            .fold(f32::INFINITY, f32::min);
+        let dry_min_y = dry_mesh
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| v[1])
+            .fold(f32::INFINITY, f32::min);
+
+        assert!(wet_min_y >= -0.001, "wet ocean should stay on flat sea level");
+        assert!(dry_min_y < -0.001, "dry terrain may still fall below sea level");
     }
 }

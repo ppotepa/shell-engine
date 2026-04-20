@@ -58,7 +58,7 @@ logic should not move into this crate.
 
 ## World generation fields on `Sprite::Obj`
 
-`Sprite::Obj` carries 16 `world_gen_*` fields (seed, ocean_fraction,
+`Sprite::Obj` carries 17 `world_gen_*` fields (seed, has_ocean, ocean_fraction,
 continent_scale/warp/octaves, mountain_scale/strength/ridge_octaves,
 moisture_scale, ice_cap_strength, lapse_rate, rain_shadow,
 displacement_scale, subdivisions, coloring, shape). These are set at

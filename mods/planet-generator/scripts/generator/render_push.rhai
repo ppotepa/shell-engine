@@ -14,6 +14,7 @@ fn current_world_state(local) {
     #{
         model_mode: local.model_mode ?? 1,
         seed: local.seed ?? 0.0,
+        has_ocean: local.has_ocean ?? true,
         ocean: local.ocean ?? 0.55,
         cscale: local.cscale ?? 2.5,
         cwarp: local.cwarp ?? 0.65,
@@ -34,6 +35,7 @@ fn current_world_state(local) {
 fn world_state_changed(previous, current) {
     (previous["model_mode"] ?? current["model_mode"]) != current["model_mode"]
         || (previous["seed"] ?? current["seed"]) != current["seed"]
+        || (previous["has_ocean"] ?? current["has_ocean"]) != current["has_ocean"]
         || (previous["ocean"] ?? current["ocean"]) != current["ocean"]
         || (previous["cscale"] ?? current["cscale"]) != current["cscale"]
         || (previous["cwarp"] ?? current["cwarp"]) != current["cwarp"]
@@ -166,6 +168,7 @@ fn step(local, runtime, frame_ms) {
 
         if model_mode == 1 {
             scene_ui::render_generator(runtime, "planet-mesh", "seed", world_state["seed"] ?? 0.0);
+            scene_ui::render_generator(runtime, "planet-mesh", "has_ocean", world_state["has_ocean"] ?? true);
             scene_ui::render_generator(runtime, "planet-mesh", "ocean_fraction", world_state["ocean"] ?? 0.55);
             scene_ui::render_generator(runtime, "planet-mesh", "continent_scale", world_state["cscale"] ?? 2.5);
             scene_ui::render_generator(runtime, "planet-mesh", "continent_warp", world_state["cwarp"] ?? 0.65);

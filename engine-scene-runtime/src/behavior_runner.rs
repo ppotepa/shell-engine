@@ -86,12 +86,14 @@ impl SceneRuntime {
             .as_ref()
             .map(|k| std::sync::Arc::new(k.clone()));
         let keys_down = std::sync::Arc::new(self.keys_down_snapshot());
-        let keys_just_pressed = std::sync::Arc::new(
+        let mut frame_keys_just_pressed = self.frame_keys_just_pressed_snapshot();
+        frame_keys_just_pressed.extend(
             keys_down
                 .difference(&self.prev_keys_down)
                 .cloned()
                 .collect::<std::collections::HashSet<_>>(),
         );
+        let keys_just_pressed = std::sync::Arc::new(frame_keys_just_pressed);
         // Save current snapshot as previous before we move keys_down into context.
         let keys_down_for_prev = std::sync::Arc::clone(&keys_down);
 

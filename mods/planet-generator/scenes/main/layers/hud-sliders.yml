@@ -72,7 +72,7 @@
     # ── Keyboard/mouse hint ───────────────────────────────────────────────────
     - type: text
       id: param-hint
-      content: "drag slider | tabs Q/W/E/Y/U | models 1-4 | presets F1-F7"
+      content: "drag slider | tabs Q/W/E/Y/U | presets 1-7 | model via top selector"
       x: 1058
       y: 576
       at: cc

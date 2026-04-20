@@ -32,7 +32,7 @@ This keeps generated-world mesh construction outside compositor frame assembly.
 ## URI format
 
 ```text
-world://SUBDIVISIONS?shape=sphere&base=cube&coloring=biome&seed=42&ocean=0.55&...
+world://SUBDIVISIONS?shape=sphere&base=cube&coloring=biome&seed=42&has_ocean=1&ocean=0.55&...
 ```
 
 All query parameters are optional. Missing ones fall back to

@@ -94,12 +94,15 @@ pub fn compute(
 ) -> PlanetStats {
     let total = elevation.len() as f32;
 
-    let ocean_count = elevation.iter().filter(|&&e| e < 0.5).count();
+    let ocean_count = biomes
+        .iter()
+        .filter(|&&biome| matches!(biome, Biome::Ocean | Biome::ShallowWater))
+        .count();
     let ocean_fraction = ocean_count as f32 / total;
 
     // Land cell stats
     let land: Vec<usize> = (0..elevation.len())
-        .filter(|&i| elevation[i] >= 0.5)
+        .filter(|&i| !matches!(biomes[i], Biome::Ocean | Biome::ShallowWater))
         .collect();
     let land_moisture = if land.is_empty() {
         0.5
@@ -208,4 +211,27 @@ fn derive_archetype(ocean: f32, desert: f32, cold: f32, mountain: f32) -> BiomeA
         return BiomeArchetype::Volcanic;
     }
     BiomeArchetype::Terrestrial
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute;
+    use crate::Biome;
+
+    #[test]
+    fn ocean_fraction_counts_water_biomes_not_raw_elevation() {
+        let elevation = vec![0.10, 0.20, 0.80, 0.90];
+        let moisture = vec![0.50; 4];
+        let temperature = vec![0.50; 4];
+        let biomes = vec![
+            Biome::Desert,
+            Biome::Grassland,
+            Biome::Mountain,
+            Biome::Snow,
+        ];
+
+        let stats = compute(&elevation, &moisture, &temperature, &biomes, 2, 2);
+
+        assert_eq!(stats.ocean_fraction, 0.0);
+    }
 }

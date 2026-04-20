@@ -19,6 +19,12 @@ if !state::initialized(vehicle_state) {
 }
 
 let body_ctx = environment::sync_body_context(vehicle_state, world);
+if input.just_pressed("1") {
+    vehicle_state = flight::reset_vehicle_for_model(vehicle_state, vehicle, body_ctx, "lm");
+}
+if input.just_pressed("2") {
+    vehicle_state = flight::reset_vehicle_for_model(vehicle_state, vehicle, body_ctx, "rover");
+}
 let frame = flight::step(
     vehicle_state,
     runtime,
@@ -36,10 +42,10 @@ let ship_y = frame["ship_y"] ?? 0.0;
 environment::keep_planet_visible(vehicle_state, runtime);
 hud::render(vehicle_state, runtime, vehicle, body_ctx);
 
-if input.just_pressed("F9") || input.just_pressed("c") || input.just_pressed("C") {
+if state::current_vehicle_model(vehicle_state) == "lm" && (input.just_pressed("F9") || input.just_pressed("c") || input.just_pressed("C")) {
     vehicle_state = control::toggle_vehicle_profile(vehicle_state, game, vehicle);
 }
-if input.just_pressed("h") {
+if state::current_vehicle_model(vehicle_state) == "lm" && input.just_pressed("h") {
     vehicle_state = control::toggle_vehicle_assist_alt_hold(
         vehicle_state,
         game,
@@ -47,7 +53,7 @@ if input.just_pressed("h") {
         if vehicle_state.vehicle_grounded ?? false { 0.0 } else { vehicle_state.vehicle_altitude_km ?? 0.0 }
     );
 }
-if input.just_pressed("j") {
+if state::current_vehicle_model(vehicle_state) == "lm" && input.just_pressed("j") {
     vehicle_state = control::toggle_vehicle_assist_heading_hold(
         vehicle_state,
         game,

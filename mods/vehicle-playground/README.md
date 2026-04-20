@@ -6,7 +6,7 @@ The mod keeps the same core loop as the current planet handoff flow:
 
 - generated body patched into the celestial runtime,
 - controlled ship starting grounded on the rotating surface and then flying in a local horizon frame,
-- compact vehicle HUD with body, telemetry, assist/profile state, and an on-screen control cheat sheet.
+- compact vehicle HUD with body, telemetry, active model, assist/profile state, and an on-screen control cheat sheet.
 
 The mod boots directly into the vehicle runtime when started standalone, but it can
 also consume the canonical cross-mod vehicle launch packet produced by `planet-generator` at
@@ -29,6 +29,8 @@ cargo run -p app -- --mod-source=mods/vehicle-playground
 | `X` | Main engine boost |
 | `H` | Toggle altitude hold |
 | `J` | Toggle heading hold |
+| `1` | Switch to `LM` |
+| `2` | Switch to `ROVER` |
 | `F9` / `C` | Toggle vehicle profile: `arcade` / `sim-lite` |
 | `Esc` | Return to the producer scene when launched from a handoff packet; otherwise reset ship to the default spawn |
 

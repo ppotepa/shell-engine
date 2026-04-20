@@ -96,7 +96,16 @@ pub struct PlanetGenParams {
     /// Primary random seed.
     pub seed: u64,
 
-    /// Target fraction of ocean surface (0.0–1.0). Drives elevation normalisation.
+    /// Whether the world should classify lowlands below sea level as water.
+    ///
+    /// When disabled, the generator keeps the same terrain shaping and sea-level
+    /// reference but interprets those lowlands as dry terrain instead of ocean.
+    #[serde(default = "PlanetGenParams::default_has_ocean")]
+    pub has_ocean: bool,
+
+    /// Target fraction of terrain below sea level (0.0–1.0).
+    ///
+    /// This remains a terrain-shaping bias even when `has_ocean == false`.
     #[serde(default = "PlanetGenParams::default_ocean_fraction")]
     pub ocean_fraction: f64,
 
@@ -154,6 +163,7 @@ impl Default for PlanetGenParams {
     fn default() -> Self {
         Self {
             seed: 0,
+            has_ocean: Self::default_has_ocean(),
             ocean_fraction: Self::default_ocean_fraction(),
             continent_scale: Self::default_continent_scale(),
             continent_warp: Self::default_continent_warp(),
@@ -179,6 +189,9 @@ impl PlanetGenParams {
         }
     }
 
+    fn default_has_ocean() -> bool {
+        true
+    }
     fn default_ocean_fraction() -> f64 {
         0.55
     }

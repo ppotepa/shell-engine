@@ -19,6 +19,7 @@ elevation::build()          512×256 lat/lon grid
   two-level domain-warped fBm → organic continent shapes
   ridged noise over land → mountain ranges
   normalise so ocean_fraction of cells are below sea level
+  optionally suppress water biomes when has_ocean is disabled
     │
     ▼
 climate::build()
@@ -43,7 +44,7 @@ GeneratedPlanet { cells, stats, width, height }
 
 | Type | Module | Description |
 |------|--------|-------------|
-| `PlanetGenParams` | `params.rs` | Seed + ocean fraction, continent/mountain/climate knobs |
+| `PlanetGenParams` | `params.rs` | Seed + ocean toggle/fraction, continent/mountain/climate knobs |
 | `WorldGenParams` | `params.rs` | Shape + coloring + subdivisions + `PlanetGenParams` |
 | `WorldShape` | `params.rs` | `Flat` / `Sphere` enum |
 | `WorldBase` | `params.rs` | Base sphere primitive: `Cube` / `Uv` / `Tetra` / `Octa` / `Icosa` |
@@ -83,7 +84,8 @@ from the global stats cache, exposing biome coverage to scripts.
 | Parameter | Default | Range | Effect |
 |-----------|---------|-------|--------|
 | `seed` | 0 | 0–9999 | Deterministic random seed |
-| `ocean_fraction` | 0.55 | 0.01–0.99 | Target ocean coverage |
+| `has_ocean` | `true` | bool | Enable ocean/water biomes below sea level |
+| `ocean_fraction` | 0.55 | 0.01–0.99 | Terrain bias for how much surface sits below sea level |
 | `continent_scale` | 2.5 | 0.5–10 | Landmass size (smaller = larger continents) |
 | `continent_warp` | 0.65 | 0–2 | Coastline chaos / organic shapes |
 | `continent_octaves` | 5 | 1–8 | Coastline detail level |

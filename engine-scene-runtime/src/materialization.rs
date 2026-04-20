@@ -1786,6 +1786,7 @@ pub(crate) fn set_obj_worldgen_typed(
             Sprite::Obj {
                 id: Some(id),
                 world_gen_seed,
+                world_gen_has_ocean,
                 world_gen_ocean_fraction,
                 world_gen_continent_scale,
                 world_gen_continent_warp,
@@ -1809,6 +1810,14 @@ pub(crate) fn set_obj_worldgen_typed(
                         let v = *v as u64;
                         if world_gen_seed.map_or(true, |c| c != v) {
                             *world_gen_seed = Some(v);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    (HasOcean, MV::Bool(v)) => {
+                        if world_gen_has_ocean.map_or(true, |c| c != *v) {
+                            *world_gen_has_ocean = Some(*v);
                             true
                         } else {
                             false

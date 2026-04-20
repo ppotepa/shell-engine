@@ -156,12 +156,14 @@ impl SceneLifecycleManager {
         };
         if input_focus_lost {
             runtime.clear_keys_down();
+            runtime.clear_frame_keys_just_pressed();
             runtime.clear_last_raw_key();
             return;
         }
         for key in key_presses {
             let raw = key_event_to_raw(key, true);
             runtime.set_key_down(&raw);
+            runtime.note_key_press(&raw);
         }
         for key in key_releases {
             let raw = key_event_to_raw(key, false);
@@ -1397,6 +1399,28 @@ layers:
         let runtime = world.scene_runtime().expect("runtime");
         assert!(runtime.keys_down_snapshot().is_empty());
         assert!(runtime.last_raw_key_snapshot().is_none());
+    }
+
+    #[test]
+    fn same_frame_tap_still_records_frame_just_pressed_key() {
+        let scene = make_menu_scene(Vec::new());
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed(KeyCode::F(1)),
+                key_released(KeyCode::F(1)),
+                key_pressed(KeyCode::Char('2')),
+                key_released(KeyCode::Char('2')),
+            ],
+        );
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.frame_keys_just_pressed_snapshot().contains("F1"));
+        assert!(runtime.frame_keys_just_pressed_snapshot().contains("2"));
     }
 
     #[test]

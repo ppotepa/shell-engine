@@ -19,6 +19,7 @@ pub(crate) fn resolve_effective_obj_source(source: &str, sprite: &Sprite) -> Str
         world_gen_base,
         world_gen_coloring,
         world_gen_seed,
+        world_gen_has_ocean,
         world_gen_ocean_fraction,
         world_gen_continent_scale,
         world_gen_continent_warp,
@@ -125,6 +126,7 @@ pub(crate) fn resolve_effective_obj_source(source: &str, sprite: &Sprite) -> Str
 
     if source.starts_with("world://")
         && (world_gen_seed.is_some()
+            || world_gen_has_ocean.is_some()
             || world_gen_ocean_fraction.is_some()
             || world_gen_continent_scale.is_some()
             || world_gen_continent_warp.is_some()
@@ -157,6 +159,9 @@ pub(crate) fn resolve_effective_obj_source(source: &str, sprite: &Sprite) -> Str
         }
         if let Some(v) = world_gen_seed {
             p.planet.seed = *v;
+        }
+        if let Some(v) = world_gen_has_ocean {
+            p.planet.has_ocean = *v;
         }
         if let Some(v) = world_gen_ocean_fraction {
             p.planet.ocean_fraction = *v;

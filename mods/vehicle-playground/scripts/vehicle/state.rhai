@@ -40,10 +40,21 @@ fn initialized(state) {
     state.initialized ?? false
 }
 
+fn current_vehicle_model(state) {
+    let model = state.vehicle_model ?? "lm";
+    if model == "rover" { "rover" } else { "lm" }
+}
+
+fn vehicle_model_label(state) {
+    if current_vehicle_model(state) == "rover" { "ROVER" } else { "LM" }
+}
+
 fn default_state(vehicle) {
     let state = #{
         initialized: true,
         mode: "vehicle",
+        vehicle_model: "lm",
+        vehicle_phase: "pad",
         vehicle_orbit_seeded: false,
         vehicle_grounded: true,
         handoff_source: "defaults",
@@ -61,7 +72,7 @@ fn default_state(vehicle) {
         atmo_top_km: 80.0,
         atmo_dense_start_km: 12.0,
         atmo_drag_max: 2.0,
-        planet_type: "earth_like",
+        planet_type: "barren",
         sun_az_deg: 210.0,
         sun_el_deg: 40.0,
         vehicle_spawn_angle_deg: 0.0,
@@ -69,6 +80,7 @@ fn default_state(vehicle) {
         vehicle_camera_sway: 0.0,
         vehicle_camera_zoom: 0.0,
         seed: 1847.0,
+        has_ocean: false,
         ocean: 0.55,
         cscale: 2.5,
         cwarp: 0.65,

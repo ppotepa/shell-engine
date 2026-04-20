@@ -5,10 +5,10 @@
   sprites:
     - type: obj
       id: vehicle-slot
-      source: /assets/3d/ship.obj
+      source: /assets/3d/lm.obj
       x: 0
       y: 0
-      scale: 0.0013333333
+      scale: 0.0000075
       ambient: 0.04
       surface-mode: material
       prerender: false

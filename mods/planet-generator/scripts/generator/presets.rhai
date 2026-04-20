@@ -1,6 +1,7 @@
 fn earth() {
     #{
-        seed: 0.0, ocean: 0.55, cscale: 2.5, cwarp: 0.65, coct: 5.0,
+        planet_type: "earth_like",
+        seed: 0.0, has_ocean: true, ocean: 0.55, cscale: 2.5, cwarp: 0.65, coct: 5.0,
         mscale: 6.0, mstr: 0.45, mroct: 5.0,
         moisture: 3.0, ice: 1.0, lapse: 0.6, rain: 0.4,
         disp: 0.22, coloring: 0.0, rotspeed: 3.0,
@@ -13,7 +14,8 @@ fn earth() {
 
 fn mars() {
     #{
-        seed: 42.0, ocean: 0.05, cscale: 3.5, cwarp: 0.3, coct: 4.0,
+        planet_type: "barren",
+        seed: 42.0, has_ocean: false, ocean: 0.05, cscale: 3.5, cwarp: 0.3, coct: 4.0,
         mscale: 8.0, mstr: 0.65, mroct: 6.0,
         moisture: 1.0, ice: 0.1, lapse: 0.3, rain: 0.05,
         disp: 0.38, coloring: 1.0, rotspeed: 3.0,
@@ -26,7 +28,8 @@ fn mars() {
 
 fn ocean() {
     #{
-        seed: 7.0, ocean: 0.88, cscale: 1.5, cwarp: 1.2, coct: 3.0,
+        planet_type: "ocean",
+        seed: 7.0, has_ocean: true, ocean: 0.88, cscale: 1.5, cwarp: 1.2, coct: 3.0,
         mscale: 4.0, mstr: 0.15, mroct: 3.0,
         moisture: 5.0, ice: 0.8, lapse: 0.7, rain: 0.6,
         disp: 0.08, coloring: 0.0, rotspeed: 2.0,
@@ -39,7 +42,8 @@ fn ocean() {
 
 fn desert() {
     #{
-        seed: 13.0, ocean: 0.15, cscale: 4.0, cwarp: 0.2, coct: 3.0,
+        planet_type: "desert",
+        seed: 13.0, has_ocean: false, ocean: 0.15, cscale: 4.0, cwarp: 0.2, coct: 3.0,
         mscale: 5.0, mstr: 0.3, mroct: 4.0,
         moisture: 1.2, ice: 0.0, lapse: 0.4, rain: 0.05,
         disp: 0.3, coloring: 0.0, rotspeed: 4.0,
@@ -52,7 +56,8 @@ fn desert() {
 
 fn ice() {
     #{
-        seed: 99.0, ocean: 0.45, cscale: 2.0, cwarp: 0.5, coct: 4.0,
+        planet_type: "ice",
+        seed: 99.0, has_ocean: true, ocean: 0.45, cscale: 2.0, cwarp: 0.5, coct: 4.0,
         mscale: 5.0, mstr: 0.35, mroct: 4.0,
         moisture: 2.5, ice: 3.0, lapse: 1.0, rain: 0.3,
         disp: 0.18, coloring: 0.0, rotspeed: 1.5,
@@ -65,7 +70,8 @@ fn ice() {
 
 fn volcanic() {
     #{
-        seed: 66.0, ocean: 0.3, cscale: 3.0, cwarp: 1.5, coct: 6.0,
+        planet_type: "volcanic",
+        seed: 66.0, has_ocean: false, ocean: 0.3, cscale: 3.0, cwarp: 1.5, coct: 6.0,
         mscale: 10.0, mstr: 0.85, mroct: 7.0,
         moisture: 1.5, ice: 0.0, lapse: 0.5, rain: 0.15,
         disp: 0.55, coloring: 0.0, rotspeed: 5.0,
@@ -78,7 +84,8 @@ fn volcanic() {
 
 fn archipelago() {
     #{
-        seed: 27.0, ocean: 0.75, cscale: 1.0, cwarp: 1.8, coct: 7.0,
+        planet_type: "ocean",
+        seed: 27.0, has_ocean: true, ocean: 0.75, cscale: 1.0, cwarp: 1.8, coct: 7.0,
         mscale: 3.0, mstr: 0.2, mroct: 3.0,
         moisture: 4.0, ice: 0.5, lapse: 0.65, rain: 0.5,
         disp: 0.12, coloring: 0.0, rotspeed: 2.5,
@@ -87,6 +94,33 @@ fn archipelago() {
         atmo_forward_scatter: 0.60, atmo_absorption: 0.20,
         atmo_rayleigh_falloff: 0.25, atmo_haze_amount: 0.40, atmo_haze_falloff: 0.56
     }
+}
+
+fn infer_planet_type(local) {
+    let has_ocean = local.has_ocean ?? true;
+    let ocean = local.ocean ?? 0.55;
+    let ice = local.ice ?? 0.0;
+    let moisture = local.moisture ?? 3.0;
+    let mountain = local.mstr ?? 0.45;
+    let displacement = local.disp ?? 0.22;
+
+    if has_ocean {
+        if ice > 1.8 {
+            return "ice";
+        }
+        if ocean > 0.72 {
+            return "ocean";
+        }
+        return "earth_like";
+    }
+
+    if mountain > 0.72 && displacement > 0.40 {
+        return "volcanic";
+    }
+    if moisture < 1.4 {
+        return "desert";
+    }
+    "barren"
 }
 
 fn by_choice(choice) {
@@ -108,7 +142,9 @@ fn by_choice(choice) {
 }
 
 fn apply_values(local, preset) {
+    local.planet_type = preset.planet_type ?? local.planet_type ?? "earth_like";
     local.seed = preset.seed;
+    local.has_ocean = preset.has_ocean ?? (preset.ocean ?? 0.55) >= 0.5;
     local.ocean = preset.ocean;
     local.cscale = preset.cscale;
     local.cwarp = preset.cwarp;
@@ -153,6 +189,7 @@ fn reset_to_earth(local) {
 fn randomize(local) {
     let seed = local.seed ?? 0.0;
     local.seed = (seed * 1234.5 + 6789.0) % 9999.0;
+    local.has_ocean = ((local.seed * 0.137) % 1.0) > 0.32;
     local.ocean = 0.2 + ((local.seed * 0.618) % 0.7);
     local.cscale = 1.0 + ((local.seed * 0.382) % 9.0);
     local.cwarp = (local.seed * 0.271) % 2.0;
@@ -177,6 +214,7 @@ fn randomize(local) {
     local.atmo_rayleigh_falloff = 0.08 + ((local.seed * 0.191) % 0.52);
     local.atmo_haze_amount = (local.seed * 0.227) % 0.75;
     local.atmo_haze_falloff = 0.08 + ((local.seed * 0.149) % 0.68);
+    local.planet_type = infer_planet_type(local);
     local.tab_sync_needed = true;
     local.push_dirty = true;
     local.push_timer = 150.0;

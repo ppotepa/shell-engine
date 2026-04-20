@@ -116,6 +116,7 @@ fn consume_handoff_packet(state, game, vehicle) {
     state.planet_type = packet.environment.body.body_kind ?? state.planet_type ?? "earth_like";
     let extras = packet.environment.extras;
     state.seed = extras["seed"] ?? state.seed ?? 0.0;
+    state.has_ocean = extras["has_ocean"] ?? state.has_ocean ?? true;
     state.ocean = extras["ocean"] ?? state.ocean ?? 0.55;
     state.cscale = extras["cscale"] ?? state.cscale ?? 2.5;
     state.cwarp = extras["cwarp"] ?? state.cwarp ?? 0.65;

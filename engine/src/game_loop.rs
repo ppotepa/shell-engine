@@ -77,6 +77,7 @@ pub fn game_loop(
         if let Some(runtime) = world.scene_runtime_mut() {
             // Key scope is single-frame: clear previous key before ingesting fresh events.
             runtime.clear_last_raw_key();
+            runtime.clear_frame_keys_just_pressed();
             runtime.set_frame_scroll_state(0.0, 0.0);
         }
         for event in input.poll_events() {

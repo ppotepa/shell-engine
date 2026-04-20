@@ -3,6 +3,17 @@ import "generator/params" as params;
 import "generator/body_sync" as body_sync;
 import "generator/vehicle_handoff" as vehicle_handoff;
 
+fn body_type_label(body_type) {
+    let label = body_type ?? "earth_like";
+    if label == "earth_like" { "EARTH" }
+    else if label == "ocean" { "OCEAN" }
+    else if label == "desert" { "DESERT" }
+    else if label == "ice" { "ICE" }
+    else if label == "volcanic" { "VOLCANIC" }
+    else if label == "barren" { "BARREN" }
+    else { "CUSTOM" }
+}
+
 fn render(runtime, gui, game, vehicle, local) {
     let tab = local.tab ?? 0;
     let model_mode = local.model_mode ?? 1;
@@ -55,7 +66,11 @@ fn render(runtime, gui, game, vehicle, local) {
         scene_ui::text(runtime, `param-value-${i}`, params::slot_value(local, tab, i));
     }
 
-    scene_ui::text(runtime, "stats-seed", `SEED:${(local.seed ?? 0.0).round()}`);
+    scene_ui::text(
+        runtime,
+        "stats-seed",
+        `SEED:${(local.seed ?? 0.0).round()} ${body_type_label(local.planet_type ?? "earth_like")}`
+    );
     let ps = planet_last_stats();
     let stats_radius_real = local.planet_radius_real_km ?? 6371.0;
     let stats_radius_sim = body_sync::sim_radius_km(stats_radius_real, local.planet_radius_scale_divisor ?? 1.0);
@@ -81,7 +96,11 @@ fn render(runtime, gui, game, vehicle, local) {
         let forest_pct = (ps["forest"] * 100.0).round();
         let desert_pct = (ps["desert"] * 100.0).round();
         let cold_pct = (ps["cold"] * 100.0).round();
-        scene_ui::text(runtime, "stats-biome-ocean", `OCEAN:${ocean_pct}%`);
+        scene_ui::text(
+            runtime,
+            "stats-biome-ocean",
+            if local.has_ocean ?? true { `OCEAN:${ocean_pct}%` } else { "OCEAN:OFF" }
+        );
         scene_ui::text(runtime, "stats-biome-forest", `FOREST:${forest_pct}%`);
         scene_ui::text(runtime, "stats-biome-desert", `DESERT:${desert_pct}%`);
         scene_ui::text(runtime, "stats-biome-snow", `SNOW:${cold_pct}%`);

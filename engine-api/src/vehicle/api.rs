@@ -288,6 +288,10 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
         "takeoff_lift_threshold",
         |tuning: &mut VehicleShipProfileTuning| tuning.takeoff_lift_threshold as rhai::FLOAT,
     );
+    engine.register_get(
+        "grounded_speed_threshold_wu_s",
+        |tuning: &mut VehicleShipProfileTuning| tuning.grounded_speed_threshold_wu_s as rhai::FLOAT,
+    );
     engine.register_get("linear_damp", |tuning: &mut VehicleShipProfileTuning| {
         tuning.linear_damp as rhai::FLOAT
     });
@@ -941,6 +945,12 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
         "with_surface_lock_request",
         |input: &mut ShipRuntimeInput, enabled: bool| {
             input.clone().with_surface_lock_request(enabled)
+        },
+    );
+    engine.register_fn(
+        "with_prefer_grounded_on_contact",
+        |input: &mut ShipRuntimeInput, enabled: bool| {
+            input.clone().with_prefer_grounded_on_contact(enabled)
         },
     );
     engine.register_fn(

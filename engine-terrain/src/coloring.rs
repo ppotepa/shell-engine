@@ -29,18 +29,28 @@ pub fn biome_color(biome: Biome) -> [u8; 3] {
 ///
 /// Used by `WorldColoring::Altitude` — a simpler gradient that doesn't require
 /// running the full climate pipeline.
-pub fn altitude_color(elevation: f32) -> [u8; 3] {
-    if elevation < 0.45 {
-        // Deep ocean
+pub fn altitude_color(elevation: f32, has_ocean: bool) -> [u8; 3] {
+    if has_ocean {
+        if elevation < 0.45 {
+            // Deep ocean
+            let t = (elevation / 0.45).clamp(0.0, 1.0);
+            return lerp_rgb([8, 20, 55], [18, 80, 140], t);
+        } else if elevation < 0.50 {
+            // Shallow water
+            let t = ((elevation - 0.45) / 0.05).clamp(0.0, 1.0);
+            return lerp_rgb([18, 80, 140], [30, 110, 180], t);
+        } else if elevation < 0.53 {
+            // Beach / sand
+            return [194, 165, 96];
+        }
+    }
+
+    if !has_ocean && elevation < 0.45 {
         let t = (elevation / 0.45).clamp(0.0, 1.0);
-        lerp_rgb([8, 20, 55], [18, 80, 140], t)
-    } else if elevation < 0.50 {
-        // Shallow water
-        let t = ((elevation - 0.45) / 0.05).clamp(0.0, 1.0);
-        lerp_rgb([18, 80, 140], [30, 110, 180], t)
-    } else if elevation < 0.53 {
-        // Beach / sand
-        [194, 165, 96]
+        return lerp_rgb([96, 82, 58], [148, 128, 86], t);
+    } else if !has_ocean && elevation < 0.53 {
+        let t = ((elevation - 0.45) / 0.08).clamp(0.0, 1.0);
+        return lerp_rgb([148, 128, 86], [94, 132, 72], t);
     } else if elevation < 0.68 {
         // Lowland / grassland
         let t = ((elevation - 0.53) / 0.15).clamp(0.0, 1.0);
@@ -113,17 +123,23 @@ mod tests {
         ];
         for b in biomes {
             let c = biome_color(b);
-            assert!(c.iter().all(|&v| v <= 255));
+            assert!(c.iter().any(|&v| v > 0));
         }
     }
 
     #[test]
     fn altitude_colors_sample_points() {
         // Deep ocean should be bluish
-        let deep = altitude_color(0.2);
+        let deep = altitude_color(0.2, true);
         assert!(deep[2] > deep[0], "deep ocean should be blue-dominant");
         // Snow cap should be bright
-        let snow = altitude_color(0.95);
+        let snow = altitude_color(0.95, true);
         assert!(snow[0] > 180 && snow[1] > 180, "snow should be bright");
+    }
+
+    #[test]
+    fn altitude_colors_dry_lowlands_without_blue_ocean() {
+        let dry = altitude_color(0.20, false);
+        assert!(dry[2] < dry[0], "dry lowland should not be ocean-blue");
     }
 }

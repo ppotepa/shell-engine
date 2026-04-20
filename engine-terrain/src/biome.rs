@@ -29,26 +29,29 @@ pub fn classify(
     elevation: &[f32],
     moisture: &[f32],
     temperature: &[f32],
+    has_ocean: bool,
     width: usize,
     height: usize,
 ) -> Vec<Biome> {
     let total = width * height;
     let mut biomes = vec![Biome::Ocean; total];
     for i in 0..total {
-        biomes[i] = classify_cell(elevation[i], moisture[i], temperature[i]);
+        biomes[i] = classify_cell(elevation[i], moisture[i], temperature[i], has_ocean);
     }
     biomes
 }
 
-fn classify_cell(elev: f32, moist: f32, temp: f32) -> Biome {
-    if elev < 0.45 {
-        return Biome::Ocean;
-    }
-    if elev < 0.50 {
-        return Biome::ShallowWater;
-    }
-    if elev < 0.52 {
-        return Biome::Beach;
+fn classify_cell(elev: f32, moist: f32, temp: f32, has_ocean: bool) -> Biome {
+    if has_ocean {
+        if elev < 0.45 {
+            return Biome::Ocean;
+        }
+        if elev < 0.50 {
+            return Biome::ShallowWater;
+        }
+        if elev < 0.52 {
+            return Biome::Beach;
+        }
     }
 
     // High elevation → mountain or snow
@@ -79,4 +82,22 @@ fn classify_cell(elev: f32, moist: f32, temp: f32) -> Biome {
     }
 
     Biome::Grassland
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{classify, Biome};
+
+    #[test]
+    fn classify_without_ocean_avoids_water_biomes() {
+        let elevation = vec![0.10, 0.47, 0.51, 0.85];
+        let moisture = vec![0.80, 0.50, 0.40, 0.20];
+        let temperature = vec![0.70, 0.60, 0.60, 0.10];
+
+        let biomes = classify(&elevation, &moisture, &temperature, false, 2, 2);
+
+        assert!(!biomes.iter().any(|biome| {
+            matches!(biome, Biome::Ocean | Biome::ShallowWater | Biome::Beach)
+        }));
+    }
 }

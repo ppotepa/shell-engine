@@ -23,6 +23,7 @@
       world-shape: sphere
       world-coloring: biome
       world-seed: 0
+      world-has-ocean: true
       world-ocean-fraction: 0.55
       world-continent-scale: 2.5
       world-continent-warp: 0.65

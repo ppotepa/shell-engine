@@ -22,7 +22,8 @@
 //! 4. Normalise so `ocean_fraction` of cells are below 0.5 (sea level).
 //! 5. Derive moisture (latitude ITCZ pattern + regional noise) and temperature
 //!    (latitude + elevation lapse rate).
-//! 6. Classify every cell into a `Biome`.
+//! 6. Classify every cell into a `Biome`, optionally suppressing water biomes
+//!    when `has_ocean == false`.
 //! 7. Compute aggregate statistics used by the `PlanetDef` mapping layer.
 
 pub mod biome;
@@ -74,6 +75,7 @@ pub fn generate(params: &PlanetGenParams) -> GeneratedPlanet {
         &elevation,
         &moisture,
         &temperature,
+        params.has_ocean,
         params.grid_width,
         params.grid_height,
     );

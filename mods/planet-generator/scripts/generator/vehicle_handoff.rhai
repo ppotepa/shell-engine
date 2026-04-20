@@ -275,6 +275,7 @@ fn build_vehicle_environment_map(local, body) {
         atmo_dense_start_km: local["atmo_dense_start_km"] ?? 12.0,
         atmo_drag_max: local["atmo_drag_max"] ?? 2.0,
         seed: extras["seed"],
+        has_ocean: extras["has_ocean"],
         ocean: extras["ocean"],
         cscale: extras["cscale"],
         cwarp: extras["cwarp"],
@@ -315,7 +316,9 @@ fn current_generator_ui_state(local) {
 
 fn current_generator_environment_extras(local) {
     #{
+        planet_type: local["planet_type"] ?? "earth_like",
         seed: local["seed"] ?? 0.0,
+        has_ocean: local["has_ocean"] ?? true,
         ocean: local["ocean"] ?? 0.55,
         cscale: local["cscale"] ?? 2.5,
         cwarp: local["cwarp"] ?? 0.65,
@@ -346,7 +349,9 @@ fn current_generator_environment_extras(local) {
 }
 
 fn apply_generator_environment_extras(local, extras) {
+    local["planet_type"] = extras["planet_type"] ?? local["planet_type"] ?? "earth_like";
     local["seed"] = extras["seed"] ?? local["seed"] ?? 0.0;
+    local["has_ocean"] = extras["has_ocean"] ?? local["has_ocean"] ?? true;
     local["ocean"] = extras["ocean"] ?? local["ocean"] ?? 0.55;
     local["cscale"] = extras["cscale"] ?? local["cscale"] ?? 2.5;
     local["cwarp"] = extras["cwarp"] ?? local["cwarp"] ?? 0.65;
@@ -384,6 +389,9 @@ fn apply_vehicle_return_environment(local, environment, extras) {
     local["atmo_dense_start_km"] = environment.atmosphere_dense_start_km;
     local["atmo_drag_max"] = environment.atmosphere_drag_max;
     local = apply_generator_environment_extras(local, extras);
+    if (environment.body_kind ?? "") != "" {
+        local["planet_type"] = environment.body_kind;
+    }
     local["planet_radius_sim_km"] = body_sync::sim_radius_km(
         local["planet_radius_real_km"] ?? 6371.0,
         local["planet_radius_scale_divisor"] ?? 1.0
