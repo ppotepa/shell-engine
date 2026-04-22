@@ -7,6 +7,7 @@ authoring validation.
 
 - `playground/` — general engine sandbox
 - `planet-generator/` — procedural world and planet tuning
+- `lighting-playground/` — lighting and scene look experiments
 - `gui-playground/` — widget system playground
 - `terrain-playground/` — terrain/worldgen experiments
 - `asteroids/` — gameplay-heavy orbital prototype

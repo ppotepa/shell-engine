@@ -453,6 +453,8 @@ mod tests {
             super::super::io::ScriptInputApi::new(
                 Arc::clone(&ctx.keys_down),
                 Arc::clone(&ctx.keys_just_pressed),
+                ctx.mouse_x,
+                ctx.mouse_y,
                 ctx.scroll_y,
                 ctx.ctrl_scroll_y,
                 Arc::clone(&ctx.action_bindings),

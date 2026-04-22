@@ -9,7 +9,10 @@ use super::generated_world_sprite_renderer::{
     render_generated_world_sprite_to_buffer, GeneratedWorldSpriteRenderRuntime,
 };
 use super::obj_sprite_renderer::{
-    render_obj_sprite_to_buffer, ObjSpriteRenderRuntime, SpriteRenderArea,
+    prepare_obj_sprite_render, render_obj_sprite_to_buffer,
+    render_prepared_obj_sprite_to_shared_buffers,
+    render_prepared_obj_sprite_to_shared_rgba_buffers, ObjSpriteRenderRuntime,
+    PreparedObjSpriteRender, SpriteRenderArea,
 };
 use super::producers::{PreparedRender3dItem, PreparedRender3dSource};
 use super::scene_clip_renderer::{render_scene_clip_sprite_to_buffer, SceneClipRenderRuntime};
@@ -29,6 +32,60 @@ pub struct PreparedRender3dRuntime<'a> {
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub asset_root: Option<&'a AssetRoot>,
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
+}
+
+pub fn prepare_prepared_mesh_item_render<'a>(
+    item: PreparedRender3dItem<'a>,
+    area: SpriteRenderArea,
+    runtime: PreparedRender3dRuntime<'_>,
+) -> Option<PreparedObjSpriteRender<'a>> {
+    match item.source {
+        PreparedRender3dSource::Mesh(spec) => prepare_obj_sprite_render(
+            spec,
+            area,
+            ObjSpriteRenderRuntime {
+                sprite_elapsed_ms: runtime.sprite_elapsed_ms,
+                object_offset_x: runtime.object_offset_x,
+                object_offset_y: runtime.object_offset_y,
+                camera_state: runtime.obj_camera_state.unwrap_or_default(),
+                scene_camera_3d: runtime.scene_camera_3d,
+                view_lighting: runtime.view_lighting,
+                asset_root: runtime.asset_root,
+                prerender_frames: runtime.prerender_frames,
+            },
+        ),
+        _ => None,
+    }
+}
+
+pub fn render_prepared_mesh_item_to_shared_buffers(
+    item: PreparedRender3dItem<'_>,
+    area: SpriteRenderArea,
+    runtime: PreparedRender3dRuntime<'_>,
+    canvas: &mut [Option<[u8; 3]>],
+    depth_buf: &mut [f32],
+) -> bool {
+    let asset_root = runtime.asset_root;
+    let Some(prepared) = prepare_prepared_mesh_item_render(item, area, runtime) else {
+        return false;
+    };
+    render_prepared_obj_sprite_to_shared_buffers(&prepared, asset_root, canvas, depth_buf);
+    true
+}
+
+pub fn render_prepared_mesh_item_to_shared_rgba_buffers(
+    item: PreparedRender3dItem<'_>,
+    area: SpriteRenderArea,
+    runtime: PreparedRender3dRuntime<'_>,
+    canvas: &mut [Option<[u8; 4]>],
+    depth_buf: &mut [f32],
+) -> bool {
+    let asset_root = runtime.asset_root;
+    let Some(prepared) = prepare_prepared_mesh_item_render(item, area, runtime) else {
+        return false;
+    };
+    render_prepared_obj_sprite_to_shared_rgba_buffers(&prepared, asset_root, canvas, depth_buf);
+    true
 }
 
 pub fn render_prepared_render3d_item_to_buffer(

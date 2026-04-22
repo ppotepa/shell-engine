@@ -12,6 +12,18 @@ controls stay denser and more readable than the underlying 3D scene.
 SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 ```
 
+Flight scene:
+
+```bash
+cargo run -p app -- --mod-source=mods/planet-generator --start-scene=/scenes/flight/scene.yml
+```
+
+Cockpit simulator scene:
+
+```bash
+cargo run -p app -- --mod-source=mods/planet-generator --start-scene=/scenes/3d-cockpitview/scene.yml
+```
+
 ## Controls
 
 | Key / Input | Action |
@@ -24,29 +36,24 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 | `Randomize` button | Randomize all parameters |
 | `R` | Toggle planet auto-rotation on/off |
 | `Delete` | Reset to Earth defaults |
+| `F10` | Enter the flight scene using the currently generated planet |
+| `F11` | Enter the cockpit simulator scene using the currently generated planet |
 | `Ctrl+F` | Toggle orbit / free-look camera (WASD move, Q/E altitude) |
-| `F10` or `Vehicle` button | Package the current generator state and launch the configured vehicle scene |
-| `F9` / `C` | Toggle vehicle profile for the launch handoff: `arcade` / `sim-lite` |
-| `H` / `J` | Toggle launch assists: `HOLD ALT` / `HOLD HDG` |
+
+### Flight Scene Controls
+
+| Key / Input | Action |
+|-------------|--------|
+| Mouse | Steer the ship; thrust always follows the current look direction |
+| `W` / `S` or `Up` / `Down` | Forward / reverse thrust |
+| `A` / `D` or `Left` / `Right` | Strafe left / right in ship-local space |
+| `Q` / `E` | Vertical thrust down / up |
+| `Space` | Extra upward thrust |
+| `F` | Toggle cockpit mesh on/off while keeping the same flight model |
 
 ## Runtime modes
 
 - `generator` mode is the default authoring/view mode; sliders, tabs, presets, randomize, and reset stay active.
-- `F10` or `Vehicle` writes a canonical vehicle launch packet into `/mods/planet-generator/vehicle/handoff` and jumps cross-mod to the configured vehicle consumer.
-- The default target is now `mods/vehicle-playground` scene `vehicle-playground-vehicle`.
-- Launch routing is controlled by:
-  - `/mods/planet-generator/vehicle/target_mod_ref`
-  - `/mods/planet-generator/vehicle/target_scene_id`
-- `vehicle profile` can be toggled with `F9` or `C` here to configure the handoff packet:
-  - `arcade` and `sim-lite` are handed off as typed profile ids only.
-  - Runtime handling of those profiles lives in the vehicle consumer / `engine-vehicle`, not in this scene.
-- `vehicle assists` can be toggled here to configure the handoff packet:
-  - `HOLD ALT`
-  - `HOLD HDG`
-- The generator is treated as a producer of generated-planet data and vehicle launch intent, not the place to evolve vehicle runtime behavior or packet kind/version semantics.
-- `engine-vehicle` owns the launch/return packet contract; this mod only supplies vehicle-domain environment, profile, assist, and UI state.
-- Return packets are applied here only to restore generator-facing state such as environment parameters, launch profile/assists, next spawn altitude, and the telemetry strip.
-- `vehicle profile` and both assist toggles are persisted in game state and restored on next run, so the next launch resumes the last vehicle setup.
 - `world.body_patch("generated-planet", ...)` now keeps the celestial runtime body in sync with the generator state every frame.
 - Free-look surface mode now follows the scene `focus-body` render shell from the
   runtime body patch. In this mod the patched body keeps `radius_px = 1.0` for the
@@ -55,7 +62,14 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 ## Scene structure
 
 - `scenes/main/scene.yml` — single scene, orbit-camera + free-look-camera (surface mode enabled)
+- `scenes/flight/scene.yml` — first-person flight scene with generated planet, hidden proxy ship, and camera-anchored cockpit
+- `scenes/3d-cockpitview/scene.yml` — static cockpit simulator scene with a camera-anchored procedural cockpit mesh and the generated planet outside
 - `scenes/main/layers/planet.yml` — OBJ planet mesh (`world://32`)
+- `scenes/flight/layers/planet.yml` — shared procedural planet pass driven by the same generator render push
+- `scenes/flight/layers/player.yml` — invisible ship proxy + camera-anchored 3D cockpit overlay
+- `scenes/flight/layers/hud.yml` — minimal camera/status/controls HUD
+- `scenes/3d-cockpitview/layers/cockpit.yml` — procedural `cockpit://` mesh attached to the shared scene camera
+- `scenes/3d-cockpitview/layers/hud.yml` — cockpit simulator HUD with quick handoff/back controls
 - `scenes/main/layers/hud-tabs.yml` — tab bar (top-right, authored as `type: tabs`)
 - `scenes/main/layers/hud-models.yml` — model selector row (Planet/Sphere/Cube/Suzanne, authored as `type: segmented-control`)
 - `scenes/main/layers/hud-panel.yml` — right-side parameter rail background in native `1280x720` UI space
@@ -73,10 +87,17 @@ SHELL_ENGINE_MOD_SOURCE=mods/planet-generator cargo run -p app
 - `scripts/generator/params.rhai` — parameter schema, normalize/denormalize, per-tab labels and values
 - `scripts/generator/gui_sync.rhai` — local state <-> slider widget sync
 - `scripts/generator/body_sync.rhai` — generated body builder and runtime `world.body_patch("generated-planet", ...)`
-- `scripts/generator/vehicle_handoff.rhai` — vehicle profile/assist persistence plus launch/return packet flow
 - `scripts/generator/hud.rhai` — tab/model/action highlights, parameter labels, telemetry strip
 - `scripts/generator/render_push.rhai` — mesh/generator push plus visual/atmosphere/light updates; `local.render_push_throttle_ms` controls generator push throttling and now defaults to realtime (`0.0`)
-- `mods/vehicle-playground/scenes/vehicle/*` — canonical vehicle consumer, camera rig, HUD, body patch, and return flow
+- `scripts/std/math3.rhai` — shared 3D angle/orientation helpers used by flight logic
+- `scripts/std/flight_handoff.rhai` — persists the current generator planet and hands it off into the flight scene on `F10`
+- `scripts/flight/state.rhai` — flight-scene bootstrap and fixed Earth-like defaults
+- `scripts/flight/spawn.rhai` — planet surface spawn finder; resolves biome-preferred spawn normals and displaced surface radius
+- `scripts/flight/flight.rhai` — script-driven inertial free-flight model; mouse steers orientation, `W/S/A/D/Q/E` thrust in view space, and the cockpit mesh stays glued to the camera
+- `scripts/flight/hud.rhai` — minimal flight-scene HUD writes
+- `scripts/cockpit/state.rhai` — cockpit-simulator bootstrap and launch snapshot restore
+- `scripts/cockpit/view.rhai` — camera head-look, cockpit mesh anchoring, and scene handoff controls
+- `scripts/cockpit/hud.rhai` — cockpit simulator HUD writes
 
 ## Parameters
 

@@ -11,6 +11,8 @@ pub mod easing;
 pub mod metadata;
 /// Runtime scene model: [`Scene`], [`Layer`], [`Stage`], and related types.
 pub mod model;
+/// Scene-level planet generation/render contract.
+pub mod planet_spec;
 /// Sprite template expansion types.
 pub mod sprite;
 /// Template substitution helpers.
@@ -33,6 +35,9 @@ pub use model::{
     ObjViewerControls, PaletteBinding, Scene, SceneAudio, SceneCelestial, SceneInput,
     SceneLighting, SceneSpace, SceneStages, SceneUi, SceneView, Stage, StageTrigger, Step,
     UiPersistence,
+};
+pub use planet_spec::{
+    PlanetSpec, PlanetSpecAtmosphere, PlanetSpecBody, PlanetSpecGenerator, PlanetSpecRender,
 };
 pub use sprite::{
     CameraSource, FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, TextOverflowMode,

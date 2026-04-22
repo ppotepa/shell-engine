@@ -110,6 +110,12 @@ pub trait RendererBackend: Send {
     /// Returns the logical output size before backend-specific window/display presentation
     /// is applied.
     fn output_size(&self) -> (u16, u16);
+    /// Copy text to the host clipboard if the backend supports it.
+    ///
+    /// Returns `true` when the operation succeeded.
+    fn copy_to_clipboard(&mut self, _text: &str) -> bool {
+        false
+    }
     fn clear(&mut self) -> Result<(), RenderError>;
     fn shutdown(&mut self) -> Result<(), RenderError>;
 }

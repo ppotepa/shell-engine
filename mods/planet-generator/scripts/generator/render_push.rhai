@@ -1,5 +1,6 @@
 import "std/runtime_scene" as scene_ui;
 import "std/math" as math;
+import "std/planet_spec" as planet_spec;
 import "generator/params" as params;
 
 fn near_map_number(cache, key, value, epsilon) {
@@ -11,24 +12,25 @@ fn push_throttle_ms(local) {
 }
 
 fn current_world_state(local) {
+    let spec = local["planet_spec"] ?? planet_spec::snapshot(local);
     #{
         model_mode: local.model_mode ?? 1,
-        seed: local.seed ?? 0.0,
-        has_ocean: local.has_ocean ?? true,
-        ocean: local.ocean ?? 0.55,
-        cscale: local.cscale ?? 2.5,
-        cwarp: local.cwarp ?? 0.65,
-        coct: local.coct ?? 5.0,
-        mscale: local.mscale ?? 6.0,
-        mstr: local.mstr ?? 0.45,
-        mroct: local.mroct ?? 5.0,
-        moisture: local.moisture ?? 3.0,
-        ice: local.ice ?? 1.0,
-        lapse: local.lapse ?? 0.6,
-        rain: local.rain ?? 0.4,
-        disp: local.disp ?? 0.22,
-        subdiv: local.subdiv ?? 32.0,
-        coloring: local.coloring ?? 0.0
+        seed: spec["seed"] ?? 0.0,
+        has_ocean: spec["has_ocean"] ?? true,
+        ocean: spec["ocean"] ?? 0.55,
+        cscale: spec["cscale"] ?? 2.5,
+        cwarp: spec["cwarp"] ?? 0.65,
+        coct: spec["coct"] ?? 5.0,
+        mscale: spec["mscale"] ?? 6.0,
+        mstr: spec["mstr"] ?? 0.45,
+        mroct: spec["mroct"] ?? 5.0,
+        moisture: spec["moisture"] ?? 3.0,
+        ice: spec["ice"] ?? 1.0,
+        lapse: spec["lapse"] ?? 0.6,
+        rain: spec["rain"] ?? 0.4,
+        disp: spec["disp"] ?? 0.22,
+        subdiv: spec["subdiv"] ?? 32.0,
+        coloring: spec["coloring"] ?? 0.0
     }
 }
 
@@ -53,10 +55,11 @@ fn world_state_changed(previous, current) {
 }
 
 fn current_visual_state(local) {
-    let rotspeed = local.rotspeed ?? 3.0;
+    let spec = local["planet_spec"] ?? planet_spec::snapshot(local);
+    let rotspeed = spec["rotspeed"] ?? 3.0;
     #{
         effective_rotspeed: if local.rotation_paused ?? false { 0.0 } else { rotspeed },
-        ambient: local.ambient ?? 0.12
+        ambient: spec["ambient"] ?? 0.12
     }
 }
 
@@ -66,14 +69,15 @@ fn visual_state_changed(previous, current) {
 }
 
 fn current_atmo_state(local) {
-    let atmo_color = local.atmo_color ?? 2.0;
-    let atmo_density = local.atmo_density ?? 0.48;
-    let atmo_height = local.atmo_height ?? 0.11;
-    let atmo_forward_scatter = local.atmo_forward_scatter ?? 0.78;
-    let atmo_absorption = local.atmo_absorption ?? 0.12;
-    let atmo_rayleigh_falloff = local.atmo_rayleigh_falloff ?? 0.22;
-    let atmo_haze_amount = local.atmo_haze_amount ?? 0.22;
-    let atmo_haze_falloff = local.atmo_haze_falloff ?? 0.46;
+    let spec = local["planet_spec"] ?? planet_spec::snapshot(local);
+    let atmo_color = spec["atmo_color"] ?? 2.0;
+    let atmo_density = spec["atmo_density"] ?? 0.48;
+    let atmo_height = spec["atmo_height"] ?? 0.11;
+    let atmo_forward_scatter = spec["atmo_forward_scatter"] ?? 0.78;
+    let atmo_absorption = spec["atmo_absorption"] ?? 0.12;
+    let atmo_rayleigh_falloff = spec["atmo_rayleigh_falloff"] ?? 0.22;
+    let atmo_haze_amount = spec["atmo_haze_amount"] ?? 0.22;
+    let atmo_haze_falloff = spec["atmo_haze_falloff"] ?? 0.46;
 
     let height_rel = (0.02 + atmo_height * 0.88).max(0.02).min(0.90);
     let density = atmo_density.max(0.0).min(1.0);
@@ -124,8 +128,9 @@ fn atmo_state_changed(previous, current) {
 }
 
 fn current_light_state(local) {
-    let az_rad = (local.sunaz ?? 210.0) * 0.01745329;
-    let el_rad = (local.sunel ?? 40.0) * 0.01745329;
+    let spec = local["planet_spec"] ?? planet_spec::snapshot(local);
+    let az_rad = (spec["sunaz"] ?? 210.0) * 0.01745329;
+    let el_rad = (spec["sunel"] ?? 40.0) * 0.01745329;
     #{
         x: -(az_rad.cos() * el_rad.cos()),
         y: el_rad.sin(),
@@ -140,6 +145,7 @@ fn light_state_changed(previous, current) {
 }
 
 fn step(local, runtime, frame_ms) {
+    local = planet_spec::sync_spec_from_legacy(local);
     let throttle_ms = push_throttle_ms(local);
     let world_state = current_world_state(local);
     let previous_world_state = local["render_world_observed"] ?? world_state;
@@ -189,8 +195,8 @@ fn step(local, runtime, frame_ms) {
     }
 
     let visual_state = current_visual_state(local);
-    let previous_visual_state = local["render_visual_cache"] ?? #{};
-    if visual_state_changed(previous_visual_state, visual_state) {
+    let previous_visual_state = local["render_visual_cache"] ?? ();
+    if previous_visual_state == () || visual_state_changed(previous_visual_state, visual_state) {
         scene_ui::render_visual(
             runtime,
             "planet-mesh",
@@ -201,8 +207,8 @@ fn step(local, runtime, frame_ms) {
     }
 
     let atmo_state = current_atmo_state(local);
-    let previous_atmo_state = local["render_atmo_cache"] ?? #{};
-    if atmo_state_changed(previous_atmo_state, atmo_state) {
+    let previous_atmo_state = local["render_atmo_cache"] ?? ();
+    if previous_atmo_state == () || atmo_state_changed(previous_atmo_state, atmo_state) {
         scene_ui::render_atmosphere(runtime, "planet-mesh", "height", atmo_state["height"] ?? 0.02);
         scene_ui::render_atmosphere(runtime, "planet-mesh", "density", atmo_state["density"] ?? 0.0);
         scene_ui::render_atmosphere(runtime, "planet-mesh", "rayleigh_amount", atmo_state["rayleigh_amount"] ?? 0.0);
@@ -223,8 +229,8 @@ fn step(local, runtime, frame_ms) {
     }
 
     let light_state = current_light_state(local);
-    let previous_light_state = local["render_light_cache"] ?? #{};
-    if light_state_changed(previous_light_state, light_state) {
+    let previous_light_state = local["render_light_cache"] ?? ();
+    if previous_light_state == () || light_state_changed(previous_light_state, light_state) {
         scene_ui::render_light(
             runtime,
             "planet-mesh",

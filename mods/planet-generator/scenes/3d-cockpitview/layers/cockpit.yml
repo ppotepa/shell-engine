@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: cockpitview-cockpit
+  z_index: -10
+  ui: true
+  space: 3d
+  sprites:
+    - type: obj
+      id: cockpit-sim-mesh
+      source: "cockpit://simulator?detail=4&width=1.0&depth=1.0&canopy=1.0"
+      x: 0
+      y: 0
+      scale: 0.22
+      ambient: 0.16
+      surface-mode: material
+      prerender: false
+      rotate-y-deg-per-sec: 0
+      camera-source: scene
+      fov-degrees: 44
+      near-clip: 0.00000005
+      light-direction-x: -0.36
+      light-direction-y: 0.74
+      light-direction-z: -0.57
+      cel-levels: 4
+      shadow-colour: "#060a12"
+      midtone-colour: "#41556d"
+      highlight-colour: "#b7d2f5"
+      tone-mix: 0.38
+      fg_colour: "#d8e4f7"
+      visible: true

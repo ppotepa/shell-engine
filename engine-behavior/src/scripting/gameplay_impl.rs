@@ -4,9 +4,11 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
+use engine_terrain::{Biome, HeightmapCell, PlanetGenParams};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
+use engine_api::commands::planet_apply_spec_from_rhai_map;
 use engine_api::{
     filter_hits_by_kind, filter_hits_of_kind, follow_anchor_from_args, is_ephemeral_lifecycle,
     map_int, map_number, map_string, parse_lifecycle_policy, Camera3dMutationRequest, EmitResolved,
@@ -79,6 +81,13 @@ pub(crate) struct ScriptGameplayObjectApi {
     pub(crate) id: u64,
 }
 
+#[derive(Clone, Copy)]
+struct PlanetSpawnSelection {
+    row: usize,
+    col: usize,
+    cell: HeightmapCell,
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct ScriptGameplayBodySnapshotApi {
     pub(crate) id: String,
@@ -88,15 +97,342 @@ pub(crate) struct ScriptGameplayBodySnapshotApi {
 
 // ── ScriptGameplayApi Implementation ──────────────────────────────────────
 impl ScriptGameplayApi {
-    fn map_patch_number(patch: &RhaiMap, key: &str) -> Option<f64> {
-        patch
-            .get(key)
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>().map(|f| f as f64))
+    fn map_patch_value<'a>(patch: &'a RhaiMap, keys: &[&str]) -> Option<&'a RhaiDynamic> {
+        keys.iter().find_map(|key| patch.get(*key))
+    }
+
+    fn dynamic_to_bool(value: &RhaiDynamic) -> Option<bool> {
+        value
+            .clone()
+            .try_cast::<bool>()
+            .or_else(|| value.clone().try_cast::<rhai::INT>().map(|i| i != 0))
+            .or_else(|| value.clone().try_cast::<rhai::FLOAT>().map(|f| f != 0.0))
             .or_else(|| {
-                patch
-                    .get(key)
-                    .and_then(|v| v.clone().try_cast::<rhai::INT>().map(|i| i as f64))
+                let normalized = value.clone().try_cast::<String>()?;
+                match normalized.trim().to_ascii_lowercase().as_str() {
+                    "1" | "true" | "yes" | "on" => Some(true),
+                    "0" | "false" | "no" | "off" => Some(false),
+                    _ => None,
+                }
             })
+    }
+
+    fn dynamic_to_number(value: &RhaiDynamic) -> Option<f64> {
+        value
+            .clone()
+            .try_cast::<rhai::FLOAT>()
+            .map(|f| f as f64)
+            .or_else(|| value.clone().try_cast::<rhai::INT>().map(|i| i as f64))
+            .or_else(|| {
+                value
+                    .clone()
+                    .try_cast::<String>()
+                    .and_then(|s| s.trim().parse::<f64>().ok())
+            })
+    }
+
+    fn map_patch_bool_any(patch: &RhaiMap, keys: &[&str]) -> Option<bool> {
+        Self::map_patch_value(patch, keys).and_then(Self::dynamic_to_bool)
+    }
+
+    fn map_patch_u64_any(patch: &RhaiMap, keys: &[&str]) -> Option<u64> {
+        Self::map_patch_value(patch, keys)
+            .and_then(Self::dynamic_to_number)
+            .map(|value| value.max(0.0) as u64)
+    }
+
+    fn map_patch_u8_any(patch: &RhaiMap, keys: &[&str]) -> Option<u8> {
+        Self::map_patch_value(patch, keys)
+            .and_then(Self::dynamic_to_number)
+            .map(|value| value.clamp(0.0, u8::MAX as f64) as u8)
+    }
+
+    fn biome_from_label(label: &str) -> Option<Biome> {
+        match label.trim().to_ascii_lowercase().as_str() {
+            "ocean" => Some(Biome::Ocean),
+            "shallow" | "shallow_water" | "shallow-water" => Some(Biome::ShallowWater),
+            "beach" => Some(Biome::Beach),
+            "desert" => Some(Biome::Desert),
+            "grass" | "grassland" => Some(Biome::Grassland),
+            "forest" => Some(Biome::Forest),
+            "tundra" | "cold" => Some(Biome::Tundra),
+            "snow" | "ice" => Some(Biome::Snow),
+            "mountain" => Some(Biome::Mountain),
+            "volcanic" | "volcano" => Some(Biome::Volcanic),
+            _ => None,
+        }
+    }
+
+    fn biome_label(biome: Biome) -> &'static str {
+        match biome {
+            Biome::Ocean => "ocean",
+            Biome::ShallowWater => "shallow",
+            Biome::Beach => "beach",
+            Biome::Desert => "desert",
+            Biome::Grassland => "grassland",
+            Biome::Forest => "forest",
+            Biome::Tundra => "tundra",
+            Biome::Snow => "snow",
+            Biome::Mountain => "mountain",
+            Biome::Volcanic => "volcanic",
+        }
+    }
+
+    fn displacement_scale_from_rhai_map(config: &RhaiMap) -> f32 {
+        Self::map_patch_number_any(
+            config,
+            &["disp", "displacement_scale", "displacement-scale"],
+        )
+        .unwrap_or(0.22)
+        .clamp(0.0, 1.0) as f32
+    }
+
+    fn planet_gen_params_from_rhai_map(config: &RhaiMap) -> PlanetGenParams {
+        let mut params = PlanetGenParams::default();
+        if let Some(seed) = Self::map_patch_u64_any(config, &["seed"]) {
+            params.seed = seed;
+        }
+        if let Some(has_ocean) = Self::map_patch_bool_any(config, &["has_ocean", "has-ocean"]) {
+            params.has_ocean = has_ocean;
+        }
+        if let Some(ocean) =
+            Self::map_patch_number_any(config, &["ocean", "ocean_fraction", "ocean-fraction"])
+        {
+            params.ocean_fraction = ocean.clamp(0.0, 1.0);
+        }
+        if let Some(v) =
+            Self::map_patch_number_any(config, &["cscale", "continent_scale", "continent-scale"])
+        {
+            params.continent_scale = v.clamp(0.5, 10.0);
+        }
+        if let Some(v) =
+            Self::map_patch_number_any(config, &["cwarp", "continent_warp", "continent-warp"])
+        {
+            params.continent_warp = v.clamp(0.0, 2.0);
+        }
+        if let Some(v) =
+            Self::map_patch_u8_any(config, &["coct", "continent_octaves", "continent-octaves"])
+        {
+            params.continent_octaves = v.clamp(2, 8);
+        }
+        if let Some(v) =
+            Self::map_patch_number_any(config, &["mscale", "mountain_scale", "mountain-scale"])
+        {
+            params.mountain_scale = v.clamp(1.0, 20.0);
+        }
+        if let Some(v) =
+            Self::map_patch_number_any(config, &["mstr", "mountain_strength", "mountain-strength"])
+        {
+            params.mountain_strength = v.clamp(0.0, 1.0);
+        }
+        if let Some(v) = Self::map_patch_u8_any(
+            config,
+            &["mroct", "mountain_ridge_octaves", "mountain-ridge-octaves"],
+        ) {
+            params.mountain_ridge_octaves = v.clamp(2, 8);
+        }
+        if let Some(v) =
+            Self::map_patch_number_any(config, &["moisture", "moisture_scale", "moisture-scale"])
+        {
+            params.moisture_scale = v.clamp(0.5, 10.0);
+        }
+        if let Some(v) =
+            Self::map_patch_number_any(config, &["ice", "ice_cap_strength", "ice-cap-strength"])
+        {
+            params.ice_cap_strength = v.clamp(0.0, 3.0);
+        }
+        if let Some(v) = Self::map_patch_number_any(config, &["lapse", "lapse_rate", "lapse-rate"])
+        {
+            params.lapse_rate = v.clamp(0.0, 1.0);
+        }
+        if let Some(v) = Self::map_patch_number_any(config, &["rain", "rain_shadow", "rain-shadow"])
+        {
+            params.rain_shadow = v.clamp(0.0, 1.0);
+        }
+        params
+    }
+
+    fn default_spawn_biomes() -> Vec<Biome> {
+        vec![Biome::Beach, Biome::Desert, Biome::Grassland]
+    }
+
+    fn preferred_biomes_from_array(preferred_biomes: RhaiArray) -> Vec<Biome> {
+        let mut biomes: Vec<Biome> = preferred_biomes
+            .into_iter()
+            .filter_map(|entry| entry.try_cast::<String>())
+            .filter_map(|label| Self::biome_from_label(&label))
+            .collect();
+        if biomes.is_empty() {
+            biomes = Self::default_spawn_biomes();
+        }
+        biomes
+    }
+
+    fn spawn_search_rows(height: usize, band_only: bool) -> Vec<usize> {
+        let height = height.max(1);
+        let mid_row = height / 2;
+        let band = ((height as f32) * 0.12).round() as usize;
+        let mut rows = Vec::new();
+        if band_only {
+            rows.push(mid_row);
+            for offset in 1..=band {
+                let down = mid_row.saturating_add(offset);
+                if down < height {
+                    rows.push(down);
+                }
+                if let Some(up) = mid_row.checked_sub(offset) {
+                    rows.push(up);
+                }
+            }
+        } else {
+            rows.extend(0..height);
+        }
+        rows
+    }
+
+    fn longitude_deg_from_col(col: usize, width: usize) -> f64 {
+        ((col as f64 + 0.5) / width.max(1) as f64) * 360.0
+    }
+
+    fn latitude_deg_from_row(row: usize, height: usize) -> f64 {
+        90.0 - ((row as f64 + 0.5) / height.max(1) as f64) * 180.0
+    }
+
+    fn default_spawn_selection(planet: &engine_terrain::GeneratedPlanet) -> PlanetSpawnSelection {
+        let width = planet.width.max(1);
+        let height = planet.height.max(1);
+        let start_col = (planet.params.seed as usize) % width;
+        let row = height / 2;
+        let col = start_col % width;
+        PlanetSpawnSelection {
+            row,
+            col,
+            cell: *planet.cell(col, row),
+        }
+    }
+
+    fn find_planet_spawn_selection_for_planet(
+        planet: &engine_terrain::GeneratedPlanet,
+        preferred_biomes: &[Biome],
+    ) -> Option<PlanetSpawnSelection> {
+        let preferred = if preferred_biomes.is_empty() {
+            Self::default_spawn_biomes()
+        } else {
+            preferred_biomes.to_vec()
+        };
+        let width = planet.width.max(1);
+        let height = planet.height.max(1);
+        let start_col = (planet.params.seed as usize) % width;
+
+        for &target_biome in &preferred {
+            for rows in [
+                Self::spawn_search_rows(height, true),
+                Self::spawn_search_rows(height, false),
+            ] {
+                for row in rows {
+                    for offset in 0..width {
+                        let col = (start_col + offset) % width;
+                        let cell = planet.cell(col, row);
+                        if cell.biome == target_biome {
+                            return Some(PlanetSpawnSelection {
+                                row,
+                                col,
+                                cell: *cell,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn find_planet_spawn_angle_for_params(
+        params: &PlanetGenParams,
+        preferred_biomes: &[Biome],
+    ) -> rhai::FLOAT {
+        let planet = engine_terrain::generate(params);
+        Self::find_planet_spawn_selection_for_planet(&planet, preferred_biomes)
+            .map(|selection| Self::longitude_deg_from_col(selection.col, planet.width))
+            .unwrap_or(0.0)
+    }
+
+    fn find_planet_spawn_for_params(
+        params: &PlanetGenParams,
+        displacement_scale: f32,
+        preferred_biomes: &[Biome],
+    ) -> RhaiMap {
+        let planet = engine_terrain::generate(params);
+        let width = planet.width.max(1);
+        let height = planet.height.max(1);
+        let selection = Self::find_planet_spawn_selection_for_planet(&planet, preferred_biomes)
+            .unwrap_or_else(|| Self::default_spawn_selection(&planet));
+        let longitude_deg = Self::longitude_deg_from_col(selection.col, width);
+        let latitude_deg = Self::latitude_deg_from_row(selection.row, height);
+        let (normal_x, normal_y, normal_z) =
+            engine_terrain::grid::cell_to_xyz(selection.col, selection.row, width, height);
+        let surface_offset =
+            ((selection.cell.elevation as f64 - 0.5) * 2.0) * displacement_scale as f64;
+        let surface_radius_scale = (1.0 + surface_offset).max(0.0001);
+
+        let mut map = RhaiMap::new();
+        map.insert("angle_deg".into(), longitude_deg.into());
+        map.insert("longitude_deg".into(), longitude_deg.into());
+        map.insert("latitude_deg".into(), latitude_deg.into());
+        map.insert("row".into(), (selection.row as i64).into());
+        map.insert("col".into(), (selection.col as i64).into());
+        map.insert("normal_x".into(), normal_x.into());
+        map.insert("normal_y".into(), normal_y.into());
+        map.insert("normal_z".into(), normal_z.into());
+        map.insert("surface_radius_scale".into(), surface_radius_scale.into());
+        map.insert("surface_offset".into(), surface_offset.into());
+        map.insert(
+            "elevation".into(),
+            (selection.cell.elevation as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "moisture".into(),
+            (selection.cell.moisture as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "temperature".into(),
+            (selection.cell.temperature as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "biome".into(),
+            Self::biome_label(selection.cell.biome).into(),
+        );
+        map
+    }
+
+    pub(crate) fn find_planet_spawn_angle(
+        &mut self,
+        config: RhaiMap,
+        preferred_biomes: RhaiArray,
+    ) -> rhai::FLOAT {
+        let params = Self::planet_gen_params_from_rhai_map(&config);
+        let preferred = Self::preferred_biomes_from_array(preferred_biomes);
+        Self::find_planet_spawn_angle_for_params(&params, &preferred)
+    }
+
+    pub(crate) fn find_planet_spawn(
+        &mut self,
+        config: RhaiMap,
+        preferred_biomes: RhaiArray,
+    ) -> RhaiMap {
+        let params = Self::planet_gen_params_from_rhai_map(&config);
+        let preferred = Self::preferred_biomes_from_array(preferred_biomes);
+        let displacement_scale = Self::displacement_scale_from_rhai_map(&config);
+        Self::find_planet_spawn_for_params(&params, displacement_scale, &preferred)
+    }
+
+    fn map_patch_number(patch: &RhaiMap, key: &str) -> Option<f64> {
+        Self::map_patch_value(patch, &[key]).and_then(Self::dynamic_to_number)
+    }
+
+    fn map_patch_number_any(patch: &RhaiMap, keys: &[&str]) -> Option<f64> {
+        Self::map_patch_value(patch, keys).and_then(Self::dynamic_to_number)
     }
 
     fn map_patch_string(patch: &RhaiMap, key: &str) -> Option<String> {
@@ -201,6 +537,34 @@ impl ScriptGameplayApi {
 
     pub(crate) fn body_patch(&mut self, id: &str, patch: RhaiMap) -> bool {
         self.body_upsert(id, patch)
+    }
+
+    pub(crate) fn apply_planet_spec(
+        &mut self,
+        target: &str,
+        body_id: &str,
+        spec_map: RhaiMap,
+    ) -> bool {
+        let target = target.trim();
+        let body_id = body_id.trim();
+        if target.is_empty() || body_id.is_empty() {
+            return false;
+        }
+        let Some(spec) = planet_apply_spec_from_rhai_map(spec_map) else {
+            return false;
+        };
+        if spec.is_empty() {
+            return false;
+        }
+        let Ok(mut commands) = self.ctx.queue.lock() else {
+            return false;
+        };
+        commands.push(BehaviorCommand::ApplyPlanetSpec {
+            target: target.to_string(),
+            body_id: body_id.to_string(),
+            spec,
+        });
+        true
     }
 
     pub(crate) fn map_number(args: &RhaiMap, key: &str, fallback: rhai::FLOAT) -> rhai::FLOAT {
@@ -4054,5 +4418,153 @@ impl ScriptGameplayObjectApi {
             return false;
         };
         world.set(self.id, path, value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScriptGameplayApi;
+    use engine_terrain::{Biome, PlanetGenParams};
+    use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
+
+    fn insert(map: &mut RhaiMap, key: &str, value: impl Into<RhaiDynamic>) {
+        map.insert(key.into(), value.into());
+    }
+
+    fn sample_params() -> PlanetGenParams {
+        let mut config = RhaiMap::new();
+        insert(&mut config, "seed", 1847);
+        insert(&mut config, "has_ocean", true);
+        insert(&mut config, "ocean", 0.55);
+        insert(&mut config, "cscale", 2.5);
+        insert(&mut config, "cwarp", 0.65);
+        insert(&mut config, "coct", 5);
+        insert(&mut config, "mscale", 6.0);
+        insert(&mut config, "mstr", 0.45);
+        insert(&mut config, "mroct", 5);
+        insert(&mut config, "moisture", 3.0);
+        insert(&mut config, "ice", 1.0);
+        insert(&mut config, "lapse", 0.6);
+        insert(&mut config, "rain", 0.4);
+        ScriptGameplayApi::planet_gen_params_from_rhai_map(&config)
+    }
+
+    fn candidate_biomes() -> [Biome; 10] {
+        [
+            Biome::Ocean,
+            Biome::ShallowWater,
+            Biome::Beach,
+            Biome::Desert,
+            Biome::Grassland,
+            Biome::Forest,
+            Biome::Tundra,
+            Biome::Snow,
+            Biome::Mountain,
+            Biome::Volcanic,
+        ]
+    }
+
+    #[test]
+    fn planet_gen_params_from_rhai_map_parses_aliases_and_string_numbers() {
+        let mut config = RhaiMap::new();
+        insert(&mut config, "seed", "1847");
+        insert(&mut config, "has-ocean", "yes");
+        insert(&mut config, "ocean-fraction", "1.8");
+        insert(&mut config, "continent-scale", "12.5");
+        insert(&mut config, "continent-warp", "-1.0");
+        insert(&mut config, "continent-octaves", "9");
+        insert(&mut config, "mountain-scale", "0.5");
+        insert(&mut config, "mountain-strength", "2.0");
+        insert(&mut config, "mountain-ridge-octaves", "-3");
+        insert(&mut config, "moisture-scale", "7.5");
+        insert(&mut config, "ice-cap-strength", "4.5");
+        insert(&mut config, "lapse-rate", "-0.5");
+        insert(&mut config, "rain-shadow", "1.3");
+
+        let params = ScriptGameplayApi::planet_gen_params_from_rhai_map(&config);
+
+        assert_eq!(params.seed, 1847);
+        assert!(params.has_ocean);
+        assert_eq!(params.ocean_fraction, 1.0);
+        assert_eq!(params.continent_scale, 10.0);
+        assert_eq!(params.continent_warp, 0.0);
+        assert_eq!(params.continent_octaves, 8);
+        assert_eq!(params.mountain_scale, 1.0);
+        assert_eq!(params.mountain_strength, 1.0);
+        assert_eq!(params.mountain_ridge_octaves, 2);
+        assert_eq!(params.moisture_scale, 7.5);
+        assert_eq!(params.ice_cap_strength, 3.0);
+        assert_eq!(params.lapse_rate, 0.0);
+        assert_eq!(params.rain_shadow, 1.0);
+    }
+
+    #[test]
+    fn planet_gen_params_from_rhai_map_ignores_invalid_strings_and_preserves_defaults() {
+        let defaults = PlanetGenParams::default();
+        let mut config = RhaiMap::new();
+        insert(&mut config, "has-ocean", "maybe");
+        insert(&mut config, "ocean", "not-a-number");
+        insert(&mut config, "continent-scale", ());
+        insert(&mut config, "mountain-strength", "bogus");
+
+        let params = ScriptGameplayApi::planet_gen_params_from_rhai_map(&config);
+
+        assert_eq!(params.has_ocean, defaults.has_ocean);
+        assert_eq!(params.ocean_fraction, defaults.ocean_fraction);
+        assert_eq!(params.continent_scale, defaults.continent_scale);
+        assert_eq!(params.mountain_strength, defaults.mountain_strength);
+    }
+
+    #[test]
+    fn preferred_biomes_from_array_defaults_for_empty_or_invalid_entries() {
+        let empty = ScriptGameplayApi::preferred_biomes_from_array(RhaiArray::new());
+        let invalid = ScriptGameplayApi::preferred_biomes_from_array(vec![
+            RhaiDynamic::from("???"),
+            RhaiDynamic::from(17_i64),
+        ]);
+
+        assert_eq!(empty, ScriptGameplayApi::default_spawn_biomes());
+        assert_eq!(invalid, ScriptGameplayApi::default_spawn_biomes());
+    }
+
+    #[test]
+    fn find_planet_spawn_angle_for_params_uses_default_order_for_empty_preferences() {
+        let params = sample_params();
+        let default_order = ScriptGameplayApi::default_spawn_biomes();
+        let empty = ScriptGameplayApi::find_planet_spawn_angle_for_params(&params, &[]);
+        let explicit =
+            ScriptGameplayApi::find_planet_spawn_angle_for_params(&params, &default_order);
+
+        assert_eq!(empty, explicit);
+    }
+
+    #[test]
+    fn find_planet_spawn_angle_for_params_falls_back_deterministically_to_next_available_biome() {
+        let params = sample_params();
+        let mut missing = None;
+        let mut present = None;
+
+        for biome in candidate_biomes() {
+            let angle = ScriptGameplayApi::find_planet_spawn_angle_for_params(&params, &[biome]);
+            if angle == 0.0 && missing.is_none() {
+                missing = Some(biome);
+            } else if angle > 0.0 && present.is_none() {
+                present = Some((biome, angle));
+            }
+            if missing.is_some() && present.is_some() {
+                break;
+            }
+        }
+
+        let missing = missing.expect("expected at least one absent biome");
+        let (present, present_angle) = present.expect("expected at least one available biome");
+
+        let fallback =
+            ScriptGameplayApi::find_planet_spawn_angle_for_params(&params, &[missing, present]);
+        let repeated =
+            ScriptGameplayApi::find_planet_spawn_angle_for_params(&params, &[missing, present]);
+
+        assert_eq!(fallback, present_angle);
+        assert_eq!(repeated, present_angle);
     }
 }

@@ -244,6 +244,16 @@ fn normalize_scene_value(root: &mut Value) -> Result<(), serde_yaml::Error> {
     };
 
     apply_alias(scene, "bg", "bg_colour");
+    if !scene.contains_key(Value::String("planet-spec".to_string())) {
+        if let Some(value) = scene.remove(Value::String("planet_spec".to_string())) {
+            scene.insert(Value::String("planet-spec".to_string()), value);
+        }
+    }
+    if !scene.contains_key(Value::String("planet-spec-ref".to_string())) {
+        if let Some(value) = scene.remove(Value::String("planet_spec_ref".to_string())) {
+            scene.insert(Value::String("planet-spec-ref".to_string()), value);
+        }
+    }
     expand_scene_templates(scene);
 
     if let Some(stages) = scene.get_mut(Value::String("stages".to_string())) {
@@ -1529,6 +1539,40 @@ menu-options:
             }
             _ => panic!("expected text sprite"),
         }
+    }
+
+    #[test]
+    fn compiles_scene_with_planet_spec_and_ref_aliases() {
+        let raw = r#"
+id: planet-spec-doc
+title: Planet Spec Doc
+planet_spec:
+  generator:
+    preset: gas-giant
+    seed: 99
+  body:
+    id: jove
+planet_spec_ref: /planet-specs/jove.yml
+layers: []
+"#;
+
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+
+        assert_eq!(
+            scene
+                .planet_spec
+                .as_ref()
+                .and_then(|spec| spec.generator.as_ref())
+                .and_then(|generator| generator.preset.as_deref()),
+            Some("gas-giant")
+        );
+        assert_eq!(
+            scene.planet_spec_ref.as_deref(),
+            Some("/planet-specs/jove.yml")
+        );
     }
 
     #[test]

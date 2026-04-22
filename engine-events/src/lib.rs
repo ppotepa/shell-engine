@@ -32,11 +32,13 @@ pub enum EngineEvent {
         button: MouseButton,
         x: f32,
         y: f32,
+        modifiers: KeyModifiers,
     },
     MouseButtonUp {
         button: MouseButton,
         x: f32,
         y: f32,
+        modifiers: KeyModifiers,
     },
     /// Mouse scroll wheel moved. Positive `delta_y` = scroll up, negative = scroll down.
     MouseWheel {
@@ -71,15 +73,27 @@ impl EngineEvent {
             }),
             Self::KeyUp { key } => Some(InputEvent::KeyUp { key: *key }),
             Self::MouseMoved { x, y } => Some(InputEvent::MouseMoved { x: *x, y: *y }),
-            Self::MouseButtonDown { button, x, y } => Some(InputEvent::MouseDown {
+            Self::MouseButtonDown {
+                button,
+                x,
+                y,
+                modifiers,
+            } => Some(InputEvent::MouseDown {
                 button: *button,
                 x: *x,
                 y: *y,
+                modifiers: *modifiers,
             }),
-            Self::MouseButtonUp { button, x, y } => Some(InputEvent::MouseUp {
+            Self::MouseButtonUp {
+                button,
+                x,
+                y,
+                modifiers,
+            } => Some(InputEvent::MouseUp {
                 button: *button,
                 x: *x,
                 y: *y,
+                modifiers: *modifiers,
             }),
             Self::MouseWheel { delta_y, modifiers } => Some(InputEvent::MouseWheel {
                 delta_y: *delta_y,
@@ -97,11 +111,29 @@ impl EngineEvent {
 /// instead of `&[EngineEvent]`, keeping them decoupled from game-lifecycle events.
 #[derive(Debug, Clone)]
 pub enum InputEvent {
-    KeyDown { key: KeyEvent, repeat: bool },
-    KeyUp { key: KeyEvent },
-    MouseMoved { x: f32, y: f32 },
-    MouseDown { x: f32, y: f32, button: MouseButton },
-    MouseUp { x: f32, y: f32, button: MouseButton },
+    KeyDown {
+        key: KeyEvent,
+        repeat: bool,
+    },
+    KeyUp {
+        key: KeyEvent,
+    },
+    MouseMoved {
+        x: f32,
+        y: f32,
+    },
+    MouseDown {
+        x: f32,
+        y: f32,
+        button: MouseButton,
+        modifiers: KeyModifiers,
+    },
+    MouseUp {
+        x: f32,
+        y: f32,
+        button: MouseButton,
+        modifiers: KeyModifiers,
+    },
     MouseWheel {
         delta_y: f32,
         modifiers: KeyModifiers,

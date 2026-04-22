@@ -63,6 +63,8 @@ input:
     surface-mode: true
     surface-radius: 1.0
     surface-altitude: 0.05
+    surface-min-altitude: 0.05
+    surface-max-altitude: 0.05
 layers: []
 "#,
         )

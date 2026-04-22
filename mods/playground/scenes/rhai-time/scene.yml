@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
 id: playground-rhai-time
 title: Rhai Time
+virtual-size-override: 640x360
 bg: black
 layers:
   - ref: main

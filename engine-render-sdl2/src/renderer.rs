@@ -224,6 +224,13 @@ impl RendererBackend for Sdl2Backend {
         (self.width, self.height)
     }
 
+    fn copy_to_clipboard(&mut self, text: &str) -> bool {
+        match self.request(RuntimeCommand::CopyToClipboard(text.to_string())) {
+            Ok(RuntimeResponse::Ack) | Ok(RuntimeResponse::Input(_)) => true,
+            Err(_) => false,
+        }
+    }
+
     fn clear(&mut self) -> Result<(), RenderError> {
         match self.request(RuntimeCommand::Clear)? {
             RuntimeResponse::Ack => Ok(()),

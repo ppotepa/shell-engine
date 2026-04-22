@@ -1,3 +1,5 @@
+import "std/planet_spec" as planet_spec;
+
 fn model_source(mode) {
     if mode == 1 {
         "world://32"
@@ -181,33 +183,34 @@ fn slot_label(tab, index) {
 }
 
 fn slot_value(local, tab, index) {
-    let seed = local.seed ?? 0.0;
-    let has_ocean = local.has_ocean ?? true;
-    let cscale = local.cscale ?? 2.5;
-    let cwarp = local.cwarp ?? 0.65;
-    let coct = local.coct ?? 5.0;
-    let mscale = local.mscale ?? 6.0;
-    let mstr = local.mstr ?? 0.45;
-    let mroct = local.mroct ?? 5.0;
-    let moisture = local.moisture ?? 3.0;
-    let ice = local.ice ?? 1.0;
-    let lapse = local.lapse ?? 0.6;
-    let rain = local.rain ?? 0.4;
-    let subdiv = local.subdiv ?? 32.0;
-    let disp = local.disp ?? 0.22;
-    let coloring = local.coloring ?? 0.0;
-    let rotspeed = local.rotspeed ?? 3.0;
-    let sunaz = local.sunaz ?? 210.0;
-    let sunel = local.sunel ?? 40.0;
-    let ambient = local.ambient ?? 0.12;
-    let atmo_color = local.atmo_color ?? 2.0;
-    let atmo_density = local.atmo_density ?? 0.48;
-    let atmo_height = local.atmo_height ?? 0.11;
-    let atmo_forward_scatter = local.atmo_forward_scatter ?? 0.78;
-    let atmo_absorption = local.atmo_absorption ?? 0.12;
-    let atmo_rayleigh_falloff = local.atmo_rayleigh_falloff ?? 0.22;
-    let atmo_haze_amount = local.atmo_haze_amount ?? 0.22;
-    let atmo_haze_falloff = local.atmo_haze_falloff ?? 0.46;
+    let spec = planet_spec::snapshot(local);
+    let seed = spec["seed"] ?? 0.0;
+    let has_ocean = spec["has_ocean"] ?? true;
+    let cscale = spec["cscale"] ?? 2.5;
+    let cwarp = spec["cwarp"] ?? 0.65;
+    let coct = spec["coct"] ?? 5.0;
+    let mscale = spec["mscale"] ?? 6.0;
+    let mstr = spec["mstr"] ?? 0.45;
+    let mroct = spec["mroct"] ?? 5.0;
+    let moisture = spec["moisture"] ?? 3.0;
+    let ice = spec["ice"] ?? 1.0;
+    let lapse = spec["lapse"] ?? 0.6;
+    let rain = spec["rain"] ?? 0.4;
+    let subdiv = spec["subdiv"] ?? 32.0;
+    let disp = spec["disp"] ?? 0.22;
+    let coloring = spec["coloring"] ?? 0.0;
+    let rotspeed = spec["rotspeed"] ?? 3.0;
+    let sunaz = spec["sunaz"] ?? 210.0;
+    let sunel = spec["sunel"] ?? 40.0;
+    let ambient = spec["ambient"] ?? 0.12;
+    let atmo_color = spec["atmo_color"] ?? 2.0;
+    let atmo_density = spec["atmo_density"] ?? 0.48;
+    let atmo_height = spec["atmo_height"] ?? 0.11;
+    let atmo_forward_scatter = spec["atmo_forward_scatter"] ?? 0.78;
+    let atmo_absorption = spec["atmo_absorption"] ?? 0.12;
+    let atmo_rayleigh_falloff = spec["atmo_rayleigh_falloff"] ?? 0.22;
+    let atmo_haze_amount = spec["atmo_haze_amount"] ?? 0.22;
+    let atmo_haze_falloff = spec["atmo_haze_falloff"] ?? 0.46;
 
     if tab == 0 {
         if index == 0 { `${seed.round()}` }
@@ -250,33 +253,35 @@ fn slot_value(local, tab, index) {
 }
 
 fn sync_widgets_from_state(local, gui, tab) {
-    let seed = local.seed ?? 0.0;
-    let has_ocean = local.has_ocean ?? true;
-    let cscale = local.cscale ?? 2.5;
-    let cwarp = local.cwarp ?? 0.65;
-    let coct = local.coct ?? 5.0;
-    let mscale = local.mscale ?? 6.0;
-    let mstr = local.mstr ?? 0.45;
-    let mroct = local.mroct ?? 5.0;
-    let moisture = local.moisture ?? 3.0;
-    let ice = local.ice ?? 1.0;
-    let lapse = local.lapse ?? 0.6;
-    let rain = local.rain ?? 0.4;
-    let subdiv = local.subdiv ?? 32.0;
-    let disp = local.disp ?? 0.22;
-    let coloring = local.coloring ?? 0.0;
-    let rotspeed = local.rotspeed ?? 3.0;
-    let sunaz = local.sunaz ?? 210.0;
-    let sunel = local.sunel ?? 40.0;
-    let ambient = local.ambient ?? 0.12;
-    let atmo_color = local.atmo_color ?? 2.0;
-    let atmo_density = local.atmo_density ?? 0.48;
-    let atmo_height = local.atmo_height ?? 0.11;
-    let atmo_forward_scatter = local.atmo_forward_scatter ?? 0.78;
-    let atmo_absorption = local.atmo_absorption ?? 0.12;
-    let atmo_rayleigh_falloff = local.atmo_rayleigh_falloff ?? 0.22;
-    let atmo_haze_amount = local.atmo_haze_amount ?? 0.22;
-    let atmo_haze_falloff = local.atmo_haze_falloff ?? 0.46;
+    local = planet_spec::sync_spec_from_legacy(local);
+    let spec = local["planet_spec"] ?? #{};
+    let seed = spec["seed"] ?? 0.0;
+    let has_ocean = spec["has_ocean"] ?? true;
+    let cscale = spec["cscale"] ?? 2.5;
+    let cwarp = spec["cwarp"] ?? 0.65;
+    let coct = spec["coct"] ?? 5.0;
+    let mscale = spec["mscale"] ?? 6.0;
+    let mstr = spec["mstr"] ?? 0.45;
+    let mroct = spec["mroct"] ?? 5.0;
+    let moisture = spec["moisture"] ?? 3.0;
+    let ice = spec["ice"] ?? 1.0;
+    let lapse = spec["lapse"] ?? 0.6;
+    let rain = spec["rain"] ?? 0.4;
+    let subdiv = spec["subdiv"] ?? 32.0;
+    let disp = spec["disp"] ?? 0.22;
+    let coloring = spec["coloring"] ?? 0.0;
+    let rotspeed = spec["rotspeed"] ?? 3.0;
+    let sunaz = spec["sunaz"] ?? 210.0;
+    let sunel = spec["sunel"] ?? 40.0;
+    let ambient = spec["ambient"] ?? 0.12;
+    let atmo_color = spec["atmo_color"] ?? 2.0;
+    let atmo_density = spec["atmo_density"] ?? 0.48;
+    let atmo_height = spec["atmo_height"] ?? 0.11;
+    let atmo_forward_scatter = spec["atmo_forward_scatter"] ?? 0.78;
+    let atmo_absorption = spec["atmo_absorption"] ?? 0.12;
+    let atmo_rayleigh_falloff = spec["atmo_rayleigh_falloff"] ?? 0.22;
+    let atmo_haze_amount = spec["atmo_haze_amount"] ?? 0.22;
+    let atmo_haze_falloff = spec["atmo_haze_falloff"] ?? 0.46;
 
     if tab == 0 {
         gui.set_widget_value("param-0", seed_to_01(seed));
@@ -315,63 +320,66 @@ fn sync_widgets_from_state(local, gui, tab) {
 }
 
 fn read_widgets_into_state(local, gui, tab) {
+    local = planet_spec::sync_spec_from_legacy(local);
+    let spec = local["planet_spec"] ?? #{};
     if tab == 0 {
-        local.seed = seed_from_01(gui.slider_value("param-0"));
-        local.has_ocean = toggle_from_01(gui.slider_value("param-1"));
-        local.cscale = cscale_from_01(gui.slider_value("param-2"));
-        local.cwarp = cwarp_from_01(gui.slider_value("param-3"));
+        spec.seed = seed_from_01(gui.slider_value("param-0"));
+        spec.has_ocean = toggle_from_01(gui.slider_value("param-1"));
+        spec.cscale = cscale_from_01(gui.slider_value("param-2"));
+        spec.cwarp = cwarp_from_01(gui.slider_value("param-3"));
         let raw_coct = gui.slider_value("param-4");
-        local.coct = coct_from_01(raw_coct);
-        let snap_coct = coct_to_01(local.coct);
+        spec.coct = coct_from_01(raw_coct);
+        let snap_coct = coct_to_01(spec.coct);
         if (raw_coct - snap_coct).abs() > 0.005 {
             gui.set_widget_value("param-4", snap_coct);
         }
     } else if tab == 1 {
-        local.mscale = mscale_from_01(gui.slider_value("param-0"));
-        local.mstr = mstr_from_01(gui.slider_value("param-1"));
+        spec.mscale = mscale_from_01(gui.slider_value("param-0"));
+        spec.mstr = mstr_from_01(gui.slider_value("param-1"));
         let raw_mroct = gui.slider_value("param-2");
-        local.mroct = mroct_from_01(raw_mroct);
-        let snap_mroct = mroct_to_01(local.mroct);
+        spec.mroct = mroct_from_01(raw_mroct);
+        let snap_mroct = mroct_to_01(spec.mroct);
         if (raw_mroct - snap_mroct).abs() > 0.005 {
             gui.set_widget_value("param-2", snap_mroct);
         }
     } else if tab == 2 {
-        local.moisture = moisture_from_01(gui.slider_value("param-0"));
-        local.ice = ice_from_01(gui.slider_value("param-1"));
-        local.lapse = lapse_from_01(gui.slider_value("param-2"));
-        local.rain = rain_from_01(gui.slider_value("param-3"));
+        spec.moisture = moisture_from_01(gui.slider_value("param-0"));
+        spec.ice = ice_from_01(gui.slider_value("param-1"));
+        spec.lapse = lapse_from_01(gui.slider_value("param-2"));
+        spec.rain = rain_from_01(gui.slider_value("param-3"));
     } else if tab == 3 {
         let raw_subdiv = gui.slider_value("param-0");
-        local.subdiv = subdiv_from_01(raw_subdiv);
-        let snap_subdiv = subdiv_to_01(local.subdiv);
+        spec.subdiv = subdiv_from_01(raw_subdiv);
+        let snap_subdiv = subdiv_to_01(spec.subdiv);
         if (raw_subdiv - snap_subdiv).abs() > 0.005 {
             gui.set_widget_value("param-0", snap_subdiv);
         }
-        local.disp = disp_from_01(gui.slider_value("param-1"));
+        spec.disp = disp_from_01(gui.slider_value("param-1"));
         let raw_coloring = gui.slider_value("param-2");
-        local.coloring = coloring_from_01(raw_coloring);
-        let snap_coloring = coloring_to_01(local.coloring);
+        spec.coloring = coloring_from_01(raw_coloring);
+        let snap_coloring = coloring_to_01(spec.coloring);
         if (raw_coloring - snap_coloring).abs() > 0.005 {
             gui.set_widget_value("param-2", snap_coloring);
         }
-        local.rotspeed = rotspeed_from_01(gui.slider_value("param-3"));
-        local.sunaz = sunaz_from_01(gui.slider_value("param-4"));
-        local.sunel = sunel_from_01(gui.slider_value("param-5"));
-        local.ambient = ambient_from_01(gui.slider_value("param-6"));
+        spec.rotspeed = rotspeed_from_01(gui.slider_value("param-3"));
+        spec.sunaz = sunaz_from_01(gui.slider_value("param-4"));
+        spec.sunel = sunel_from_01(gui.slider_value("param-5"));
+        spec.ambient = ambient_from_01(gui.slider_value("param-6"));
     } else {
         let raw_atmo_color = gui.slider_value("param-0");
-        local.atmo_color = atmo_color_from_01(raw_atmo_color);
-        let snap_atmo_color = atmo_color_to_01(local.atmo_color);
+        spec.atmo_color = atmo_color_from_01(raw_atmo_color);
+        let snap_atmo_color = atmo_color_to_01(spec.atmo_color);
         if (raw_atmo_color - snap_atmo_color).abs() > 0.005 {
             gui.set_widget_value("param-0", snap_atmo_color);
         }
-        local.atmo_density = atmo_density_from_01(gui.slider_value("param-1"));
-        local.atmo_height = atmo_height_from_01(gui.slider_value("param-2"));
-        local.atmo_forward_scatter = atmo_forward_from_01(gui.slider_value("param-3"));
-        local.atmo_absorption = atmo_absorption_from_01(gui.slider_value("param-4"));
-        local.atmo_rayleigh_falloff = atmo_ray_falloff_from_01(gui.slider_value("param-5"));
-        local.atmo_haze_amount = atmo_haze_amount_from_01(gui.slider_value("param-6"));
-        local.atmo_haze_falloff = atmo_haze_falloff_from_01(gui.slider_value("param-7"));
+        spec.atmo_density = atmo_density_from_01(gui.slider_value("param-1"));
+        spec.atmo_height = atmo_height_from_01(gui.slider_value("param-2"));
+        spec.atmo_forward_scatter = atmo_forward_from_01(gui.slider_value("param-3"));
+        spec.atmo_absorption = atmo_absorption_from_01(gui.slider_value("param-4"));
+        spec.atmo_rayleigh_falloff = atmo_ray_falloff_from_01(gui.slider_value("param-5"));
+        spec.atmo_haze_amount = atmo_haze_amount_from_01(gui.slider_value("param-6"));
+        spec.atmo_haze_falloff = atmo_haze_falloff_from_01(gui.slider_value("param-7"));
     }
-    local
+    local["planet_spec"] = spec;
+    planet_spec::sync_legacy_from_spec(local)
 }

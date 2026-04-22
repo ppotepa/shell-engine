@@ -5,6 +5,7 @@
 
 use super::color::TermColour;
 use super::easing::Easing;
+use super::planet_spec::PlanetSpec;
 use super::sprite::Sprite;
 use super::view_profile::{LightingProfile, SpaceEnvironmentProfile, ViewProfile};
 use crate::animations::AnimationParams;
@@ -654,6 +655,14 @@ fn default_free_look_mouse_sensitivity() -> f32 {
     1.0
 }
 
+fn default_free_look_toggle_key() -> String {
+    "f".to_string()
+}
+
+fn default_free_look_toggle_with_ctrl() -> bool {
+    true
+}
+
 fn default_free_look_surface_mode() -> bool {
     false
 }
@@ -693,6 +702,20 @@ fn default_free_look_surface_vertical_speed() -> f32 {
 /// Declarative free-look scene camera controls.
 #[derive(Debug, Clone, Deserialize)]
 pub struct FreeLookCameraControls {
+    /// Toggle key for entering/exiting free-look camera.
+    #[serde(
+        default = "default_free_look_toggle_key",
+        rename = "toggle-key",
+        alias = "toggle_key"
+    )]
+    pub toggle_key: String,
+    /// Whether the toggle key requires Ctrl to be held.
+    #[serde(
+        default = "default_free_look_toggle_with_ctrl",
+        rename = "toggle-with-ctrl",
+        alias = "toggle_with_ctrl"
+    )]
+    pub toggle_with_ctrl: bool,
     /// Camera translation speed in scene-world units per second.
     #[serde(
         default = "default_free_look_move_speed",
@@ -775,6 +798,8 @@ pub struct FreeLookCameraControls {
 impl Default for FreeLookCameraControls {
     fn default() -> Self {
         Self {
+            toggle_key: default_free_look_toggle_key(),
+            toggle_with_ctrl: default_free_look_toggle_with_ctrl(),
             move_speed: default_free_look_move_speed(),
             mouse_sensitivity: default_free_look_mouse_sensitivity(),
             surface_mode: default_free_look_surface_mode(),
@@ -863,6 +888,10 @@ pub struct Scene {
     pub lighting: Option<SceneLighting>,
     #[serde(default)]
     pub view: Option<SceneView>,
+    #[serde(default, rename = "planet-spec", alias = "planet_spec")]
+    pub planet_spec: Option<PlanetSpec>,
+    #[serde(default, rename = "planet-spec-ref", alias = "planet_spec_ref")]
+    pub planet_spec_ref: Option<String>,
     #[serde(default, rename = "virtual-size-override")]
     pub virtual_size_override: Option<String>,
     pub bg_colour: Option<TermColour>,
@@ -1266,6 +1295,81 @@ layers: []
         .expect("scene should parse");
 
         assert_eq!(scene.target_fps, Some(24));
+    }
+
+    #[test]
+    fn parses_scene_planet_spec_and_ref_kebab_case() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: planet-spec-scene
+title: Planet Spec
+planet-spec:
+  generator:
+    preset: terrestrial
+    seed: 123
+  render:
+    mesh-source: /assets/3d/sphere.obj
+  atmosphere:
+    enabled: true
+    thickness-km: 100.0
+  body:
+    id: gaia
+    radius-km: 6400.0
+planet-spec-ref: /planet-specs/gaia.yml
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(
+            scene
+                .planet_spec
+                .as_ref()
+                .and_then(|spec| spec.generator.as_ref())
+                .and_then(|generator| generator.seed),
+            Some(123)
+        );
+        assert_eq!(
+            scene
+                .planet_spec
+                .as_ref()
+                .and_then(|spec| spec.body.as_ref())
+                .and_then(|body| body.id.as_deref()),
+            Some("gaia")
+        );
+        assert_eq!(
+            scene.planet_spec_ref.as_deref(),
+            Some("/planet-specs/gaia.yml")
+        );
+    }
+
+    #[test]
+    fn parses_scene_planet_spec_and_ref_snake_case_alias() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: planet-spec-alias-scene
+title: Planet Spec Alias
+planet_spec:
+  generator:
+    detail: 6
+planet_spec_ref: /planet-specs/alias.yml
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(
+            scene
+                .planet_spec
+                .as_ref()
+                .and_then(|spec| spec.generator.as_ref())
+                .and_then(|generator| generator.detail),
+            Some(6)
+        );
+        assert_eq!(
+            scene.planet_spec_ref.as_deref(),
+            Some("/planet-specs/alias.yml")
+        );
     }
 
     #[test]

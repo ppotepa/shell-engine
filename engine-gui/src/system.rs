@@ -60,7 +60,7 @@ impl GuiSystem {
                         }
                     }
                 }
-                InputEvent::MouseDown { x, y, button } => {
+                InputEvent::MouseDown { x, y, button, .. } => {
                     state.mouse_x = *x;
                     state.mouse_y = *y;
                     Self::update_hover(widgets, state);
@@ -101,7 +101,7 @@ impl GuiSystem {
                         }
                     }
                 }
-                InputEvent::MouseUp { x, y, button } => {
+                InputEvent::MouseUp { x, y, button, .. } => {
                     state.mouse_x = *x;
                     state.mouse_y = *y;
                     if *button == MouseButton::Left {
@@ -154,6 +154,8 @@ impl GuiSystem {
                     }
                 }
                 InputEvent::FocusLost => {
+                    state.drag_button = None;
+                    state.drag_widget = None;
                     state.focused_widget = None;
                     for ws in state.widgets.values_mut() {
                         ws.pressed = false;
@@ -218,6 +220,7 @@ mod tests {
             x: 60.0,
             y: 15.0,
             button: MouseButton::Left,
+            modifiers: engine_events::KeyModifiers::NONE,
         }];
         GuiSystem::update(&widgets, &mut state, &events);
         assert!((state.value("s") - 0.5).abs() < 0.01);
@@ -246,6 +249,7 @@ mod tests {
                 x: 10.0,
                 y: 5.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(
@@ -255,11 +259,45 @@ mod tests {
                 x: 10.0,
                 y: 5.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         assert!(state.clicked("btn"));
         GuiSystem::update(&widgets, &mut state, &[]);
         assert!(!state.clicked("btn"));
+    }
+
+    #[test]
+    fn focus_lost_cancels_active_drag_state() {
+        let widgets: Vec<Box<dyn GuiControl>> = vec![make_slider()];
+        let mut state = GuiRuntimeState::new();
+        GuiSystem::update(
+            &widgets,
+            &mut state,
+            &[InputEvent::MouseDown {
+                x: 60.0,
+                y: 15.0,
+                button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
+            }],
+        );
+        assert_eq!(state.drag_button, Some(MouseButton::Left));
+        assert_eq!(state.drag_widget.as_deref(), Some("s"));
+
+        GuiSystem::update(&widgets, &mut state, &[InputEvent::FocusLost]);
+        assert_eq!(state.drag_button, None);
+        assert_eq!(state.drag_widget, None);
+
+        let before = state.value("s");
+        GuiSystem::update(
+            &widgets,
+            &mut state,
+            &[InputEvent::MouseMoved { x: 110.0, y: 15.0 }],
+        );
+        assert!(
+            (state.value("s") - before).abs() < f64::EPSILON,
+            "drag updates should stop after focus is lost"
+        );
     }
 
     #[test]
@@ -291,6 +329,7 @@ mod tests {
                 x: 20.0,
                 y: 15.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(
@@ -300,6 +339,7 @@ mod tests {
                 x: 20.0,
                 y: 15.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         assert!(state.is_open("dd"));
@@ -311,6 +351,7 @@ mod tests {
                 x: 20.0,
                 y: 45.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(
@@ -320,6 +361,7 @@ mod tests {
                 x: 20.0,
                 y: 45.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         assert_eq!(state.selected_index("dd"), Some(0));
@@ -350,6 +392,7 @@ mod tests {
                 x: 20.0,
                 y: 15.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(
@@ -359,6 +402,7 @@ mod tests {
                 x: 20.0,
                 y: 15.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(
@@ -415,6 +459,7 @@ mod tests {
                 x: 20.0,
                 y: 15.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(
@@ -424,6 +469,7 @@ mod tests {
                 x: 20.0,
                 y: 15.0,
                 button: MouseButton::Left,
+                modifiers: engine_events::KeyModifiers::NONE,
             }],
         );
         GuiSystem::update(

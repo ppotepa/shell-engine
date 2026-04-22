@@ -1,8 +1,0 @@
-systems:
-  vehicle-playground-system:
-    region: vehicle-playground-local
-    display-name: Vehicle Playground System
-    bodies: [generated-planet]
-    map-position:
-      x: 0.0
-      y: 0.0

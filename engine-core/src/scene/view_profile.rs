@@ -481,6 +481,8 @@ mod tests {
             celestial: Default::default(),
             lighting: None,
             view: None,
+            planet_spec: None,
+            planet_spec_ref: None,
             virtual_size_override: None,
             bg_colour: None,
             stages: Default::default(),

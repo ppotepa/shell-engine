@@ -2,6 +2,7 @@
 # Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-stop-animation
 title: Stop Animation (Placeholder)
+virtual-size-override: 640x360
 bg: black
 stages-ref: /stages/anykey-fade-300-250.yml
 layers:

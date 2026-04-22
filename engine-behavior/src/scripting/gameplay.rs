@@ -8,7 +8,7 @@ use engine_api::gameplay::objects::{GameplayWorldObjectCoreApi, GameplayWorldObj
 use engine_api::rhai::register::{
     register_gameplay_core_api, register_geometry_api, register_numeric_api,
 };
-use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
+use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 
 pub(crate) use super::gameplay_impl::{
     ScriptGameplayApi, ScriptGameplayBodySnapshotApi, ScriptGameplayEntityApi,
@@ -734,6 +734,18 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         |world: &mut ScriptGameplayApi, id: &str, patch: RhaiMap| world.body_patch(id, patch),
     );
     engine.register_fn(
+        "apply_planet_spec",
+        |world: &mut ScriptGameplayApi, target: &str, body_id: &str, spec_map: RhaiMap| {
+            world.apply_planet_spec(target, body_id, spec_map)
+        },
+    );
+    engine.register_fn(
+        "world.apply_planet_spec",
+        |world: &mut ScriptGameplayApi, target: &str, body_id: &str, spec_map: RhaiMap| {
+            world.apply_planet_spec(target, body_id, spec_map)
+        },
+    );
+    engine.register_fn(
         "body_position",
         |world: &mut ScriptGameplayApi, id: &str, elapsed_sec: rhai::FLOAT| {
             world.body_position(id, elapsed_sec)
@@ -798,6 +810,30 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "world.atmosphere_attach",
         |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| {
             world.atmosphere_attach(id, config)
+        },
+    );
+    engine.register_fn(
+        "find_planet_spawn_angle",
+        |world: &mut ScriptGameplayApi, config: RhaiMap, preferred_biomes: RhaiArray| {
+            world.find_planet_spawn_angle(config, preferred_biomes)
+        },
+    );
+    engine.register_fn(
+        "world.find_planet_spawn_angle",
+        |world: &mut ScriptGameplayApi, config: RhaiMap, preferred_biomes: RhaiArray| {
+            world.find_planet_spawn_angle(config, preferred_biomes)
+        },
+    );
+    engine.register_fn(
+        "find_planet_spawn",
+        |world: &mut ScriptGameplayApi, config: RhaiMap, preferred_biomes: RhaiArray| {
+            world.find_planet_spawn(config, preferred_biomes)
+        },
+    );
+    engine.register_fn(
+        "world.find_planet_spawn",
+        |world: &mut ScriptGameplayApi, config: RhaiMap, preferred_biomes: RhaiArray| {
+            world.find_planet_spawn(config, preferred_biomes)
         },
     );
     engine.register_fn(
@@ -1470,5 +1506,233 @@ mod tests {
                 "unexpected km_per_px for {key}"
             );
         }
+    }
+
+    #[test]
+    fn register_with_rhai_finds_planet_spawn_angle_for_preferred_biomes() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let angle: rhai::FLOAT = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    world.find_planet_spawn_angle(
+                        #{
+                            seed: 1847,
+                            has_ocean: true,
+                            ocean: 0.55,
+                            cscale: 2.5,
+                            cwarp: 0.65,
+                            coct: 5,
+                            mscale: 6.0,
+                            mstr: 0.45,
+                            mroct: 5,
+                            moisture: 3.0,
+                            ice: 1.0,
+                            lapse: 0.6,
+                            rain: 0.4
+                        },
+                        ["beach", "desert", "grassland"]
+                    )
+                "#,
+            )
+            .expect("spawn angle lookup should evaluate");
+
+        assert!((0.0..=360.0).contains(&angle));
+    }
+
+    #[test]
+    fn register_with_rhai_finds_planet_spawn_with_surface_data() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    world.find_planet_spawn(
+                        #{
+                            seed: 1847,
+                            has_ocean: true,
+                            ocean: 0.55,
+                            cscale: 2.5,
+                            cwarp: 0.65,
+                            coct: 5,
+                            mscale: 6.0,
+                            mstr: 0.45,
+                            mroct: 5,
+                            moisture: 3.0,
+                            ice: 1.0,
+                            lapse: 0.6,
+                            rain: 0.4,
+                            disp: 0.22
+                        },
+                        ["beach", "desert", "grassland"]
+                    )
+                "#,
+            )
+            .expect("spawn lookup with surface data should evaluate");
+
+        let longitude = result
+            .get("longitude_deg")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("longitude_deg");
+        let latitude = result
+            .get("latitude_deg")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("latitude_deg");
+        let nx = result
+            .get("normal_x")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("normal_x");
+        let ny = result
+            .get("normal_y")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("normal_y");
+        let nz = result
+            .get("normal_z")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("normal_z");
+        let surface_radius_scale = result
+            .get("surface_radius_scale")
+            .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+            .expect("surface_radius_scale");
+        let biome = result
+            .get("biome")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .expect("biome");
+
+        assert!((0.0..=360.0).contains(&longitude));
+        assert!((-90.0..=90.0).contains(&latitude));
+        assert!(surface_radius_scale > 0.0);
+        assert!(!biome.is_empty());
+
+        let normal_len = (nx * nx + ny * ny + nz * nz).sqrt();
+        assert!(
+            (normal_len - 1.0).abs() < 0.001,
+            "expected unit surface normal, got {normal_len}"
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_uses_default_biomes_when_spawn_preferences_are_empty() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let config = #{
+                        seed: 1847,
+                        has_ocean: true,
+                        ocean: 0.55,
+                        cscale: 2.5,
+                        cwarp: 0.65,
+                        coct: 5,
+                        mscale: 6.0,
+                        mstr: 0.45,
+                        mroct: 5,
+                        moisture: 3.0,
+                        ice: 1.0,
+                        lapse: 0.6,
+                        rain: 0.4
+                    };
+                    #{
+                        empty: world.find_planet_spawn_angle(config, []),
+                        explicit: world.find_planet_spawn_angle(config, ["beach", "desert", "grassland"])
+                    }
+                "#,
+            )
+            .expect("empty spawn preference list should evaluate");
+
+        assert_eq!(
+            result
+                .get("empty")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            result
+                .get("explicit")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+        );
+    }
+
+    #[test]
+    fn register_with_rhai_accepts_alias_and_string_spawn_config_fields() {
+        let world = GameplayWorld::new();
+        let mut engine = RhaiEngine::new();
+        register_with_rhai(&mut engine);
+
+        let mut scope = RhaiScope::new();
+        scope.push("world", build_world_api(world));
+
+        let result: RhaiMap = engine
+            .eval_with_scope(
+                &mut scope,
+                r#"
+                    let canonical = world.find_planet_spawn_angle(
+                        #{
+                            seed: 1847,
+                            has_ocean: true,
+                            ocean: 0.55,
+                            cscale: 2.5,
+                            cwarp: 0.65,
+                            coct: 5,
+                            mscale: 6.0,
+                            mstr: 0.45,
+                            mroct: 5,
+                            moisture: 3.0,
+                            ice: 1.0,
+                            lapse: 0.6,
+                            rain: 0.4
+                        },
+                        ["beach", "desert", "grassland"]
+                    );
+                    let alias = world.find_planet_spawn_angle(
+                        #{
+                            seed: "1847",
+                            "has-ocean": "yes",
+                            "ocean-fraction": "0.55",
+                            "continent-scale": "2.5",
+                            "continent-warp": "0.65",
+                            "continent-octaves": "5",
+                            "mountain-scale": "6.0",
+                            "mountain-strength": "0.45",
+                            "mountain-ridge-octaves": "5",
+                            "moisture-scale": "3.0",
+                            "ice-cap-strength": "1.0",
+                            "lapse-rate": "0.6",
+                            "rain-shadow": "0.4"
+                        },
+                        ["beach", "desert", "grassland"]
+                    );
+                    #{
+                        canonical: canonical,
+                        alias: alias
+                    }
+                "#,
+            )
+            .expect("string/alias spawn config should evaluate");
+
+        assert_eq!(
+            result
+                .get("canonical")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>()),
+            result
+                .get("alias")
+                .and_then(|value| value.clone().try_cast::<rhai::FLOAT>())
+        );
     }
 }

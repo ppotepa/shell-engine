@@ -674,6 +674,8 @@ impl Behavior for RhaiScriptBehavior {
                 let input_api = ScriptInputApi::new(
                     Arc::clone(&ctx.keys_down),
                     Arc::clone(&ctx.keys_just_pressed),
+                    ctx.mouse_x,
+                    ctx.mouse_y,
                     ctx.scroll_y,
                     ctx.ctrl_scroll_y,
                     Arc::clone(&ctx.action_bindings),
@@ -1216,6 +1218,8 @@ mod tests {
             spatial: Default::default(),
             lighting: None,
             view: None,
+            planet_spec: None,
+            planet_spec_ref: None,
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
@@ -1452,6 +1456,43 @@ out
                     dy: 0
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_exposes_input_mouse_position() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+game.set("/test/mouse_x", input.mouse_x);
+game.set("/test/mouse_y", input.mouse_y);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+        test_ctx.mouse_x = 512.5;
+        test_ctx.mouse_y = 144.25;
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "input mouse getters should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/test/mouse_x").and_then(|v| v.as_f64()),
+            Some(512.5)
+        );
+        assert_eq!(
+            game_state.get("/test/mouse_y").and_then(|v| v.as_f64()),
+            Some(144.25)
         );
     }
 
@@ -3943,6 +3984,119 @@ game.set("/test/atmo_top_km", info["atmosphere_top_km"]);
         assert_eq!(
             game_state.get("/test/atmo_top_km").and_then(|v| v.as_f64()),
             Some(25.0)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_apply_planet_spec_emits_unified_planet_command() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ok_apply = world.apply_planet_spec("planet-mesh", "generated-planet", #{
+    body: #{
+        planet_type: "earth_like",
+        center_x: 12.0,
+        center_y: -4.0,
+        radius_px: 210.0,
+        surface_radius: 205.0,
+        gravity_mu_km3_s2: 4321.5,
+        atmosphere_top_km: 88.0
+    },
+    generator_params: #{
+        seed: 42.0
+    },
+    atmosphere_params: #{
+        density: 0.35
+    },
+    view_params: #{
+        distance: 9.5
+    }
+});
+game.set("/test/ok_apply", ok_apply);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "apply_planet_spec should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/test/ok_apply").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let Some(BehaviorCommand::ApplyPlanetSpec {
+            target,
+            body_id,
+            spec,
+        }) = commands
+            .iter()
+            .find(|command| matches!(command, BehaviorCommand::ApplyPlanetSpec { .. }))
+        else {
+            panic!("expected ApplyPlanetSpec command: {commands:?}");
+        };
+        assert_eq!(target, "planet-mesh");
+        assert_eq!(body_id, "generated-planet");
+        assert_eq!(spec.body.center_x, Some(12.0));
+        assert_eq!(spec.body.radius_px, Some(210.0));
+        assert_eq!(
+            spec.generator_params
+                .get("seed")
+                .and_then(|value| value.as_f64()),
+            Some(42.0)
+        );
+        assert_eq!(
+            spec.atmosphere_params
+                .get("density")
+                .and_then(|value| value.as_f64()),
+            Some(0.35)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_apply_planet_spec_rejects_invalid_spec_map() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ok_apply = world.apply_planet_spec("planet-mesh", "generated-planet", #{
+    body: 1
+});
+game.set("/test/ok_apply", ok_apply);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "invalid apply_planet_spec input should fail gracefully: {commands:?}"
+        );
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ApplyPlanetSpec { .. })),
+            "invalid apply_planet_spec input should not queue a command: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/test/ok_apply").and_then(|v| v.as_bool()),
+            Some(false)
         );
     }
 

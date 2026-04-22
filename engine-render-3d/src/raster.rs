@@ -945,6 +945,59 @@ fn render_mesh_projected(
     OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
 }
 
+/// Project vertices and render a single mesh into provided RGBA canvas and depth buffers.
+///
+/// This is the shared-buffer seam for opaque mesh batches. It intentionally skips
+/// grading/post-process passes so callers can batch multiple meshes into one world
+/// canvas and apply screen-space work once at the end.
+#[allow(clippy::too_many_arguments)]
+fn render_mesh_projected_rgba(
+    mesh: &ObjMesh,
+    virtual_w: u16,
+    virtual_h: u16,
+    params: ObjRenderParams,
+    backface_cull: bool,
+    fg: Color,
+    canvas: &mut [Option<[u8; 4]>],
+    depth_buf: &mut [f32],
+) {
+    let mut projected = take_projected_buffer(mesh.vertices.len());
+    let Some(clipped_viewport) = project_mesh_with_viewport(
+        mesh,
+        &params,
+        virtual_w,
+        virtual_h,
+        ProjectionPoseConfig {
+            include_animated_yaw: true,
+            include_camera_look: true,
+        },
+        ProjectionStageConfig {
+            terrain_noise_policy: TerrainNoisePolicy::SurfaceOrDisplacement,
+            apply_smooth_normals: true,
+            parallel_threshold: VERTEX_PARALLEL_THRESHOLD,
+        },
+        &mut projected,
+    ) else {
+        OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+        return;
+    };
+
+    let frame_ctx = FrameShadingContext::from_params(&params, fg);
+    let _ = render_gouraud_rgba_solid(
+        mesh,
+        &projected,
+        canvas,
+        depth_buf,
+        virtual_w,
+        virtual_h,
+        clipped_viewport,
+        backface_cull,
+        params.depth_sort_faces,
+        frame_ctx,
+    );
+    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+}
+
 // ── Public entry point ────────────────────────────────────────────────────────
 
 /// Render an OBJ mesh source into a pre-allocated shared canvas and depth buffer.
@@ -977,6 +1030,10 @@ pub fn render_obj_to_shared_buffers(
     if virtual_w < 2 || virtual_h < 2 {
         return;
     }
+    let canvas_size = virtual_w as usize * virtual_h as usize;
+    if canvas.len() < canvas_size || depth_buf.len() < canvas_size {
+        return;
+    }
 
     render_mesh_projected(
         &mesh,
@@ -984,6 +1041,78 @@ pub fn render_obj_to_shared_buffers(
         virtual_h,
         params,
         wireframe,
+        backface_cull,
+        fg,
+        canvas,
+        depth_buf,
+    );
+}
+
+/// Render an OBJ mesh source into caller-owned shared RGBA and depth buffers.
+///
+/// `canvas` and `depth_buf` must each be `target_w * target_h` elements.
+/// Multiple calls may share the same buffers for cross-mesh depth testing.
+///
+/// For `wireframe` or flat-shaded meshes, this falls back to the existing RGB
+/// shared-buffer path and copies painted pixels into RGBA with alpha 255.
+#[allow(clippy::too_many_arguments)]
+pub fn render_obj_to_shared_rgba_buffers(
+    source: &str,
+    target_w: u16,
+    target_h: u16,
+    params: ObjRenderParams,
+    wireframe: bool,
+    backface_cull: bool,
+    fg: Color,
+    asset_root: Option<&AssetRoot>,
+    canvas: &mut [Option<[u8; 4]>],
+    depth_buf: &mut [f32],
+) {
+    let Some(root) = asset_root else {
+        return;
+    };
+    let Some(mesh) = load_render_mesh(root, source) else {
+        return;
+    };
+    if target_w < 2 || target_h < 2 {
+        return;
+    }
+    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
+    if virtual_w < 2 || virtual_h < 2 {
+        return;
+    }
+    let canvas_size = virtual_w as usize * virtual_h as usize;
+    if canvas.len() < canvas_size || depth_buf.len() < canvas_size {
+        return;
+    }
+
+    if wireframe || !params.smooth_shading {
+        let mut rgb_canvas = take_rgb_canvas_buffer(canvas_size);
+        render_mesh_projected(
+            &mesh,
+            virtual_w,
+            virtual_h,
+            params,
+            wireframe,
+            backface_cull,
+            fg,
+            &mut rgb_canvas,
+            depth_buf,
+        );
+        for (dst, src) in canvas.iter_mut().zip(rgb_canvas.iter()) {
+            if let Some([r, g, b]) = src {
+                *dst = Some([*r, *g, *b, 255]);
+            }
+        }
+        OBJ_CANVAS.with(|c| *c.borrow_mut() = rgb_canvas);
+        return;
+    }
+
+    render_mesh_projected_rgba(
+        &mesh,
+        virtual_w,
+        virtual_h,
+        params,
         backface_cull,
         fg,
         canvas,

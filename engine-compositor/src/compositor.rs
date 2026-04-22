@@ -1,8 +1,12 @@
 use std::collections::HashMap;
+#[cfg(feature = "render-3d")]
+use std::collections::HashSet;
 
 use crate::layer_compositor::{composite_layers, LayerCompositeInputs, PreparedLayerRenderInputs};
 #[cfg(feature = "render-3d")]
-use crate::prepared_frame::layer_frames_from_prepared;
+use crate::prepared_frame::{
+    collect_world3d_batch_plan, layer_frames_from_prepared, PreparedLayerInput,
+};
 use crate::{prepare_layer_frames, CompositeParams};
 use engine_core::buffer::Buffer;
 #[cfg(not(feature = "render-3d"))]
@@ -33,6 +37,15 @@ impl LayerPassKind {
             Self::All => true,
             // 3D content always belongs to the world pass, even if a layer is
             // accidentally marked as UI.
+            Self::WorldOnly => !prepared.layer.ui || prepared.has_3d,
+            Self::UiOnly => prepared.layer.ui && !prepared.has_3d,
+        }
+    }
+
+    #[cfg(feature = "render-3d")]
+    pub(crate) fn includes_layer_input(self, prepared: &PreparedLayerInput<'_>) -> bool {
+        match self {
+            Self::All => true,
             Self::WorldOnly => !prepared.layer.ui || prepared.has_3d,
             Self::UiOnly => prepared.layer.ui && !prepared.has_3d,
         }
@@ -106,14 +119,25 @@ fn composite_scene(
     };
     // Use pre-classified layer inputs when available; fall back to inline frame preparation.
     #[cfg(feature = "render-3d")]
-    let prepared_layers: Vec<_> = if let Some(inputs) = &params.frame.prepared_layer_inputs {
-        layer_frames_from_prepared(inputs)
-    } else {
-        prepare_layer_frames(&params.frame, params.prepared.current_stage)
-    }
-    .into_iter()
-    .filter(|prepared| pass.includes_prepared(prepared))
-    .collect();
+    let (prepared_layers, fully_batched_layers): (Vec<_>, HashSet<usize>) =
+        if let Some(inputs) = &params.frame.prepared_layer_inputs {
+            let world3d_batch_plan = collect_world3d_batch_plan(inputs, pass);
+            (
+                layer_frames_from_prepared(inputs)
+                    .into_iter()
+                    .filter(|prepared| pass.includes_prepared(prepared))
+                    .collect(),
+                world3d_batch_plan.fully_batched_layers,
+            )
+        } else {
+            (
+                prepare_layer_frames(&params.frame, params.prepared.current_stage)
+                    .into_iter()
+                    .filter(|prepared| pass.includes_prepared(prepared))
+                    .collect(),
+                HashSet::new(),
+            )
+        };
     #[cfg(not(feature = "render-3d"))]
     let prepared_layers: Vec<_> =
         prepare_layer_frames(&params.frame, params.prepared.current_stage)
@@ -137,6 +161,10 @@ fn composite_scene(
         camera_x: params.prepared.camera.camera_x,
         camera_y: params.prepared.camera.camera_y,
         camera_zoom: params.prepared.camera.camera_zoom,
+        #[cfg(feature = "render-3d")]
+        fully_batched_layers: &fully_batched_layers,
+        #[cfg(feature = "render-3d")]
+        prepared_layer_inputs: params.frame.prepared_layer_inputs.as_deref(),
         render: PreparedLayerRenderInputs {
             render_2d_pipeline,
             asset_root: params.prepared.asset_root,

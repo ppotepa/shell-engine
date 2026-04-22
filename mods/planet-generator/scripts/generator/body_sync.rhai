@@ -1,3 +1,5 @@
+import "std/planet_spec" as planet_spec;
+
 fn sim_radius_km(real_radius_km, divisor) {
     let d = if divisor <= 0.0001 { 1.0 } else { divisor };
     real_radius_km / d
@@ -26,7 +28,7 @@ fn build_generated_body_map(
         // Keep the generator preview on a unit shell while gameplay/physics
         // continue to use the scaled simulation radius in world units.
         radius_px: 1.0,
-        km_per_px: 1.0,
+        km_per_px: sim_radius,
         surface_radius: sim_radius,
         radius_km: sim_radius,
         gravity_mu_km3_s2: mu_km3,
@@ -40,21 +42,24 @@ fn build_generated_body_map(
 }
 
 fn build_generated_body_from_local(local) {
+    let spec = planet_spec::snapshot(local);
     build_generated_body_map(
-        local["planet_radius_real_km"] ?? 6371.0,
-        local["planet_radius_scale_divisor"] ?? 1.0,
-        local["surface_gravity_mps2"] ?? 9.81,
-        local["atmo_top_km"] ?? 80.0,
-        local["atmo_dense_start_km"] ?? 12.0,
-        local["atmo_drag_max"] ?? 2.0,
-        local["planet_type"] ?? "earth_like"
+        spec["planet_radius_real_km"] ?? 6371.0,
+        spec["planet_radius_scale_divisor"] ?? 1.0,
+        spec["surface_gravity_mps2"] ?? 9.81,
+        spec["atmo_top_km"] ?? 80.0,
+        spec["atmo_dense_start_km"] ?? 12.0,
+        spec["atmo_drag_max"] ?? 2.0,
+        spec["planet_type"] ?? "earth_like"
     )
 }
 
 fn sync_generated_body(local, world) {
+    local = planet_spec::sync_spec_from_legacy(local);
+    let spec = local["planet_spec"] ?? #{};
     local["planet_radius_sim_km"] = sim_radius_km(
-        local["planet_radius_real_km"] ?? 6371.0,
-        local["planet_radius_scale_divisor"] ?? 1.0
+        spec["planet_radius_real_km"] ?? 6371.0,
+        spec["planet_radius_scale_divisor"] ?? 1.0
     );
 
     let body = build_generated_body_from_local(local);

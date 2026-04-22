@@ -3,11 +3,18 @@ use super::*;
 const FREE_LOOK_CAPTURED_KEYS: &[&str] = &[
     "w", "a", "s", "d", "q", "e", " ", "Up", "Down", "Left", "Right",
 ];
+const FREE_LOOK_TRANSIENT_DRAG_MARKER: &str = "__free_look_transient_drag__";
 const FREE_LOOK_VERTICAL_LOOK_SCALE: f32 = 1.8;
 const FREE_LOOK_HORIZONTAL_LOOK_SCALE: f32 = 1.8;
-const FREE_LOOK_PITCH_LIMIT_DEG: f32 = 85.0;
+const FREE_LOOK_WORLD_PITCH_LIMIT_DEG: f32 = 89.0;
+const FREE_LOOK_SURFACE_PITCH_LIMIT_DEG: f32 = 85.0;
+const FREE_LOOK_ROTATION_LAG_SEC: f32 = 0.08;
+const OBJ_ORBIT_ROTATION_LAG_SEC: f32 = 0.10;
+const OBJ_ORBIT_DISTANCE_LAG_SEC: f32 = 0.12;
 const OBJ_ORBIT_DISTANCE_HARD_MIN: f32 = 0.3;
 const OBJ_ORBIT_DISTANCE_HARD_MAX: f32 = 10.0;
+const OBJ_SCALE_MIN: f32 = 0.0000001;
+const OBJ_SCALE_MAX: f32 = 8.0;
 
 impl SceneRuntime {
     pub fn free_look_surface_mode_enabled(&self) -> bool {
@@ -70,6 +77,7 @@ impl SceneRuntime {
             state.distance_min = effective_min;
             state.distance_max = effective_max;
             state.distance = clamped_distance;
+            state.applied_distance = state.applied_distance.clamp(effective_min, effective_max);
         }
         let _ = self.set_obj_orbit_camera_fields(
             &target,
@@ -130,7 +138,6 @@ impl SceneRuntime {
             }
             if changed {
                 self.orbit_camera.as_mut().unwrap().distance = dist;
-                let _ = self.set_obj_orbit_camera_fields(&target, None, None, Some(dist));
             }
         }
 
@@ -171,7 +178,6 @@ impl SceneRuntime {
         }
         if changed {
             self.orbit_camera.as_mut().unwrap().distance = dist;
-            let _ = self.set_obj_orbit_camera_fields(&target, None, None, Some(dist));
         }
     }
 
@@ -237,34 +243,65 @@ impl SceneRuntime {
     ///
     /// Updates target OBJ orbit-camera fields (yaw, pitch, distance) to position the
     /// camera around the target sprite. Does not override auto-rotation — Rhai controls that.
-    pub fn step_orbit_camera(&mut self) -> bool {
+    pub fn step_orbit_camera(&mut self, dt_ms: u64) -> bool {
         let Some(state) = self.orbit_camera.as_ref() else {
             return false;
         };
         if !state.active {
             return false;
         }
-        let (target, yaw, pitch, dist, dist_min, dist_max) = (
+        let dt_s = (dt_ms as f32 / 1000.0).max(0.0);
+        let rotation_alpha = smoothing_alpha(dt_s, OBJ_ORBIT_ROTATION_LAG_SEC);
+        let distance_alpha = smoothing_alpha(dt_s, OBJ_ORBIT_DISTANCE_LAG_SEC);
+        let (
+            target,
+            yaw,
+            pitch,
+            dist,
+            applied_yaw,
+            applied_pitch,
+            applied_distance,
+            dist_min,
+            dist_max,
+        ) = (
             state.target.clone(),
             state.yaw,
             state.pitch,
             state.distance,
+            state.applied_yaw,
+            state.applied_pitch,
+            state.applied_distance,
             state.distance_min,
             state.distance_max,
         );
         let (effective_min, effective_max) =
             self.obj_orbit_effective_distance_limits(&target, dist_min, dist_max);
         let clamped_dist = dist.clamp(effective_min, effective_max);
-        if (clamped_dist - dist).abs() > f32::EPSILON {
-            if let Some(state) = self.orbit_camera.as_mut() {
-                if state.target == target {
-                    state.distance = clamped_dist;
-                }
+        let next_applied_yaw = smooth_angle_deg(applied_yaw, yaw, rotation_alpha);
+        let next_applied_pitch = lerp(applied_pitch, pitch, rotation_alpha);
+        let next_applied_dist = if applied_distance < effective_min
+            || applied_distance > effective_max
+        {
+            clamped_dist
+        } else {
+            lerp(applied_distance, clamped_dist, distance_alpha).clamp(effective_min, effective_max)
+        };
+
+        if let Some(state) = self.orbit_camera.as_mut() {
+            if state.target == target {
+                state.distance = clamped_dist;
+                state.applied_yaw = next_applied_yaw;
+                state.applied_pitch = next_applied_pitch;
+                state.applied_distance = next_applied_dist;
             }
         }
 
-        let _ =
-            self.set_obj_orbit_camera_fields(&target, Some(yaw), Some(pitch), Some(clamped_dist));
+        let _ = self.set_obj_orbit_camera_fields(
+            &target,
+            Some(next_applied_yaw),
+            Some(next_applied_pitch),
+            Some(next_applied_dist),
+        );
         true
     }
 
@@ -339,7 +376,9 @@ impl SceneRuntime {
             for_each_obj_mut(&mut layer.sprites, &mut |sprite| {
                 if let Sprite::Obj { id, scale, .. } = sprite {
                     if id.as_deref() == Some(sprite_id) {
-                        *scale = Some((scale.unwrap_or(1.0) + delta).clamp(0.1, 8.0));
+                        *scale = Some(
+                            (scale.unwrap_or(1.0) + delta).clamp(OBJ_SCALE_MIN, OBJ_SCALE_MAX),
+                        );
                         updated = true;
                     }
                 }
@@ -478,9 +517,15 @@ impl SceneRuntime {
 
         let mut toggled = false;
         for key in key_presses {
-            if is_free_look_toggle(key) {
+            if self
+                .free_look_camera
+                .as_ref()
+                .is_some_and(|state| state.matches_toggle_key(key))
+            {
                 self.toggle_free_look_camera();
-                self.ui_state.keys_down.remove("f"); // mask toggle key from Rhai
+                if let Some(state) = self.free_look_camera.as_ref() {
+                    self.ui_state.keys_down.remove(&state.toggle_key);
+                }
                 toggled = true;
                 continue;
             }
@@ -534,9 +579,10 @@ impl SceneRuntime {
 
         state.last_mouse_pos = Some((prev_x, prev_y));
         if state.active {
-            state.yaw_deg += total_dyaw;
-            state.pitch_deg = (state.pitch_deg + total_dpitch)
-                .clamp(-FREE_LOOK_PITCH_LIMIT_DEG, FREE_LOOK_PITCH_LIMIT_DEG);
+            let pitch_limit = free_look_pitch_limit_deg(state.surface_mode);
+            state.target_yaw_deg += total_dyaw;
+            state.target_pitch_deg =
+                (state.target_pitch_deg + total_dpitch).clamp(-pitch_limit, pitch_limit);
         }
     }
 
@@ -577,6 +623,62 @@ impl SceneRuntime {
         }
     }
 
+    pub fn begin_free_look_drag(&mut self, mouse_x: f32, mouse_y: f32) -> bool {
+        if self.free_look_drag_hits_gui(mouse_x, mouse_y) {
+            return false;
+        }
+        let Some(state) = self.free_look_camera.as_mut() else {
+            return false;
+        };
+        let was_engaged = state.active || state.pending_activate;
+        state.drag_hold = true;
+        state.last_mouse_pos = Some((mouse_x, mouse_y));
+        if was_engaged {
+            state.held_keys.remove(FREE_LOOK_TRANSIENT_DRAG_MARKER);
+        } else {
+            state.held_keys.clear();
+            state
+                .held_keys
+                .insert(FREE_LOOK_TRANSIENT_DRAG_MARKER.to_string());
+            state.pending_activate = true;
+        }
+        self.mask_free_look_keys_from_scene_input();
+        true
+    }
+
+    pub fn end_free_look_drag(&mut self) -> bool {
+        let reinject_keys = {
+            let Some(state) = self.free_look_camera.as_mut() else {
+                return false;
+            };
+            if !state.drag_hold {
+                return false;
+            }
+            state.drag_hold = false;
+            state.last_mouse_pos = None;
+            let had_marker = state.held_keys.remove(FREE_LOOK_TRANSIENT_DRAG_MARKER);
+            let transient_drag = state.pending_activate && (state.active || had_marker);
+            if !transient_drag {
+                return true;
+            }
+            let reinject_keys = state
+                .held_keys
+                .iter()
+                .filter(|key| is_free_look_captured_key_name(key))
+                .cloned()
+                .collect::<Vec<_>>();
+            if state.active || state.pending_activate {
+                state.active = false;
+                state.pending_activate = false;
+            }
+            reinject_keys
+        };
+        for key in reinject_keys {
+            self.ui_state.keys_down.insert(key);
+        }
+        true
+    }
+
     pub fn step_free_look_camera(&mut self, dt_ms: u64) -> bool {
         let current_camera = self.scene_camera_3d;
         let Some(state) = self.free_look_camera.as_mut() else {
@@ -586,28 +688,40 @@ impl SceneRuntime {
             return false;
         }
 
-        if state.pending_activate {
+        if state.pending_activate && !state.active {
             let forward = current_camera.forward();
             if state.surface_mode {
                 let min_alt = state.surface_min_altitude.max(0.0);
                 let max_alt = state.surface_max_altitude.max(min_alt);
-                state.surface_altitude = state.surface_altitude.clamp(min_alt, max_alt);
-                let radial = normalize3(sub3(current_camera.eye, state.surface_center));
+                let radial_offset = sub3(current_camera.eye, state.surface_center);
+                let radial = normalize3(radial_offset);
+                let current_altitude = (length3(radial_offset) - state.surface_radius).max(0.0);
+                state.surface_altitude = current_altitude.clamp(min_alt, max_alt);
                 state.position = add3(
                     state.surface_center,
                     scale3(radial, state.surface_radius + state.surface_altitude),
                 );
+                let (yaw_deg, pitch_deg) = surface_free_look_angles_from_forward(forward, radial);
+                state.yaw_deg = yaw_deg;
+                state.pitch_deg = pitch_deg;
             } else {
                 state.position = current_camera.eye;
+                state.yaw_deg = forward[0].atan2(-forward[2]).to_degrees();
+                state.pitch_deg = forward[1].clamp(-1.0, 1.0).asin().to_degrees();
             }
-            state.yaw_deg = forward[0].atan2(-forward[2]).to_degrees();
-            state.pitch_deg = forward[1].clamp(-1.0, 1.0).asin().to_degrees();
-            state.pending_activate = false;
+            state.target_yaw_deg = state.yaw_deg;
+            state.target_pitch_deg = state.pitch_deg;
             state.active = true;
+            state.pending_activate =
+                state.drag_hold && state.held_keys.contains(FREE_LOOK_TRANSIENT_DRAG_MARKER);
         }
 
         let dt_s = dt_ms as f32 / 1000.0;
-        let forward = free_look_forward(state.yaw_deg, state.pitch_deg);
+        let rotation_alpha = smoothing_alpha(dt_s, FREE_LOOK_ROTATION_LAG_SEC);
+        let pitch_limit = free_look_pitch_limit_deg(state.surface_mode);
+        state.yaw_deg = smooth_angle_deg(state.yaw_deg, state.target_yaw_deg, rotation_alpha);
+        state.pitch_deg = lerp(state.pitch_deg, state.target_pitch_deg, rotation_alpha)
+            .clamp(-pitch_limit, pitch_limit);
         let mut camera = current_camera;
 
         if state.surface_mode {
@@ -616,11 +730,7 @@ impl SceneRuntime {
             state.surface_altitude = state.surface_altitude.clamp(min_alt, max_alt);
 
             let mut up = normalize3(sub3(state.position, state.surface_center));
-            let mut tangent_forward = project_on_plane(forward, up);
-            if length3(tangent_forward) <= 1e-5 {
-                tangent_forward = project_on_plane([0.0, 0.0, -1.0], up);
-            }
-            tangent_forward = normalize3(tangent_forward);
+            let (mut tangent_forward, _) = surface_free_look_basis(up, state.yaw_deg, 0.0);
             let mut right = normalize3(cross3(tangent_forward, up));
             if length3(right) <= 1e-5 {
                 right = normalize3(cross3([1.0, 0.0, 0.0], up));
@@ -660,14 +770,19 @@ impl SceneRuntime {
                 state.surface_center,
                 scale3(up, state.surface_radius + state.surface_altitude),
             );
-            tangent_forward = normalize3(project_on_plane(forward, up));
-            if length3(tangent_forward) <= 1e-5 {
-                tangent_forward = normalize3(project_on_plane([0.0, 0.0, -1.0], up));
+            let (next_tangent_forward, forward) =
+                surface_free_look_basis(up, state.yaw_deg, state.pitch_deg);
+            tangent_forward = next_tangent_forward;
+            right = normalize3(cross3(tangent_forward, up));
+            if length3(right) <= 1e-5 {
+                right = surface_reference_right(up);
             }
+            let camera_up = normalize3(cross3(right, forward));
             camera.eye = state.position;
-            camera.look_at = add3(state.position, tangent_forward);
-            camera.up = up;
+            camera.look_at = add3(state.position, forward);
+            camera.up = camera_up;
         } else {
+            let forward = free_look_forward(state.yaw_deg, state.pitch_deg);
             let right = normalize3(cross3(forward, [0.0, 1.0, 0.0]));
             let up = normalize3(cross3(right, forward));
             let mut move_dir = [0.0f32, 0.0, 0.0];
@@ -708,15 +823,22 @@ impl SceneRuntime {
             return;
         };
         if state.active || state.pending_activate {
-            for key in &state.held_keys {
+            for key in state
+                .held_keys
+                .iter()
+                .filter(|key| is_free_look_captured_key_name(key))
+            {
                 self.ui_state.keys_down.insert(key.clone());
             }
+            state.held_keys.remove(FREE_LOOK_TRANSIENT_DRAG_MARKER);
             state.active = false;
             state.pending_activate = false;
+            state.drag_hold = false;
             state.last_mouse_pos = None;
             return;
         }
 
+        state.drag_hold = false;
         state.held_keys.clear();
         for key in FREE_LOOK_CAPTURED_KEYS {
             if self.ui_state.keys_down.contains(*key) {
@@ -732,6 +854,21 @@ impl SceneRuntime {
         for key in FREE_LOOK_CAPTURED_KEYS {
             self.ui_state.keys_down.remove(*key);
         }
+    }
+
+    fn free_look_drag_hits_gui(&self, mouse_x: f32, mouse_y: f32) -> bool {
+        self.gui_widgets.iter().any(|widget| {
+            let initial_state;
+            let widget_state = if let Some(state) = self.gui_state.widgets.get(widget.id()) {
+                state
+            } else {
+                initial_state = widget.initial_state();
+                &initial_state
+            };
+            widget
+                .bounds(widget_state)
+                .is_some_and(|bounds| bounds.hit_test(mouse_x, mouse_y))
+        })
     }
 }
 
@@ -842,11 +979,6 @@ fn set_obj_orbit_camera_fields_recursive(
     false
 }
 
-fn is_free_look_toggle(key: &KeyEvent) -> bool {
-    matches!(key.code, KeyCode::Char('f') | KeyCode::Char('F'))
-        && key.modifiers.contains(KeyModifiers::CONTROL)
-}
-
 fn free_look_captured_key_name(key: &KeyEvent) -> Option<&'static str> {
     match key.code {
         KeyCode::Char('w') | KeyCode::Char('W') => Some("w"),
@@ -864,6 +996,18 @@ fn free_look_captured_key_name(key: &KeyEvent) -> Option<&'static str> {
     }
 }
 
+fn is_free_look_captured_key_name(key: &str) -> bool {
+    FREE_LOOK_CAPTURED_KEYS.contains(&key)
+}
+
+fn free_look_pitch_limit_deg(surface_mode: bool) -> f32 {
+    if surface_mode {
+        FREE_LOOK_SURFACE_PITCH_LIMIT_DEG
+    } else {
+        FREE_LOOK_WORLD_PITCH_LIMIT_DEG
+    }
+}
+
 fn free_look_forward(yaw_deg: f32, pitch_deg: f32) -> [f32; 3] {
     let yaw = yaw_deg.to_radians();
     let pitch = pitch_deg.to_radians();
@@ -872,6 +1016,89 @@ fn free_look_forward(yaw_deg: f32, pitch_deg: f32) -> [f32; 3] {
         pitch.sin(),
         -yaw.cos() * pitch.cos(),
     ]
+}
+
+fn smoothing_alpha(dt_s: f32, lag_s: f32) -> f32 {
+    if lag_s <= 0.0001 {
+        return 1.0;
+    }
+    (dt_s / (lag_s + dt_s)).clamp(0.0, 1.0)
+}
+
+fn shortest_angle_delta_deg(current: f32, target: f32) -> f32 {
+    let mut delta = (target - current) % 360.0;
+    if delta > 180.0 {
+        delta -= 360.0;
+    } else if delta < -180.0 {
+        delta += 360.0;
+    }
+    delta
+}
+
+fn smooth_angle_deg(current: f32, target: f32, alpha: f32) -> f32 {
+    current + shortest_angle_delta_deg(current, target) * alpha.clamp(0.0, 1.0)
+}
+
+fn lerp(current: f32, target: f32, alpha: f32) -> f32 {
+    current + (target - current) * alpha.clamp(0.0, 1.0)
+}
+
+fn surface_reference_forward(up: [f32; 3]) -> [f32; 3] {
+    for candidate in [[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]] {
+        let tangent = project_on_plane(candidate, up);
+        if length3(tangent) > 1e-5 {
+            return normalize3(tangent);
+        }
+    }
+    [0.0, 0.0, -1.0]
+}
+
+fn surface_reference_right(up: [f32; 3]) -> [f32; 3] {
+    let forward = surface_reference_forward(up);
+    let right = normalize3(cross3(forward, up));
+    if length3(right) > 1e-5 {
+        right
+    } else {
+        [1.0, 0.0, 0.0]
+    }
+}
+
+fn surface_free_look_angles_from_forward(forward: [f32; 3], up: [f32; 3]) -> (f32, f32) {
+    let base_forward = surface_reference_forward(up);
+    let base_right = surface_reference_right(up);
+    let pitch_deg = dot3(forward, up)
+        .clamp(-1.0, 1.0)
+        .asin()
+        .to_degrees()
+        .clamp(
+            -FREE_LOOK_SURFACE_PITCH_LIMIT_DEG,
+            FREE_LOOK_SURFACE_PITCH_LIMIT_DEG,
+        );
+    let tangent_forward = project_on_plane(forward, up);
+    if length3(tangent_forward) <= 1e-5 {
+        return (0.0, pitch_deg);
+    }
+    let tangent_forward = normalize3(tangent_forward);
+    let yaw_deg = dot3(tangent_forward, base_right)
+        .atan2(dot3(tangent_forward, base_forward))
+        .to_degrees();
+    (yaw_deg, pitch_deg)
+}
+
+fn surface_free_look_basis(up: [f32; 3], yaw_deg: f32, pitch_deg: f32) -> ([f32; 3], [f32; 3]) {
+    let base_forward = surface_reference_forward(up);
+    let base_right = surface_reference_right(up);
+    let yaw = yaw_deg.to_radians();
+    let pitch = pitch_deg.to_radians();
+    let tangent_forward = normalize3(add3(
+        scale3(base_forward, yaw.cos()),
+        scale3(base_right, yaw.sin()),
+    ));
+    let forward = normalize3(add3(
+        scale3(tangent_forward, pitch.cos()),
+        scale3(up, pitch.sin()),
+    ));
+    (tangent_forward, forward)
 }
 
 fn add3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {

@@ -12,6 +12,8 @@ use crate::{catalog, BehaviorCommand};
 pub(crate) struct ScriptInputApi {
     keys_down: Arc<HashSet<String>>,
     keys_just_pressed: Arc<HashSet<String>>,
+    mouse_x: f32,
+    mouse_y: f32,
     scroll_y: f32,
     ctrl_scroll_y: f32,
     action_bindings: Arc<HashMap<String, Vec<String>>>,
@@ -23,6 +25,8 @@ impl ScriptInputApi {
     pub(crate) fn new(
         keys_down: Arc<HashSet<String>>,
         keys_just_pressed: Arc<HashSet<String>>,
+        mouse_x: f32,
+        mouse_y: f32,
         scroll_y: f32,
         ctrl_scroll_y: f32,
         action_bindings: Arc<HashMap<String, Vec<String>>>,
@@ -32,6 +36,8 @@ impl ScriptInputApi {
         Self {
             keys_down,
             keys_just_pressed,
+            mouse_x,
+            mouse_y,
             scroll_y,
             ctrl_scroll_y,
             action_bindings,
@@ -70,6 +76,14 @@ impl ScriptInputApi {
 
     fn ctrl_scroll_y(&mut self) -> rhai::FLOAT {
         self.ctrl_scroll_y as rhai::FLOAT
+    }
+
+    fn mouse_x(&mut self) -> rhai::FLOAT {
+        self.mouse_x as rhai::FLOAT
+    }
+
+    fn mouse_y(&mut self) -> rhai::FLOAT {
+        self.mouse_y as rhai::FLOAT
     }
 
     fn action_down(&mut self, action: &str) -> bool {
@@ -140,6 +154,8 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_get("ctrl_scroll_y", |input: &mut ScriptInputApi| {
         input.ctrl_scroll_y()
     });
+    engine.register_get("mouse_x", |input: &mut ScriptInputApi| input.mouse_x());
+    engine.register_get("mouse_y", |input: &mut ScriptInputApi| input.mouse_y());
     engine.register_fn("action_down", |input: &mut ScriptInputApi, action: &str| {
         input.action_down(action)
     });
@@ -170,6 +186,8 @@ mod tests {
         let mut input = ScriptInputApi::new(
             Arc::new(HashSet::new()),
             Arc::new(HashSet::new()),
+            320.0,
+            180.0,
             1.5,
             -2.0,
             Arc::new(HashMap::new()),
@@ -179,5 +197,7 @@ mod tests {
 
         assert!((input.scroll_y() - 1.5).abs() < f64::EPSILON);
         assert!((input.ctrl_scroll_y() + 2.0).abs() < f64::EPSILON);
+        assert!((input.mouse_x() - 320.0).abs() < f64::EPSILON);
+        assert!((input.mouse_y() - 180.0).abs() < f64::EPSILON);
     }
 }

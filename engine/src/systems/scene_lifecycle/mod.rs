@@ -13,7 +13,7 @@ use engine_behavior::{catalog::ModCatalogs, palette::PaletteStore};
 use engine_core::assets::AssetRoot;
 use engine_core::logging;
 use engine_core::scene::SceneTransitionTarget;
-use engine_events::{InputEvent, KeyCode, KeyEvent, KeyModifiers};
+use engine_events::{InputEvent, KeyCode, KeyEvent, KeyModifiers, MouseButton};
 use engine_mod::load_mod_manifest;
 use engine_persistence::PersistenceStore;
 use std::path::{Path, PathBuf};
@@ -118,6 +118,7 @@ impl SceneLifecycleManager {
 
         handle_scene_free_look_input(
             world,
+            &lifecycle.input_events,
             &lifecycle.key_presses,
             &lifecycle.key_releases,
             &mouse_moves,
@@ -610,6 +611,7 @@ fn handle_scene_orbit_camera_input(
 
 fn handle_scene_free_look_input(
     world: &mut World,
+    input_events: &[InputEvent],
     key_presses: &[KeyEvent],
     key_releases: &[KeyEvent],
     mouse_moves: &[(f32, f32)],
@@ -620,6 +622,28 @@ fn handle_scene_free_look_input(
     }
     if let Some(runtime) = world.scene_runtime_mut() {
         let _ = runtime.apply_free_look_key_events(key_presses, key_releases);
+        for event in input_events {
+            match event {
+                InputEvent::MouseDown {
+                    x,
+                    y,
+                    button: MouseButton::Left,
+                    modifiers,
+                } if modifiers.contains(KeyModifiers::ALT) => {
+                    let _ = runtime.begin_free_look_drag(*x, *y);
+                }
+                InputEvent::MouseUp {
+                    button: MouseButton::Left,
+                    ..
+                } => {
+                    let _ = runtime.end_free_look_drag();
+                }
+                InputEvent::FocusLost => {
+                    let _ = runtime.end_free_look_drag();
+                }
+                _ => {}
+            }
+        }
         if !mouse_moves.is_empty() {
             runtime.apply_free_look_mouse_moves(mouse_moves);
         }
@@ -685,7 +709,7 @@ mod tests {
     use crate::RuntimeSwitchOptions;
     use engine_animation::{Animator, SceneStage};
     use engine_core::scene::SceneTransitionTarget;
-    use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+    use engine_events::{KeyCode, KeyEvent, KeyModifiers, MouseButton};
     use std::fs;
     use tempfile::tempdir;
 
@@ -711,6 +735,34 @@ mod tests {
 
     fn mouse_wheel(delta_y: f32, modifiers: KeyModifiers) -> EngineEvent {
         EngineEvent::MouseWheel { delta_y, modifiers }
+    }
+
+    fn mouse_button_down(
+        x: f32,
+        y: f32,
+        button: MouseButton,
+        modifiers: KeyModifiers,
+    ) -> EngineEvent {
+        EngineEvent::MouseButtonDown {
+            button,
+            x,
+            y,
+            modifiers,
+        }
+    }
+
+    fn mouse_button_up(
+        x: f32,
+        y: f32,
+        button: MouseButton,
+        modifiers: KeyModifiers,
+    ) -> EngineEvent {
+        EngineEvent::MouseButtonUp {
+            button,
+            x,
+            y,
+            modifiers,
+        }
     }
 
     fn make_idle_animator() -> Animator {
@@ -744,6 +796,8 @@ mod tests {
             celestial: Default::default(),
             lighting: None,
             view: None,
+            planet_spec: None,
+            planet_spec_ref: None,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages {
@@ -781,6 +835,8 @@ mod tests {
             celestial: Default::default(),
             lighting: None,
             view: None,
+            planet_spec: None,
+            planet_spec_ref: None,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
@@ -1460,6 +1516,39 @@ next: null
     }
 
     #[test]
+    fn free_look_camera_supports_plain_f_toggle_when_authored() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-plain-f
+title: Free Look Plain F
+bg_colour: black
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed(KeyCode::Char('f')),
+                key_pressed(KeyCode::Char('w')),
+            ],
+        );
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.free_look_camera_engaged());
+        assert!(!runtime.keys_down_snapshot().contains("w"));
+    }
+
+    #[test]
     fn free_look_surface_mode_starts_on_shell_and_respects_altitude_bounds() {
         let scene: Scene = serde_yaml::from_str(
             r#"
@@ -1612,5 +1701,256 @@ next: null
         let runtime = world.scene_runtime().expect("runtime");
         assert!((runtime.frame_scroll_y() - 1.0).abs() < f32::EPSILON);
         assert!((runtime.frame_ctrl_scroll_y() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn alt_drag_engages_free_look_until_mouse_release() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-alt-drag-test
+title: Free Look Alt Drag
+bg_colour: black
+input:
+  free-look-camera: {}
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                mouse_button_down(100.0, 100.0, MouseButton::Left, KeyModifiers::ALT),
+                EngineEvent::MouseMoved { x: 120.0, y: 90.0 },
+            ],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.free_look_camera_engaged());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_button_up(
+                120.0,
+                90.0,
+                MouseButton::Left,
+                KeyModifiers::ALT,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(!runtime.free_look_camera_engaged());
+    }
+
+    #[test]
+    fn alt_drag_release_does_not_disable_sticky_free_look() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-sticky-alt-drag-test
+title: Free Look Sticky Alt Drag
+bg_colour: black
+input:
+  free-look-camera: {}
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed_with_modifiers(
+                KeyCode::Char('f'),
+                KeyModifiers::CONTROL,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                mouse_button_down(80.0, 80.0, MouseButton::Left, KeyModifiers::ALT),
+                EngineEvent::MouseMoved { x: 90.0, y: 70.0 },
+            ],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+        assert!(
+            world
+                .scene_runtime()
+                .expect("runtime")
+                .free_look_camera_engaged(),
+            "sticky free-look should still be active during Alt+drag"
+        );
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_button_up(
+                90.0,
+                70.0,
+                MouseButton::Left,
+                KeyModifiers::ALT,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(
+            runtime.free_look_camera_engaged(),
+            "releasing Alt+drag should not disable sticky Ctrl+F free-look"
+        );
+    }
+
+    #[test]
+    fn temporary_alt_drag_reinjects_captured_keys_on_release() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-alt-drag-key-mask-test
+title: Free Look Alt Drag Key Mask
+bg_colour: black
+input:
+  free-look-camera: {}
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_button_down(
+                100.0,
+                100.0,
+                MouseButton::Left,
+                KeyModifiers::ALT,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Char('w'))]);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.free_look_camera_engaged());
+        assert!(
+            !runtime.keys_down_snapshot().contains("w"),
+            "captured movement keys should stay masked while temporary free-look drag is active"
+        );
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_button_up(
+                100.0,
+                100.0,
+                MouseButton::Left,
+                KeyModifiers::ALT,
+            )],
+        );
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(!runtime.free_look_camera_engaged());
+        assert!(
+            runtime.keys_down_snapshot().contains("w"),
+            "captured movement keys should be restored when temporary free-look drag ends"
+        );
+    }
+
+    #[test]
+    fn alt_drag_does_not_start_free_look_over_gui_widget() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-gui-hit-test
+title: Free Look GUI Hit Test
+bg_colour: black
+input:
+  free-look-camera: {}
+layers: []
+gui:
+  widgets:
+    - type: slider
+      id: free-look-blocker
+      sprite: slider-track
+      x: 10
+      y: 10
+      w: 100
+      h: 12
+      min: 0
+      max: 1
+      value: 0.5
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                mouse_button_down(20.0, 15.0, MouseButton::Left, KeyModifiers::ALT),
+                EngineEvent::MouseMoved { x: 40.0, y: 15.0 },
+            ],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(
+            !runtime.free_look_camera_engaged(),
+            "Alt+drag over a GUI widget should stay with the GUI instead of hijacking free-look"
+        );
+
+        let gui_state = world.scene_runtime_mut().expect("runtime").gui_state_arc();
+        assert_eq!(gui_state.drag_widget.as_deref(), Some("free-look-blocker"));
+    }
+
+    #[test]
+    fn input_focus_lost_cancels_temporary_alt_drag_free_look() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-alt-drag-focus-loss
+title: Free Look Alt Drag Focus Loss
+bg_colour: black
+input:
+  free-look-camera: {}
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![mouse_button_down(
+                100.0,
+                100.0,
+                MouseButton::Left,
+                KeyModifiers::ALT,
+            )],
+        );
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+        assert!(world
+            .scene_runtime()
+            .expect("runtime")
+            .free_look_camera_engaged());
+
+        SceneLifecycleManager::process_events(&mut world, vec![EngineEvent::InputFocusLost]);
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 16);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(!runtime.free_look_camera_engaged());
     }
 }

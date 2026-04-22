@@ -113,6 +113,7 @@ pub fn load_obj_mesh_from_root(asset_root: &AssetRoot, source: &str) -> Option<A
 ///
 /// Supported procedural sources:
 /// - `cube-sphere://N`
+/// - `cockpit://simulator?...`
 /// - `terrain-plane://N?amp=A&freq=F&oct=O&rough=R&...`
 /// - `terrain-sphere://N?params`
 /// - `earth-sphere://N?params`
@@ -135,6 +136,11 @@ pub fn load_render_mesh(asset_root: &AssetRoot, source: &str) -> Option<Arc<ObjM
         let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
         let mesh = engine_mesh::primitives::cube_sphere(subdivisions);
         mesh_to_obj_mesh(&mesh)
+    } else if let Some(rest) = source.strip_prefix("cockpit://") {
+        let (_kind, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let params = parse_cockpit_params(query);
+        let (mesh, colors) = engine_mesh::primitives::simulator_cockpit(params);
+        colored_mesh_to_obj_mesh(&mesh, &colors)
     } else if let Some(rest) = source.strip_prefix("terrain-plane://") {
         let (subdiv_str, query) = rest.split_once('?').unwrap_or((rest, ""));
         let subdivisions: u32 = subdiv_str.trim().parse().unwrap_or(64);
@@ -261,6 +267,38 @@ fn parse_mtl_palette(bytes: &[u8]) -> HashMap<String, MaterialProps> {
         }
     }
     out
+}
+
+fn parse_cockpit_params(query: &str) -> engine_mesh::primitives::CockpitParams {
+    let mut p = engine_mesh::primitives::CockpitParams::default();
+    for pair in query.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            match k {
+                "width" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.width_scale = f.clamp(0.5, 2.5);
+                    }
+                }
+                "depth" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.depth_scale = f.clamp(0.5, 2.5);
+                    }
+                }
+                "canopy" => {
+                    if let Ok(f) = v.parse::<f32>() {
+                        p.canopy_height = f.clamp(0.5, 2.0);
+                    }
+                }
+                "detail" => {
+                    if let Ok(n) = v.parse::<u8>() {
+                        p.detail = n.clamp(0, 6);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    p
 }
 
 fn parse_3f(s: &str) -> Option<[f32; 3]> {
@@ -683,5 +721,27 @@ Ns 10
         let mesh = load_render_mesh(&root, "cube-sphere://8").expect("generated mesh");
         assert!(!mesh.vertices.is_empty());
         assert!(!mesh.faces.is_empty());
+    }
+
+    #[test]
+    fn loads_generated_cockpit_mesh() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(&mod_dir).expect("mod dir");
+        let root = AssetRoot::new(mod_dir);
+
+        let mesh = load_render_mesh(&root, "cockpit://simulator?detail=4&width=1.1")
+            .expect("generated cockpit mesh");
+        assert!(!mesh.vertices.is_empty());
+        assert!(!mesh.faces.is_empty());
+        let min_z = mesh
+            .vertices
+            .iter()
+            .map(|v| v[2])
+            .fold(f32::INFINITY, f32::min);
+        assert!(
+            min_z > 0.5,
+            "cockpit mesh should stay in front of the origin"
+        );
     }
 }

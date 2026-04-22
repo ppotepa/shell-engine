@@ -28,6 +28,7 @@ pub(crate) enum RuntimeCommand {
         pixel_canvas: Option<PixelCanvasData>,
     },
     SetSplashMode(bool),
+    CopyToClipboard(String),
     PollInput,
     Clear,
     Shutdown,
@@ -544,6 +545,10 @@ fn runtime_thread(
                 splash_mode = enabled;
                 RuntimeResponse::Ack
             }
+            RuntimeCommand::CopyToClipboard(text) => {
+                let _ = video.clipboard().set_clipboard_text(&text);
+                RuntimeResponse::Ack
+            }
             RuntimeCommand::Clear => {
                 pixel_buffer.fill(0);
                 let active_policy =
@@ -853,10 +858,13 @@ fn poll_input(
                     map_mouse_to_output(x, y, output_width, output_height, present_rect)
                 {
                     let button = map_mouse_button(mouse_btn);
+                    let modifiers =
+                        map_modifiers(canvas.window().subsystem().sdl().keyboard().mod_state());
                     events.push(EngineEvent::MouseButtonDown {
                         button,
                         x: vx,
                         y: vy,
+                        modifiers,
                     });
                 }
             }
@@ -865,19 +873,23 @@ fn poll_input(
             } => {
                 let present_rect =
                     presentation_rect(*window_pixel_size, content_pixel_size, presentation_policy);
-                if let Some((vx, vy)) =
-                    map_mouse_to_output(x, y, output_width, output_height, present_rect)
-                {
-                    let button = map_mouse_button(mouse_btn);
-                    events.push(EngineEvent::MouseButtonUp {
-                        button,
-                        x: vx,
-                        y: vy,
+                let (vx, vy) = map_mouse_to_output(x, y, output_width, output_height, present_rect)
+                    .unwrap_or_else(|| {
+                        map_mouse_to_output_clamped(x, y, output_width, output_height, present_rect)
                     });
-                }
+                let button = map_mouse_button(mouse_btn);
+                let modifiers =
+                    map_modifiers(canvas.window().subsystem().sdl().keyboard().mod_state());
+                events.push(EngineEvent::MouseButtonUp {
+                    button,
+                    x: vx,
+                    y: vy,
+                    modifiers,
+                });
             }
             Event::MouseWheel { y, .. } => {
-                let modifiers = map_modifiers(canvas.window().subsystem().sdl().keyboard().mod_state());
+                let modifiers =
+                    map_modifiers(canvas.window().subsystem().sdl().keyboard().mod_state());
                 events.push(EngineEvent::MouseWheel {
                     delta_y: y as f32,
                     modifiers,
@@ -989,6 +1001,26 @@ fn map_mouse_to_output(
     let vx = (rel_x / rect_width * width).clamp(0.0, width - 1.0);
     let vy = (rel_y / rect_height * height).clamp(0.0, height - 1.0);
     Some((vx, vy))
+}
+
+fn map_mouse_to_output_clamped(
+    x: i32,
+    y: i32,
+    output_width: u16,
+    output_height: u16,
+    present_rect: Rect,
+) -> (f32, f32) {
+    let rect_left = present_rect.x() as f32;
+    let rect_top = present_rect.y() as f32;
+    let rect_width = present_rect.width().max(1) as f32;
+    let rect_height = present_rect.height().max(1) as f32;
+    let width = output_width.max(1) as f32;
+    let height = output_height.max(1) as f32;
+    let rel_x = (x as f32 - rect_left).clamp(0.0, rect_width);
+    let rel_y = (y as f32 - rect_top).clamp(0.0, rect_height);
+    let vx = (rel_x / rect_width * width).clamp(0.0, width - 1.0);
+    let vy = (rel_y / rect_height * height).clamp(0.0, height - 1.0);
+    (vx, vy)
 }
 
 fn map_mouse_button(btn: SdlMouseButton) -> engine_events::MouseButton {
@@ -1343,8 +1375,8 @@ fn scanline_fill_polygon(canvas: &mut sdl2::render::WindowCanvas, points: &[(i32
 #[cfg(test)]
 mod tests {
     use super::{
-        is_fullscreen_toggle_key, logical_dimensions, map_mouse_to_output, presentation_rect,
-        window_dimensions,
+        is_fullscreen_toggle_key, logical_dimensions, map_mouse_to_output,
+        map_mouse_to_output_clamped, presentation_rect, window_dimensions,
     };
     use engine_core::color::Color;
     use engine_events::{KeyCode, KeyModifiers};
@@ -1396,6 +1428,12 @@ mod tests {
     fn mouse_mapping_ignores_outside_present_rect() {
         let mapped = map_mouse_to_output(10, 10, 120, 30, Rect::new(0, 80, 960, 480));
         assert_eq!(mapped, None);
+    }
+
+    #[test]
+    fn clamped_mouse_mapping_keeps_button_release_inside_virtual_bounds() {
+        let mapped = map_mouse_to_output_clamped(-20, 700, 120, 30, Rect::new(0, 80, 960, 480));
+        assert_eq!(mapped, (0.0, 29.0));
     }
 
     #[test]

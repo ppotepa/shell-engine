@@ -3,6 +3,9 @@ use crate::mutations::{
     AtmosphereParam, ObjMaterialParam, PlanetParam, TerrainParam, WorldgenParam,
 };
 
+const OBJ_SCALE_MIN: f32 = 0.0000001;
+const OBJ_SCALE_MAX: f32 = 8.0;
+
 impl SceneRuntime {
     pub fn text_sprite_content(&self, sprite_id: &str) -> Option<&str> {
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
@@ -1081,7 +1084,7 @@ pub(crate) fn set_obj_material_typed(
                         return true;
                     }
                     (Scale, MV::Scalar(v)) => {
-                        let v = v.clamp(0.1, 8.0);
+                        let v = v.clamp(OBJ_SCALE_MIN, OBJ_SCALE_MAX);
                         if (scale.unwrap_or(1.0) - v).abs() > f32::EPSILON {
                             *scale = Some(v);
                             return true;

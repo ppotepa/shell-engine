@@ -10,8 +10,8 @@
       align-y: top
       x: -16
       y: 602
-      width: 430
-      height: 54
+      width: 576
+      height: 30
       padding: 6
       border-width: 1
       corner-radius: 6
@@ -23,15 +23,33 @@
       shadow-colour: "#000000"
       children:
         - type: grid
-          columns: ["1fr", "1fr", "1fr"]
-          rows: ["1fr", "1fr"]
+          columns: ["1fr", "1fr", "1fr", "1fr"]
+          rows: ["1fr"]
           gap-x: 10
-          gap-y: 2
           children:
             - { type: text, id: planet-randomize-button-label, content: "[R] RANDOM",       grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: "#ffc030" }
-            - { type: text, id: planet-vehicle-button-label,   content: "[F10] VEHICLE",    grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#5bc0be" }
-            - { type: text, id: planet-reset-button-label,     content: "[DEL] RESET",       grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#4080ff" }
-            - { type: text, id: stats-vehicle-producer-hint,   content: "LINK:OK",           grid-col: 1, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
-            - { type: text, id: stats-vehicle-profile-hint,    content: "PROF:ARC",          grid-col: 2, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
-            - { type: text, id: stats-vehicle-assist-hint,     content: "A:OFF H:OFF",       grid-col: 3, grid-row: 2, at: cc, font: "generic:2", fg: "#4f8e7e" }
-
+            - { type: text, id: planet-flight-button-label,    content: "[F10] FLIGHT",     grid-col: 2, grid-row: 1, at: cc, font: "generic:2", fg: "#7ce1ff" }
+            - { type: text, id: planet-cockpit-button-label,   content: "[F11] COCKPIT",    grid-col: 3, grid-row: 1, at: cc, font: "generic:2", fg: "#a8e8ff" }
+            - { type: text, id: planet-reset-button-label,     content: "[DEL] RESET",      grid-col: 4, grid-row: 1, at: cc, font: "generic:2", fg: "#4080ff" }
+    - type: text
+      id: game-message
+      align-x: right
+      align-y: top
+      x: -16
+      y: 638
+      width: 576
+      content: ""
+      at: cc
+      font: "generic:2"
+      fg: "#aaffcc"
+    - type: text
+      id: planet-copy-code-hint
+      align-x: right
+      align-y: top
+      x: -16
+      y: 656
+      width: 576
+      content: "[C] COPY CODE"
+      at: cr
+      font: "generic:1"
+      fg: "#5fa970"

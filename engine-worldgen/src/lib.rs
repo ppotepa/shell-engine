@@ -47,8 +47,7 @@ pub fn parse_world_params_from_uri(uri: &str) -> WorldGenParams {
                     }
                 }
                 "has_ocean" | "has-ocean" => {
-                    p.planet.has_ocean =
-                        matches!(v, "1" | "true" | "yes" | "on" | "TRUE" | "True");
+                    p.planet.has_ocean = matches!(v, "1" | "true" | "yes" | "on" | "TRUE" | "True");
                 }
                 "ocean" => {
                     if let Ok(f) = v.parse::<f64>() {
@@ -530,9 +529,8 @@ mod tests {
 
     #[test]
     fn parse_world_uri_reads_has_ocean_toggle() {
-        let params = parse_world_params_from_uri(
-            "world://32?shape=sphere&seed=11&has_ocean=0&ocean=0.15",
-        );
+        let params =
+            parse_world_params_from_uri("world://32?shape=sphere&seed=11&has_ocean=0&ocean=0.15");
         assert!(!params.planet.has_ocean);
         assert_eq!(params.planet.ocean_fraction, 0.15);
     }
@@ -562,8 +560,14 @@ mod tests {
             .map(|v| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt())
             .fold(f32::INFINITY, f32::min);
 
-        assert!(wet_min_radius >= 0.999, "wet ocean should stay at sea level");
-        assert!(dry_min_radius < 0.999, "dry terrain may still dip below sea level");
+        assert!(
+            wet_min_radius >= 0.999,
+            "wet ocean should stay at sea level"
+        );
+        assert!(
+            dry_min_radius < 0.999,
+            "dry terrain may still dip below sea level"
+        );
     }
 
     #[test]
@@ -591,7 +595,13 @@ mod tests {
             .map(|v| v[1])
             .fold(f32::INFINITY, f32::min);
 
-        assert!(wet_min_y >= -0.001, "wet ocean should stay on flat sea level");
-        assert!(dry_min_y < -0.001, "dry terrain may still fall below sea level");
+        assert!(
+            wet_min_y >= -0.001,
+            "wet ocean should stay on flat sea level"
+        );
+        assert!(
+            dry_min_y < -0.001,
+            "dry terrain may still fall below sea level"
+        );
     }
 }

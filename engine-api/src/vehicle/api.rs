@@ -199,41 +199,53 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
         },
     );
     engine.register_get("normal", |basis: &mut VehicleBasis3| {
-        basis.normal
+        basis
+            .normal
             .iter()
             .map(|value| rhai::Dynamic::from_float(*value as rhai::FLOAT))
             .collect::<rhai::Array>()
     });
     engine.register_get("forward", |basis: &mut VehicleBasis3| {
-        basis.forward
+        basis
+            .forward
             .iter()
             .map(|value| rhai::Dynamic::from_float(*value as rhai::FLOAT))
             .collect::<rhai::Array>()
     });
     engine.register_get("right", |basis: &mut VehicleBasis3| {
-        basis.right
+        basis
+            .right
             .iter()
             .map(|value| rhai::Dynamic::from_float(*value as rhai::FLOAT))
             .collect::<rhai::Array>()
     });
-    engine.register_get("normal_x", |basis: &mut VehicleBasis3| basis.normal[0] as rhai::FLOAT);
-    engine.register_get("normal_y", |basis: &mut VehicleBasis3| basis.normal[1] as rhai::FLOAT);
-    engine.register_get("normal_z", |basis: &mut VehicleBasis3| basis.normal[2] as rhai::FLOAT);
-    engine.register_get(
-        "forward_x",
-        |basis: &mut VehicleBasis3| basis.forward[0] as rhai::FLOAT,
-    );
-    engine.register_get(
-        "forward_y",
-        |basis: &mut VehicleBasis3| basis.forward[1] as rhai::FLOAT,
-    );
-    engine.register_get(
-        "forward_z",
-        |basis: &mut VehicleBasis3| basis.forward[2] as rhai::FLOAT,
-    );
-    engine.register_get("right_x", |basis: &mut VehicleBasis3| basis.right[0] as rhai::FLOAT);
-    engine.register_get("right_y", |basis: &mut VehicleBasis3| basis.right[1] as rhai::FLOAT);
-    engine.register_get("right_z", |basis: &mut VehicleBasis3| basis.right[2] as rhai::FLOAT);
+    engine.register_get("normal_x", |basis: &mut VehicleBasis3| {
+        basis.normal[0] as rhai::FLOAT
+    });
+    engine.register_get("normal_y", |basis: &mut VehicleBasis3| {
+        basis.normal[1] as rhai::FLOAT
+    });
+    engine.register_get("normal_z", |basis: &mut VehicleBasis3| {
+        basis.normal[2] as rhai::FLOAT
+    });
+    engine.register_get("forward_x", |basis: &mut VehicleBasis3| {
+        basis.forward[0] as rhai::FLOAT
+    });
+    engine.register_get("forward_y", |basis: &mut VehicleBasis3| {
+        basis.forward[1] as rhai::FLOAT
+    });
+    engine.register_get("forward_z", |basis: &mut VehicleBasis3| {
+        basis.forward[2] as rhai::FLOAT
+    });
+    engine.register_get("right_x", |basis: &mut VehicleBasis3| {
+        basis.right[0] as rhai::FLOAT
+    });
+    engine.register_get("right_y", |basis: &mut VehicleBasis3| {
+        basis.right[1] as rhai::FLOAT
+    });
+    engine.register_get("right_z", |basis: &mut VehicleBasis3| {
+        basis.right[2] as rhai::FLOAT
+    });
 
     engine.register_fn("normalized", |tuning: &mut VehicleShipProfileTuning| {
         tuning.normalized()
@@ -298,18 +310,22 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_get("side_trim", |tuning: &mut VehicleShipProfileTuning| {
         tuning.side_trim as rhai::FLOAT
     });
-    engine.register_get("side_thrust_trim", |tuning: &mut VehicleShipProfileTuning| {
-        tuning.side_thrust_trim as rhai::FLOAT
-    });
-    engine.register_get("camera_sway_tau", |tuning: &mut VehicleShipProfileTuning| {
-        tuning.camera_sway_tau as rhai::FLOAT
-    });
-    engine.register_get("camera_sway_gain", |tuning: &mut VehicleShipProfileTuning| {
-        tuning.camera_sway_gain as rhai::FLOAT
-    });
-    engine.register_get("heading_hold_kp", |tuning: &mut VehicleShipProfileTuning| {
-        tuning.heading_hold_kp as rhai::FLOAT
-    });
+    engine.register_get(
+        "side_thrust_trim",
+        |tuning: &mut VehicleShipProfileTuning| tuning.side_thrust_trim as rhai::FLOAT,
+    );
+    engine.register_get(
+        "camera_sway_tau",
+        |tuning: &mut VehicleShipProfileTuning| tuning.camera_sway_tau as rhai::FLOAT,
+    );
+    engine.register_get(
+        "camera_sway_gain",
+        |tuning: &mut VehicleShipProfileTuning| tuning.camera_sway_gain as rhai::FLOAT,
+    );
+    engine.register_get(
+        "heading_hold_kp",
+        |tuning: &mut VehicleShipProfileTuning| tuning.heading_hold_kp as rhai::FLOAT,
+    );
     engine.register_get("alt_hold_kp", |tuning: &mut VehicleShipProfileTuning| {
         tuning.alt_hold_kp as rhai::FLOAT
     });
@@ -577,9 +593,12 @@ fn register_vehicle_value_methods(engine: &mut RhaiEngine) {
     engine.register_get("extras", |environment: &mut VehicleEnvironmentBinding| {
         json_map_to_rhai_map(&environment.extras)
     });
-    engine.register_get("body_extras", |environment: &mut VehicleEnvironmentBinding| {
-        json_map_to_rhai_map(&environment.body_extras)
-    });
+    engine.register_get(
+        "body_extras",
+        |environment: &mut VehicleEnvironmentBinding| {
+            json_map_to_rhai_map(&environment.body_extras)
+        },
+    );
     engine.register_get("body_id", |environment: &mut VehicleEnvironmentBinding| {
         environment.body_id.clone()
     });
@@ -1893,8 +1912,8 @@ mod tests {
                     let launch = vehicle.launch_packet_from(#{
                         producer_mod_id: " planet-generator ",
                         source_scene_id: " planet-generator-main ",
-                        target_mod_ref: " vehicle-playground ",
-                        target_scene_id: " vehicle-playground-vehicle ",
+                        target_mod_ref: " vehicle-runtime ",
+                        target_scene_id: " vehicle-scene ",
                         return_scene_id: " planet-generator-main ",
                         consumer_hint: " vehicle-runtime ",
                         planet: #{
@@ -2042,7 +2061,7 @@ mod tests {
                     let envelope = vehicle.packet_envelope_from(#{
                         producer_mod_id: " planet-generator ",
                         source_scene_id: " main ",
-                        target_mod_ref: " vehicle-playground ",
+                        target_mod_ref: " vehicle-runtime ",
                         target_scene_id: " vehicle-scene ",
                         return_scene_id: " main ",
                         consumer_hint: " vehicle-runtime "
@@ -2144,7 +2163,7 @@ mod tests {
                         grounded: true
                     });
                     let launch = vehicle.launch_packet_from(#{
-                        producer_mod_id: " vehicle-playground ",
+                        producer_mod_id: " vehicle-runtime ",
                         source_scene_id: " vehicle-scene ",
                         target_mod_ref: " planet-generator ",
                         target_scene_id: " generator-scene ",
@@ -2165,7 +2184,7 @@ mod tests {
                         telemetry: telemetry.to_map()
                     });
                     let ret = vehicle.return_packet_from(#{
-                        producer_mod_id: " vehicle-playground ",
+                        producer_mod_id: " vehicle-runtime ",
                         source_scene_id: " vehicle-scene ",
                         target_mod_ref: " planet-generator ",
                         target_scene_id: " generator-scene ",
@@ -2461,8 +2480,8 @@ mod tests {
                     let launch = vehicle.launch_packet_from(#{
                         producer_mod_id: " planet-generator ",
                         source_scene_id: " planet-generator-main ",
-                        target_mod_ref: " vehicle-playground ",
-                        target_scene_id: " vehicle-playground-vehicle ",
+                        target_mod_ref: " vehicle-runtime ",
+                        target_scene_id: " vehicle-scene ",
                         return_scene_id: " planet-generator-main ",
                         consumer_hint: " vehicle-runtime ",
                         planet: #{

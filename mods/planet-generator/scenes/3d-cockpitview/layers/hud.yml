@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: cockpitview-hud
+  z_index: 20
+  ui: true
+  space: screen
+  sprites:
+    - type: panel
+      id: cockpitview-hud-box
+      align-x: left
+      align-y: top
+      x: 16
+      y: 16
+      width: 470
+      height: 66
+      padding: 6
+      border-width: 1
+      corner-radius: 6
+      fg: "#1f4d2e"
+      bg: "#050d16"
+      border-colour: "#284d74"
+      shadow-x: 4
+      shadow-y: 4
+      shadow-colour: "#000000"
+    - type: text
+      id: cockpitview-title
+      x: 26
+      y: 22
+      content: "COCKPIT SIMULATOR"
+      font: "generic:2"
+      fg: "#8ef0b3"
+    - type: text
+      id: cockpitview-status
+      x: 26
+      y: 38
+      content: "PROCEDURAL COCKPIT MESH"
+      font: "generic:1"
+      fg: "#b8c8de"
+    - type: text
+      id: cockpitview-controls-1
+      x: 26
+      y: 52
+      content: "Mouse head-look  subtle camera sway  generated planet outside"
+      font: "generic:1"
+      fg: "#8aa4c4"
+    - type: text
+      id: cockpitview-controls-2
+      x: 26
+      y: 64
+      content: "[F10] FLIGHT  [ESC] BACK"
+      font: "generic:1"
+      fg: "#6f8dab"

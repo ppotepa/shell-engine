@@ -45,6 +45,13 @@ properties:
     description: >
       Optional scene-level 3D view profile selection. Prefer a top-level
       `view.profile`; direct lower-level profile refs are composition inputs.
+  planet-spec:
+    $ref: "#/$defs/planet_spec"
+    description: Optional scene-level planet contract (generator/render/atmosphere/body).
+  planet-spec-ref:
+    type: string
+    minLength: 1
+    description: Optional scene-level reference path for a reusable planet spec document.
   celestial:
     $ref: "#/$defs/scene_celestial"
     description: Optional binding to the persistent celestial scope resolved by this scene.
@@ -132,6 +139,10 @@ patternProperties:
     $ref: "#/properties/lighting"
   "^view$":
     $ref: "#/properties/view"
+  "^planet_spec$":
+    $ref: "#/properties/planet-spec"
+  "^planet_spec_ref$":
+    $ref: "#/properties/planet-spec-ref"
   "^menu_options$":
     $ref: "#/properties/menu-options"
 
@@ -362,6 +373,88 @@ $defs:
         $ref: "#/$defs/scene_view/properties/lighting-profile"
       "^space_environment_profile$":
         $ref: "#/$defs/scene_view/properties/space-environment-profile"
+
+  planet_spec:
+    type: object
+    additionalProperties: false
+    properties:
+      generator:
+        $ref: "#/$defs/planet_spec_generator"
+      render:
+        $ref: "#/$defs/planet_spec_render"
+      atmosphere:
+        $ref: "#/$defs/planet_spec_atmosphere"
+      body:
+        $ref: "#/$defs/planet_spec_body"
+
+  planet_spec_generator:
+    type: object
+    additionalProperties: false
+    properties:
+      preset:
+        type: string
+        minLength: 1
+      seed:
+        type: integer
+        minimum: 0
+      detail:
+        type: integer
+        minimum: 0
+        maximum: 255
+
+  planet_spec_render:
+    type: object
+    additionalProperties: false
+    properties:
+      mesh-source:
+        type: string
+        minLength: 1
+      surface-mode:
+        type: string
+        minLength: 1
+      stretch-to-area:
+        type: boolean
+    patternProperties:
+      "^mesh_source$":
+        $ref: "#/$defs/planet_spec_render/properties/mesh-source"
+      "^surface_mode$":
+        $ref: "#/$defs/planet_spec_render/properties/surface-mode"
+      "^stretch_to_area$":
+        $ref: "#/$defs/planet_spec_render/properties/stretch-to-area"
+
+  planet_spec_atmosphere:
+    type: object
+    additionalProperties: false
+    properties:
+      enabled:
+        type: boolean
+      density:
+        type: number
+      thickness-km:
+        type: number
+        minimum: 0
+    patternProperties:
+      "^thickness_km$":
+        $ref: "#/$defs/planet_spec_atmosphere/properties/thickness-km"
+
+  planet_spec_body:
+    type: object
+    additionalProperties: false
+    properties:
+      id:
+        type: string
+        minLength: 1
+      radius-km:
+        type: number
+        minimum: 0
+      gravity-m-s2:
+        type: number
+        minimum: 0
+    patternProperties:
+      "^radius_km$":
+        $ref: "#/$defs/planet_spec_body/properties/radius-km"
+      "^gravity_m_s2$":
+        $ref: "#/$defs/planet_spec_body/properties/gravity-m-s2"
 
   celestial_scope:
     type: string

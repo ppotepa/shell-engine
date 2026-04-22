@@ -1,7 +1,25 @@
 import "generator/presets" as presets;
-import "generator/vehicle_handoff" as vehicle_handoff;
+import "std/flight_handoff" as flight_handoff;
+import "std/planet_spec" as planet_spec;
 
-fn step(local, input, gui, game, vehicle) {
+fn body_type_label(body_type) {
+    let label = body_type ?? "earth_like";
+    if label == "earth_like" { "EARTH" }
+    else if label == "ocean" { "OCEAN" }
+    else if label == "desert" { "DESERT" }
+    else if label == "ice" { "ICE" }
+    else if label == "volcanic" { "VOLCANIC" }
+    else if label == "barren" { "BARREN" }
+    else { "CUSTOM" }
+}
+
+fn seed_code_text(local) {
+    let spec = local["planet_spec"] ?? planet_spec::snapshot(local);
+    `SEED:${(spec["seed"] ?? 0.0).round()} ${body_type_label(spec["planet_type"] ?? "earth_like")}`
+}
+
+fn step(local, input, gui, game, vehicle, persist) {
+    local = planet_spec::ensure(local);
     let tab = local.tab ?? 0;
     if input.just_pressed("q") {
         local.tab = 0;
@@ -56,20 +74,6 @@ fn step(local, input, gui, game, vehicle) {
         local.rotation_paused = !(local.rotation_paused ?? false);
     }
 
-    if input.just_pressed("F10") || gui.button_clicked("planet-vehicle-button") {
-        local = vehicle_handoff::request_vehicle_launch(local);
-    }
-
-    if input.just_pressed("F9") || input.just_pressed("c") || input.just_pressed("C") {
-        local = vehicle_handoff::toggle_vehicle_profile_state(local, game, vehicle);
-    }
-    if input.just_pressed("h") {
-        local = vehicle_handoff::toggle_vehicle_assist_alt_hold(local, game, vehicle);
-    }
-    if input.just_pressed("j") {
-        local = vehicle_handoff::toggle_vehicle_assist_heading_hold(local, game, vehicle);
-    }
-
     let preset_choice = local.preset_choice ?? 0;
     if input.just_pressed("1") || input.just_pressed("F1") {
         local = presets::apply_choice(local, 0);
@@ -114,6 +118,23 @@ fn step(local, input, gui, game, vehicle) {
         local.tab = 0;
         local.tab_sync_needed = true;
         gui.set_widget_value("planet-parameter-tabs", 0.0);
+    }
+
+    local = planet_spec::sync_spec_from_legacy(local);
+
+    if input.just_pressed("c") {
+        if ui.copy_to_clipboard(seed_code_text(local)) {
+            ui.flash_message("SEED HAS BEEN COPIED", 1600);
+        }
+    }
+
+    if input.just_pressed("F10") {
+        flight_handoff::store_launch_snapshot(persist, local);
+        game.jump("/scenes/flight/scene.yml");
+    }
+    if input.just_pressed("F11") {
+        flight_handoff::store_launch_snapshot(persist, local);
+        game.jump("/scenes/3d-cockpitview/scene.yml");
     }
 
     local

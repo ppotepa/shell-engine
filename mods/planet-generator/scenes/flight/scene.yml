@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../schemas/scene.yaml
+id: planet-generator-flight
+title: Planet Flight
+bg: "#000008"
+render-size: 640x360
+space: 3d
+spatial:
+  meters-per-world-unit: 1000.0
+celestial:
+  scope: local
+  region: planet-generator-local
+  system: generated-system
+  focus-body: generated-planet
+  frame: focus-relative
+  clock-source: scene
+layers:
+  - ref: flight/layers/planet.yml
+  - ref: flight/layers/player.yml
+  - ref: flight/layers/hud.yml
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./main.rhai
+ui:
+  scale: 1.0
+  font-scale: 1.0
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 300 }] }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 16ms

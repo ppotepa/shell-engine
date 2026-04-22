@@ -1,6 +1,10 @@
 use super::effect_applicator::apply_layer_effects;
 use super::provider::resolve_render_2d_pipeline;
 use super::scene_compositor::PreparedLayerFrame;
+#[cfg(feature = "render-3d")]
+use crate::prepared_frame::PreparedLayerInput;
+#[cfg(feature = "render-3d")]
+use crate::render::check_visibility;
 use crate::ObjPrerenderedFrames;
 use engine_animation::SceneStage;
 use engine_celestial::CelestialCatalogs;
@@ -8,15 +12,27 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
-use engine_core::scene::ResolvedViewProfile;
+use engine_core::scene::{ResolvedViewProfile, Sprite};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
 use engine_core::spatial::SpatialContext;
 use engine_pipeline::LayerCompositor;
 use engine_render_2d::{Render2dInput, Render2dPipeline};
+#[cfg(feature = "render-3d")]
+use engine_render_3d::pipeline::obj_sprite_renderer::{
+    render_prepared_obj_sprite_to_shared_rgba_buffers, PreparedObjSpriteRender,
+};
+#[cfg(feature = "render-3d")]
+use engine_render_3d::pipeline::prepared_item_renderer::{
+    prepare_prepared_mesh_item_render, PreparedRender3dRuntime,
+};
+#[cfg(feature = "render-3d")]
+use engine_render_3d::pipeline::{prepare_render3d_item, resolve_view_lighting, SpriteRenderArea};
+#[cfg(feature = "render-3d")]
+use engine_render_3d::{blit_rgba_canvas, virtual_dimensions};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 thread_local! {
     static LAYER_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
@@ -59,7 +75,358 @@ pub struct LayerCompositeInputs<'a> {
     pub camera_x: i32,
     pub camera_y: i32,
     pub camera_zoom: f32,
+    #[cfg(feature = "render-3d")]
+    pub fully_batched_layers: &'a HashSet<usize>,
+    #[cfg(feature = "render-3d")]
+    pub prepared_layer_inputs: Option<&'a [PreparedLayerInput<'a>]>,
     pub render: PreparedLayerRenderInputs<'a>,
+}
+
+#[inline]
+fn resolve_layer_origin(
+    uses_2d_camera: bool,
+    scene_w: u16,
+    scene_h: u16,
+    scene_origin_x: i32,
+    scene_origin_y: i32,
+    layer_state: &ObjectRuntimeState,
+    camera_x: i32,
+    camera_y: i32,
+    camera_zoom: f32,
+) -> (i32, i32) {
+    let base_x = scene_origin_x.saturating_add(layer_state.offset_x);
+    let base_y = scene_origin_y.saturating_add(layer_state.offset_y);
+    if uses_2d_camera && (camera_zoom - 1.0).abs() > 0.001 {
+        let half_w = scene_w as f32 * 0.5;
+        let half_h = scene_h as f32 * 0.5;
+        let world_x = (base_x - camera_x) as f32;
+        let world_y = (base_y - camera_y) as f32;
+        (
+            (half_w + (world_x - half_w) * camera_zoom).round() as i32,
+            (half_h + (world_y - half_h) * camera_zoom).round() as i32,
+        )
+    } else if uses_2d_camera {
+        (
+            base_x.saturating_sub(camera_x),
+            base_y.saturating_sub(camera_y),
+        )
+    } else {
+        (base_x, base_y)
+    }
+}
+
+#[inline]
+fn layer_is_culled(
+    has_runtime_object: bool,
+    total_origin_x: i32,
+    total_origin_y: i32,
+    scene_w: u16,
+    scene_h: u16,
+) -> bool {
+    const CULL_MARGIN: i32 = 128;
+    if has_runtime_object {
+        total_origin_x < -CULL_MARGIN
+            || total_origin_x > scene_w as i32 + CULL_MARGIN
+            || total_origin_y < -CULL_MARGIN
+            || total_origin_y > scene_h as i32 + CULL_MARGIN
+    } else {
+        total_origin_x + scene_w as i32 <= 0
+            || total_origin_x >= scene_w as i32
+            || total_origin_y + scene_h as i32 <= 0
+            || total_origin_y >= scene_h as i32
+    }
+}
+
+#[cfg(feature = "render-3d")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct World3dBatchCompatibility {
+    fov_bits: u32,
+    near_clip_bits: u32,
+}
+
+#[cfg(feature = "render-3d")]
+impl World3dBatchCompatibility {
+    fn from_prepared(prepared: &PreparedObjSpriteRender<'_>) -> Self {
+        Self {
+            fov_bits: prepared.params.fov_degrees.to_bits(),
+            near_clip_bits: prepared.params.near_clip.to_bits(),
+        }
+    }
+}
+
+#[cfg(feature = "render-3d")]
+#[inline]
+fn clamp_region(x: i32, y: i32, width: u16, height: u16, scene_w: u16, scene_h: u16) -> Region {
+    let x0 = x.max(0);
+    let y0 = y.max(0);
+    let x1 = (x + width as i32).min(scene_w as i32).max(x0);
+    let y1 = (y + height as i32).min(scene_h as i32).max(y0);
+    Region {
+        x: x0 as u16,
+        y: y0 as u16,
+        width: (x1 - x0) as u16,
+        height: (y1 - y0) as u16,
+    }
+}
+
+#[cfg(feature = "render-3d")]
+fn merge_world3d_local_canvas(
+    scene_canvas: &mut [Option<[u8; 4]>],
+    scene_depth: &mut [f32],
+    scene_w: u16,
+    scene_h: u16,
+    local_canvas: &[Option<[u8; 4]>],
+    local_depth: &[f32],
+    local_w: u16,
+    local_h: u16,
+    draw_x: i32,
+    draw_y: i32,
+) {
+    for local_y in 0..local_h {
+        for local_x in 0..local_w {
+            let local_idx = local_y as usize * local_w as usize + local_x as usize;
+            let Some(rgba) = local_canvas.get(local_idx).copied().flatten() else {
+                continue;
+            };
+            let depth = *local_depth.get(local_idx).unwrap_or(&f32::INFINITY);
+            if !depth.is_finite() {
+                continue;
+            }
+            let scene_x = draw_x + local_x as i32;
+            let scene_y = draw_y + local_y as i32;
+            if scene_x < 0 || scene_y < 0 || scene_x >= scene_w as i32 || scene_y >= scene_h as i32
+            {
+                continue;
+            }
+            let scene_idx = scene_y as usize * scene_w as usize + scene_x as usize;
+            if depth <= scene_depth[scene_idx] {
+                scene_depth[scene_idx] = depth;
+                scene_canvas[scene_idx] = Some(rgba);
+            }
+        }
+    }
+}
+
+#[cfg(feature = "render-3d")]
+fn render_world3d_batch_run(
+    prepared_layers: &[PreparedLayerFrame<'_>],
+    prepared_layer_inputs: Option<&[PreparedLayerInput<'_>]>,
+    candidate_layers: &HashSet<usize>,
+    start_idx: usize,
+    scene_w: u16,
+    scene_h: u16,
+    target_resolver: Option<&TargetResolver>,
+    object_regions: &mut HashMap<String, Region>,
+    scene_origin_x: i32,
+    scene_origin_y: i32,
+    object_states: &HashMap<String, ObjectRuntimeState>,
+    current_stage: &SceneStage,
+    scene_elapsed_ms: u64,
+    camera_x: i32,
+    camera_y: i32,
+    camera_zoom: f32,
+    resolved_view_profile: &ResolvedViewProfile,
+    obj_camera_states: &HashMap<String, ObjCameraState>,
+    scene_camera_3d: &SceneCamera3D,
+    spatial_context: SpatialContext,
+    asset_root: Option<&AssetRoot>,
+    prerender_frames: Option<&ObjPrerenderedFrames>,
+    buffer: &mut Buffer,
+) -> Option<HashSet<usize>> {
+    let prepared_inputs = prepared_layer_inputs?;
+    let start_layer = prepared_layers.get(start_idx)?;
+    if !candidate_layers.contains(&start_layer.index) {
+        return None;
+    }
+    if start_idx > 0 && candidate_layers.contains(&prepared_layers[start_idx - 1].index) {
+        return None;
+    }
+
+    let mut batch_canvas = vec![None; scene_w as usize * scene_h as usize];
+    let mut batch_depth = vec![f32::INFINITY; scene_w as usize * scene_h as usize];
+    let mut executed_layers = HashSet::new();
+    let mut compatibility = None;
+    let view_lighting = resolve_view_lighting(resolved_view_profile);
+
+    for prepared in prepared_layers.iter().skip(start_idx) {
+        if !candidate_layers.contains(&prepared.index) {
+            break;
+        }
+
+        let Some(layer_input) = prepared_inputs
+            .iter()
+            .find(|input| input.layer_index == prepared.index)
+        else {
+            break;
+        };
+
+        let layer_object_id =
+            target_resolver.and_then(|resolver| resolver.layer_object_id(prepared.index));
+        let layer_state = layer_object_id
+            .and_then(|object_id| object_states.get(object_id))
+            .cloned()
+            .unwrap_or_default();
+        if !prepared.authored_visible || !layer_state.visible {
+            executed_layers.insert(prepared.index);
+            continue;
+        }
+
+        let (total_origin_x, total_origin_y) = resolve_layer_origin(
+            prepared.uses_2d_camera,
+            scene_w,
+            scene_h,
+            scene_origin_x,
+            scene_origin_y,
+            &layer_state,
+            camera_x,
+            camera_y,
+            camera_zoom,
+        );
+        if layer_is_culled(
+            layer_object_id.is_some(),
+            total_origin_x,
+            total_origin_y,
+            scene_w,
+            scene_h,
+        ) {
+            executed_layers.insert(prepared.index);
+            continue;
+        }
+
+        let area = SpriteRenderArea {
+            origin_x: total_origin_x,
+            origin_y: total_origin_y,
+            width: scene_w,
+            height: scene_h,
+        };
+        let mut layer_supported = true;
+
+        for prepared_sprite in &layer_input.sprites_3d {
+            let sprite: &Sprite = prepared_sprite.sprite;
+            let sprite_path = [prepared_sprite.sprite_idx];
+            let object_id = target_resolver
+                .and_then(|resolver| resolver.sprite_object_id(prepared.index, &sprite_path));
+            let object_state = object_id
+                .and_then(|id| object_states.get(id))
+                .cloned()
+                .unwrap_or_default();
+            let is_visible = if object_id.is_some() {
+                object_state.visible
+            } else {
+                sprite.visible()
+            };
+            if !is_visible {
+                continue;
+            }
+            let Some(appear_at) = check_visibility(
+                sprite.hide_on_leave(),
+                sprite.appear_at_ms(),
+                sprite.disappear_at_ms(),
+                current_stage,
+                scene_elapsed_ms,
+            ) else {
+                continue;
+            };
+            let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
+            let obj_camera_state = sprite
+                .id()
+                .and_then(|sid| obj_camera_states.get(sid))
+                .cloned();
+            let Some(item) = prepare_render3d_item(sprite) else {
+                layer_supported = false;
+                break;
+            };
+            let Some(prepared_mesh) = prepare_prepared_mesh_item_render(
+                item,
+                area,
+                PreparedRender3dRuntime {
+                    scene_elapsed_ms,
+                    sprite_elapsed_ms: sprite_elapsed,
+                    object_offset_x: object_state.offset_x,
+                    object_offset_y: object_state.offset_y,
+                    obj_camera_state,
+                    scene_camera_3d,
+                    view_lighting,
+                    spatial_context,
+                    celestial_catalogs: None,
+                    asset_root,
+                    prerender_frames,
+                },
+            ) else {
+                layer_supported = false;
+                break;
+            };
+
+            let prepared_compat = World3dBatchCompatibility::from_prepared(&prepared_mesh);
+            if let Some(existing) = compatibility {
+                if existing != prepared_compat {
+                    layer_supported = false;
+                    break;
+                }
+            } else {
+                compatibility = Some(prepared_compat);
+            }
+
+            let (local_w, local_h) =
+                virtual_dimensions(prepared_mesh.target_w, prepared_mesh.target_h);
+            let local_len = local_w as usize * local_h as usize;
+            let mut local_canvas = vec![None; local_len];
+            let mut local_depth = vec![f32::INFINITY; local_len];
+            render_prepared_obj_sprite_to_shared_rgba_buffers(
+                &prepared_mesh,
+                asset_root,
+                &mut local_canvas,
+                &mut local_depth,
+            );
+            merge_world3d_local_canvas(
+                &mut batch_canvas,
+                &mut batch_depth,
+                scene_w,
+                scene_h,
+                &local_canvas,
+                &local_depth,
+                local_w,
+                local_h,
+                prepared_mesh.draw_x,
+                prepared_mesh.draw_y,
+            );
+
+            if let Some(id) = object_id {
+                object_regions.insert(
+                    id.to_string(),
+                    clamp_region(
+                        prepared_mesh.draw_x,
+                        prepared_mesh.draw_y,
+                        prepared_mesh.target_w,
+                        prepared_mesh.target_h,
+                        scene_w,
+                        scene_h,
+                    ),
+                );
+            }
+        }
+
+        if !layer_supported {
+            break;
+        }
+        executed_layers.insert(prepared.index);
+    }
+
+    if executed_layers.is_empty() {
+        return None;
+    }
+
+    blit_rgba_canvas(
+        buffer,
+        &batch_canvas,
+        scene_w,
+        scene_h,
+        scene_w,
+        scene_h,
+        0,
+        0,
+    );
+    Some(executed_layers)
 }
 
 /// Composite all visible layers onto the scene framebuffer.
@@ -84,6 +451,10 @@ pub fn composite_layers(
     let camera_x = inputs.camera_x;
     let camera_y = inputs.camera_y;
     let camera_zoom = inputs.camera_zoom;
+    #[cfg(feature = "render-3d")]
+    let fully_batched_layers = inputs.fully_batched_layers;
+    #[cfg(feature = "render-3d")]
+    let prepared_layer_inputs = inputs.prepared_layer_inputs;
     let asset_root = inputs.render.asset_root;
     let resolved_view_profile = inputs.render.resolved_view_profile;
     let obj_camera_states = inputs.render.obj_camera_states;
@@ -102,8 +473,10 @@ pub fn composite_layers(
         inputs.render.prerender_frames,
     );
     let render_2d_pipeline: &dyn Render2dPipeline = resolved_render_pipeline.pipeline();
+    #[cfg(feature = "render-3d")]
+    let mut executed_world3d_layers = HashSet::new();
 
-    for prepared in prepared_layers {
+    for (prepared_idx, prepared) in prepared_layers.iter().enumerate() {
         let layer_idx = prepared.index;
         let layer = prepared.layer;
         let layer_object_id =
@@ -118,28 +491,18 @@ pub fn composite_layers(
         if !layer_state.visible {
             continue;
         }
-        let base_x = scene_origin_x.saturating_add(layer_state.offset_x);
-        let base_y = scene_origin_y.saturating_add(layer_state.offset_y);
         let use_2d_camera = prepared.uses_2d_camera;
-        let (total_origin_x, total_origin_y) = if use_2d_camera && (camera_zoom - 1.0).abs() > 0.001
-        {
-            // Zoom scales world pixels around the camera centre (viewport midpoint).
-            let half_w = scene_w as f32 * 0.5;
-            let half_h = scene_h as f32 * 0.5;
-            let world_x = (base_x - camera_x) as f32;
-            let world_y = (base_y - camera_y) as f32;
-            (
-                (half_w + (world_x - half_w) * camera_zoom).round() as i32,
-                (half_h + (world_y - half_h) * camera_zoom).round() as i32,
-            )
-        } else if use_2d_camera {
-            (
-                base_x.saturating_sub(camera_x),
-                base_y.saturating_sub(camera_y),
-            )
-        } else {
-            (base_x, base_y)
-        };
+        let (total_origin_x, total_origin_y) = resolve_layer_origin(
+            use_2d_camera,
+            scene_w,
+            scene_h,
+            scene_origin_x,
+            scene_origin_y,
+            &layer_state,
+            camera_x,
+            camera_y,
+            camera_zoom,
+        );
 
         // ── Flicker diagnostic: detect non-UI layer position jitter ──────
         if !layer.ui {
@@ -188,22 +551,14 @@ pub fn composite_layers(
         // cull if center is more than CULL_MARGIN pixels outside the viewport.
         // Static/background layers (no physics body): content fills the scene rect
         // [total_origin, total_origin + scene_size]; cull if it doesn't overlap viewport.
-        const CULL_MARGIN: i32 = 128;
-        if layer_object_id.is_some() {
-            if total_origin_x < -CULL_MARGIN || total_origin_x > scene_w as i32 + CULL_MARGIN {
-                continue;
-            }
-            if total_origin_y < -CULL_MARGIN || total_origin_y > scene_h as i32 + CULL_MARGIN {
-                continue;
-            }
-        } else {
-            // Layer content spans [total_origin, total_origin + scene_size] on screen.
-            if total_origin_x + scene_w as i32 <= 0 || total_origin_x >= scene_w as i32 {
-                continue;
-            }
-            if total_origin_y + scene_h as i32 <= 0 || total_origin_y >= scene_h as i32 {
-                continue;
-            }
+        if layer_is_culled(
+            layer_object_id.is_some(),
+            total_origin_x,
+            total_origin_y,
+            scene_w,
+            scene_h,
+        ) {
+            continue;
         }
 
         if let Some(object_id) = layer_object_id {
@@ -218,6 +573,42 @@ pub fn composite_layers(
                         .saturating_sub(total_origin_y.unsigned_abs().min(scene_h as u32) as u16),
                 },
             );
+        }
+
+        #[cfg(feature = "render-3d")]
+        if !executed_world3d_layers.contains(&layer_idx) {
+            if let Some(executed_layers) = render_world3d_batch_run(
+                prepared_layers,
+                prepared_layer_inputs,
+                fully_batched_layers,
+                prepared_idx,
+                scene_w,
+                scene_h,
+                target_resolver,
+                object_regions,
+                scene_origin_x,
+                scene_origin_y,
+                object_states,
+                current_stage,
+                scene_elapsed_ms,
+                camera_x,
+                camera_y,
+                camera_zoom,
+                resolved_view_profile,
+                obj_camera_states,
+                scene_camera_3d,
+                spatial_context,
+                asset_root,
+                inputs.render.prerender_frames,
+                buffer,
+            ) {
+                executed_world3d_layers.extend(executed_layers);
+            }
+        }
+
+        #[cfg(feature = "render-3d")]
+        if executed_world3d_layers.contains(&layer_idx) {
+            continue;
         }
 
         // #4 opt-comp-layerscratch: LayerCompositor strategy — DirectLayerCompositor skips

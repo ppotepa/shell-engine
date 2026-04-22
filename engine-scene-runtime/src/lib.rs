@@ -133,9 +133,14 @@ pub struct SceneRuntime {
 struct FreeLookCameraState {
     active: bool,
     pending_activate: bool,
+    drag_hold: bool,
+    toggle_key: String,
+    toggle_with_ctrl: bool,
     position: [f32; 3],
     yaw_deg: f32,
     pitch_deg: f32,
+    target_yaw_deg: f32,
+    target_pitch_deg: f32,
     move_speed: f32,
     mouse_sensitivity: f32,
     surface_mode: bool,
@@ -154,9 +159,14 @@ impl FreeLookCameraState {
         Self {
             active: false,
             pending_activate: false,
+            drag_hold: false,
+            toggle_key: normalize_toggle_key_name(&controls.toggle_key),
+            toggle_with_ctrl: controls.toggle_with_ctrl,
             position: [0.0, 0.0, 0.0],
             yaw_deg: 0.0,
             pitch_deg: 0.0,
+            target_yaw_deg: 0.0,
+            target_pitch_deg: 0.0,
             move_speed: controls.move_speed,
             mouse_sensitivity: controls.mouse_sensitivity,
             surface_mode: controls.surface_mode,
@@ -174,6 +184,14 @@ impl FreeLookCameraState {
             held_keys: HashSet::new(),
         }
     }
+
+    fn matches_toggle_key(&self, key: &KeyEvent) -> bool {
+        let code_name = normalize_toggle_key_name(&key.code.to_string());
+        if code_name.is_empty() || code_name != self.toggle_key {
+            return false;
+        }
+        key.modifiers.contains(KeyModifiers::CONTROL) == self.toggle_with_ctrl
+    }
 }
 
 /// Runtime state for the orbit camera — arcs around a single OBJ sprite target.
@@ -184,6 +202,9 @@ struct ObjOrbitCameraState {
     yaw: f32,
     pitch: f32,
     distance: f32,
+    applied_yaw: f32,
+    applied_pitch: f32,
+    applied_distance: f32,
     pitch_min: f32,
     pitch_max: f32,
     distance_min: f32,
@@ -201,6 +222,9 @@ impl ObjOrbitCameraState {
             yaw: controls.yaw,
             pitch: controls.pitch,
             distance: controls.distance,
+            applied_yaw: controls.yaw,
+            applied_pitch: controls.pitch,
+            applied_distance: controls.distance,
             pitch_min: controls.pitch_min,
             pitch_max: controls.pitch_max,
             distance_min: controls.distance_min,
@@ -227,6 +251,26 @@ struct TextLayoutSpec {
     x: i32,
     y: i32,
     font: Option<String>,
+}
+
+fn normalize_toggle_key_name(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.eq_ignore_ascii_case("space") {
+        return " ".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("up") || trimmed.eq_ignore_ascii_case("arrowup") {
+        return "up".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("down") || trimmed.eq_ignore_ascii_case("arrowdown") {
+        return "down".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("left") || trimmed.eq_ignore_ascii_case("arrowleft") {
+        return "left".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("right") || trimmed.eq_ignore_ascii_case("arrowright") {
+        return "right".to_string();
+    }
+    trimmed.to_ascii_lowercase()
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1565,6 +1609,59 @@ layers:
     }
 
     #[test]
+    fn render3d_obj_set_property_preserves_tiny_scale_values() {
+        let mut via_property = SceneRuntime::new(obj_scene(""));
+        let mut via_typed = SceneRuntime::new(obj_scene(""));
+        let resolver_a = via_property.target_resolver();
+        let resolver_b = via_typed.target_resolver();
+        let tiny_scale = 0.0000004_f32;
+
+        via_property.apply_behavior_commands(
+            &resolver_a,
+            &[set_path(
+                "helsinki-uni-wireframe",
+                "obj.scale",
+                serde_json::json!(tiny_scale),
+                None,
+            )],
+        );
+        via_typed.apply_behavior_commands(
+            &resolver_b,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::SetRender3d(
+                    Render3dMutationRequest::SetWorldParam {
+                        target: "helsinki-uni-wireframe".to_string(),
+                        name: "obj.scale".to_string(),
+                        value: serde_json::json!(tiny_scale),
+                    },
+                ),
+            }],
+        );
+
+        let read_scale = |runtime: &SceneRuntime| {
+            runtime
+                .scene()
+                .layers
+                .iter()
+                .flat_map(|layer| layer.sprites.iter())
+                .find_map(|sprite| match sprite {
+                    Sprite::Obj { id, scale, .. }
+                        if id.as_deref() == Some("helsinki-uni-wireframe") =>
+                    {
+                        *scale
+                    }
+                    _ => None,
+                })
+                .expect("obj scale")
+        };
+        let property_scale = read_scale(&via_property);
+        let typed_scale = read_scale(&via_typed);
+
+        assert!((property_scale - tiny_scale).abs() < 0.00000001);
+        assert!((typed_scale - tiny_scale).abs() < 0.00000001);
+    }
+
+    #[test]
     fn render3d_planet_set_property_matches_typed_world_param_mutation() {
         let mut via_property = SceneRuntime::new(planet_scene(""));
         let mut via_typed = SceneRuntime::new(planet_scene(""));
@@ -2087,6 +2184,168 @@ layers:
     }
 
     #[test]
+    fn free_look_surface_activation_preserves_current_camera_altitude() {
+        use engine_core::scene_runtime_types::SceneCamera3D;
+        use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-preserve-altitude
+title: Free Look Preserve Altitude
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+    surface-mode: true
+    surface-center-x: 0.0
+    surface-center-y: 0.0
+    surface-center-z: 0.0
+    surface-radius: 1.0
+    surface-altitude: 0.05
+    surface-min-altitude: 0.001
+    surface-max-altitude: 0.2
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        runtime.scene_camera_3d = SceneCamera3D {
+            eye: [0.0, 0.0, 1.08],
+            look_at: [0.0, 1.0, 1.08],
+            up: [0.0, 0.0, 1.0],
+            fov_degrees: 60.0,
+            near_clip: 0.001,
+        };
+
+        let toggled = runtime.apply_free_look_key_events(
+            &[KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            &[],
+        );
+        assert!(toggled, "expected plain f to engage free-look");
+        assert!(runtime.step_free_look_camera(16));
+
+        let eye = runtime.scene_camera_3d().eye;
+        let radius = (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt();
+        assert!(
+            (radius - 1.08).abs() < 0.001,
+            "expected free-look activation to preserve current altitude, got radius={radius}"
+        );
+    }
+
+    #[test]
+    fn free_look_surface_mode_retains_vertical_look_component() {
+        use engine_core::scene_runtime_types::SceneCamera3D;
+        use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-full-look
+title: Free Look Full Look
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+    surface-mode: true
+    surface-center-x: 0.0
+    surface-center-y: 0.0
+    surface-center-z: 0.0
+    surface-radius: 1.0
+    surface-altitude: 0.05
+    surface-min-altitude: 0.001
+    surface-max-altitude: 0.2
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        runtime.scene_camera_3d = SceneCamera3D {
+            eye: [0.0, 0.0, 1.05],
+            look_at: [0.0, 0.35, 1.45],
+            up: [0.0, 0.0, 1.0],
+            fov_degrees: 60.0,
+            near_clip: 0.001,
+        };
+
+        let toggled = runtime.apply_free_look_key_events(
+            &[KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            &[],
+        );
+        assert!(toggled, "expected plain f to engage free-look");
+        assert!(runtime.step_free_look_camera(16));
+
+        let camera = runtime.scene_camera_3d();
+        assert!(
+            camera.look_at[2] > camera.eye[2] + 0.20,
+            "expected surface free-look to keep upward look component, got eye={:?} look={:?}",
+            camera.eye,
+            camera.look_at
+        );
+    }
+
+    #[test]
+    fn free_look_surface_mode_uses_local_surface_axes_for_pitch() {
+        use engine_core::scene_runtime_types::SceneCamera3D;
+        use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-local-surface-pitch
+title: Free Look Local Surface Pitch
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+    surface-mode: true
+    surface-center-x: 0.0
+    surface-center-y: 0.0
+    surface-center-z: 0.0
+    surface-radius: 1.0
+    surface-altitude: 0.05
+    surface-min-altitude: 0.001
+    surface-max-altitude: 0.2
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        runtime.scene_camera_3d = SceneCamera3D {
+            eye: [1.05, 0.0, 0.0],
+            look_at: [1.05, 1.0, 0.0],
+            up: [1.0, 0.0, 0.0],
+            fov_degrees: 60.0,
+            near_clip: 0.001,
+        };
+
+        let toggled = runtime.apply_free_look_key_events(
+            &[KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            &[],
+        );
+        assert!(toggled, "expected plain f to engage free-look");
+        assert!(runtime.step_free_look_camera(16));
+
+        runtime.apply_free_look_mouse_moves(&[(120.0, 120.0)]);
+        runtime.apply_free_look_mouse_moves(&[(120.0, 0.0)]);
+        assert!(runtime.step_free_look_camera(120));
+
+        let camera = runtime.scene_camera_3d();
+        let forward = camera.forward();
+        let up = camera.up;
+        let forward_up_dot = forward[0] * up[0] + forward[1] * up[1] + forward[2] * up[2];
+
+        assert!(
+            forward[0] > 0.6,
+            "expected looking up on the shell to add strong radial component, got forward={forward:?}"
+        );
+        assert!(
+            forward_up_dot.abs() < 0.001,
+            "expected camera up to stay orthogonal to forward, got dot={forward_up_dot} forward={forward:?} up={up:?}"
+        );
+    }
+
+    #[test]
     fn toggles_obj_surface_mode() {
         let mut runtime = SceneRuntime::new(obj_scene(""));
         assert!(runtime.toggle_obj_surface_mode("helsinki-uni-wireframe"));
@@ -2152,6 +2411,9 @@ layers:
             yaw: 24.0,
             pitch: -15.0,
             distance: 42.0,
+            applied_yaw: 24.0,
+            applied_pitch: -15.0,
+            applied_distance: 42.0,
             pitch_min: -85.0,
             pitch_max: 85.0,
             distance_min: 0.3,
@@ -2161,7 +2423,7 @@ layers:
             last_mouse_pos: None,
         });
 
-        assert!(runtime.step_orbit_camera());
+        assert!(runtime.step_orbit_camera(16));
 
         let obj_fields = runtime
             .scene()
@@ -2188,6 +2450,64 @@ layers:
     }
 
     #[test]
+    fn step_orbit_camera_smooths_toward_target_fields() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        runtime.orbit_camera = Some(ObjOrbitCameraState {
+            target: "helsinki-uni-wireframe".to_string(),
+            active: true,
+            yaw: 90.0,
+            pitch: -35.0,
+            distance: 6.0,
+            applied_yaw: 0.0,
+            applied_pitch: -10.0,
+            applied_distance: 3.0,
+            pitch_min: -85.0,
+            pitch_max: 85.0,
+            distance_min: 0.3,
+            distance_max: 10.0,
+            distance_step: 0.5,
+            drag_sensitivity: 0.5,
+            last_mouse_pos: None,
+        });
+
+        assert!(runtime.step_orbit_camera(16));
+
+        let (yaw_deg, pitch_deg, camera_distance) = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    yaw_deg,
+                    pitch_deg,
+                    camera_distance,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => Some((
+                    yaw_deg.unwrap_or_default(),
+                    pitch_deg.unwrap_or_default(),
+                    camera_distance.unwrap_or_default(),
+                )),
+                _ => None,
+            })
+            .expect("orbit camera fields");
+
+        assert!(
+            yaw_deg > 0.0 && yaw_deg < 90.0,
+            "expected smoothed yaw between current and target, got {yaw_deg}"
+        );
+        assert!(
+            pitch_deg < -10.0 && pitch_deg > -35.0,
+            "expected smoothed pitch between current and target, got {pitch_deg}"
+        );
+        assert!(
+            camera_distance > 3.0 && camera_distance < 6.0,
+            "expected smoothed distance between current and target, got {camera_distance}"
+        );
+    }
+
+    #[test]
     fn step_orbit_camera_enforces_safe_min_distance_for_large_atmosphere() {
         let mut runtime = SceneRuntime::new(obj_scene(
             r#"        fov-degrees: 40
@@ -2202,6 +2522,9 @@ layers:
             yaw: 12.0,
             pitch: -8.0,
             distance: 1.0,
+            applied_yaw: 12.0,
+            applied_pitch: -8.0,
+            applied_distance: 1.0,
             pitch_min: -85.0,
             pitch_max: 85.0,
             distance_min: 0.3,
@@ -2211,7 +2534,7 @@ layers:
             last_mouse_pos: None,
         });
 
-        assert!(runtime.step_orbit_camera());
+        assert!(runtime.step_orbit_camera(16));
 
         let obj_distance = runtime
             .scene()
@@ -2252,6 +2575,9 @@ layers:
             yaw: 12.0,
             pitch: -8.0,
             distance: 1.0,
+            applied_yaw: 12.0,
+            applied_pitch: -8.0,
+            applied_distance: 1.0,
             pitch_min: -85.0,
             pitch_max: 85.0,
             distance_min: 0.3,
@@ -2261,7 +2587,7 @@ layers:
             last_mouse_pos: None,
         });
 
-        assert!(runtime.step_orbit_camera());
+        assert!(runtime.step_orbit_camera(16));
 
         let obj_distance = runtime
             .scene()

@@ -96,8 +96,8 @@ mod tests {
 
         let biomes = classify(&elevation, &moisture, &temperature, false, 2, 2);
 
-        assert!(!biomes.iter().any(|biome| {
-            matches!(biome, Biome::Ocean | Biome::ShallowWater | Biome::Beach)
-        }));
+        assert!(!biomes
+            .iter()
+            .any(|biome| { matches!(biome, Biome::Ocean | Biome::ShallowWater | Biome::Beach) }));
     }
 }

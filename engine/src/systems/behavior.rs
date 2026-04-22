@@ -8,6 +8,7 @@ use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
 use crate::systems::gameplay_events::GameplayEventBuffer;
 use crate::world::World;
+use engine_api::commands::{planet_apply_behavior_commands, PlanetApplySpec, PlanetBodyPatchSpec};
 use engine_core::logging;
 
 /// Runs all registered behaviors against the current scene runtime state and dispatches their commands.
@@ -150,22 +151,15 @@ pub fn behavior_system(world: &mut World) {
                 source,
                 message,
             } => {
-                let source_label = source.as_deref().unwrap_or("<inline>");
-                logging::error(
-                    "engine.debug.overlay",
-                    format!(
-                        "script error: scene={} src={} message={}",
-                        scene_id, source_label, message
-                    ),
-                );
-                if let Some(log) = world.get_mut::<DebugLogBuffer>() {
-                    log.push(DebugLogEntry {
-                        severity: DebugSeverity::Error,
-                        subsystem: "rhai",
-                        scene_id: Some(scene_id.clone()),
-                        source: source.clone(),
-                        message: message.clone(),
-                    });
+                record_script_error(world, scene_id, source.clone(), message.clone());
+            }
+            BehaviorCommand::ApplyPlanetSpec {
+                target,
+                body_id,
+                spec,
+            } => {
+                if let Err(error) = apply_planet_spec(world, target, body_id, spec) {
+                    record_script_error(world, &scene_id, None, error);
                 }
             }
             BehaviorCommand::SceneTransition { to_scene_id } => {
@@ -175,56 +169,18 @@ pub fn behavior_system(world: &mut World) {
                     });
                 }
             }
+            BehaviorCommand::CopyToClipboard { text } => {
+                if let Some(renderer) = world.renderer_mut() {
+                    let _ = renderer.copy_to_clipboard(text);
+                }
+            }
             BehaviorCommand::DebugLog {
                 scene_id,
                 source,
                 severity,
                 message,
             } => {
-                let target = "engine.gameplay";
-                match severity {
-                    BehaviorDebugLogSeverity::Info => logging::info(
-                        target,
-                        format!(
-                            "scene={} src={} {}",
-                            scene_id,
-                            source.as_deref().unwrap_or("-"),
-                            message
-                        ),
-                    ),
-                    BehaviorDebugLogSeverity::Warn => logging::warn(
-                        target,
-                        format!(
-                            "scene={} src={} {}",
-                            scene_id,
-                            source.as_deref().unwrap_or("-"),
-                            message
-                        ),
-                    ),
-                    BehaviorDebugLogSeverity::Error => logging::error(
-                        target,
-                        format!(
-                            "scene={} src={} {}",
-                            scene_id,
-                            source.as_deref().unwrap_or("-"),
-                            message
-                        ),
-                    ),
-                }
-                if let Some(log) = world.get_mut::<DebugLogBuffer>() {
-                    let severity = match severity {
-                        BehaviorDebugLogSeverity::Info => DebugSeverity::Info,
-                        BehaviorDebugLogSeverity::Warn => DebugSeverity::Warn,
-                        BehaviorDebugLogSeverity::Error => DebugSeverity::Error,
-                    };
-                    log.push(DebugLogEntry {
-                        severity,
-                        subsystem: "gameplay",
-                        scene_id: Some(scene_id.clone()),
-                        source: source.clone(),
-                        message: message.clone(),
-                    });
-                }
+                record_debug_log(world, scene_id, source.clone(), *severity, message.clone());
             }
             _ => {}
         }
@@ -272,18 +228,290 @@ pub fn behavior_system(world: &mut World) {
     }
 }
 
+fn record_script_error(world: &mut World, scene_id: &str, source: Option<String>, message: String) {
+    let source_label = source.as_deref().unwrap_or("<inline>");
+    logging::error(
+        "engine.debug.overlay",
+        format!(
+            "script error: scene={} src={} message={}",
+            scene_id, source_label, message
+        ),
+    );
+    if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+        log.push(DebugLogEntry {
+            severity: DebugSeverity::Error,
+            subsystem: "rhai",
+            scene_id: Some(scene_id.to_string()),
+            source,
+            message,
+        });
+    }
+}
+
+fn record_debug_log(
+    world: &mut World,
+    scene_id: &str,
+    source: Option<String>,
+    severity: BehaviorDebugLogSeverity,
+    message: String,
+) {
+    let target = "engine.gameplay";
+    match severity {
+        BehaviorDebugLogSeverity::Info => logging::info(
+            target,
+            format!(
+                "scene={} src={} {}",
+                scene_id,
+                source.as_deref().unwrap_or("-"),
+                message
+            ),
+        ),
+        BehaviorDebugLogSeverity::Warn => logging::warn(
+            target,
+            format!(
+                "scene={} src={} {}",
+                scene_id,
+                source.as_deref().unwrap_or("-"),
+                message
+            ),
+        ),
+        BehaviorDebugLogSeverity::Error => logging::error(
+            target,
+            format!(
+                "scene={} src={} {}",
+                scene_id,
+                source.as_deref().unwrap_or("-"),
+                message
+            ),
+        ),
+    }
+    if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+        let severity = match severity {
+            BehaviorDebugLogSeverity::Info => DebugSeverity::Info,
+            BehaviorDebugLogSeverity::Warn => DebugSeverity::Warn,
+            BehaviorDebugLogSeverity::Error => DebugSeverity::Error,
+        };
+        log.push(DebugLogEntry {
+            severity,
+            subsystem: "gameplay",
+            scene_id: Some(scene_id.to_string()),
+            source,
+            message,
+        });
+    }
+}
+
+fn apply_planet_body_patch(
+    body: &mut engine_behavior::catalog::BodyDef,
+    patch: &PlanetBodyPatchSpec,
+) {
+    if let Some(value) = &patch.planet_type {
+        body.planet_type = value.clone();
+    }
+    if let Some(value) = patch.center_x {
+        body.center_x = value;
+    }
+    if let Some(value) = patch.center_y {
+        body.center_y = value;
+    }
+    if let Some(value) = &patch.parent {
+        body.parent = value.clone();
+    }
+    if let Some(value) = patch.orbit_radius {
+        body.orbit_radius = value;
+    }
+    if let Some(value) = patch.orbit_period_sec {
+        body.orbit_period_sec = value;
+    }
+    if let Some(value) = patch.orbit_phase_deg {
+        body.orbit_phase_deg = value;
+    }
+    if let Some(value) = patch.radius_px {
+        body.radius_px = value;
+    }
+    if let Some(value) = &patch.radius_km {
+        body.radius_km = *value;
+    }
+    if let Some(value) = &patch.km_per_px {
+        body.km_per_px = *value;
+    }
+    if let Some(value) = patch.gravity_mu {
+        body.gravity_mu = value;
+    }
+    if let Some(value) = &patch.gravity_mu_km3_s2 {
+        body.gravity_mu_km3_s2 = *value;
+    }
+    if let Some(value) = patch.surface_radius {
+        body.surface_radius = value;
+    }
+    if let Some(value) = &patch.atmosphere_top {
+        body.atmosphere_top = *value;
+    }
+    if let Some(value) = &patch.atmosphere_dense_start {
+        body.atmosphere_dense_start = *value;
+    }
+    if let Some(value) = &patch.atmosphere_drag_max {
+        body.atmosphere_drag_max = *value;
+    }
+    if let Some(value) = &patch.atmosphere_top_km {
+        body.atmosphere_top_km = *value;
+    }
+    if let Some(value) = &patch.atmosphere_dense_start_km {
+        body.atmosphere_dense_start_km = *value;
+    }
+    if let Some(value) = &patch.cloud_bottom_km {
+        body.cloud_bottom_km = *value;
+    }
+    if let Some(value) = &patch.cloud_top_km {
+        body.cloud_top_km = *value;
+    }
+}
+
+fn apply_planet_spec(
+    world: &mut World,
+    target: &str,
+    body_id: &str,
+    spec: &PlanetApplySpec,
+) -> Result<(), String> {
+    let target = target.trim();
+    let body_id = body_id.trim();
+    if target.is_empty() {
+        return Err("planet apply requires a non-empty target".to_string());
+    }
+    if body_id.is_empty() {
+        return Err("planet apply requires a non-empty body_id".to_string());
+    }
+    if spec.is_empty() {
+        return Err("planet apply requires at least one body or render field".to_string());
+    }
+
+    {
+        let Some(catalogs) = world.get_mut::<engine_behavior::catalog::ModCatalogs>() else {
+            return Err("missing celestial catalogs".to_string());
+        };
+        let body = catalogs
+            .celestial
+            .bodies
+            .entry(body_id.to_string())
+            .or_default();
+        apply_planet_body_patch(body, &spec.body);
+    }
+
+    let render_commands = planet_apply_behavior_commands(target, body_id, spec);
+    if render_commands.is_empty() {
+        return Ok(());
+    }
+
+    let Some(runtime) = world.scene_runtime_mut() else {
+        return Err("missing scene runtime".to_string());
+    };
+    let resolver = runtime.target_resolver();
+    let diagnostics = runtime.apply_behavior_commands(&resolver, &render_commands);
+    for command in diagnostics {
+        match command {
+            BehaviorCommand::DebugLog {
+                scene_id,
+                source,
+                severity,
+                message,
+            } => record_debug_log(world, &scene_id, source, severity, message),
+            BehaviorCommand::ScriptError {
+                scene_id,
+                source,
+                message,
+            } => record_script_error(world, &scene_id, source, message),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::behavior_system;
     use crate::audio::AudioRuntime;
     use crate::buffer::Buffer;
+    use crate::events::{EngineEvent, EventQueue};
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene::Scene;
+    use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
     use crate::services::EngineWorldAccess;
     use crate::systems::compositor::compositor_system;
+    use crate::systems::scene_lifecycle::SceneLifecycleManager;
     use crate::world::World;
     use engine_animation::{Animator, SceneStage};
+    use engine_behavior::{catalog::ModCatalogs, init_behavior_system};
+    use engine_core::scene::Sprite;
+    use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+    use engine_persistence::PersistenceStore;
+    use engine_render::{OverlayData, RenderError, RendererBackend, VectorOverlay};
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+    use tempfile::tempdir;
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("engine crate should live under repo root")
+            .to_path_buf()
+    }
+
+    fn make_idle_animator_with_frame(frame_ms: u64) -> Animator {
+        Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: frame_ms,
+            stage_elapsed_ms: frame_ms,
+            scene_elapsed_ms: frame_ms,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        }
+    }
+
+    fn key_pressed(code: KeyCode) -> EngineEvent {
+        EngineEvent::KeyDown {
+            key: KeyEvent::new(code, KeyModifiers::NONE),
+            repeat: false,
+        }
+    }
+
+    struct ClipboardTestRenderer {
+        copied: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl ClipboardTestRenderer {
+        fn new(copied: Arc<Mutex<Vec<String>>>) -> Self {
+            Self { copied }
+        }
+    }
+
+    impl RendererBackend for ClipboardTestRenderer {
+        fn present_frame(&mut self, _buffer: &Buffer) {}
+
+        fn present_overlay(&mut self, _overlay: &OverlayData) {}
+
+        fn present_vectors(&mut self, _vectors: &VectorOverlay) {}
+
+        fn output_size(&self) -> (u16, u16) {
+            (1, 1)
+        }
+
+        fn copy_to_clipboard(&mut self, text: &str) -> bool {
+            if let Ok(mut copied) = self.copied.lock() {
+                copied.push(text.to_string());
+            }
+            true
+        }
+
+        fn clear(&mut self) -> Result<(), RenderError> {
+            Ok(())
+        }
+
+        fn shutdown(&mut self) -> Result<(), RenderError> {
+            Ok(())
+        }
+    }
 
     #[test]
     fn behavior_system_queues_audio_commands_from_scene_runtime() {
@@ -841,5 +1069,504 @@ layers:
 
         let buffer = world.get::<Buffer>().expect("buffer");
         assert_eq!(buffer.get(1, 0).expect("offset cell").symbol, 'A');
+    }
+
+    #[test]
+    fn behavior_system_dispatches_copy_to_clipboard_command_to_renderer() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: copy-test
+title: Copy Test
+bg_colour: black
+layers:
+  - name: ui
+    sprites:
+      - type: text
+        id: title
+        content: idle
+        behaviors:
+          - name: rhai-script
+            params:
+              script: |
+                ui.copy_to_clipboard("SEED:42 BARREN");
+                []
+"#,
+        )
+        .expect("scene should parse");
+
+        let mut world = World::new();
+        let copied = Arc::new(Mutex::new(Vec::<String>::new()));
+        world.register(AudioRuntime::null());
+        world.register(Buffer::new(10, 2));
+        world.register(RuntimeSettings::default());
+        world
+            .register(Box::new(ClipboardTestRenderer::new(Arc::clone(&copied)))
+                as Box<dyn RendererBackend>);
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        behavior_system(&mut world);
+
+        assert_eq!(
+            *copied.lock().expect("copied lock"),
+            vec!["SEED:42 BARREN".to_string()]
+        );
+    }
+
+    #[test]
+    fn behavior_system_applies_unified_planet_update_to_body_and_render_state() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: planet-apply
+title: Planet Apply
+bg_colour: black
+layers:
+  - name: planet
+    sprites:
+      - type: obj
+        id: planet-mesh
+        source: /assets/3d/sphere.obj
+        camera-distance: 3.0
+        behaviors:
+          - name: rhai-script
+            params:
+              script: |
+                let ok_apply = world.apply_planet_spec("planet-mesh", "generated-planet", #{
+                  body: #{
+                    planet_type: "earth_like",
+                    radius_px: 210.0,
+                    surface_radius: 205.0,
+                    gravity_mu_km3_s2: 4321.5
+                  },
+                  view_params: #{
+                    distance: 9.5
+                  }
+                });
+                game.set("/test/ok_apply", ok_apply);
+"#,
+        )
+        .expect("scene should parse");
+
+        let mut world = World::new();
+        world.register(AudioRuntime::null());
+        world.register(Buffer::new(10, 2));
+        world.register(RuntimeSettings::default());
+        world.register(ModCatalogs::default());
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        behavior_system(&mut world);
+
+        let catalogs = world.get::<ModCatalogs>().expect("catalogs");
+        let body = catalogs
+            .celestial
+            .bodies
+            .get("generated-planet")
+            .expect("generated planet body");
+        assert_eq!(body.planet_type.as_deref(), Some("earth_like"));
+        assert_eq!(body.radius_px, 210.0);
+        assert_eq!(body.surface_radius, 205.0);
+        assert_eq!(body.gravity_mu_km3_s2, Some(4321.5));
+
+        let runtime = world.scene_runtime().expect("scene runtime");
+        let camera_distance = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    camera_distance,
+                    ..
+                } if id.as_deref() == Some("planet-mesh") => *camera_distance,
+                _ => None,
+            })
+            .expect("planet mesh camera distance");
+        assert!((camera_distance - 9.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn planet_generator_flight_scene_seeds_ship_above_surface_and_drives_cockpit_camera() {
+        let mod_root = repo_root().join("mods/planet-generator");
+        init_behavior_system(
+            mod_root
+                .to_str()
+                .expect("planet-generator mod path should be valid UTF-8"),
+        );
+        let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
+        let scene = loader
+            .load_by_path("/scenes/flight/scene.yml")
+            .expect("flight scene");
+
+        let mut world = World::new();
+        world.register(AudioRuntime::null());
+        world.register(Buffer::new(640, 360));
+        world.register(RuntimeSettings::default());
+        world.register(
+            ModCatalogs::load_from_directory(&mod_root.join("catalogs"))
+                .expect("planet-generator catalogs"),
+        );
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator_with_frame(16));
+
+        behavior_system(&mut world);
+
+        let runtime = world.scene_runtime_mut().expect("scene runtime");
+        let (ship_x, ship_y, ship_z, ship_scale, ship_visible): (f32, f32, f32, f32, bool) =
+            runtime
+                .scene()
+                .layers
+                .iter()
+                .flat_map(|layer| layer.sprites.iter())
+                .find_map(|sprite| match sprite {
+                    Sprite::Obj {
+                        id,
+                        scale,
+                        world_x,
+                        world_y,
+                        world_z,
+                        visible,
+                        ..
+                    } if id.as_deref() == Some("flight-player") => Some((
+                        world_x.unwrap_or(0.0),
+                        world_y.unwrap_or(0.0),
+                        world_z.unwrap_or(0.0),
+                        scale.unwrap_or(0.0),
+                        *visible,
+                    )),
+                    _ => None,
+                })
+                .expect("flight-player world position");
+        let (
+            cockpit_scale,
+            cockpit_visible,
+            cockpit_x,
+            cockpit_y,
+            cockpit_z,
+            cockpit_cam_x,
+            cockpit_cam_y,
+            cockpit_cam_z,
+        ): (f32, bool, f32, f32, f32, f32, f32, f32) = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    scale,
+                    visible,
+                    world_x,
+                    world_y,
+                    world_z,
+                    cam_world_x,
+                    cam_world_y,
+                    cam_world_z,
+                    ..
+                } if id.as_deref() == Some("flight-cockpit") => Some((
+                    scale.unwrap_or(0.0),
+                    *visible,
+                    world_x.unwrap_or(0.0),
+                    world_y.unwrap_or(0.0),
+                    world_z.unwrap_or(0.0),
+                    cam_world_x.unwrap_or(0.0),
+                    cam_world_y.unwrap_or(0.0),
+                    cam_world_z.unwrap_or(0.0),
+                )),
+                _ => None,
+            })
+            .expect("flight-cockpit render params");
+        let ship_radius = (ship_x * ship_x + ship_y * ship_y + ship_z * ship_z).sqrt();
+        let camera = runtime.scene_camera_3d();
+        let eye = camera.eye;
+        let look_at = camera.look_at;
+        let eye_radius = (eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]).sqrt();
+        let look_radius =
+            (look_at[0] * look_at[0] + look_at[1] * look_at[1] + look_at[2] * look_at[2]).sqrt();
+        let ship_to_eye = [eye[0] - ship_x, eye[1] - ship_y, eye[2] - ship_z];
+        let ship_to_look = [
+            look_at[0] - ship_x,
+            look_at[1] - ship_y,
+            look_at[2] - ship_z,
+        ];
+        let cockpit_to_eye = [eye[0] - cockpit_x, eye[1] - cockpit_y, eye[2] - cockpit_z];
+        let cockpit_cam_to_eye = [
+            eye[0] - cockpit_cam_x,
+            eye[1] - cockpit_cam_y,
+            eye[2] - cockpit_cam_z,
+        ];
+        let eye_distance = (ship_to_eye[0] * ship_to_eye[0]
+            + ship_to_eye[1] * ship_to_eye[1]
+            + ship_to_eye[2] * ship_to_eye[2])
+            .sqrt();
+        let look_distance = (ship_to_look[0] * ship_to_look[0]
+            + ship_to_look[1] * ship_to_look[1]
+            + ship_to_look[2] * ship_to_look[2])
+            .sqrt();
+        let cockpit_anchor_distance = (cockpit_to_eye[0] * cockpit_to_eye[0]
+            + cockpit_to_eye[1] * cockpit_to_eye[1]
+            + cockpit_to_eye[2] * cockpit_to_eye[2])
+            .sqrt();
+        let cockpit_cam_distance = (cockpit_cam_to_eye[0] * cockpit_cam_to_eye[0]
+            + cockpit_cam_to_eye[1] * cockpit_cam_to_eye[1]
+            + cockpit_cam_to_eye[2] * cockpit_cam_to_eye[2])
+            .sqrt();
+
+        assert!(
+            ship_radius > 1.0,
+            "ship should seed above the unit render shell, got ship_radius={ship_radius}"
+        );
+        assert!(
+            ship_scale > 0.0 && ship_scale < 0.000001,
+            "placeholder ship should stay physically tiny against the planet shell, got ship_scale={ship_scale}"
+        );
+        assert!(
+            !ship_visible,
+            "proxy ship should stay hidden in first-person mode"
+        );
+        assert!(
+            cockpit_visible,
+            "cockpit mesh should be visible in the default flight view"
+        );
+        assert!(
+            cockpit_scale > 0.0 && cockpit_scale < ship_scale,
+            "cockpit mesh should stay smaller than the proxy ship scale, got cockpit_scale={cockpit_scale} ship_scale={ship_scale}"
+        );
+        assert!(
+            eye_radius > ship_radius,
+            "cockpit camera eye should stay slightly above the proxy ship centre, got eye_radius={eye_radius} ship_radius={ship_radius}"
+        );
+        assert!(
+            eye_distance > ship_scale * 0.2 && eye_distance < ship_scale * 3.0,
+            "cockpit camera eye should stay close to the proxy ship, got eye_distance={eye_distance} ship_scale={ship_scale}"
+        );
+        assert!(
+            look_distance > ship_scale * 40.0,
+            "cockpit camera should look far ahead of the ship instead of at its centre, got look_distance={look_distance} ship_scale={ship_scale}"
+        );
+        assert!(
+            look_radius > 1.0,
+            "camera should keep looking outward from the planet shell, got look_radius={look_radius}"
+        );
+        assert!(
+            cockpit_anchor_distance < ship_scale * 0.2,
+            "cockpit world anchor should stay glued to the camera eye, got cockpit_anchor_distance={cockpit_anchor_distance}"
+        );
+        assert!(
+            cockpit_cam_distance < ship_scale * 0.2,
+            "cockpit local camera basis should reuse the scene camera eye, got cockpit_cam_distance={cockpit_cam_distance}"
+        );
+    }
+
+    #[test]
+    fn planet_generator_flight_scene_pushes_readable_planet_defaults() {
+        let mod_root = repo_root().join("mods/planet-generator");
+        init_behavior_system(
+            mod_root
+                .to_str()
+                .expect("planet-generator mod path should be valid UTF-8"),
+        );
+        let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
+        let scene = loader
+            .load_by_path("/scenes/flight/scene.yml")
+            .expect("flight scene");
+
+        let mut world = World::new();
+        world.register(AudioRuntime::null());
+        world.register(Buffer::new(640, 360));
+        world.register(RuntimeSettings::default());
+        world.register(
+            ModCatalogs::load_from_directory(&mod_root.join("catalogs"))
+                .expect("planet-generator catalogs"),
+        );
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator_with_frame(16));
+
+        behavior_system(&mut world);
+
+        let runtime = world.scene_runtime_mut().expect("scene runtime");
+        let (seed, displacement, ambient, atmo_height, atmo_density, rayleigh, haze) = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    world_gen_seed,
+                    world_gen_displacement_scale,
+                    ambient,
+                    atmo_height,
+                    atmo_density,
+                    atmo_rayleigh_amount,
+                    atmo_haze_amount,
+                    ..
+                } if id.as_deref() == Some("planet-mesh") => Some((
+                    world_gen_seed.unwrap_or(0),
+                    world_gen_displacement_scale.unwrap_or(0.0),
+                    ambient.unwrap_or(0.0),
+                    atmo_height.unwrap_or(0.0),
+                    atmo_density.unwrap_or(0.0),
+                    atmo_rayleigh_amount.unwrap_or(0.0),
+                    atmo_haze_amount.unwrap_or(0.0),
+                )),
+                _ => None,
+            })
+            .expect("planet-mesh render params");
+
+        assert_ne!(
+            seed, 0,
+            "flight scene should not ship with the bland seed 0"
+        );
+        assert!(
+            displacement >= 0.0015,
+            "flight scene should keep visible terrain relief, got displacement={displacement}"
+        );
+        assert!(
+            ambient <= 0.10,
+            "flight scene should keep enough light contrast for readable landforms, got ambient={ambient}"
+        );
+        assert!(
+            atmo_height >= 0.15 && atmo_density >= 0.55,
+            "flight scene should push a visible atmosphere shell, got height={atmo_height} density={atmo_density}"
+        );
+        assert!(
+            rayleigh >= 0.45 && haze >= 0.30,
+            "flight scene should keep both rayleigh and haze components visible, got rayleigh={rayleigh} haze={haze}"
+        );
+    }
+
+    #[test]
+    fn planet_generator_main_scene_f10_hands_off_current_planet_to_flight() {
+        let mod_root = repo_root().join("mods/planet-generator");
+        init_behavior_system(
+            mod_root
+                .to_str()
+                .expect("planet-generator mod path should be valid UTF-8"),
+        );
+        let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
+        let scene = loader
+            .load_by_path("/scenes/main/scene.yml")
+            .expect("main scene");
+        let temp = tempdir().expect("temp dir");
+
+        let mut world = World::new();
+        world.register(AudioRuntime::null());
+        world.register(Buffer::new(1280, 720));
+        world.register(RuntimeSettings::default());
+        world.register(loader);
+        world.register(EventQueue::new());
+        world.register(PersistenceStore::from_root(
+            temp.path(),
+            "planet-generator-f10-test",
+        ));
+        world.register(
+            ModCatalogs::load_from_directory(&mod_root.join("catalogs"))
+                .expect("planet-generator catalogs"),
+        );
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator_with_frame(16));
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(2))]);
+        behavior_system(&mut world);
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(10))]);
+        behavior_system(&mut world);
+
+        let snapshot = world
+            .get::<PersistenceStore>()
+            .expect("persistence")
+            .get("/planet_generator/flight_launch")
+            .expect("flight handoff snapshot");
+        assert_eq!(
+            snapshot.pointer("/planet_type").and_then(|v| v.as_str()),
+            Some("barren")
+        );
+        assert_eq!(
+            snapshot.pointer("/seed").and_then(|v| v.as_f64()),
+            Some(42.0)
+        );
+        assert_eq!(
+            snapshot.pointer("/has_ocean").and_then(|v| v.as_bool()),
+            Some(false)
+        );
+
+        let transition_events = world.events_mut().expect("event queue").drain();
+        assert!(
+            transition_events.iter().any(|event| matches!(
+                event,
+                EngineEvent::SceneTransition { to_scene_id }
+                    if to_scene_id == "/scenes/flight/scene.yml"
+            )),
+            "expected F10 to queue a transition into the flight scene, got {transition_events:?}"
+        );
+
+        SceneLifecycleManager::process_events(&mut world, transition_events);
+        behavior_system(&mut world);
+
+        assert_eq!(
+            world.scene_runtime().expect("scene runtime").scene().id,
+            "planet-generator-flight"
+        );
+        assert!(
+            world
+                .get::<PersistenceStore>()
+                .expect("persistence")
+                .get("/planet_generator/flight_launch")
+                .is_none(),
+            "flight scene should consume the handoff snapshot after boot"
+        );
+
+        let runtime = world.scene_runtime().expect("scene runtime");
+        let (seed, has_ocean, atmosphere_density) = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    world_gen_seed,
+                    world_gen_has_ocean,
+                    atmo_density,
+                    ..
+                } if id.as_deref() == Some("planet-mesh") => Some((
+                    world_gen_seed.unwrap_or(0),
+                    world_gen_has_ocean.unwrap_or(true),
+                    atmo_density.unwrap_or(0.0),
+                )),
+                _ => None,
+            })
+            .expect("planet-mesh render params");
+
+        assert_eq!(
+            seed, 42,
+            "flight scene should reuse the generator seed selected before F10"
+        );
+        assert!(
+            !has_ocean,
+            "flight scene should keep the generator ocean toggle after F10"
+        );
+        assert!(
+            (atmosphere_density - 0.20).abs() < 0.0001,
+            "flight scene should keep the generator atmosphere settings after F10, got atmo_density={atmosphere_density}"
+        );
     }
 }

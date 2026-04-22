@@ -118,6 +118,20 @@ impl ScriptUiApi {
         });
         true
     }
+
+    fn copy_to_clipboard(&mut self, text: &str) -> bool {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::CopyToClipboard {
+            text: trimmed.to_string(),
+        });
+        true
+    }
 }
 
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
@@ -135,4 +149,58 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "flash_message",
         |ui: &mut ScriptUiApi, text: &str, ttl_ms: rhai::INT| ui.flash_message(text, ttl_ms),
     );
+    engine.register_fn("copy_to_clipboard", |ui: &mut ScriptUiApi, text: &str| {
+        ui.copy_to_clipboard(text)
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScriptUiApi;
+    use crate::BehaviorCommand;
+    use std::sync::{Arc, Mutex};
+
+    fn api_for_tests(queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> ScriptUiApi {
+        ScriptUiApi {
+            focused_target: String::new(),
+            theme: String::new(),
+            has_submit: false,
+            submit_target: String::new(),
+            submit_text: String::new(),
+            has_change: false,
+            change_target: String::new(),
+            change_text: String::new(),
+            scene_elapsed_ms: 0,
+            game_state: None,
+            queue,
+        }
+    }
+
+    #[test]
+    fn copy_to_clipboard_enqueues_behavior_command() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = api_for_tests(Arc::clone(&queue));
+
+        let ok = api.copy_to_clipboard("  SEED:42 BARREN  ");
+        assert!(ok, "copy_to_clipboard should accept non-empty text");
+
+        let queue = queue.lock().expect("queue lock");
+        assert_eq!(queue.len(), 1);
+        assert!(matches!(
+            &queue[0],
+            BehaviorCommand::CopyToClipboard { text } if text == "SEED:42 BARREN"
+        ));
+    }
+
+    #[test]
+    fn copy_to_clipboard_rejects_empty_text() {
+        let queue = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        let mut api = api_for_tests(Arc::clone(&queue));
+
+        assert!(!api.copy_to_clipboard("   "));
+        assert!(
+            queue.lock().expect("queue lock").is_empty(),
+            "empty copy request should not emit commands"
+        );
+    }
 }

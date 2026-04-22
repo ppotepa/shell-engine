@@ -1,6 +1,9 @@
 use super::{apply_world_lod_to_source, ObjSpriteSpec, ViewLightingParams};
 use crate::prerender::ObjPrerenderedFrames;
-use crate::raster::{obj_sprite_dimensions, render_obj_content, try_blit_prerendered};
+use crate::raster::{
+    obj_sprite_dimensions, render_obj_content, render_obj_to_shared_buffers,
+    render_obj_to_shared_rgba_buffers, try_blit_prerendered,
+};
 use crate::scene::{select_lod_level_stable, Renderable3D};
 use crate::ObjRenderParams;
 use engine_core::assets::AssetRoot;
@@ -31,12 +34,31 @@ pub struct ObjSpriteRenderRuntime<'a> {
     pub prerender_frames: Option<&'a ObjPrerenderedFrames>,
 }
 
-pub fn render_obj_sprite_to_buffer(
-    spec: ObjSpriteSpec<'_>,
+#[derive(Debug, Clone)]
+pub struct PreparedObjSpriteRender<'a> {
+    pub sprite_id: Option<&'a str>,
+    pub source: String,
+    pub target_w: u16,
+    pub target_h: u16,
+    pub draw_x: i32,
+    pub draw_y: i32,
+    pub live_total_yaw: f32,
+    pub current_pitch: f32,
+    pub clip_min: f32,
+    pub clip_max: f32,
+    pub params: ObjRenderParams,
+    pub wireframe: bool,
+    pub backface_cull: bool,
+    pub draw_glyph: char,
+    pub fg: Color,
+    pub bg: Color,
+}
+
+pub fn prepare_obj_sprite_render<'a>(
+    spec: ObjSpriteSpec<'a>,
     area: SpriteRenderArea,
     runtime: ObjSpriteRenderRuntime<'_>,
-    target: &mut Buffer,
-) -> Option<Region> {
+) -> Option<PreparedObjSpriteRender<'a>> {
     let ObjSpriteSpec {
         node,
         id,
@@ -156,7 +178,7 @@ pub fn render_obj_sprite_to_buffer(
     let node_yaw = node.transform.rotation_deg[1];
     let node_roll = node.transform.rotation_deg[2];
 
-    let (sprite_width, sprite_height) = if stretch_to_area {
+    let (target_w, target_h) = if stretch_to_area {
         (area.width.max(1), area.height.max(1))
     } else if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(width, height, size)
@@ -167,13 +189,13 @@ pub fn render_obj_sprite_to_buffer(
         node.id.as_str(),
         node.lod_hint.as_ref(),
         ScreenSpaceMetrics {
-            projected_radius_px: (sprite_width.min(sprite_height) as f32) * 0.5,
-            viewport_area_px: sprite_width as u32 * sprite_height as u32,
+            projected_radius_px: (target_w.min(target_h) as f32) * 0.5,
+            viewport_area_px: target_w as u32 * target_h as u32,
         },
     );
     let effective_source = apply_world_lod_to_source(source, selected_lod);
-    let base_x = area.origin_x + resolve_x(node_x, &align_x, area.width, sprite_width);
-    let base_y = area.origin_y + resolve_y(node_y, &align_y, area.height, sprite_height);
+    let base_x = area.origin_x + resolve_x(node_x, &align_x, area.width, target_w);
+    let base_y = area.origin_y + resolve_y(node_y, &align_y, area.height, target_h);
     let draw_x = base_x.saturating_add(runtime.object_offset_x);
     let draw_y = base_y.saturating_add(runtime.object_offset_y);
 
@@ -183,7 +205,7 @@ pub fn render_obj_sprite_to_buffer(
         .as_deref()
         .and_then(|s| s.chars().next())
         .unwrap_or('#');
-    let is_wireframe = surface_mode
+    let wireframe = surface_mode
         .as_deref()
         .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
         .unwrap_or(false);
@@ -194,36 +216,22 @@ pub fn render_obj_sprite_to_buffer(
     let current_pitch = node_pitch;
     let clip_min = clip_y_min.unwrap_or(0.0);
     let clip_max = clip_y_max.unwrap_or(1.0);
-    if let (Some(frames), Some(sid)) = (runtime.prerender_frames, id.as_deref()) {
-        if try_blit_prerendered(
-            Some(frames),
-            sid,
-            live_total_yaw,
-            current_pitch,
-            clip_min,
-            clip_max,
-            draw_x,
-            draw_y,
-            target,
-        ) {
-            return Some(visible_region(
-                draw_x,
-                draw_y,
-                sprite_width,
-                sprite_height,
-                target,
-            ));
-        }
-    }
 
     let use_scene_camera = camera_source == CameraSource::Scene;
     let scene_camera = runtime.scene_camera_3d;
-    render_obj_content(
-        effective_source.as_str(),
-        Some(sprite_width),
-        Some(sprite_height),
-        size,
-        ObjRenderParams {
+
+    Some(PreparedObjSpriteRender {
+        sprite_id: id,
+        source: effective_source,
+        target_w,
+        target_h,
+        draw_x,
+        draw_y,
+        live_total_yaw,
+        current_pitch,
+        clip_min,
+        clip_max,
+        params: ObjRenderParams {
             scale: node_scale,
             yaw_deg: node_yaw,
             pitch_deg: node_pitch,
@@ -273,8 +281,8 @@ pub fn render_obj_sprite_to_buffer(
             object_translate_x: world_x.unwrap_or(0.0),
             object_translate_y: world_y.unwrap_or(0.0),
             object_translate_z: world_z.unwrap_or(0.0),
-            clip_y_min: clip_y_min.unwrap_or(0.0),
-            clip_y_max: clip_y_max.unwrap_or(1.0),
+            clip_y_min: clip_min,
+            clip_y_max: clip_max,
             camera_world_x: if use_scene_camera {
                 scene_camera.eye[0]
             } else {
@@ -439,22 +447,114 @@ pub fn render_obj_sprite_to_buffer(
             heightmap_blend: 0.0,
             depth_sort_faces: false,
         },
-        is_wireframe,
-        backface_cull.unwrap_or(false),
+        wireframe,
+        backface_cull: backface_cull.unwrap_or(false),
         draw_glyph,
         fg,
         bg,
-        runtime.asset_root,
-        draw_x,
-        draw_y,
+    })
+}
+
+pub fn render_prepared_obj_sprite_to_buffer(
+    prepared: &PreparedObjSpriteRender<'_>,
+    asset_root: Option<&AssetRoot>,
+    target: &mut Buffer,
+) {
+    render_obj_content(
+        prepared.source.as_str(),
+        Some(prepared.target_w),
+        Some(prepared.target_h),
+        None,
+        prepared.params.clone(),
+        prepared.wireframe,
+        prepared.backface_cull,
+        prepared.draw_glyph,
+        prepared.fg,
+        prepared.bg,
+        asset_root,
+        prepared.draw_x,
+        prepared.draw_y,
         target,
     );
+}
+
+pub fn render_prepared_obj_sprite_to_shared_buffers(
+    prepared: &PreparedObjSpriteRender<'_>,
+    asset_root: Option<&AssetRoot>,
+    canvas: &mut [Option<[u8; 3]>],
+    depth_buf: &mut [f32],
+) {
+    render_obj_to_shared_buffers(
+        prepared.source.as_str(),
+        prepared.target_w,
+        prepared.target_h,
+        prepared.params.clone(),
+        prepared.wireframe,
+        prepared.backface_cull,
+        prepared.fg,
+        asset_root,
+        canvas,
+        depth_buf,
+    );
+}
+
+pub fn render_prepared_obj_sprite_to_shared_rgba_buffers(
+    prepared: &PreparedObjSpriteRender<'_>,
+    asset_root: Option<&AssetRoot>,
+    canvas: &mut [Option<[u8; 4]>],
+    depth_buf: &mut [f32],
+) {
+    render_obj_to_shared_rgba_buffers(
+        prepared.source.as_str(),
+        prepared.target_w,
+        prepared.target_h,
+        prepared.params.clone(),
+        prepared.wireframe,
+        prepared.backface_cull,
+        prepared.fg,
+        asset_root,
+        canvas,
+        depth_buf,
+    );
+}
+
+pub fn render_obj_sprite_to_buffer(
+    spec: ObjSpriteSpec<'_>,
+    area: SpriteRenderArea,
+    runtime: ObjSpriteRenderRuntime<'_>,
+    target: &mut Buffer,
+) -> Option<Region> {
+    let prepared = prepare_obj_sprite_render(spec, area, runtime.clone())?;
+
+    if let (Some(frames), Some(sid)) = (runtime.prerender_frames, prepared.sprite_id) {
+        if try_blit_prerendered(
+            Some(frames),
+            sid,
+            prepared.live_total_yaw,
+            prepared.current_pitch,
+            prepared.clip_min,
+            prepared.clip_max,
+            prepared.draw_x,
+            prepared.draw_y,
+            target,
+        ) {
+            return Some(visible_region(
+                prepared.draw_x,
+                prepared.draw_y,
+                prepared.target_w,
+                prepared.target_h,
+                target,
+            ));
+        }
+    }
+
+    render_prepared_obj_sprite_to_buffer(&prepared, runtime.asset_root, target);
 
     Some(visible_region(
-        draw_x,
-        draw_y,
-        sprite_width,
-        sprite_height,
+        prepared.draw_x,
+        prepared.draw_y,
+        prepared.target_w,
+        prepared.target_h,
         target,
     ))
 }

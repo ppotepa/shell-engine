@@ -1,7 +1,7 @@
 use super::{
     apply_world_lod_to_source, build_generated_world_render_profile,
-    render_generated_world_sprite_with, GeneratedWorldRenderCallbacks, GeneratedWorldSpriteSpec,
-    SpriteRenderArea, ViewLightingParams,
+    render_generated_world_sprite_with, GeneratedWorldRenderCallbacks, GeneratedWorldRenderProfile,
+    GeneratedWorldSpriteSpec, SpriteRenderArea, ViewLightingParams,
 };
 use crate::raster::{
     blit_rgba_canvas, composite_rgba_over, obj_sprite_dimensions, render_obj_to_rgba_canvas,
@@ -29,12 +29,21 @@ pub struct GeneratedWorldSpriteRenderRuntime<'a> {
     pub asset_root: Option<&'a AssetRoot>,
 }
 
-pub fn render_generated_world_sprite_to_buffer(
-    mut spec: GeneratedWorldSpriteSpec<'_>,
+#[derive(Debug, Clone)]
+pub struct ResolvedGeneratedWorldSprite<'a> {
+    pub spec: GeneratedWorldSpriteSpec<'a>,
+    pub profile: GeneratedWorldRenderProfile,
+    pub sprite_width: u16,
+    pub sprite_height: u16,
+    pub draw_x: i32,
+    pub draw_y: i32,
+}
+
+pub fn resolve_generated_world_sprite<'a>(
+    mut spec: GeneratedWorldSpriteSpec<'a>,
     area: SpriteRenderArea,
-    runtime: GeneratedWorldSpriteRenderRuntime<'_>,
-    target: &mut Buffer,
-) -> Option<Region> {
+    runtime: &GeneratedWorldSpriteRenderRuntime<'a>,
+) -> Option<ResolvedGeneratedWorldSprite<'a>> {
     let GeneratedWorldSpriteSpec {
         node,
         size,
@@ -100,16 +109,32 @@ pub fn render_generated_world_sprite_to_buffer(
             area.height,
             sprite_height,
         );
-    let draw_x = base_x.saturating_add(runtime.object_offset_x);
-    let draw_y = base_y.saturating_add(runtime.object_offset_y);
 
-    let rendered = render_generated_world_sprite_with(
+    Some(ResolvedGeneratedWorldSprite {
         spec,
-        &profile,
+        profile,
         sprite_width,
         sprite_height,
-        draw_x,
-        draw_y,
+        draw_x: base_x.saturating_add(runtime.object_offset_x),
+        draw_y: base_y.saturating_add(runtime.object_offset_y),
+    })
+}
+
+pub fn render_generated_world_sprite_to_buffer(
+    spec: GeneratedWorldSpriteSpec<'_>,
+    area: SpriteRenderArea,
+    runtime: GeneratedWorldSpriteRenderRuntime<'_>,
+    target: &mut Buffer,
+) -> Option<Region> {
+    let resolved = resolve_generated_world_sprite(spec, area, &runtime)?;
+
+    let rendered = render_generated_world_sprite_with(
+        resolved.spec,
+        &resolved.profile,
+        resolved.sprite_width,
+        resolved.sprite_height,
+        resolved.draw_x,
+        resolved.draw_y,
         runtime.sprite_elapsed_ms,
         runtime.scene_camera_3d,
         runtime.asset_root,
@@ -125,10 +150,10 @@ pub fn render_generated_world_sprite_to_buffer(
     }
 
     Some(visible_region(
-        draw_x,
-        draw_y,
-        sprite_width,
-        sprite_height,
+        resolved.draw_x,
+        resolved.draw_y,
+        resolved.sprite_width,
+        resolved.sprite_height,
         target,
     ))
 }

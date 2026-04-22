@@ -247,7 +247,7 @@ mod tests {
                     let control = vehicle.control_from_intent(intent, true, true);
                     let packet_vehicle = vehicle.packet_vehicle_from_control(control, 6.0);
                     let ret = vehicle.return_packet_from(#{
-                        producer_mod_id: "vehicle-playground",
+                        producer_mod_id: "vehicle-runtime",
                         source_scene_id: "vehicle-scene",
                         target_mod_ref: "planet-generator",
                         target_scene_id: "generator-scene",
@@ -371,7 +371,7 @@ mod tests {
                         grounded: true
                     });
                     let ret = vehicle.return_packet_from(#{
-                        producer_mod_id: "vehicle-playground",
+                        producer_mod_id: "vehicle-runtime",
                         source_scene_id: "vehicle-scene",
                         target_mod_ref: "planet-generator",
                         target_scene_id: "generator-scene",
@@ -527,8 +527,8 @@ mod tests {
                     let launch = vehicle.launch_packet_from(#{
                         producer_mod_id: "planet-generator",
                         source_scene_id: "planet-generator-main",
-                        target_mod_ref: "vehicle-playground",
-                        target_scene_id: "vehicle-playground-vehicle",
+                        target_mod_ref: "vehicle-runtime",
+                        target_scene_id: "vehicle-scene",
                         return_scene_id: "planet-generator-main",
                         consumer_hint: "vehicle-runtime",
                         planet: #{

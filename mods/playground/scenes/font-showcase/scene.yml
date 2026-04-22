@@ -2,6 +2,7 @@
 # Font showcase: renders "THIS IS A TEXT" in every generic font mode side by side.
 id: playground-font-showcase
 title: Font Mode Showcase
+virtual-size-override: 640x360
 bg: black
 layers:
   - ref: main

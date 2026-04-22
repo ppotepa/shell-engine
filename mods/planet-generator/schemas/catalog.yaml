@@ -5,15 +5,19 @@ $defs:
   scene_ids:
     type: string
     enum:
+    - planet-generator-flight
     - planet-generator-main
   scene_paths:
     type: string
     enum:
+    - /scenes/flight/scene.yml
     - /scenes/main/scene.yml
   scene_refs:
     type: string
     enum:
+    - /scenes/flight/scene.yml
     - /scenes/main/scene.yml
+    - planet-generator-flight
     - planet-generator-main
   object_names:
     type: string
@@ -26,6 +30,9 @@ $defs:
   layer_refs:
     type: string
     enum:
+    - flight/layers/hud.yml
+    - flight/layers/planet.yml
+    - flight/layers/player.yml
     - main/layers/hud-actions.yml
     - main/layers/hud-models.yml
     - main/layers/hud-panel.yml
@@ -77,6 +84,12 @@ $defs:
   sprite_ids:
     type: string
     enum:
+    - flight-controls-1
+    - flight-controls-2
+    - flight-hud-box
+    - flight-mode
+    - flight-player
+    - flight-status
     - hud-actions-box
     - hud-models-box
     - hud-panel-box
@@ -139,8 +152,6 @@ $defs:
     - planet-randomize-button-label
     - planet-reset-button
     - planet-reset-button-label
-    - planet-vehicle-button
-    - planet-vehicle-button-label
     - preset-arrow-label
     - preset-current-label
     - preset-popup
@@ -157,9 +168,6 @@ $defs:
     - stats-radius-sim
     - stats-seed
     - stats-spd
-    - stats-vehicle-assist-hint
-    - stats-vehicle-producer-hint
-    - stats-vehicle-profile-hint
     - stats-vrad
     - tab-label-atmo
     - tab-label-climate

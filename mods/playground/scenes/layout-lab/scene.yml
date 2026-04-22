@@ -2,6 +2,7 @@
 # Authored YAML v2 example for layout debugging: grid + flex centering and alignment checks.
 id: playground-layout-lab
 title: Layout Lab
+virtual-size-override: 640x360
 bg: black
 layers:
   - ref: main

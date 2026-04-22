@@ -2415,5 +2415,4 @@ mod tests {
         assert_eq!(by_kind_ids, vec![object_id.clone()]);
         assert_eq!(by_name_ids, vec![object_id]);
     }
-
 }

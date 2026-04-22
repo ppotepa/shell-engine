@@ -1,7 +1,246 @@
 //! Side-effect commands produced by scripts and consumed by engine systems.
 
+use crate::rhai_dynamic_to_json;
 use engine_core::scene_runtime_types::ObjectRuntimeState;
-use serde_json::Value as JsonValue;
+use rhai::{Dynamic as RhaiDynamic, Map as RhaiMap};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map as JsonMap, Value as JsonValue};
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlanetBodyPatchSpec {
+    pub planet_type: Option<Option<String>>,
+    pub center_x: Option<f64>,
+    pub center_y: Option<f64>,
+    pub parent: Option<Option<String>>,
+    pub orbit_radius: Option<f64>,
+    pub orbit_period_sec: Option<f64>,
+    pub orbit_phase_deg: Option<f64>,
+    pub radius_px: Option<f64>,
+    pub radius_km: Option<Option<f64>>,
+    pub km_per_px: Option<Option<f64>>,
+    pub gravity_mu: Option<f64>,
+    pub gravity_mu_km3_s2: Option<Option<f64>>,
+    pub surface_radius: Option<f64>,
+    pub atmosphere_top: Option<Option<f64>>,
+    pub atmosphere_dense_start: Option<Option<f64>>,
+    pub atmosphere_drag_max: Option<Option<f64>>,
+    pub atmosphere_top_km: Option<Option<f64>>,
+    pub atmosphere_dense_start_km: Option<Option<f64>>,
+    pub cloud_bottom_km: Option<Option<f64>>,
+    pub cloud_top_km: Option<Option<f64>>,
+}
+
+impl PlanetBodyPatchSpec {
+    pub fn is_empty(&self) -> bool {
+        self == &Self::default()
+    }
+}
+
+/// Typed bridge for script-driven planet updates.
+/// TODO: replace with a shared engine-core planet spec once available.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlanetApplySpec {
+    pub body: PlanetBodyPatchSpec,
+    pub material_params: serde_json::Map<String, JsonValue>,
+    pub atmosphere_params: serde_json::Map<String, JsonValue>,
+    pub surface_params: serde_json::Map<String, JsonValue>,
+    pub generator_params: serde_json::Map<String, JsonValue>,
+    pub view_params: serde_json::Map<String, JsonValue>,
+}
+
+impl PlanetApplySpec {
+    pub fn is_empty(&self) -> bool {
+        self.body.is_empty()
+            && self.material_params.is_empty()
+            && self.atmosphere_params.is_empty()
+            && self.surface_params.is_empty()
+            && self.generator_params.is_empty()
+            && self.view_params.is_empty()
+    }
+}
+
+pub fn planet_apply_spec_from_rhai_map(spec_map: RhaiMap) -> Option<PlanetApplySpec> {
+    let json = rhai_dynamic_to_json(&RhaiDynamic::from_map(spec_map))?;
+    serde_json::from_value(json).ok()
+}
+
+#[allow(dead_code)]
+fn body_patch_json_map(spec: &PlanetBodyPatchSpec) -> JsonMap<String, JsonValue> {
+    let mut params = JsonMap::new();
+    if let Some(value) = &spec.planet_type {
+        params.insert(
+            "planet_type".into(),
+            value
+                .clone()
+                .map(JsonValue::String)
+                .unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = spec.center_x {
+        params.insert("center_x".into(), value.into());
+    }
+    if let Some(value) = spec.center_y {
+        params.insert("center_y".into(), value.into());
+    }
+    if let Some(value) = &spec.parent {
+        params.insert(
+            "parent".into(),
+            value
+                .clone()
+                .map(JsonValue::String)
+                .unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = spec.orbit_radius {
+        params.insert("orbit_radius".into(), value.into());
+    }
+    if let Some(value) = spec.orbit_period_sec {
+        params.insert("orbit_period_sec".into(), value.into());
+    }
+    if let Some(value) = spec.orbit_phase_deg {
+        params.insert("orbit_phase_deg".into(), value.into());
+    }
+    if let Some(value) = spec.radius_px {
+        params.insert("radius_px".into(), value.into());
+    }
+    if let Some(value) = &spec.radius_km {
+        params.insert(
+            "radius_km".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.km_per_px {
+        params.insert(
+            "km_per_px".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = spec.gravity_mu {
+        params.insert("gravity_mu".into(), value.into());
+    }
+    if let Some(value) = &spec.gravity_mu_km3_s2 {
+        params.insert(
+            "gravity_mu_km3_s2".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = spec.surface_radius {
+        params.insert("surface_radius".into(), value.into());
+    }
+    if let Some(value) = &spec.atmosphere_top {
+        params.insert(
+            "atmosphere_top".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.atmosphere_dense_start {
+        params.insert(
+            "atmosphere_dense_start".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.atmosphere_drag_max {
+        params.insert(
+            "atmosphere_drag_max".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.atmosphere_top_km {
+        params.insert(
+            "atmosphere_top_km".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.atmosphere_dense_start_km {
+        params.insert(
+            "atmosphere_dense_start_km".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.cloud_bottom_km {
+        params.insert(
+            "cloud_bottom_km".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(value) = &spec.cloud_top_km {
+        params.insert(
+            "cloud_top_km".into(),
+            value.map(JsonValue::from).unwrap_or(JsonValue::Null),
+        );
+    }
+    params
+}
+
+fn push_render_params(
+    commands: &mut Vec<BehaviorCommand>,
+    target: &str,
+    params: &JsonMap<String, JsonValue>,
+    build: impl FnOnce(String, JsonValue) -> crate::scene::Render3dMutationRequest,
+) {
+    if params.is_empty() {
+        return;
+    }
+    commands.push(BehaviorCommand::ApplySceneMutation {
+        request: crate::scene::SceneMutationRequest::SetRender3d(build(
+            target.to_string(),
+            JsonValue::Object(params.clone()),
+        )),
+    });
+}
+
+pub fn planet_apply_behavior_commands(
+    target: &str,
+    body_id: &str,
+    spec: &PlanetApplySpec,
+) -> Vec<BehaviorCommand> {
+    let mut commands = Vec::new();
+    push_render_params(
+        &mut commands,
+        target,
+        &spec.material_params,
+        |target, params| crate::scene::Render3dMutationRequest::SetMaterialParams {
+            target,
+            params,
+        },
+    );
+    push_render_params(
+        &mut commands,
+        target,
+        &spec.atmosphere_params,
+        |target, params| crate::scene::Render3dMutationRequest::SetAtmosphereParams {
+            target,
+            params,
+        },
+    );
+    push_render_params(
+        &mut commands,
+        target,
+        &spec.surface_params,
+        |target, params| crate::scene::Render3dMutationRequest::SetSurfaceParams { target, params },
+    );
+    push_render_params(
+        &mut commands,
+        target,
+        &spec.generator_params,
+        |target, params| crate::scene::Render3dMutationRequest::SetGeneratorParams {
+            target,
+            params,
+        },
+    );
+    push_render_params(
+        &mut commands,
+        target,
+        &spec.view_params,
+        |target, params| crate::scene::Render3dMutationRequest::SetViewParams { target, params },
+    );
+    if !body_id.trim().is_empty() && !spec.body.is_empty() {
+        // Body catalog updates are handled by the engine-side apply flow.
+    }
+    commands
+}
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
 #[derive(Debug, Clone, PartialEq)]
@@ -104,6 +343,16 @@ pub enum BehaviorCommand {
     /// Set the shared scene-level 3D camera up vector.
     SetCamera3DUp {
         up: [f32; 3],
+    },
+    /// Apply planet body + render updates together in one engine-side flow.
+    ApplyPlanetSpec {
+        target: String,
+        body_id: String,
+        spec: PlanetApplySpec,
+    },
+    /// Copy text to the host system clipboard through the active renderer backend.
+    CopyToClipboard {
+        text: String,
     },
 }
 

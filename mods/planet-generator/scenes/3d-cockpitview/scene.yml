@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../schemas/scene.yaml
+id: planet-generator-cockpit-simulator
+title: COCKPIT SIMULATOR
+bg: "#000008"
+render-size: 640x360
+space: 3d
+spatial:
+  meters-per-world-unit: 1000.0
+celestial:
+  scope: local
+  region: planet-generator-local
+  system: generated-system
+  focus-body: generated-planet
+  frame: focus-relative
+  clock-source: scene
+layers:
+  - ref: 3d-cockpitview/layers/planet.yml
+  - ref: 3d-cockpitview/layers/cockpit.yml
+  - ref: 3d-cockpitview/layers/hud.yml
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./main.rhai
+ui:
+  scale: 1.0
+  font-scale: 1.0
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 300 }] }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 16ms

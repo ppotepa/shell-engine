@@ -19,7 +19,7 @@ layers:
   - ref: hud-models
   - ref: hud-panel
   - ref: hud-sliders
-  - ref: hud-actions
+  - ref: hud-actions # action shortcuts + game-message toast anchor
   - ref: hud-presets
   - ref: hud-stats
 logic:
@@ -90,14 +90,6 @@ gui:
       id: planet-randomize-button
       sprite: planet-randomize-button-label
       x: 852
-      y: 616
-      w: 132
-      h: 40
-      follow-layout: false
-    - type: button
-      id: planet-vehicle-button
-      sprite: planet-vehicle-button-label
-      x: 992
       y: 616
       w: 132
       h: 40

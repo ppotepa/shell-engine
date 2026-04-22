@@ -154,6 +154,66 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
     },
     FieldMetadata {
         target: TargetKind::Scene,
+        name: "planet-spec",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Optional scene-level typed planet contract with generator/render/atmosphere/body blocks.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "planet_spec",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Alias of planet-spec.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "planet-spec-ref",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Optional scene-level planet spec reference path.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "planet_spec_ref",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Alias of planet-spec-ref.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
         name: "target-fps",
         value_kind: ValueKind::Integer,
         requirement: Requirement::Optional,
@@ -1444,7 +1504,7 @@ pub static OBJECT_FIELDS: &[FieldMetadata] = &[
 
 #[cfg(test)]
 mod tests {
-    use super::{OBJECT_FIELDS, SPRITE_FIELDS};
+    use super::{OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
     use crate::authoring::metadata::{Requirement, ValueKind};
 
     #[test]
@@ -1493,5 +1553,20 @@ mod tests {
             .find(|f| f.name == "effects")
             .expect("effects metadata");
         assert_eq!(field.requirement, Requirement::Optional);
+    }
+
+    #[test]
+    fn scene_planet_spec_fields_are_exposed() {
+        let spec = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "planet-spec")
+            .expect("planet-spec metadata");
+        assert_eq!(spec.requirement, Requirement::Optional);
+
+        let spec_ref = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "planet-spec-ref")
+            .expect("planet-spec-ref metadata");
+        assert_eq!(spec_ref.value_kind, ValueKind::Text);
     }
 }

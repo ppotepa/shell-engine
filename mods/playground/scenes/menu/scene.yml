@@ -2,6 +2,7 @@
 # Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-menu
 title: Playground Menu
+virtual-size-override: 640x360
 bg: black
 layers:
   - ref: main

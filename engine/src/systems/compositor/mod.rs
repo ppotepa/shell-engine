@@ -529,6 +529,7 @@ fn resolve_scene_background(
 #[cfg(test)]
 mod tests {
     use crate::scene_pipeline::ScenePipeline;
+    use crate::systems::behavior::behavior_system;
     use engine_core::color::Color;
     use std::path::PathBuf;
 
@@ -540,6 +541,7 @@ mod tests {
     use crate::scene_runtime::SceneRuntime;
     use crate::world::World;
     use engine_animation::{Animator, SceneStage};
+    use engine_behavior::{catalog::ModCatalogs, init_behavior_system};
     use engine_core::scene::resolve_scene_view_profile;
 
     use super::compositor_system;
@@ -681,6 +683,124 @@ layers:
             })
         });
         assert!(has_visible_glyph, "intro logo should draw visible glyphs");
+    }
+
+    #[test]
+    fn planet_generator_flight_scene_renders_visible_pixels_after_behavior_step() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("engine crate should live under repo root")
+            .to_path_buf();
+        let mod_root = repo_root.join("mods/planet-generator");
+        init_behavior_system(
+            mod_root
+                .to_str()
+                .expect("planet-generator mod path should be valid UTF-8"),
+        );
+        let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
+        let scene = loader
+            .load_by_path("/scenes/flight/scene.yml")
+            .expect("flight scene");
+
+        let mut world = World::new();
+        world.register(Buffer::new(640, 360));
+        world.register(RuntimeSettings::default());
+        world.register(AssetRoot::new(mod_root.clone()));
+        world.register(
+            ModCatalogs::load_from_directory(&mod_root.join("catalogs"))
+                .expect("planet-generator catalogs"),
+        );
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 16,
+            stage_elapsed_ms: 16,
+            scene_elapsed_ms: 16,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        behavior_system(&mut world);
+        compositor_system(&mut world);
+
+        let buffer = world.get::<Buffer>().expect("buffer");
+        let has_visible_pixels = buffer.pixel_canvas.as_ref().is_some_and(|canvas| {
+            canvas
+                .data
+                .chunks_exact(4)
+                .any(|px| px[0] != 0 || px[1] != 0 || px[2] != 0)
+        });
+        let has_visible_cells = (0..buffer.height).any(|y| {
+            (0..buffer.width).any(|x| {
+                let cell = buffer.get(x, y).expect("cell in bounds");
+                cell.symbol != ' ' && (cell.fg != TRUE_BLACK || cell.bg != TRUE_BLACK)
+            })
+        });
+
+        assert!(
+            has_visible_pixels || has_visible_cells,
+            "flight scene should render visible output after behavior + compositor"
+        );
+    }
+
+    #[test]
+    fn planet_generator_cockpitview_scene_renders_visible_pixels_after_behavior_step() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("engine crate should live under repo root")
+            .to_path_buf();
+        let mod_root = repo_root.join("mods/planet-generator");
+        init_behavior_system(
+            mod_root
+                .to_str()
+                .expect("planet-generator mod path should be valid UTF-8"),
+        );
+        let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
+        let scene = loader
+            .load_by_path("/scenes/3d-cockpitview/scene.yml")
+            .expect("cockpitview scene");
+
+        let mut world = World::new();
+        world.register(Buffer::new(640, 360));
+        world.register(RuntimeSettings::default());
+        world.register(AssetRoot::new(mod_root.clone()));
+        world.register(
+            ModCatalogs::load_from_directory(&mod_root.join("catalogs"))
+                .expect("planet-generator catalogs"),
+        );
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 16,
+            stage_elapsed_ms: 16,
+            scene_elapsed_ms: 16,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        behavior_system(&mut world);
+        compositor_system(&mut world);
+
+        let buffer = world.get::<Buffer>().expect("buffer");
+        let has_visible_pixels = buffer.pixel_canvas.as_ref().is_some_and(|canvas| {
+            canvas
+                .data
+                .chunks_exact(4)
+                .any(|px| px[0] != 0 || px[1] != 0 || px[2] != 0)
+        });
+        let has_visible_cells = (0..buffer.height).any(|y| {
+            (0..buffer.width).any(|x| {
+                let cell = buffer.get(x, y).expect("cell in bounds");
+                cell.symbol != ' ' && (cell.fg != TRUE_BLACK || cell.bg != TRUE_BLACK)
+            })
+        });
+
+        assert!(
+            has_visible_pixels || has_visible_cells,
+            "cockpitview scene should render visible output after behavior + compositor"
+        );
     }
 
     #[test]

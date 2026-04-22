@@ -1129,6 +1129,7 @@ world.body(body_id).inspect()                 // map snapshot only when typed fi
 world.body_upsert(body_id, patch_map)         // runtime mutate/create celestial body fields
 world.body_patch(body_id, patch_map)          // alias of body_upsert for patch-style usage
 world.body_gravity(body_id, x, y)             // gravity vector at world position
+world.find_planet_spawn(config, biomes)       // procedural spawn lookup -> #{normal_x/y/z, longitude_deg, latitude_deg, surface_radius_scale, biome, ...}
 
 // Colliders
 world.set_collider_circle(id, radius, layer_mask, collision_mask)
@@ -1323,6 +1324,8 @@ level.get(path)                     // read active level payload (JSON pointer)
 input.bind_action(name, keys)       // register named action binding
 input.action_down(name)             // true while action key is held
 input.action_just_pressed(name)     // true on the first frame of press
+input.mouse_x                       // current mouse x in output-space pixels
+input.mouse_y                       // current mouse y in output-space pixels
 input.scroll_y                      // signed mouse-wheel delta for this frame
 input.ctrl_scroll_y                 // signed mouse-wheel delta while Ctrl was held
 ```
