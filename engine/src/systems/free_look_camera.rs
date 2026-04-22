@@ -1,17 +1,18 @@
 use engine_behavior::catalog::ModCatalogs;
+use engine_scene_runtime::CameraSurfaceAnchor;
 
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 
 pub fn free_look_camera_system(world: &mut World, dt_ms: u64) {
-    sync_free_look_surface_shell_from_focus_body(world);
+    sync_free_look_surface_anchor_from_focus_body(world);
 
     if let Some(runtime) = world.scene_runtime_mut() {
-        let _ = runtime.step_free_look_camera(dt_ms);
+        let _ = runtime.step_camera_director(dt_ms);
     }
 }
 
-fn sync_free_look_surface_shell_from_focus_body(world: &mut World) {
+fn sync_free_look_surface_anchor_from_focus_body(world: &mut World) {
     let Some(focus_body_id) = world.scene_runtime().and_then(|runtime| {
         runtime
             .free_look_surface_mode_enabled()
@@ -36,7 +37,10 @@ fn sync_free_look_surface_shell_from_focus_body(world: &mut World) {
     };
 
     if let Some(runtime) = world.scene_runtime_mut() {
-        let _ = runtime.sync_free_look_surface_shell_2d(center_x, center_y, render_radius);
+        let _ = runtime.sync_free_look_surface_anchor(Some(CameraSurfaceAnchor::new(
+            [center_x, center_y, 0.0],
+            render_radius,
+        )));
     }
 }
 

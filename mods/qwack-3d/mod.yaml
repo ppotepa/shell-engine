@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=./schemas/mod.yaml
+name: Qwack 3D
+version: 0.1.0
+entrypoint: /scenes/main/scene.yml
+display:
+  min_colours: 256
+  min_width: 640
+  min_height: 360
+  default_font: "generic:2"
+  world_render_size: 640x360
+  presentation_policy: fit

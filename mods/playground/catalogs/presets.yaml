@@ -1,0 +1,20 @@
+presets:
+  players:
+    euclidean-debug-pawn:
+      config:
+        controlled: true
+    celestial-observer:
+      config:
+        controlled: true
+  cameras:
+    euclidean-orbit-inspector:
+      controller-kind: Orbit
+  ui:
+    playground-menu:
+      layout: menu/playground
+    menu-hud:
+      layout: hud/menu
+    celestial-contract:
+      layout: hud/celestial-contract
+    world-model-map:
+      layout: hud/world-model-map

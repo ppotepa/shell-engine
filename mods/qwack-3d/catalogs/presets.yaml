@@ -1,0 +1,15 @@
+presets:
+  players:
+    qwack-walker:
+      config:
+        controlled: true
+  cameras:
+    qwack-fps:
+      controller-kind: Fps
+      target: controlled-entity
+    qwack-chase:
+      controller-kind: Chase
+      target: controlled-entity
+  ui:
+    qwack-hud:
+      layout: hud/qwack

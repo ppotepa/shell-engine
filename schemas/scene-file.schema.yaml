@@ -23,10 +23,38 @@ properties:
     type: integer
     minimum: 1
     maximum: 240
+  render-space:
+    $ref: "./scene.schema.yaml#/$defs/scene_render_space"
+    description: Canonical scene field for default render-space and shared scene camera selection.
+  space:
+    $ref: "./scene.schema.yaml#/$defs/scene_render_space"
+    description: Deprecated compatibility alias of render-space.
+  world-model:
+    $ref: "./scene.schema.yaml#/$defs/scene_world_model"
+  controller-defaults:
+    $ref: "./scene.schema.yaml#/$defs/scene_controller_defaults"
+    description: Canonical scene-level preset selection for camera/player/UI stacks.
+  camera-rig:
+    $ref: "./scene.schema.yaml#/$defs/scene_camera_rig"
+    description: Canonical authored camera contract lowered into transitional `input.*` camera compatibility surfaces.
   target_fps:
     type: integer
     minimum: 1
     maximum: 240
+  render_space:
+    $ref: "./scene.schema.yaml#/$defs/scene_render_space"
+  world_model:
+    $ref: "./scene.schema.yaml#/$defs/scene_world_model"
+  controller_defaults:
+    $ref: "./scene.schema.yaml#/$defs/scene_controller_defaults"
+  camera_rig:
+    $ref: "./scene.schema.yaml#/$defs/scene_camera_rig"
+  spatial:
+    $ref: "./scene.schema.yaml#/$defs/scene_spatial"
+  lighting:
+    $ref: "./scene.schema.yaml#/$defs/scene_lighting"
+  view:
+    $ref: "./scene.schema.yaml#/$defs/scene_view"
   planet-spec:
     $ref: "./scene.schema.yaml#/$defs/planet_spec"
   planet-spec-ref:
@@ -37,6 +65,8 @@ properties:
   planet_spec_ref:
     type: string
     minLength: 1
+  celestial:
+    $ref: "./scene.schema.yaml#/$defs/scene_celestial"
   virtual-size-override:
     type: string
     pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
@@ -54,8 +84,12 @@ properties:
     default: []
     items:
       $ref: "./scene.schema.yaml#/$defs/behavior"
+  logic:
+    $ref: "./scene.schema.yaml#/$defs/scene_logic"
   audio:
     $ref: "./scene.schema.yaml#/$defs/scene_audio"
+  ui:
+    $ref: "./scene.schema.yaml#/$defs/ui_config"
   next:
     type: [string, "null"]
   menu-options:
@@ -82,3 +116,142 @@ properties:
     type: array
     items:
       $ref: "./scene.schema.yaml#/properties/objects/items"
+  prerender:
+    type: boolean
+
+allOf:
+  - if:
+      required: [celestial]
+    then:
+      properties:
+        world-model:
+          const: celestial-3d
+  - if:
+      properties:
+        world-model:
+          const: planar-2d
+    then:
+      properties:
+        input:
+          not:
+            anyOf:
+              - required: [free-look-camera]
+              - required: [orbit-camera]
+              - required: [free_look_camera]
+              - required: [orbit_camera]
+  - if:
+      anyOf:
+        - required: [controller-defaults]
+          properties:
+            controller-defaults:
+              anyOf:
+                - required: [camera-preset]
+                  properties:
+                    camera-preset:
+                      const: surface-free-look
+                - required: [camera_preset]
+                  properties:
+                    camera_preset:
+                      const: surface-free-look
+        - required: [controller_defaults]
+          properties:
+            controller_defaults:
+              anyOf:
+                - required: [camera-preset]
+                  properties:
+                    camera-preset:
+                      const: surface-free-look
+                - required: [camera_preset]
+                  properties:
+                    camera_preset:
+                      const: surface-free-look
+        - required: [camera-rig]
+          properties:
+            camera-rig:
+              required: [preset]
+              properties:
+                preset:
+                  const: surface-free-look
+        - required: [camera_rig]
+          properties:
+            camera_rig:
+              required: [preset]
+              properties:
+                preset:
+                  const: surface-free-look
+    then:
+      anyOf:
+        - required: [input]
+          properties:
+            input:
+              type: object
+              required: [free-look-camera]
+              properties:
+                free-look-camera:
+                  anyOf:
+                    - required: [surface-mode]
+                      properties:
+                        surface-mode:
+                          const: true
+                    - required: [surface_mode]
+                      properties:
+                        surface_mode:
+                          const: true
+        - required: [camera-rig]
+          properties:
+            camera-rig:
+              anyOf:
+                - required: [surface]
+                  properties:
+                    surface:
+                      required: [mode]
+                      properties:
+                        mode:
+                          const: locked
+                - required: [free-look-camera]
+                  properties:
+                    free-look-camera:
+                      anyOf:
+                        - required: [surface-mode]
+                          properties:
+                            surface-mode:
+                              const: true
+                        - required: [surface_mode]
+                          properties:
+                            surface_mode:
+                              const: true
+        - required: [camera_rig]
+          properties:
+            camera_rig:
+              anyOf:
+                - required: [surface]
+                  properties:
+                    surface:
+                      required: [mode]
+                      properties:
+                        mode:
+                          const: locked
+                - required: [free-look-camera]
+                  properties:
+                    free-look-camera:
+                      anyOf:
+                        - required: [surface-mode]
+                          properties:
+                            surface-mode:
+                              const: true
+                        - required: [surface_mode]
+                          properties:
+                            surface_mode:
+                              const: true
+                - required: [free_look_camera]
+                  properties:
+                    free_look_camera:
+                      anyOf:
+                        - required: [surface-mode]
+                          properties:
+                            surface-mode:
+                              const: true
+                        - required: [surface_mode]
+                          properties:
+                            surface_mode:
+                              const: true

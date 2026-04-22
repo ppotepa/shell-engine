@@ -48,19 +48,53 @@ catalog data and loaders so rendering, gameplay, and scene binding can all
 depend on one shared domain model without pulling in Rhai or higher-level
 runtime systems.
 
+## Runtime refactor ledger
+
+The runtime/component refactor is tracked in [oop.impl.md](oop.impl.md).
+
+Use that file as the authoritative implementation ledger for:
+
+- workstream status
+- task ownership
+- milestone completion state
+- follow-on productization work
+- the current execution order
+
+When a refactor PR or branch lands, tag it with the matching task ids from the
+ledger, for example `BOOT-02`, `CAM-04`, or `OBJ-02`.
+
 Scenes are loaded as single YAML files (`scenes/*.yml`) or scene packages
 (`scenes/<name>/scene.yml` + partials). Asset loading supports unpacked mod
 directories and zip-packaged mods.
 
+The playground ladder in `mods/playground` stays minimal and stable:
+
+- `CAN-01` - `/scenes/world-model-planar/scene.yml`
+- `CAN-02` - `/scenes/world-model-euclidean/scene.yml` with `controller-defaults` + `camera-rig` for the neutral 3D inspector path
+- `CAN-03` - `/scenes/world-model-celestial/scene.yml` with canonical `controller-defaults + camera-rig` for the explicit surface-locked free-look camera contract
+- `SCN-04` - `/scenes/world-model-contracts/scene.yml` for the ladder and camera-surface contract map
+- `BASE-01` - `/scenes/menu/scene.yml`
+- `BASE-02` - `/scenes/3d-scene/scene.yml` with the euclidean OBJ baseline authored through canonical `controller-defaults + camera-rig`
+
+Additional camera-policy canaries live in the gameplay mods:
+
+- `mods/qwack-3d/scenes/chase/scene.yml` for authored euclidean chase-camera coverage
+- `mods/qwack-3d-celestial/scenes/orbit/scene.yml` for authored celestial orbit-camera coverage
+
+`mods/planet-generator/catalogs/prefabs.yaml` carries the prefab merge canary
+pair (`canary-probe-base` and `canary-probe-nested`) used to check nested merge
+behavior in a celestial mod.
+
 Scene composition now has an explicit space model:
 
-- scene default: `space: 2d | 3d`
+- scene default: `render-space: 2d | 3d` (`space` stays as a compatibility alias)
 - layer override: `space: inherit | 2d | 3d | screen`
 
 The runtime keeps both a 2D world camera (`camera_x/y`) and a shared scene 3D
 camera (`eye`, `look_at`, `up`, `fov`, `near_clip`). `2d` layers consume the
 2D camera, `screen` layers stay fixed, and OBJ / Scene3D sprites can opt into
-the shared 3D camera with `camera-source: scene`.
+the shared 3D camera with `camera-source: scene` when they should inherit the
+scene rig instead of local per-sprite framing.
 
 Scene 3D presentation also has an explicit reusable scene-view model:
 
@@ -314,12 +348,17 @@ Fan-out
 `InputEvent` is the input-only sub-enum of `EngineEvent`. Systems that only care
 about keyboard/mouse receive `&[InputEvent]` rather than the full `EngineEvent`.
 
-**Input profiles** configure which key bindings are active:
+**Camera authoring and input profiles**
+
+Author scenes through `controller-defaults` + `camera-rig` first. The lower
+`input.*camera` surfaces remain the compatibility/runtime path that current
+normalization lowers into.
 
 | Profile | Use Case |
 |---------|----------|
 | `obj-viewer` | 3D object viewer controls |
-| `free-look-camera` | Scene-level camera fly controls |
+| `camera-rig` | Author-facing scene camera contract. Normalization lowers it into `controller-defaults.camera-preset` plus the current `input.*` camera compatibility surfaces. |
+| `free-look-camera` | Low-level free-look controls; `camera-rig.surface.mode: locked` lowers to `surface-mode: true` for the explicit surface-locked shell rig. |
 
 **Rhai key bridge** — variables available in behavior scripts:
 
@@ -390,6 +429,7 @@ validation in editors.
 |---------|---------|
 | `cargo run -p schema-gen -- --all-mods` | Regenerate all schemas |
 | `cargo run -p schema-gen -- --all-mods --check` | Drift check (CI) |
+| `cargo run -p devtool -- snapshot --all-mods` | Architecture snapshot for scene-contract / runtime-refactor status |
 
 ## 12. Editor Architecture
 

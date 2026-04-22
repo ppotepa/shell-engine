@@ -15,7 +15,7 @@ use engine_core::buffer::PixelCanvas;
 use engine_core::color::Color;
 use engine_core::effects::Region;
 #[cfg(not(feature = "render-3d"))]
-use engine_core::scene::ResolvedViewProfile;
+use engine_core::scene::{environment_policy_renders_space_environment, ResolvedViewProfile};
 use engine_effects::apply_effect;
 use engine_pipeline::LayerCompositor;
 use engine_render_2d::Render2dPipeline;
@@ -205,6 +205,9 @@ fn composite_scene(
 
 #[cfg(not(feature = "render-3d"))]
 fn render_scene_environment(buffer: &mut Buffer, view: &ResolvedViewProfile) {
+    if !environment_policy_renders_space_environment(view.environment_policy) {
+        return;
+    }
     render_starfield(buffer, view);
     render_primary_star_glare(buffer, view);
 }
@@ -521,7 +524,9 @@ pub fn dispatch_composite_with_render_2d_pipeline_filtered(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::scene::{LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile};
+    use engine_core::scene::{
+        LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile, ViewEnvironmentPolicy,
+    };
     use engine_render_3d::scene::render_space_environment;
 
     #[test]
@@ -533,6 +538,7 @@ mod tests {
         render_space_environment(
             &mut buffer,
             &ResolvedViewProfile {
+                environment_policy: ViewEnvironmentPolicy::ThreeDCelestial,
                 lighting: LightingProfile::default(),
                 environment: SpaceEnvironmentProfile {
                     starfield_density: Some(0.5),
@@ -565,6 +571,7 @@ mod tests {
         render_space_environment(
             &mut buffer,
             &ResolvedViewProfile {
+                environment_policy: ViewEnvironmentPolicy::ThreeDCelestial,
                 lighting: LightingProfile::default(),
                 environment: SpaceEnvironmentProfile {
                     primary_star_color: Some("#fff4d6".to_string()),
@@ -582,5 +589,38 @@ mod tests {
             ((canvas.height as usize / 2) * canvas.width as usize + canvas.width as usize / 2) * 4;
         let center = &canvas.data[center_idx..center_idx + 4];
         assert!(top_left[0] > center[0] || top_left[1] > center[1] || top_left[2] > center[2]);
+    }
+
+    #[test]
+    fn euclidean_policy_suppresses_environment_in_local_fallback_path() {
+        let mut buffer = Buffer::new(64, 32);
+        buffer.enable_pixel_canvas(64, 32);
+        buffer.fill(Color::BLACK);
+
+        render_scene_environment(
+            &mut buffer,
+            &ResolvedViewProfile {
+                environment_policy: ViewEnvironmentPolicy::ThreeDEuclidean,
+                lighting: LightingProfile::default(),
+                environment: SpaceEnvironmentProfile {
+                    starfield_density: Some(0.5),
+                    starfield_brightness: Some(0.9),
+                    primary_star_glare_strength: Some(0.45),
+                    primary_star_glare_width: Some(0.32),
+                    ..Default::default()
+                },
+                overrides: Default::default(),
+            },
+        );
+
+        let lit_pixels = buffer
+            .pixel_canvas
+            .as_ref()
+            .expect("pixel canvas")
+            .data
+            .chunks_exact(4)
+            .filter(|px| px[0] > 0 || px[1] > 0 || px[2] > 0)
+            .count();
+        assert_eq!(lit_pixels, 0);
     }
 }

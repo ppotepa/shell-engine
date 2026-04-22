@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../../schemas/layers.yaml
+- name: scaffold
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "QWACK 3D",
+        at: ct,
+        y: -8,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "render-space: 3d",
+        at: ct,
+        y: -1,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "world-model: euclidean-3d",
+        at: ct,
+        y: 3,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "Scaffold for future maze/FPS gameplay.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+      }

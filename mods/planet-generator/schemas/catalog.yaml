@@ -5,18 +5,22 @@ $defs:
   scene_ids:
     type: string
     enum:
+    - planet-generator-cockpit-simulator
     - planet-generator-flight
     - planet-generator-main
   scene_paths:
     type: string
     enum:
+    - /scenes/3d-cockpitview/scene.yml
     - /scenes/flight/scene.yml
     - /scenes/main/scene.yml
   scene_refs:
     type: string
     enum:
+    - /scenes/3d-cockpitview/scene.yml
     - /scenes/flight/scene.yml
     - /scenes/main/scene.yml
+    - planet-generator-cockpit-simulator
     - planet-generator-flight
     - planet-generator-main
   object_names:
@@ -30,6 +34,9 @@ $defs:
   layer_refs:
     type: string
     enum:
+    - 3d-cockpitview/layers/cockpit.yml
+    - 3d-cockpitview/layers/hud.yml
+    - 3d-cockpitview/layers/planet.yml
     - flight/layers/hud.yml
     - flight/layers/planet.yml
     - flight/layers/player.yml
@@ -84,12 +91,20 @@ $defs:
   sprite_ids:
     type: string
     enum:
+    - cockpit-sim-mesh
+    - cockpitview-controls-1
+    - cockpitview-controls-2
+    - cockpitview-hud-box
+    - cockpitview-status
+    - cockpitview-title
+    - flight-cockpit
     - flight-controls-1
     - flight-controls-2
     - flight-hud-box
     - flight-mode
     - flight-player
     - flight-status
+    - game-message
     - hud-actions-box
     - hud-models-box
     - hud-panel-box
@@ -144,6 +159,9 @@ $defs:
     - param-value-5
     - param-value-6
     - param-value-7
+    - planet-cockpit-button-label
+    - planet-copy-code-hint
+    - planet-flight-button-label
     - planet-mesh
     - planet-model-selector
     - planet-parameter-tabs

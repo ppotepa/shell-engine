@@ -26,7 +26,19 @@ pub(super) fn scene_overlay_patch() -> Mapping {
         conditional_property_overlay("menu-options", menu_options_overlay()),
         conditional_property_overlay("menu_options", menu_options_overlay()),
         conditional_property_overlay("objects", objects_overlay()),
+        conditional_property_overlay(
+            "runtime-objects",
+            array_items_ref("../../../schemas/runtime-object.schema.yaml"),
+        ),
+        conditional_property_overlay(
+            "runtime_objects",
+            array_items_ref("../../../schemas/runtime-object.schema.yaml"),
+        ),
+        conditional_property_overlay("camera-rig", scene_camera_rig_overlay()),
+        conditional_property_overlay("camera_rig", scene_camera_rig_overlay()),
         conditional_property_overlay("input", scene_input_overlay()),
+        conditional_property_overlay("controller-defaults", scene_controller_defaults_overlay()),
+        conditional_property_overlay("controller_defaults", scene_controller_defaults_overlay()),
         conditional_property_overlay("behaviors", array_items_ref("#/$defs/behavior_overlay")),
         conditional_property_overlay("logic", schema_ref("#/$defs/scene_logic_overlay")),
         conditional_property_overlay("layers", scene_layers_overlay()),
@@ -141,25 +153,32 @@ pub(super) fn scene_layers_overlay() -> Value {
 }
 
 pub(super) fn scene_input_overlay() -> Value {
-    let mut obj_viewer_props = Mapping::new();
-    obj_viewer_props.insert(
-        Value::String("sprite_id".to_string()),
-        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
-    );
-    let mut obj_viewer = Mapping::new();
-    obj_viewer.insert(
-        Value::String("properties".to_string()),
-        Value::Mapping(obj_viewer_props),
-    );
-
+    // The surface-locked `surface-free-look` preset is enforced in the source
+    // schema/validator; this overlay only surfaces the authored rig shapes.
     let mut input_props = Mapping::new();
     input_props.insert(
         Value::String("obj-viewer".to_string()),
-        Value::Mapping(obj_viewer),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls"),
+    );
+    input_props.insert(
+        Value::String("obj_viewer".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls"),
     );
     input_props.insert(
         Value::String("free-look-camera".to_string()),
-        Value::Mapping(Mapping::new()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls"),
+    );
+    input_props.insert(
+        Value::String("free_look_camera".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls"),
+    );
+    input_props.insert(
+        Value::String("orbit-camera".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls"),
+    );
+    input_props.insert(
+        Value::String("orbit_camera".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls"),
     );
     let mut input = Mapping::new();
     input.insert(
@@ -171,6 +190,100 @@ pub(super) fn scene_input_overlay() -> Value {
         Value::Mapping(input_props),
     );
     Value::Mapping(input)
+}
+
+pub(super) fn scene_camera_rig_overlay() -> Value {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("preset".to_string()),
+        schema_ref(
+            "../../../schemas/scene.schema.yaml#/$defs/scene_controller_defaults/properties/camera-preset",
+        ),
+    );
+    props.insert(
+        Value::String("surface".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/scene_camera_surface"),
+    );
+    props.insert(
+        Value::String("obj-viewer".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls"),
+    );
+    props.insert(
+        Value::String("free-look-camera".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls"),
+    );
+    props.insert(
+        Value::String("orbit-camera".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls"),
+    );
+
+    let mut pattern_props = Mapping::new();
+    pattern_props.insert(
+        Value::String("^obj_viewer$".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls"),
+    );
+    pattern_props.insert(
+        Value::String("^free_look_camera$".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls"),
+    );
+    pattern_props.insert(
+        Value::String("^orbit_camera$".to_string()),
+        schema_ref("../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls"),
+    );
+
+    let mut rig = Mapping::new();
+    rig.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    rig.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    rig.insert(
+        Value::String("patternProperties".to_string()),
+        Value::Mapping(pattern_props),
+    );
+    Value::Mapping(rig)
+}
+
+pub(super) fn scene_controller_defaults_overlay() -> Value {
+    let mut props = Mapping::new();
+    for field in [
+        "camera-preset",
+        "player-preset",
+        "ui-preset",
+        "spawn-preset",
+        "gravity-preset",
+        "surface-preset",
+        "camera_preset",
+        "player_preset",
+        "ui_preset",
+        "spawn_preset",
+        "gravity_preset",
+        "surface_preset",
+    ] {
+        let mut schema = Mapping::new();
+        schema.insert(
+            Value::String("type".to_string()),
+            Value::String("string".to_string()),
+        );
+        schema.insert(
+            Value::String("minLength".to_string()),
+            Value::Number(1.into()),
+        );
+        props.insert(Value::String(field.to_string()), Value::Mapping(schema));
+    }
+    let mut overlay = Mapping::new();
+    overlay.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    overlay.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    Value::Mapping(overlay)
 }
 
 pub(super) fn object_instance_overlay_patch() -> Mapping {

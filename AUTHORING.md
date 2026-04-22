@@ -4,6 +4,11 @@ Shell Engine content is metadata-driven. Effect metadata, scene schemas, CLI
 tools, and the TUI editor all derive from a single source of truth defined in
 `engine-core`. When metadata is correct, everything else follows.
 
+For the runtime/component refactor status, use [oop.impl.md](oop.impl.md) as
+the execution ledger. When a content or authoring PR is part of that rollout,
+tag it with the matching workstream ids such as `CAN-01`, `SCN-04`, or
+`OBJ-04`.
+
 Current metadata maturity:
 
 | Area    | Coverage |
@@ -47,10 +52,11 @@ A scene is either a single YAML file or a package directory containing
 
 ### Scene space and camera model
 
-Scenes can now declare a default `space` of `2d` or `3d`.
+Scenes should author a default `render-space` of `2d` or `3d`.
+The older `space` field remains a compatibility alias.
 
-- `space: 2d` keeps the existing world-camera behavior: non-screen layers are offset by `world.set_camera(x, y)`.
-- `space: 3d` makes `3d` the default for inherited layers and enables the shared scene 3D camera driven by `world.set_camera_3d_look_at(...)` and `world.set_camera_3d_up(...)`.
+- `render-space: 2d` keeps the existing world-camera behavior: non-screen layers are offset by `world.set_camera(x, y)`.
+- `render-space: 3d` makes `3d` the default for inherited layers and enables the shared scene 3D camera driven by `world.set_camera_3d_look_at(...)` and `world.set_camera_3d_up(...)`.
 
 Layers can override that default with `space: inherit | 2d | 3d | screen`.
 
@@ -75,10 +81,57 @@ spatial:
 
 OBJ, `planet`, and `scene3_d` sprites can opt into the shared scene camera with `camera-source: scene`. The default remains `camera-source: local`, which preserves authored per-sprite camera values.
 
+Scenes should author an explicit camera rig through `camera-rig`.
+Pair it with `controller-defaults`, which is the canonical scene-level preset
+selection surface. Scene normalization lowers that authored contract into the
+existing `input.*` runtime camera surface only as a compatibility bridge where
+older runtime seams still consume those fields.
+
+For a euclidean object-viewer scene, prefer:
+
+```yaml
+controller-defaults:
+  camera-preset: obj-viewer
+
+camera-rig:
+  preset: obj-viewer
+  obj-viewer:
+    sprite_id: demo-mesh
+```
+
+```yaml
+camera-rig:
+  preset: surface-free-look
+  surface:
+    mode: locked
+  free-look-camera: {}
+```
+
+`camera-rig.surface.mode: locked` is the explicit authored surface-lock
+contract. The compiler lowers it to the current
+`input.free-look-camera.surface-mode: true` runtime shape.
+Direct `input.obj-viewer`, `input.orbit-camera`, and `input.free-look-camera`
+blocks should be treated as compatibility-only authoring for older scenes.
+New or refreshed content should prefer `controller-defaults + camera-rig`.
+
+Pure preset-driven controllers do not need an extra low-level camera block.
+If the preset catalog already declares the rig target and controller kind, keep
+the scene contract at:
+
+```yaml
+controller-defaults:
+  camera-preset: qwack-chase
+
+camera-rig:
+  preset: qwack-chase
+```
+
+For a concrete authored example, see `mods/qwack-3d/scenes/chase/scene.yml`.
+
 Scenes can also bind themselves to a celestial scope:
 
 ```yaml
-space: 3d
+render-space: 3d
 
 celestial:
   scope: system
@@ -217,6 +270,9 @@ prefabs:
       vx: 0
       vy: 0
 ```
+
+Prefab entries may also `ref` another prefab and deep-merge nested maps, so
+child prefabs can override only the component subfields they need.
 
 #### Spawn Groups
 
@@ -521,7 +577,7 @@ This keeps world rendering authored at 640x360 while compositing UI on a denser
 layout and hit-testing:
 
 - match `ui_render_size` when you want a native higher-density UI layout with more room for controls,
-- match `world_render_size` when you need to preserve existing HUD coordinates during migration.
+- match `world_render_size` when you need to keep an older HUD coordinate space intact while the runtime root surface is being aligned.
 
 Audio authoring is mod-root based:
 - `audio/sfx.yaml` defines semantic events such as `ui.menu.select`
@@ -543,6 +599,11 @@ Audio authoring is mod-root based:
 | flex   | Stack container      | direction, gap, children                                            | No            |
 | panel  | UI panel box         | width, height, padding, bg_colour (omit for transparent), children  | No            |
 | vector | Polygon / polyline   | points, closed, draw-char, fg_colour, bg_colour                     | No            |
+
+`surface-mode` on `obj` sprites controls OBJ shading style only. It is separate
+from `camera-rig.surface.mode` and the lowered
+`input.free-look-camera.surface-mode`, which lock the authored camera to a
+spherical surface.
 
 `scale-x` / `scale-y` on `text` sprites are float multipliers applied during
 buffer blit (1.0 = identity). They work with all raster font paths (`generic:*`
@@ -604,7 +665,7 @@ A `scene.yml` controls the following concerns:
 | PostFX      | postfx (ordered list of post-processing passes)           |
 | UI          | ui.enabled, ui.persist, ui.theme, ui.scale, ui.font-scale, ui.focus-order |
 | Routing     | next, menu-options (each with `to`)                       |
-| Input       | input profiles (obj-viewer, free-look-camera, custom)     |
+| Input       | input profiles (obj-viewer, free-look-camera, orbit-camera) |
 | Prerender   | prerender hooks                                           |
 
 `ui.scale` multiplies GUI widget geometry for `scene.gui.widgets` controls, so hitboxes,
@@ -612,6 +673,28 @@ popup rows, and authored control rects can be resized scene-wide without rewriti
 `ui.font-scale` multiplies rasterized text scale for layers marked with `ui: true`.
 Use them together for scene-wide HUD readability tuning before hand-authoring per-sprite
 `scale-x/scale-y` overrides.
+
+Playground ladder entries to keep in sync with scene-contract changes:
+
+| ID | Path | Purpose |
+|----|------|---------|
+| CAN-01 | `mods/playground/scenes/world-model-planar/scene.yml` | planar 2D world-model contract |
+| CAN-02 | `mods/playground/scenes/world-model-euclidean/scene.yml` | neutral 3D world-model contract authored through `controller-defaults` + `camera-rig` |
+| CAN-03 | `mods/playground/scenes/world-model-celestial/scene.yml` | celestial 3D world-model contract with canonical `controller-defaults.camera-preset: surface-free-look`, `camera-rig.preset: surface-free-look`, and `camera-rig.surface.mode: locked` |
+| SCN-04 | `mods/playground/scenes/world-model-contracts/scene.yml` | contract ledger / scene map for the planar, euclidean, and celestial ladder plus the surface-locked camera rule |
+| BASE-01 | `mods/playground/scenes/menu/scene.yml` | baseline menu scene |
+| BASE-02 | `mods/playground/scenes/3d-scene/scene.yml` | baseline OBJ wireframe scene authored through canonical `controller-defaults.camera-preset: obj-viewer` + `camera-rig.preset: obj-viewer` |
+
+`mods/planet-generator/catalogs/prefabs.yaml` keeps the prefab merge canary
+pair (`canary-probe-base` and `canary-probe-nested`) for nested override checks.
+
+For a repo-wide snapshot that measures scene contract, world-model,
+controller-default, camera-input, object-ref usage, and the playground ladder,
+run:
+
+```bash
+cargo run -p devtool -- snapshot --all-mods
+```
 
 ---
 
@@ -654,7 +737,8 @@ Profile references resolve in this order:
 
 ## Free-Look Camera Surface Mode
 
-`input.free-look-camera` also accepts surface-constrained controls for planet
+`camera-rig.free-look-camera` and the lowered `input.free-look-camera`
+compatibility bridge both accept surface-constrained controls for planet
 navigation:
 
 - `surface-mode`: `true` to keep the camera on a spherical shell.
@@ -663,6 +747,11 @@ navigation:
 - `surface-altitude`: initial altitude above surface.
 - `surface-min-altitude` / `surface-max-altitude`: altitude clamp.
 - `surface-vertical-speed`: climb/descent speed for `q` / `e`.
+
+If you pair the rig with `camera-rig.preset: surface-free-look`, set
+`camera-rig.surface.mode: locked` explicitly. The compiler then lowers that
+surface contract through the current `input.free-look-camera.surface-mode: true`
+compatibility seam.
 
 ## OBJ Lighting
 

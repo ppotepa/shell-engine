@@ -4,8 +4,7 @@
   sprites:
     - {
         type: text,
-        content: "A/Z zoom, O orbit on/off (arrows+mouse look when off),
-          1-4 renderer, 5 wireframe, ENTER back",
+        content: "BASE-02 euclidean OBJ baseline. `controller-defaults.camera-preset: obj-viewer` + `camera-rig.preset: obj-viewer`, `camera-rig.obj-viewer.sprite_id`, `objects:` expansion, A/Z zoom, O orbit toggle, arrows+mouse look when off, 1-4 renderer, 5 wireframe, Enter back",
         at: cb,
         y: -1,
         font: "generic:2",

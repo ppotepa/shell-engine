@@ -12,7 +12,7 @@ use crate::world::World;
 use engine_animation::SceneStage;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
-use engine_core::scene::ResolvedViewProfile;
+use engine_core::scene::{environment_policy_uses_environment_background, ResolvedViewProfile};
 
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
@@ -517,13 +517,17 @@ fn resolve_scene_background(
         return Color::from(bg);
     }
 
-    resolved_view_profile
-        .environment
-        .background_color
-        .as_deref()
-        .and_then(engine_core::scene::color::parse_colour_str)
-        .map(|value| Color::from(&value))
-        .unwrap_or(TRUE_BLACK)
+    if environment_policy_uses_environment_background(resolved_view_profile.environment_policy) {
+        return resolved_view_profile
+            .environment
+            .background_color
+            .as_deref()
+            .and_then(engine_core::scene::color::parse_colour_str)
+            .map(|value| Color::from(&value))
+            .unwrap_or(TRUE_BLACK);
+    }
+
+    TRUE_BLACK
 }
 
 #[cfg(test)]
@@ -542,7 +546,7 @@ mod tests {
     use crate::world::World;
     use engine_animation::{Animator, SceneStage};
     use engine_behavior::{catalog::ModCatalogs, init_behavior_system};
-    use engine_core::scene::resolve_scene_view_profile;
+    use engine_core::scene::{resolve_scene_view_profile, ViewEnvironmentPolicy};
 
     use super::compositor_system;
     use super::resolve_scene_background;
@@ -914,6 +918,46 @@ layers: []
         let bg = resolve_scene_background(&scene, &resolved);
 
         assert_eq!(bg, Color::Rgb { r: 0, g: 0, b: 8 });
+    }
+
+    #[test]
+    fn default_2d_scene_background_falls_back_to_true_black() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: flat
+title: Flat
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        let resolved = resolve_scene_view_profile(&scene);
+        let bg = resolve_scene_background(&scene, &resolved);
+
+        assert_eq!(resolved.environment_policy, ViewEnvironmentPolicy::TwoD);
+        assert_eq!(bg, TRUE_BLACK);
+    }
+
+    #[test]
+    fn default_3d_euclidean_scene_background_falls_back_to_true_black() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: flat-3d
+title: Flat3D
+space: 3d
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        let resolved = resolve_scene_view_profile(&scene);
+        let bg = resolve_scene_background(&scene, &resolved);
+
+        assert_eq!(
+            resolved.environment_policy,
+            ViewEnvironmentPolicy::ThreeDEuclidean
+        );
+        assert_eq!(bg, TRUE_BLACK);
     }
 
     fn render_scene_hash(scene_yaml: &str, width: u16, height: u16) -> u64 {

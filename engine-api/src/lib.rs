@@ -47,10 +47,10 @@ pub use runtime::{
     RuntimeServicesCoreApi, RuntimeStoresCoreApi, RuntimeWorldCoreApi, ScriptRuntimeApi,
 };
 pub use scene::{
-    register_scene_api, Camera3dMutationRequest, Camera3dObjectViewState, Render3dMutationDomain,
-    Render3dMutationRequest, Render3dProfileSlot, SceneMutationError, SceneMutationRequest,
-    SceneMutationRequestError, SceneMutationResult, SceneMutationStatus, ScriptObjectApi,
-    ScriptSceneApi,
+    register_scene_api, Camera3dMutationRequest, Camera3dNormalizedMutation,
+    Camera3dObjectViewState, Render3dMutationDomain, Render3dMutationRequest, Render3dProfileSlot,
+    SceneMutationError, SceneMutationRequest, SceneMutationRequestError, SceneMutationResult,
+    SceneMutationStatus, ScriptObjectApi, ScriptSceneApi,
 };
 pub use vehicle::{
     normalize_vehicle_profile_id, register_vehicle_api, register_vehicle_core_api,

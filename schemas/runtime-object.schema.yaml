@@ -1,0 +1,438 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-engine.local/schemas/runtime-object.schema.yaml"
+title: Runtime Object Schema
+description: >
+  Defines the vNext authored runtime-object bridge tree. This surface is
+  separate from legacy scene.objects compile-time expansion and is retained as
+  pass-through scene data for now.
+type: object
+additionalProperties: false
+required:
+  - name
+  - transform
+anyOf:
+  - required: [prefab]
+  - required: [ref]
+  - required: [use]
+  - required: [components]
+  - required: [children]
+properties:
+  kind:
+    type: string
+    const: runtime-object
+    description: Optional explicit document kind marker.
+  name:
+    type: string
+    minLength: 1
+    description: Stable runtime-object node name.
+  prefab:
+    type: string
+    minLength: 1
+    description: Canonical prefab/object reference used as the authored bridge source.
+  ref:
+    type: string
+    minLength: 1
+    description: Transitional alias for `prefab` accepted by the authored compiler.
+  use:
+    type: string
+    minLength: 1
+    description: Transitional alias for `prefab` accepted by the authored compiler.
+  preset:
+    type: string
+    minLength: 1
+    description: Optional preset reference used to seed bridge defaults.
+  transform:
+    description: Mandatory typed transform bridge scaffold for runtime-object placement.
+    oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+          - space
+        properties:
+          space:
+            type: string
+            enum: [2d]
+          x:
+            type: number
+            default: 0.0
+          y:
+            type: number
+            default: 0.0
+          scale-x:
+            type: number
+            default: 1.0
+          scale_x:
+            type: number
+            default: 1.0
+          scale-y:
+            type: number
+            default: 1.0
+          scale_y:
+            type: number
+            default: 1.0
+          rotation-deg:
+            type: number
+            default: 0.0
+          rotation_deg:
+            type: number
+            default: 0.0
+      - type: object
+        additionalProperties: false
+        required:
+          - space
+        properties:
+          space:
+            type: string
+            enum: [3d]
+          translation:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [0.0, 0.0, 0.0]
+            items:
+              type: number
+          rotation-deg:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [0.0, 0.0, 0.0]
+            items:
+              type: number
+          rotation_deg:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [0.0, 0.0, 0.0]
+            items:
+              type: number
+          scale:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [1.0, 1.0, 1.0]
+            items:
+              type: number
+      - type: object
+        additionalProperties: false
+        required:
+          - space
+        properties:
+          space:
+            type: string
+            enum: [celestial]
+          frame:
+            type: string
+            minLength: 1
+            description: Optional celestial frame binding for the object root.
+          translation:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [0.0, 0.0, 0.0]
+            items:
+              type: number
+          rotation-deg:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [0.0, 0.0, 0.0]
+            items:
+              type: number
+          rotation_deg:
+            type: array
+            minItems: 3
+            maxItems: 3
+            default: [0.0, 0.0, 0.0]
+            items:
+              type: number
+  components:
+    $ref: "#/$defs/componentFamilies"
+  children:
+    type: array
+    default: []
+    description: Nested authored child runtime objects carried through the bridge.
+    items:
+      $ref: "#"
+  overrides:
+    $ref: "#/$defs/runtimeObjectOverrides"
+  with:
+    allOf:
+      - $ref: "#/$defs/runtimeObjectOverrides"
+    description: Transitional alias for `overrides` accepted by the authored compiler.
+$defs:
+  componentFamilies:
+    type: object
+    default: {}
+    description: >
+      Typed component-family bag carried through the runtime-object bridge.
+      Family names mirror prefab component families so future runtime assembly
+      can lower both surfaces through one typed path.
+    additionalProperties: false
+    properties:
+      render:
+        $ref: "#/$defs/renderComponent"
+      physics:
+        $ref: "#/$defs/physicsComponent"
+      collider:
+        $ref: "#/$defs/colliderComponent"
+      controller:
+        $ref: "#/$defs/controllerComponent"
+      reference-frame:
+        $ref: "#/$defs/referenceFrameComponent"
+      reference_frame:
+        $ref: "#/$defs/referenceFrameComponent"
+      follow-anchor-3d:
+        $ref: "#/$defs/followAnchor3dComponent"
+      follow_anchor_3d:
+        $ref: "#/$defs/followAnchor3dComponent"
+      linear-motor-3d:
+        $ref: "#/$defs/linearMotor3dComponent"
+      linear_motor_3d:
+        $ref: "#/$defs/linearMotor3dComponent"
+      angular-motor-3d:
+        $ref: "#/$defs/angularMotor3dComponent"
+      angular_motor_3d:
+        $ref: "#/$defs/angularMotor3dComponent"
+      character-motor-3d:
+        $ref: "#/$defs/characterMotor3dComponent"
+      character_motor_3d:
+        $ref: "#/$defs/characterMotor3dComponent"
+      flight-motor-3d:
+        $ref: "#/$defs/flightMotor3dComponent"
+      flight_motor_3d:
+        $ref: "#/$defs/flightMotor3dComponent"
+      camera-rig:
+        $ref: "#/$defs/cameraRigComponent"
+      camera_rig:
+        $ref: "#/$defs/cameraRigComponent"
+      audio:
+        $ref: "#/$defs/audioComponent"
+      gameplay:
+        $ref: "#/$defs/gameplayComponent"
+      celestial-binding:
+        $ref: "#/$defs/celestialBindingComponent"
+      celestial_binding:
+        $ref: "#/$defs/celestialBindingComponent"
+      lifecycle:
+        type: string
+      wrappable:
+        type: boolean
+      extra-data:
+        type: object
+        additionalProperties: true
+      extra_data:
+        type: object
+        additionalProperties: true
+  runtimeObjectOverrides:
+    type: object
+    default: {}
+    description: >
+      Per-node override bag retained as bridge data. `components` is typed so
+      prefab-first runtime objects can override individual gameplay families
+      without copying whole prefab component blobs.
+    additionalProperties: true
+    properties:
+      components:
+        $ref: "#/$defs/componentFamilies"
+  renderComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      sprite-template:
+        type: string
+      sprite_template:
+        type: string
+      mesh:
+        type: string
+      material:
+        type: string
+      camera-source:
+        type: string
+      camera_source:
+        type: string
+      config:
+        type: object
+        additionalProperties: true
+  physicsComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      vx: { type: number }
+      vy: { type: number }
+      vz: { type: number }
+      ax: { type: number }
+      ay: { type: number }
+      az: { type: number }
+      drag: { type: number }
+      max-speed: { type: number }
+      max_speed: { type: number }
+      mass: { type: number }
+      restitution: { type: number }
+      gravity-scale: { type: number }
+      gravity_scale: { type: number }
+      gravity-mode: { type: string }
+      gravity_mode: { type: string }
+      gravity-body: { type: string }
+      gravity_body: { type: string }
+      atmosphere-body: { type: string }
+      atmosphere_body: { type: string }
+      atmosphere-drag-scale: { type: number }
+      atmosphere_drag_scale: { type: number }
+      atmosphere-heat-scale: { type: number }
+      atmosphere_heat_scale: { type: number }
+      atmosphere-cooling: { type: number }
+      atmosphere_cooling: { type: number }
+  colliderComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      shape: { type: string }
+      radius: { type: number }
+      width: { type: number }
+      height: { type: number }
+      layer: { type: integer }
+      mask: { type: integer }
+  controllerComponent:
+    type: object
+    additionalProperties: false
+    required: [controller_type]
+    properties:
+      controller_type:
+        type: string
+      config:
+        type: object
+        additionalProperties: true
+  referenceFrameComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      mode: { type: string }
+      entity_id: { type: integer, minimum: 0 }
+      body_id: { type: string }
+      inherit-linear-velocity: { type: boolean }
+      inherit_linear_velocity: { type: boolean }
+      inherit-angular-velocity: { type: boolean }
+      inherit_angular_velocity: { type: boolean }
+  followAnchor3dComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      local-offset:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items: { type: number }
+      local_offset:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items: { type: number }
+      inherit-orientation: { type: boolean }
+      inherit_orientation: { type: boolean }
+  linearMotor3dComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      space: { type: string }
+      accel: { type: number }
+      decel: { type: number }
+      max-speed: { type: number }
+      max_speed: { type: number }
+      boost-scale: { type: number }
+      boost_scale: { type: number }
+      air-control: { type: number }
+      air_control: { type: number }
+  angularMotor3dComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      mode: { type: string }
+      yaw-rate: { type: number }
+      yaw_rate: { type: number }
+      pitch-rate: { type: number }
+      pitch_rate: { type: number }
+      roll-rate: { type: number }
+      roll_rate: { type: number }
+      torque-scale: { type: number }
+      torque_scale: { type: number }
+      look-sensitivity: { type: number }
+      look_sensitivity: { type: number }
+  characterMotor3dComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      up-mode: { type: string }
+      up_mode: { type: string }
+      jump-speed: { type: number }
+      jump_speed: { type: number }
+      stick-to-ground: { type: boolean }
+      stick_to_ground: { type: boolean }
+      max-slope-deg: { type: number }
+      max_slope_deg: { type: number }
+  flightMotor3dComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      translational-dofs:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items: { type: boolean }
+      translational_dofs:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items: { type: boolean }
+      rotational-dofs:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items: { type: boolean }
+      rotational_dofs:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items: { type: boolean }
+      horizon-lock-strength: { type: number }
+      horizon_lock_strength: { type: number }
+  cameraRigComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      rig-type: { type: string }
+      rig_type: { type: string }
+      preset: { type: string }
+      target: { type: string }
+      config:
+        type: object
+        additionalProperties: true
+  audioComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      bus: { type: string }
+      events:
+        type: array
+        items: { type: string }
+      config:
+        type: object
+        additionalProperties: true
+  gameplayComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      module: { type: string }
+      config:
+        type: object
+        additionalProperties: true
+  celestialBindingComponent:
+    type: object
+    additionalProperties: false
+    properties:
+      body_id: { type: string }
+      site_id: { type: string }
+      region_id: { type: string }
+      system_id: { type: string }
+      route_id: { type: string }
+      frame-mode: { type: string }
+      frame_mode: { type: string }

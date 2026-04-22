@@ -1,18 +1,20 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
-# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-3d-scene
-title: 3D Scene (OBJ Wireframe Test)
+title: BASE-02 3D Scene (OBJ Wireframe Test)
 virtual-size-override: 640x360
 bg: black
-layers:
-  - ref: main
-input:
-  # `obj-viewer` is runtime-facing; authored YAML stays compact around the target sprite id.
+render-space: 3d
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: obj-viewer
+camera-rig:
+  preset: obj-viewer
   obj-viewer:
     sprite_id: helsinki-uni-wireframe
+layers:
+  - ref: main
 stages-ref: /stages/anykey-fade-300-250.yml
 objects:
-  # Reuse the shared object prefab and override only the exported values needed by this scene.
   - {
       ref: suzan,
       as: obj-demo,

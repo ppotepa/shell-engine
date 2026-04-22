@@ -54,6 +54,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($null -ne (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 
 $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $RootDir
@@ -170,7 +173,7 @@ function Test-InMode([string]$Path) {
 
 $AllFiles = if ($ChangedOnly) {
     @(
-        git diff --name-only --diff-filter=ACMRTUXB HEAD 2>$null
+        cmd /c "git -c core.safecrlf=false diff --name-only --diff-filter=ACMRTUXB HEAD 2>nul"
         git ls-files --others --exclude-standard 2>$null
     ) |
         Where-Object { $_ } |

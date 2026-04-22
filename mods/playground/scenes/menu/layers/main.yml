@@ -8,15 +8,23 @@
         type: text,
         content: "PLAYGROUND",
         at: ct,
-        y: -9,
+        y: -10,
         font: "generic:2",
         fg: white,
       }
     - {
         type: text,
-        content: "MENU",
+        content: "CONTRACT LADDER",
         at: ct,
-        y: -2,
+        y: -4,
+        font: "generic:2",
+        fg: gray,
+      }
+    - {
+        type: text,
+        content: "BASE-01 / BASE-02 / CAN-01 / CAN-02 / CAN-03 / SCN-04",
+        at: ct,
+        y: 0,
         font: "generic:2",
         fg: gray,
       }

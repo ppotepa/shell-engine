@@ -12,6 +12,7 @@ support day-to-day development.
 
 - `schema-gen/` — generate or check mod-local schema fragments
 - `devtool/` — scaffold and edit mod content from the command line
+- `devtool snapshot` — repo-wide migration snapshot for scene contract, world-model, controller-default, legacy camera, and object-ref usage
 - `simplify_glb.py` — reduce polygon count for heavy GLB assets
 - `ttf-rasterizer/` — font tooling
 
@@ -32,6 +33,9 @@ cargo run -p schema-gen -- --all-mods --check
 
 # inspect devtool commands
 cargo run -p devtool -- --help
+
+# print the architecture snapshot report
+cargo run -p devtool -- snapshot --all-mods
 ```
 
 For deeper operational notes, see `tools/README.AGENTS.MD`.

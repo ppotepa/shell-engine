@@ -31,7 +31,9 @@ const SPRITE_TYPE_OPTIONS: &[&str] = &[
 ];
 const LOGIC_TYPE_OPTIONS: &[&str] = &["native", "graph", "script"];
 const SCENE_SPACE_OPTIONS: &[&str] = &["2d", "3d"];
+const SCENE_WORLD_MODEL_OPTIONS: &[&str] = &["planar-2d", "euclidean-3d", "celestial-3d"];
 const LAYER_SPACE_OPTIONS: &[&str] = &["inherit", "2d", "3d", "screen"];
+const RUNTIME_OBJECT_SPACE_OPTIONS: &[&str] = &["2d", "3d", "celestial"];
 const CAMERA_SOURCE_OPTIONS: &[&str] = &["local", "scene"];
 const ALIGN_X_OPTIONS: &[&str] = &["left", "center", "right"];
 const ALIGN_Y_OPTIONS: &[&str] = &["top", "center", "bottom"];
@@ -244,13 +246,363 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
     },
     FieldMetadata {
         target: TargetKind::Scene,
-        name: "space",
+        name: "render-space",
         value_kind: ValueKind::Select,
         requirement: Requirement::Optional,
-        description: "Default spatial mode for scene layers: 2d or 3d.",
+        description: "Default render-space mode for scene layers: 2d or 3d.",
         default_text: Some("2d"),
         default_number: None,
         enum_options: Some(SCENE_SPACE_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "render_space",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Alias of render-space.",
+        default_text: Some("2d"),
+        default_number: None,
+        enum_options: Some(SCENE_SPACE_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "space",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Legacy alias of render-space.",
+        default_text: Some("2d"),
+        default_number: None,
+        enum_options: Some(SCENE_SPACE_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "world-model",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Simulation world model: planar-2d, euclidean-3d, or celestial-3d.",
+        default_text: Some("planar-2d"),
+        default_number: None,
+        enum_options: Some(SCENE_WORLD_MODEL_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "world_model",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Alias of world-model.",
+        default_text: Some("planar-2d"),
+        default_number: None,
+        enum_options: Some(SCENE_WORLD_MODEL_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description:
+            "Scene-level controller preset hooks for camera, player, UI, spawn, gravity, and surface defaults.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller_defaults",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Alias of controller-defaults.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults.camera-preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Default scene camera preset id.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults.player-preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Default player controller preset id for the scene.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults.ui-preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Default UI preset id for the scene.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults.spawn-preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Default spawn preset id for the scene.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults.gravity-preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Default gravity preset id for the scene.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "controller-defaults.surface-preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Default surface/frame preset id for the scene.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera-rig",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description:
+            "Explicit authored camera-rig contract lowered into controller-defaults + input camera profiles during scene normalization.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera_rig",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Alias of camera-rig.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera-rig.preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Optional camera preset id resolved into controller-defaults.camera-preset when omitted there.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera-rig.surface.mode",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description:
+            "Explicit camera-surface contract for the authored rig. `locked` lowers to free-look surface-mode=true.",
+        default_text: Some("free"),
+        default_number: None,
+        enum_options: Some(&["free", "locked"]),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera-rig.obj-viewer",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Explicit OBJ viewer rig lowered into input.obj-viewer.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera-rig.free-look-camera",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description:
+            "Explicit free-look rig lowered into input.free-look-camera; combine with camera-rig.surface.mode=locked for a surface-locked shell rig.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "camera-rig.orbit-camera",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Explicit orbit rig lowered into input.orbit-camera.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "input",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Optional low-level camera/viewer control profiles for the scene. Prefer camera-rig for new authoring; use input.* as the compatibility/runtime-lowered surface.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "input.obj-viewer",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "OBJ viewer control profile targeting a single sprite id.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "input.free-look-camera",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description:
+            "Free-look scene camera rig; set surface-mode true for the explicit surface-locked rig required by camera-preset surface-free-look.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "input.orbit-camera",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Orbit camera rig targeting one OBJ sprite id.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
         min: None,
         max: None,
         step: None,
@@ -264,6 +616,37 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
         requirement: Requirement::Optional,
         description:
             "Optional scene-local render canvas override in WIDTHxHEIGHT form (use sparingly; prefer mod-level display.render_size).",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "runtime-objects",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description:
+            "Optional vNext authored runtime-object bridge tree. Legacy scene.objects remains the compile-time template-expansion and lowering path.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "runtime_objects",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Alias of runtime-objects.",
         default_text: None,
         default_number: None,
         enum_options: None,
@@ -949,7 +1332,7 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         name: "camera-source",
         value_kind: ValueKind::Select,
         requirement: Requirement::Optional,
-        description: "OBJ/planet/Scene3D: use sprite-local camera values or the shared scene 3D camera.",
+        description: "OBJ/planet/Scene3D: use sprite-local camera values or the shared scene 3D camera. Use scene when the sprite should inherit the scene rig; use local when it owns its own framing.",
         default_text: Some("local"), default_number: None, enum_options: Some(CAMERA_SOURCE_OPTIONS),
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
@@ -1359,7 +1742,7 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         name: "surface-mode",
         value_kind: ValueKind::Select,
         requirement: Requirement::Optional,
-        description: "Surface rendering style for type=obj: material fills faces, wireframe draws edges.",
+        description: "Surface rendering style for type=obj: material fills faces, wireframe draws edges. This is a sprite shading mode, not the free-look camera surface lock.",
         default_text: None, default_number: None, enum_options: Some(SURFACE_MODE_OPTIONS),
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
@@ -1438,7 +1821,8 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
     },
 ];
 
-/// Field metadata for object/prefab-level properties.
+/// Field metadata for legacy object/prefab-level properties and the vNext
+/// runtime-object bridge scaffold.
 pub static OBJECT_FIELDS: &[FieldMetadata] = &[
     FieldMetadata {
         target: TargetKind::Object,
@@ -1490,7 +1874,112 @@ pub static OBJECT_FIELDS: &[FieldMetadata] = &[
         name: "effects",
         value_kind: ValueKind::Text,
         requirement: Requirement::Optional,
-        description: "Optional object-level effects (if present in object authored shape).",
+        description: "Legacy object-level effects retained while object documents still lower into layers/sprites.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "transform",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Typed runtime-object bridge scaffold (space=2d|3d|celestial).",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "transform.space",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Transform variant selector for runtime-object authoring.",
+        default_text: Some("2d"),
+        default_number: None,
+        enum_options: Some(RUNTIME_OBJECT_SPACE_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "prefab",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Optional prefab reference for the runtime-object bridge scaffold.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "preset",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Optional preset reference used to seed the runtime-object bridge scaffold.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "components",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Typed component family bag carried through the runtime-object bridge scaffold.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "children",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Nested authored child runtime objects carried through the bridge.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Object,
+        name: "overrides",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Per-node override bag retained as runtime-object bridge data.",
         default_text: None,
         default_number: None,
         enum_options: None,
@@ -1504,7 +1993,7 @@ pub static OBJECT_FIELDS: &[FieldMetadata] = &[
 
 #[cfg(test)]
 mod tests {
-    use super::{OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
+    use super::{OBJECT_FIELDS, RUNTIME_OBJECT_SPACE_OPTIONS, SCENE_FIELDS, SPRITE_FIELDS};
     use crate::authoring::metadata::{Requirement, ValueKind};
 
     #[test]
@@ -1568,5 +2057,83 @@ mod tests {
             .find(|f| f.name == "planet-spec-ref")
             .expect("planet-spec-ref metadata");
         assert_eq!(spec_ref.value_kind, ValueKind::Text);
+    }
+
+    #[test]
+    fn scene_world_model_and_controller_defaults_are_exposed() {
+        let render_space = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "render-space")
+            .expect("render-space metadata");
+        assert_eq!(render_space.value_kind, ValueKind::Select);
+
+        let world_model = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "world-model")
+            .expect("world-model metadata");
+        assert_eq!(world_model.default_text, Some("planar-2d"));
+
+        let controller_defaults = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "controller-defaults")
+            .expect("controller-defaults metadata");
+        assert_eq!(controller_defaults.requirement, Requirement::Optional);
+
+        let camera_preset = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "controller-defaults.camera-preset")
+            .expect("controller-defaults.camera-preset metadata");
+        assert_eq!(camera_preset.value_kind, ValueKind::Text);
+
+        let camera_rig = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "camera-rig")
+            .expect("camera-rig metadata");
+        assert_eq!(camera_rig.requirement, Requirement::Optional);
+
+        let camera_surface = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "camera-rig.surface.mode")
+            .expect("camera-rig.surface.mode metadata");
+        assert_eq!(camera_surface.enum_options, Some(&["free", "locked"][..]));
+
+        let spawn_preset = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "controller-defaults.spawn-preset")
+            .expect("controller-defaults.spawn-preset metadata");
+        assert_eq!(spawn_preset.value_kind, ValueKind::Text);
+
+        let free_look_camera = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "input.free-look-camera")
+            .expect("input.free-look-camera metadata");
+        assert!(free_look_camera.description.contains("surface-locked rig"));
+    }
+
+    #[test]
+    fn runtime_object_surface_fields_are_exposed() {
+        let runtime_objects = SCENE_FIELDS
+            .iter()
+            .find(|f| f.name == "runtime-objects")
+            .expect("runtime-objects metadata");
+        assert_eq!(runtime_objects.requirement, Requirement::Optional);
+
+        for field_name in ["prefab", "preset", "components", "children", "overrides"] {
+            let field = OBJECT_FIELDS
+                .iter()
+                .find(|f| f.name == field_name)
+                .unwrap_or_else(|| panic!("{field_name} metadata"));
+            assert_eq!(field.requirement, Requirement::Optional);
+        }
+
+        let transform_space = OBJECT_FIELDS
+            .iter()
+            .find(|f| f.name == "transform.space")
+            .expect("transform.space metadata");
+        assert_eq!(transform_space.value_kind, ValueKind::Select);
+        assert_eq!(
+            transform_space.enum_options,
+            Some(RUNTIME_OBJECT_SPACE_OPTIONS)
+        );
     }
 }

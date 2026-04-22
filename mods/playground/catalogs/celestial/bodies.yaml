@@ -1,0 +1,17 @@
+bodies:
+  playground-demo-world:
+    center_x: 0.0
+    center_y: 0.0
+    orbit_radius: 0.0
+    orbit_period_sec: 0.0
+    orbit_phase_deg: 0.0
+    radius_px: 1.0
+    km_per_px: 10.0
+    surface_radius: 80.0
+    radius_km: 80.0
+    gravity_mu_km3_s2: 600.0
+    atmosphere_top_km: 12.0
+    atmosphere_dense_start_km: 3.0
+    atmosphere_drag_max: 0.7
+    cloud_bottom_km: 0.0
+    cloud_top_km: 4.0

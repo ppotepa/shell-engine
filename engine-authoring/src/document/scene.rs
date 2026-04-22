@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
 
 use super::scene_helpers::*;
+use crate::validate::validate_scene_document_semantics;
 
 /// Authored scene document kept as raw YAML until scene-specific shorthands,
 /// aliases, and templates are normalized.
@@ -244,6 +245,7 @@ fn normalize_scene_value(root: &mut Value) -> Result<(), serde_yaml::Error> {
     };
 
     apply_alias(scene, "bg", "bg_colour");
+    normalize_scene_contract(scene);
     if !scene.contains_key(Value::String("planet-spec".to_string())) {
         if let Some(value) = scene.remove(Value::String("planet_spec".to_string())) {
             scene.insert(Value::String("planet-spec".to_string()), value);
@@ -280,7 +282,222 @@ fn normalize_scene_value(root: &mut Value) -> Result<(), serde_yaml::Error> {
         )?;
     }
     scene.remove(Value::String("sprite-defaults".to_string()));
+
+    let diagnostics = validate_scene_document_semantics(root);
+    if !diagnostics.is_empty() {
+        let joined = diagnostics
+            .into_iter()
+            .map(|diag| match diag {
+                crate::validate::SceneDocumentDiagnostic::CelestialRequiresCelestialWorldModel {
+                    world_model,
+                } => format!(
+                    "`celestial` authoring requires `world-model: celestial-3d` (got `{world_model}`)"
+                ),
+                crate::validate::SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraInput {
+                    input_profile,
+                } => format!(
+                    "`{input_profile}` is invalid when `world-model: planar-2d` is active"
+                ),
+                crate::validate::SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraPreset {
+                    preset,
+                } => format!(
+                    "`controller-defaults.camera-preset: {preset}` is invalid when `world-model: planar-2d` is active"
+                ),
+                crate::validate::SceneDocumentDiagnostic::EmptyControllerPreset { field } => {
+                    format!("`controller-defaults.{field}` must not be empty")
+                }
+                crate::validate::SceneDocumentDiagnostic::KnownCameraPresetMissingLegacyBinding {
+                    preset,
+                    required_input,
+                } => format!(
+                    "`controller-defaults.camera-preset: {preset}` requires `{required_input}`"
+                ),
+                crate::validate::SceneDocumentDiagnostic::RuntimeObjectKindMismatch {
+                    path,
+                    kind,
+                } => format!(
+                    "`{path}.kind: {kind}` is invalid; use `kind: runtime-object` or omit the marker"
+                ),
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(serde_yaml::Error::custom(joined));
+    }
+
     Ok(())
+}
+
+fn normalize_scene_contract(scene: &mut Mapping) {
+    normalize_top_level_alias(scene, "render-space", &["render_space", "space"]);
+    normalize_top_level_alias(scene, "world-model", &["world_model"]);
+    normalize_top_level_alias(scene, "controller-defaults", &["controller_defaults"]);
+    normalize_scene_camera_rig(scene);
+    if let Some(controller_defaults) = scene
+        .get_mut(Value::String("controller-defaults".to_string()))
+        .and_then(Value::as_mapping_mut)
+    {
+        normalize_top_level_alias(controller_defaults, "camera-preset", &["camera_preset"]);
+        normalize_top_level_alias(controller_defaults, "player-preset", &["player_preset"]);
+        normalize_top_level_alias(controller_defaults, "ui-preset", &["ui_preset"]);
+        normalize_top_level_alias(controller_defaults, "spawn-preset", &["spawn_preset"]);
+        normalize_top_level_alias(controller_defaults, "gravity-preset", &["gravity_preset"]);
+        normalize_top_level_alias(controller_defaults, "surface-preset", &["surface_preset"]);
+    }
+
+    if !scene.contains_key(Value::String("world-model".to_string())) {
+        let inferred = if scene
+            .get(Value::String("celestial".to_string()))
+            .is_some_and(|value| !matches!(value, Value::Null))
+        {
+            "celestial-3d"
+        } else if matches!(
+            scene
+                .get(Value::String("render-space".to_string()))
+                .and_then(Value::as_str),
+            Some("3d")
+        ) {
+            "euclidean-3d"
+        } else {
+            "planar-2d"
+        };
+        scene.insert(
+            Value::String("world-model".to_string()),
+            Value::String(inferred.to_string()),
+        );
+    }
+}
+
+fn normalize_scene_camera_rig(scene: &mut Mapping) {
+    normalize_top_level_alias(scene, "camera-rig", &["camera_rig"]);
+    let camera_rig = {
+        let Some(camera_rig) = scene
+            .get_mut(Value::String("camera-rig".to_string()))
+            .and_then(Value::as_mapping_mut)
+        else {
+            return;
+        };
+
+        normalize_top_level_alias(camera_rig, "obj-viewer", &["obj_viewer"]);
+        normalize_top_level_alias(camera_rig, "free-look-camera", &["free_look_camera"]);
+        normalize_top_level_alias(camera_rig, "orbit-camera", &["orbit_camera"]);
+        camera_rig.clone()
+    };
+
+    let surface_locked = camera_rig_surface_locked(&camera_rig);
+    let inferred_preset = map_get_str(&camera_rig, &["preset"])
+        .map(ToString::to_string)
+        .or_else(|| infer_camera_rig_preset(&camera_rig, surface_locked));
+
+    if let Some(preset) = inferred_preset {
+        let controller_defaults = ensure_child_mapping(scene, "controller-defaults");
+        controller_defaults
+            .entry(Value::String("camera-preset".to_string()))
+            .or_insert_with(|| Value::String(preset));
+    }
+
+    let needs_input = camera_rig
+        .get(Value::String("obj-viewer".to_string()))
+        .is_some()
+        || camera_rig
+            .get(Value::String("free-look-camera".to_string()))
+            .is_some()
+        || camera_rig
+            .get(Value::String("orbit-camera".to_string()))
+            .is_some()
+        || surface_locked;
+
+    if !needs_input {
+        return;
+    }
+
+    let input = ensure_child_mapping(scene, "input");
+    for field in ["obj-viewer", "free-look-camera", "orbit-camera"] {
+        if let Some(value) = camera_rig.get(Value::String(field.to_string())).cloned() {
+            input
+                .entry(Value::String(field.to_string()))
+                .or_insert(value);
+        }
+    }
+
+    if surface_locked {
+        let free_look = ensure_nested_mapping(input, "free-look-camera");
+        free_look
+            .entry(Value::String("surface-mode".to_string()))
+            .or_insert_with(|| Value::Bool(true));
+    }
+}
+
+fn infer_camera_rig_preset(camera_rig: &Mapping, surface_locked: bool) -> Option<String> {
+    if camera_rig
+        .get(Value::String("orbit-camera".to_string()))
+        .is_some()
+    {
+        return Some("orbit-camera".to_string());
+    }
+    if camera_rig
+        .get(Value::String("free-look-camera".to_string()))
+        .is_some()
+    {
+        let free_look_surface = camera_rig
+            .get(Value::String("free-look-camera".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|profile| map_get_bool(profile, &["surface-mode", "surface_mode"]))
+            .unwrap_or(false);
+        if surface_locked || free_look_surface {
+            return Some("surface-free-look".to_string());
+        }
+        return Some("free-look-camera".to_string());
+    }
+    if surface_locked {
+        return Some("surface-free-look".to_string());
+    }
+    if camera_rig
+        .get(Value::String("obj-viewer".to_string()))
+        .is_some()
+    {
+        return Some("obj-viewer".to_string());
+    }
+    None
+}
+
+fn camera_rig_surface_locked(camera_rig: &Mapping) -> bool {
+    camera_rig
+        .get(Value::String("surface".to_string()))
+        .and_then(Value::as_mapping)
+        .and_then(|surface| map_get_str(surface, &["mode"]))
+        .is_some_and(|mode| mode.eq_ignore_ascii_case("locked"))
+}
+
+fn ensure_child_mapping<'a>(map: &'a mut Mapping, key: &str) -> &'a mut Mapping {
+    let key_value = Value::String(key.to_string());
+    if !map.contains_key(&key_value) {
+        map.insert(key_value.clone(), Value::Mapping(Mapping::new()));
+    }
+    map.get_mut(&key_value)
+        .and_then(Value::as_mapping_mut)
+        .expect("child mapping should exist")
+}
+
+fn ensure_nested_mapping<'a>(map: &'a mut Mapping, key: &str) -> &'a mut Mapping {
+    let key_value = Value::String(key.to_string());
+    if !map.contains_key(&key_value) {
+        map.insert(key_value.clone(), Value::Mapping(Mapping::new()));
+    }
+    map.get_mut(&key_value)
+        .and_then(Value::as_mapping_mut)
+        .expect("nested mapping should exist")
+}
+
+fn normalize_top_level_alias(scene: &mut Mapping, canonical: &str, aliases: &[&str]) {
+    if scene.contains_key(Value::String(canonical.to_string())) {
+        return;
+    }
+    for alias in aliases {
+        if let Some(value) = scene.remove(Value::String((*alias).to_string())) {
+            scene.insert(Value::String(canonical.to_string()), value);
+            return;
+        }
+    }
 }
 
 fn normalize_stages(stages: &mut Value) {
@@ -1471,8 +1688,10 @@ fn expand_frame_sequence(
 /// Documented in: engine_core::authoring::catalog::sugar_catalog()
 #[cfg(test)]
 mod tests {
-    use super::SceneDocument;
+    use super::{normalize_scene_value, SceneDocument};
+    use engine_core::scene::model::RuntimeObjectTransform;
     use engine_core::scene::{HorizontalAlign, Sprite, TermColour, VerticalAlign};
+    use serde_yaml::Value;
 
     fn first_flex_children(children: &[Sprite]) -> Option<&[Sprite]> {
         children.iter().find_map(|child| match child {
@@ -1542,6 +1761,291 @@ menu-options:
     }
 
     #[test]
+    fn normalizes_legacy_space_into_render_space_and_infers_euclidean_world_model() {
+        let mut raw: Value = serde_yaml::from_str(
+            r#"
+id: scene
+title: Scene
+space: 3d
+"#,
+        )
+        .expect("scene yaml");
+
+        normalize_scene_value(&mut raw).expect("normalized");
+        let scene = raw.as_mapping().expect("mapping");
+        assert_eq!(
+            scene
+                .get(Value::String("render-space".to_string()))
+                .and_then(Value::as_str),
+            Some("3d")
+        );
+        assert_eq!(
+            scene
+                .get(Value::String("world-model".to_string()))
+                .and_then(Value::as_str),
+            Some("euclidean-3d")
+        );
+        assert!(
+            !scene.contains_key(Value::String("space".to_string())),
+            "legacy `space` should be normalized away"
+        );
+    }
+
+    #[test]
+    fn infers_celestial_world_model_when_celestial_block_is_present() {
+        let mut raw: Value = serde_yaml::from_str(
+            r#"
+id: scene
+title: Scene
+celestial:
+  focus-body: earth
+"#,
+        )
+        .expect("scene yaml");
+
+        normalize_scene_value(&mut raw).expect("normalized");
+        let scene = raw.as_mapping().expect("mapping");
+        assert_eq!(
+            scene
+                .get(Value::String("world-model".to_string()))
+                .and_then(Value::as_str),
+            Some("celestial-3d")
+        );
+    }
+
+    #[test]
+    fn rejects_non_celestial_world_model_with_celestial_block() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: euclidean-3d
+celestial:
+  focus-body: earth
+"#;
+
+        let err = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect_err("compile should fail");
+        assert!(
+            err.to_string()
+                .contains("`celestial` authoring requires `world-model: celestial-3d`"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_planar_world_model_with_scene_camera_profiles() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: planar-2d
+input:
+  free-look-camera: {}
+"#;
+
+        let err = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect_err("compile should fail");
+        assert!(
+            err.to_string()
+                .contains("`free-look-camera` is invalid when `world-model: planar-2d` is active"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_planar_world_model_with_known_camera_preset() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: planar-2d
+controller-defaults:
+  camera-preset: obj-viewer
+"#;
+
+        let err = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect_err("compile should fail");
+        assert!(
+            err.to_string().contains(
+                "`controller-defaults.camera-preset: obj-viewer` is invalid when `world-model: planar-2d` is active"
+            ),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_known_camera_preset_without_required_input() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: orbit-camera
+"#;
+
+        let err = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect_err("compile should fail");
+        assert!(
+            err.to_string().contains("`controller-defaults.camera-preset: orbit-camera` requires `input.orbit-camera or camera-rig.orbit-camera`"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn accepts_surface_free_look_with_explicit_surface_mode() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: surface-free-look
+input:
+  free-look-camera:
+    surface-mode: true
+layers: []
+"#;
+
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("compile should succeed");
+        assert_eq!(
+            scene.controller_defaults.camera_preset.as_deref(),
+            Some("surface-free-look")
+        );
+        assert_eq!(
+            scene
+                .input
+                .free_look_camera
+                .as_ref()
+                .map(|profile| profile.surface_mode),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn lowers_camera_rig_into_controller_defaults_and_input_profiles() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: celestial-3d
+camera-rig:
+  surface:
+    mode: locked
+  free-look-camera:
+    move-speed: 2.75
+layers: []
+"#;
+
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("compile should succeed");
+        assert_eq!(
+            scene.controller_defaults.camera_preset.as_deref(),
+            Some("surface-free-look")
+        );
+        assert_eq!(
+            scene
+                .input
+                .free_look_camera
+                .as_ref()
+                .map(|profile| profile.surface_mode),
+            Some(true)
+        );
+        assert_eq!(
+            scene
+                .input
+                .free_look_camera
+                .as_ref()
+                .map(|profile| profile.move_speed),
+            Some(2.75)
+        );
+    }
+
+    #[test]
+    fn lowers_camera_rig_orbit_profile_into_legacy_input_contract() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: euclidean-3d
+camera-rig:
+  orbit-camera:
+    target: probe
+layers: []
+"#;
+
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("compile should succeed");
+        assert_eq!(
+            scene.controller_defaults.camera_preset.as_deref(),
+            Some("orbit-camera")
+        );
+        assert_eq!(
+            scene
+                .input
+                .orbit_camera
+                .as_ref()
+                .map(|profile| profile.target.as_str()),
+            Some("probe")
+        );
+    }
+
+    #[test]
+    fn rejects_surface_free_look_without_explicit_surface_mode() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: surface-free-look
+input:
+  free-look-camera: {}
+"#;
+
+        let err = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect_err("compile should fail");
+        assert!(
+            err.to_string().contains("`controller-defaults.camera-preset: surface-free-look` requires `input.free-look-camera (surface-mode=true) or camera-rig.surface.mode=locked`"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_camera_rig_surface_free_look_without_explicit_surface_contract() {
+        let raw = r#"
+id: scene
+title: Scene
+world-model: celestial-3d
+camera-rig:
+  preset: surface-free-look
+  free-look-camera: {}
+layers: []
+"#;
+
+        let err = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect_err("compile should fail");
+        assert!(
+            err.to_string().contains(
+                "`controller-defaults.camera-preset: surface-free-look` requires `input.free-look-camera (surface-mode=true) or camera-rig.surface.mode=locked`"
+            ),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
     fn compiles_scene_with_planet_spec_and_ref_aliases() {
         let raw = r#"
 id: planet-spec-doc
@@ -1572,6 +2076,58 @@ layers: []
         assert_eq!(
             scene.planet_spec_ref.as_deref(),
             Some("/planet-specs/jove.yml")
+        );
+    }
+
+    #[test]
+    fn compiles_scene_with_runtime_objects_surface() {
+        let raw = r#"
+id: runtime-object-doc
+title: Runtime Object Doc
+runtime-objects:
+  - name: root-node
+    kind: runtime-object
+    prefab: /objects/ship.yml
+    transform:
+      space: 2d
+      x: 12
+      y: 34
+      scale-x: 1.25
+      scale-y: 1.25
+      rotation-deg: 15
+    children:
+      - name: child-node
+        transform:
+          space: celestial
+          frame: orbit
+          translation: [1.0, 2.0, 3.0]
+          rotation-deg: [0.0, 0.0, 0.0]
+layers: []
+"#;
+
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+
+        assert_eq!(scene.runtime_objects.len(), 1);
+        assert_eq!(scene.runtime_objects[0].name, "root-node");
+        assert_eq!(
+            scene.runtime_objects[0].kind.as_deref(),
+            Some("runtime-object")
+        );
+        assert_eq!(scene.runtime_objects[0].children.len(), 1);
+        assert!(matches!(
+            scene.runtime_objects[0].transform,
+            RuntimeObjectTransform::TwoD { .. }
+        ));
+        assert!(matches!(
+            scene.runtime_objects[0].children[0].transform,
+            RuntimeObjectTransform::Celestial { .. }
+        ));
+        assert_eq!(
+            scene.runtime_objects[0].prefab.as_deref(),
+            Some("/objects/ship.yml")
         );
     }
 

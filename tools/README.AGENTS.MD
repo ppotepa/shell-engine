@@ -35,7 +35,9 @@ It currently supports:
 - creating sprite scaffolds,
 - creating effect scaffolds,
 - editing sprite declarations,
-- refreshing/checking schema fragments for selected mods.
+- refreshing/checking schema fragments for selected mods,
+- printing an architecture snapshot report for scene contract, world-model,
+  controller-defaults, legacy camera input, and object-ref migration status.
 
 It also keeps yaml-language-server schema fragments in sync after scaffold/edit operations.
 

@@ -1,14 +1,12 @@
 id: terrain-earth-planet
 title: Earth-Like Planet
 bg: "#020810"
-layers:
-  - ref: main
-  - ref: settings
-logic:
-  kind: script
-  behavior: rhai-script
-  src: ./earth.rhai
-input:
+render-space: 3d
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: orbit-camera
+camera-rig:
+  preset: orbit-camera
   orbit-camera:
     target: earth-mesh
     yaw: 30.0
@@ -21,6 +19,13 @@ input:
     distance-step: 0.2
     drag-sensitivity: 0.3
   free-look-camera: {}
+layers:
+  - ref: main
+  - ref: settings
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./earth.rhai
 postfx:
   - name: crt-scan-glitch
     params:

@@ -171,6 +171,7 @@ fn apply_values(local, preset) {
     local.atmo_haze_amount = preset.atmo_haze_amount;
     local.atmo_haze_falloff = preset.atmo_haze_falloff;
     local.tab_sync_needed = true;
+    local.planet_spec_dirty = true;
     local.push_dirty = true;
     local.push_timer = 150.0;
     local
@@ -216,6 +217,7 @@ fn randomize(local) {
     local.atmo_haze_falloff = 0.08 + ((local.seed * 0.149) % 0.68);
     local.planet_type = infer_planet_type(local);
     local.tab_sync_needed = true;
+    local.planet_spec_dirty = true;
     local.push_dirty = true;
     local.push_timer = 150.0;
     local

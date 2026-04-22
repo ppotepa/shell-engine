@@ -1,6 +1,13 @@
 id: asteroids-game
 title: Surface Launch Sim
 bg: "#000000"
+render-space: 3d
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: free-look-camera
+camera-rig:
+  preset: free-look-camera
+  free-look-camera: {}
 celestial:
   scope: local
   region: asteroids-sector
@@ -16,8 +23,6 @@ layers:
   - ref: game/layers/planet-bg-layer.yml
   - ref: game/layers/ship-scene-layer.yml
   - ref: game/layers/hud-grid.yml
-input:
-  free-look-camera: {}
 logic:
   kind: script
   behavior: rhai-script

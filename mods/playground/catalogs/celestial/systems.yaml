@@ -1,0 +1,8 @@
+systems:
+  playground-celestial-system:
+    region: playground-local
+    display-name: Playground Celestial System
+    bodies: [playground-demo-world]
+    map-position:
+      x: 0.0
+      y: 0.0

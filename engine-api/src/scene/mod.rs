@@ -15,7 +15,7 @@ pub(crate) mod queries;
 pub mod render;
 
 pub use api::{register_scene_api, ScriptObjectApi, ScriptSceneApi, ScriptSceneObjectsApi};
-pub use camera::Camera3dObjectViewState;
+pub use camera::{Camera3dNormalizedMutation, Camera3dObjectViewState};
 pub use mutation::{
     Camera3dMutationRequest, Render3dMutationRequest, Render3dProfileSlot, SceneMutationError,
     SceneMutationRequest, SceneMutationRequestError, SceneMutationResult, SceneMutationStatus,

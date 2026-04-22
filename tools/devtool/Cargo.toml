@@ -14,3 +14,6 @@ anyhow = { workspace = true }
 clap = { workspace = true }
 serde_yaml = { workspace = true }
 engine-authoring = { path = "../../engine-authoring" }
+
+[dev-dependencies]
+tempfile = "3.13"

@@ -34,6 +34,27 @@ properties:
     minimum: 1
     maximum: 240
     description: Optional scene-level FPS cap override (applies regardless of renderer/scene type).
+  render-space:
+    $ref: "#/$defs/scene_render_space"
+    description: Canonical scene field for default render-space and shared scene camera selection.
+  space:
+    $ref: "#/$defs/scene_render_space"
+    description: Deprecated compatibility alias of render-space.
+  world-model:
+    $ref: "#/$defs/scene_world_model"
+    description: Simulation/world contract resolved for this scene.
+  controller-defaults:
+    $ref: "#/$defs/scene_controller_defaults"
+    description: >
+      Canonical scene-level preset selection for camera/player/UI stacks.
+      Prefer this plus `camera-rig` over direct `input.*` camera blocks.
+  camera-rig:
+    $ref: "#/$defs/scene_camera_rig"
+    description: >
+      Canonical authored camera contract. Scene normalization lowers this into
+      `controller-defaults.camera-preset` plus the current `input.*` camera
+      compatibility profiles so runtime behavior stays on the existing path
+      during rollout.
   spatial:
     $ref: "#/$defs/scene_spatial"
     description: Optional scene-level spatial unit and axis overrides.
@@ -120,17 +141,35 @@ properties:
     type: array
     default: []
     description: >
-      Object instances placed in the scene using the ref/as/with/state/tags syntax.
+      Legacy object instances placed in the scene using the ref/as/with/state/tags syntax.
       Each entry references an object prefab by path (ref), optionally assigns a scene-local
       id (as), overrides exports (with), seeds runtime state (state), and attaches role tags (tags).
     items:
       $ref: "#/$defs/object_instance_entry"
+  runtime-objects:
+    type: array
+    default: []
+    description: >
+      vNext authored runtime-object bridge tree. Each node carries a mandatory typed
+      transform plus optional prefab/preset refs, typed components, children,
+      and override bags. Legacy `objects` stays on the compile-time expansion
+      and lowering path.
+    items:
+      $ref: "./runtime-object.schema.yaml"
 
 patternProperties:
   "^cutscene_ref$":
     $ref: "#/properties/cutscene-ref"
   "^target_fps$":
     $ref: "#/properties/target-fps"
+  "^render_space$":
+    $ref: "#/properties/render-space"
+  "^world_model$":
+    $ref: "#/properties/world-model"
+  "^controller_defaults$":
+    $ref: "#/properties/controller-defaults"
+  "^camera_rig$":
+    $ref: "#/properties/camera-rig"
   "^meters_per_world_unit$":
     $ref: "#/$defs/scene_spatial/properties/meters-per-world-unit"
   "^virtual_pixels_per_world_unit$":
@@ -145,8 +184,230 @@ patternProperties:
     $ref: "#/properties/planet-spec-ref"
   "^menu_options$":
     $ref: "#/properties/menu-options"
+  "^runtime_objects$":
+    $ref: "#/properties/runtime-objects"
+
+allOf:
+  - if:
+      required: [celestial]
+    then:
+      properties:
+        world-model:
+          const: celestial-3d
+  - if:
+      properties:
+        world-model:
+          const: planar-2d
+    then:
+      properties:
+        input:
+          not:
+            anyOf:
+              - required: [free-look-camera]
+              - required: [orbit-camera]
+              - required: [free_look_camera]
+              - required: [orbit_camera]
+  - if:
+      anyOf:
+        - required: [controller-defaults]
+          properties:
+            controller-defaults:
+              anyOf:
+                - required: [camera-preset]
+                  properties:
+                    camera-preset:
+                      const: surface-free-look
+                - required: [camera_preset]
+                  properties:
+                    camera_preset:
+                      const: surface-free-look
+        - required: [controller_defaults]
+          properties:
+            controller_defaults:
+              anyOf:
+                - required: [camera-preset]
+                  properties:
+                    camera-preset:
+                      const: surface-free-look
+                - required: [camera_preset]
+                  properties:
+                    camera_preset:
+                      const: surface-free-look
+        - required: [camera-rig]
+          properties:
+            camera-rig:
+              required: [preset]
+              properties:
+                preset:
+                  const: surface-free-look
+        - required: [camera_rig]
+          properties:
+            camera_rig:
+              required: [preset]
+              properties:
+                preset:
+                  const: surface-free-look
+    then:
+      anyOf:
+        - required: [input]
+          properties:
+            input:
+              type: object
+              required: [free-look-camera]
+              properties:
+                free-look-camera:
+                  anyOf:
+                    - required: [surface-mode]
+                      properties:
+                        surface-mode:
+                          const: true
+                    - required: [surface_mode]
+                      properties:
+                        surface_mode:
+                          const: true
+        - required: [camera-rig]
+          properties:
+            camera-rig:
+              anyOf:
+                - required: [surface]
+                  properties:
+                    surface:
+                      required: [mode]
+                      properties:
+                        mode:
+                          const: locked
+                - required: [free-look-camera]
+                  properties:
+                    free-look-camera:
+                      anyOf:
+                        - required: [surface-mode]
+                          properties:
+                            surface-mode:
+                              const: true
+                        - required: [surface_mode]
+                          properties:
+                            surface_mode:
+                              const: true
+        - required: [camera_rig]
+          properties:
+            camera_rig:
+              anyOf:
+                - required: [surface]
+                  properties:
+                    surface:
+                      required: [mode]
+                      properties:
+                        mode:
+                          const: locked
+                - required: [free-look-camera]
+                  properties:
+                    free-look-camera:
+                      anyOf:
+                        - required: [surface-mode]
+                          properties:
+                            surface-mode:
+                              const: true
+                        - required: [surface_mode]
+                          properties:
+                            surface_mode:
+                              const: true
+                - required: [free_look_camera]
+                  properties:
+                    free_look_camera:
+                      anyOf:
+                        - required: [surface-mode]
+                          properties:
+                            surface-mode:
+                              const: true
+                        - required: [surface_mode]
+                          properties:
+                            surface_mode:
+                              const: true
 
 $defs:
+
+  scene_render_space:
+    type: string
+    enum: [2d, 3d]
+    default: 2d
+    description: Presentation/render-space mode for the scene.
+
+  scene_world_model:
+    type: string
+    enum: [planar-2d, euclidean-3d, celestial-3d]
+    default: planar-2d
+    description: Simulation/world law set used by this scene.
+
+  scene_controller_defaults:
+    type: object
+    additionalProperties: false
+    properties:
+      camera-preset:
+        type: string
+        minLength: 1
+      player-preset:
+        type: string
+        minLength: 1
+      ui-preset:
+        type: string
+        minLength: 1
+      spawn-preset:
+        type: string
+        minLength: 1
+      gravity-preset:
+        type: string
+        minLength: 1
+      surface-preset:
+        type: string
+        minLength: 1
+    patternProperties:
+      "^camera_preset$":
+        $ref: "#/$defs/scene_controller_defaults/properties/camera-preset"
+      "^player_preset$":
+        $ref: "#/$defs/scene_controller_defaults/properties/player-preset"
+      "^ui_preset$":
+        $ref: "#/$defs/scene_controller_defaults/properties/ui-preset"
+      "^spawn_preset$":
+        $ref: "#/$defs/scene_controller_defaults/properties/spawn-preset"
+      "^gravity_preset$":
+        $ref: "#/$defs/scene_controller_defaults/properties/gravity-preset"
+      "^surface_preset$":
+        $ref: "#/$defs/scene_controller_defaults/properties/surface-preset"
+
+  scene_camera_surface_mode:
+    type: string
+    enum: [free, locked]
+    default: free
+    description: Explicit authored camera-surface contract for scene camera rigs.
+
+  scene_camera_surface:
+    type: object
+    additionalProperties: false
+    properties:
+      mode:
+        $ref: "#/$defs/scene_camera_surface_mode"
+
+  scene_camera_rig:
+    type: object
+    additionalProperties: false
+    properties:
+      preset:
+        $ref: "#/$defs/scene_controller_defaults/properties/camera-preset"
+      surface:
+        $ref: "#/$defs/scene_camera_surface"
+      obj-viewer:
+        $ref: "#/$defs/obj_viewer_controls"
+      free-look-camera:
+        $ref: "#/$defs/free_look_camera_controls"
+      orbit-camera:
+        $ref: "#/$defs/orbit_camera_controls"
+    patternProperties:
+      "^obj_viewer$":
+        $ref: "#/$defs/obj_viewer_controls"
+      "^free_look_camera$":
+        $ref: "#/$defs/free_look_camera_controls"
+      "^orbit_camera$":
+        $ref: "#/$defs/orbit_camera_controls"
 
   # ── Colour ─────────────────────────────────────────────────────────────────
   colour:
@@ -517,11 +778,15 @@ $defs:
         $ref: "#/$defs/obj_viewer_controls"
       free-look-camera:
         $ref: "#/$defs/free_look_camera_controls"
+      orbit-camera:
+        $ref: "#/$defs/orbit_camera_controls"
     patternProperties:
       "^obj_viewer$":
         $ref: "#/$defs/obj_viewer_controls"
       "^free_look_camera$":
         $ref: "#/$defs/free_look_camera_controls"
+      "^orbit_camera$":
+        $ref: "#/$defs/orbit_camera_controls"
 
   ui_persist_mode:
     type: string
@@ -654,6 +919,61 @@ $defs:
         $ref: "#/$defs/free_look_camera_controls/properties/surface-max-altitude"
       "^surface_vertical_speed$":
         $ref: "#/$defs/free_look_camera_controls/properties/surface-vertical-speed"
+
+  orbit_camera_controls:
+    type: object
+    additionalProperties: false
+    required: [target]
+    properties:
+      target:
+        type: string
+        minLength: 1
+        description: Target OBJ sprite id for orbit controls.
+      yaw:
+        type: number
+        default: 0.0
+      pitch:
+        type: number
+        default: -30.0
+      distance:
+        type: number
+        exclusiveMinimum: 0
+        default: 3.0
+      pitch-min:
+        type: number
+        default: -85.0
+      pitch-max:
+        type: number
+        default: -5.0
+      distance-min:
+        type: number
+        exclusiveMinimum: 0
+        default: 0.5
+      distance-max:
+        type: number
+        exclusiveMinimum: 0
+        default: 8.0
+      distance-step:
+        type: number
+        exclusiveMinimum: 0
+        default: 0.25
+      drag-sensitivity:
+        type: number
+        exclusiveMinimum: 0
+        default: 0.5
+    patternProperties:
+      "^pitch_min$":
+        $ref: "#/$defs/orbit_camera_controls/properties/pitch-min"
+      "^pitch_max$":
+        $ref: "#/$defs/orbit_camera_controls/properties/pitch-max"
+      "^distance_min$":
+        $ref: "#/$defs/orbit_camera_controls/properties/distance-min"
+      "^distance_max$":
+        $ref: "#/$defs/orbit_camera_controls/properties/distance-max"
+      "^distance_step$":
+        $ref: "#/$defs/orbit_camera_controls/properties/distance-step"
+      "^drag_sensitivity$":
+        $ref: "#/$defs/orbit_camera_controls/properties/drag-sensitivity"
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:
@@ -805,6 +1125,7 @@ $defs:
     oneOf:
       - required: [ref]
       - required: [use]
+    description: Transitional legacy object instance used by compile-time lowering.
     properties:
       ref:
         type: string

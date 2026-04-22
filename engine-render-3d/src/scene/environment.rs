@@ -1,8 +1,11 @@
 use engine_core::buffer::{Buffer, PixelCanvas};
 use engine_core::color::Color;
-use engine_core::scene::ResolvedViewProfile;
+use engine_core::scene::{environment_policy_renders_space_environment, ResolvedViewProfile};
 
 pub fn render_space_environment(buffer: &mut Buffer, view: &ResolvedViewProfile) {
+    if !environment_policy_renders_space_environment(view.environment_policy) {
+        return;
+    }
     render_starfield(buffer, view);
     render_primary_star_glare(buffer, view);
 }
@@ -241,5 +244,94 @@ fn draw_star_pixels(canvas: &mut PixelCanvas, x: u16, y: u16, size: f32, r: u8, 
     }
     if y + 1 < canvas.height {
         canvas.set_pixel(x, y + 1, r, g, b);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::scene::{
+        LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile, ViewEnvironmentPolicy,
+    };
+
+    fn test_view(policy: ViewEnvironmentPolicy) -> ResolvedViewProfile {
+        ResolvedViewProfile {
+            environment_policy: policy,
+            lighting: LightingProfile::default(),
+            environment: SpaceEnvironmentProfile {
+                starfield_density: Some(0.5),
+                starfield_brightness: Some(0.9),
+                starfield_size_min: Some(1.0),
+                starfield_size_max: Some(1.5),
+                primary_star_color: Some("#fff4d6".to_string()),
+                primary_star_glare_strength: Some(0.45),
+                primary_star_glare_width: Some(0.32),
+                ..Default::default()
+            },
+            overrides: Default::default(),
+        }
+    }
+
+    #[test]
+    fn celestial_policy_renders_visible_environment_pixels() {
+        let mut buffer = Buffer::new(64, 32);
+        buffer.enable_pixel_canvas(64, 32);
+        buffer.fill(Color::BLACK);
+
+        render_space_environment(
+            &mut buffer,
+            &test_view(ViewEnvironmentPolicy::ThreeDCelestial),
+        );
+
+        let lit_pixels = buffer
+            .pixel_canvas
+            .as_ref()
+            .expect("pixel canvas")
+            .data
+            .chunks_exact(4)
+            .filter(|px| px[0] > 0 || px[1] > 0 || px[2] > 0)
+            .count();
+        assert!(lit_pixels > 0);
+    }
+
+    #[test]
+    fn euclidean_policy_suppresses_environment_even_when_values_are_present() {
+        let mut buffer = Buffer::new(64, 32);
+        buffer.enable_pixel_canvas(64, 32);
+        buffer.fill(Color::BLACK);
+
+        render_space_environment(
+            &mut buffer,
+            &test_view(ViewEnvironmentPolicy::ThreeDEuclidean),
+        );
+
+        let lit_pixels = buffer
+            .pixel_canvas
+            .as_ref()
+            .expect("pixel canvas")
+            .data
+            .chunks_exact(4)
+            .filter(|px| px[0] > 0 || px[1] > 0 || px[2] > 0)
+            .count();
+        assert_eq!(lit_pixels, 0);
+    }
+
+    #[test]
+    fn two_d_policy_suppresses_environment_rendering() {
+        let mut buffer = Buffer::new(64, 32);
+        buffer.enable_pixel_canvas(64, 32);
+        buffer.fill(Color::BLACK);
+
+        render_space_environment(&mut buffer, &test_view(ViewEnvironmentPolicy::TwoD));
+
+        let lit_pixels = buffer
+            .pixel_canvas
+            .as_ref()
+            .expect("pixel canvas")
+            .data
+            .chunks_exact(4)
+            .filter(|px| px[0] > 0 || px[1] > 0 || px[2] > 0)
+            .count();
+        assert_eq!(lit_pixels, 0);
     }
 }

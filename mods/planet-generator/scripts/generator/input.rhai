@@ -19,7 +19,6 @@ fn seed_code_text(local) {
 }
 
 fn step(local, input, gui, game, vehicle, persist) {
-    local = planet_spec::ensure(local);
     let tab = local.tab ?? 0;
     if input.just_pressed("q") {
         local.tab = 0;
@@ -120,7 +119,10 @@ fn step(local, input, gui, game, vehicle, persist) {
         gui.set_widget_value("planet-parameter-tabs", 0.0);
     }
 
-    local = planet_spec::sync_spec_from_legacy(local);
+    if local.planet_spec_dirty ?? false {
+        local = planet_spec::sync_spec_from_legacy(local);
+        local.planet_spec_dirty = false;
+    }
 
     if input.just_pressed("c") {
         if ui.copy_to_clipboard(seed_code_text(local)) {

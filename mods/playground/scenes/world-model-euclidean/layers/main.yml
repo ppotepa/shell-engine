@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: euclidean-canary
+  z_index: 1
+  sprites:
+    - {
+        type: text,
+        content: "CAN-02 EUCLIDEAN 3D WORLD MODEL",
+        at: ct,
+        y: -10,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "render-space: 3d",
+        at: ct,
+        y: -3,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "world-model: euclidean-3d",
+        at: ct,
+        y: 1,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "Contract canary for neutral 3D scene rules, authored through canonical `controller-defaults + camera-rig` instead of raw `input.obj-viewer`. Any key returns.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+        hide_on_leave: true,
+      }

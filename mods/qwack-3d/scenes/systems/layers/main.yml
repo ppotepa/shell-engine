@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../../schemas/layers.yaml
+- name: systems
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "QWACK 3D SYSTEMS CONTRACT",
+        at: ct,
+        y: -10,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "ownership split: scene contract -> camera rig -> player motor -> combat stack",
+        at: ct,
+        y: -3,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "future presets: qwack-fps / qwack-chase / qwack-walker / qwack-hud / map-spawn",
+        at: ct,
+        y: 1,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "Return edge of the canary cycle. Any key returns to main.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+      }

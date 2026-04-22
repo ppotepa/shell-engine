@@ -4,7 +4,9 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use engine_terrain::{Biome, HeightmapCell, PlanetGenParams};
+use engine_celestial::{find_planet_spawn_from_params, BodyPatch, WorldPoint3};
+use engine_core::scene::model::{RuntimeObjectDocument, RuntimeObjectTransform};
+use engine_terrain::{Biome, PlanetGenParams};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
@@ -15,12 +17,15 @@ use engine_api::{
     EphemeralPrefabResolved, SceneMutationRequest, ScriptEntityContext, ScriptWorldContext,
 };
 use engine_game::components::{
-    AtmosphereAffected2D, DespawnVisual, GravityAffected2D, GravityMode2D, LifecyclePolicy,
-    ParticleColorRamp, ParticlePhysics, ParticleThreadMode,
+    AngularMotor3D, AngularMotorMode, Assembly3D, AtmosphereAffected2D, AttachmentBundle3D,
+    BootstrapAssembly3D, CharacterMotor3D, CharacterUpMode, ControlBundle3D, DespawnVisual,
+    FollowAnchor3D, GravityAffected2D, GravityMode2D, LifecyclePolicy, LinearMotor3D,
+    MotorBundle3D, MotorSpace, ParticleColorRamp, ParticlePhysics, ParticleThreadMode,
+    ReferenceFrameBinding3D, ReferenceFrameMode, SpatialBundle3D, Transform3D,
 };
 use engine_game::{
-    point_gravity_accel_3d, Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime,
-    PhysicsBody2D, Transform2D, VisualBinding,
+    Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
+    VisualBinding,
 };
 
 use engine_persistence::PersistenceStore;
@@ -46,6 +51,552 @@ fn queue_set_property_or_mutation(
     {
         queue.push(BehaviorCommand::ApplySceneMutation { request });
     }
+}
+
+fn merge_rhai_dynamic(base: RhaiDynamic, overlay: RhaiDynamic) -> RhaiDynamic {
+    match (
+        base.clone().try_cast::<RhaiMap>(),
+        overlay.clone().try_cast::<RhaiMap>(),
+    ) {
+        (Some(base_map), Some(overlay_map)) => {
+            RhaiDynamic::from(merge_rhai_maps(base_map, &overlay_map))
+        }
+        _ => overlay,
+    }
+}
+
+fn merge_rhai_maps(mut base: RhaiMap, overlay: &RhaiMap) -> RhaiMap {
+    for (key, overlay_value) in overlay {
+        let merged = match base.remove(key.as_str()) {
+            Some(base_value) => merge_rhai_dynamic(base_value, overlay_value.clone()),
+            None => overlay_value.clone(),
+        };
+        base.insert(key.clone(), merged);
+    }
+    base
+}
+
+fn merge_json_values(base: JsonValue, overlay: JsonValue) -> JsonValue {
+    match (base, overlay) {
+        (JsonValue::Object(mut base_map), JsonValue::Object(overlay_map)) => {
+            for (key, overlay_value) in overlay_map {
+                let merged = match base_map.remove(&key) {
+                    Some(base_value) => merge_json_values(base_value, overlay_value),
+                    None => overlay_value,
+                };
+                base_map.insert(key, merged);
+            }
+            JsonValue::Object(base_map)
+        }
+        (_, overlay_value) => overlay_value,
+    }
+}
+
+fn merge_json_map(
+    mut base: BTreeMap<String, JsonValue>,
+    overlay: &RhaiMap,
+    skip_keys: &[&str],
+) -> BTreeMap<String, JsonValue> {
+    for (key, overlay_value) in overlay {
+        if skip_keys.iter().any(|skip| *skip == key.as_str()) {
+            continue;
+        }
+        let Some(overlay_json) = rhai_dynamic_to_json(overlay_value) else {
+            continue;
+        };
+        let merged = match base.remove(key.as_str()) {
+            Some(base_value) => merge_json_values(base_value, overlay_json),
+            None => overlay_json,
+        };
+        base.insert(key.to_string(), merged);
+    }
+    base
+}
+
+fn normalize_token(value: Option<&str>) -> String {
+    value
+        .unwrap_or_default()
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .map(|ch| ch.to_ascii_lowercase())
+        .collect()
+}
+
+fn reference_frame_mode_from_str(value: Option<&str>) -> ReferenceFrameMode {
+    match normalize_token(value).as_str() {
+        "parententity" => ReferenceFrameMode::ParentEntity,
+        "celestialbody" => ReferenceFrameMode::CelestialBody,
+        "localhorizon" => ReferenceFrameMode::LocalHorizon,
+        "orbital" => ReferenceFrameMode::Orbital,
+        _ => ReferenceFrameMode::World,
+    }
+}
+
+fn motor_space_from_str(value: Option<&str>) -> MotorSpace {
+    match normalize_token(value).as_str() {
+        "world" => MotorSpace::World,
+        "referenceframe" => MotorSpace::ReferenceFrame,
+        _ => MotorSpace::Local,
+    }
+}
+
+fn angular_motor_mode_from_str(value: Option<&str>) -> AngularMotorMode {
+    match normalize_token(value).as_str() {
+        "torque" => AngularMotorMode::Torque,
+        _ => AngularMotorMode::Rate,
+    }
+}
+
+fn character_up_mode_from_str(value: Option<&str>) -> CharacterUpMode {
+    match normalize_token(value).as_str() {
+        "surfacenormal" => CharacterUpMode::SurfaceNormal,
+        "referenceframeup" => CharacterUpMode::ReferenceFrameUp,
+        _ => CharacterUpMode::WorldUp,
+    }
+}
+
+fn prefab_spawn_args(prefab: &catalog::PrefabTemplate, args: &RhaiMap) -> RhaiMap {
+    let mut merged = args.clone();
+    if let Some(transform) = &prefab.transform {
+        if let Some(value) = transform.x {
+            merged
+                .entry("x".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.y {
+            merged
+                .entry("y".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.heading {
+            merged
+                .entry("heading".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.z {
+            merged
+                .entry("z".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.pitch {
+            merged
+                .entry("pitch".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.roll {
+            merged
+                .entry("roll".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.scale_x {
+            merged
+                .entry("scale_x".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.scale_y {
+            merged
+                .entry("scale_y".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+        if let Some(value) = transform.scale_z {
+            merged
+                .entry("scale_z".into())
+                .or_insert_with(|| (value as rhai::FLOAT).into());
+        }
+    }
+    merged
+}
+
+fn prefab_lifecycle_name(prefab: &catalog::PrefabTemplate, args: &RhaiMap) -> Option<String> {
+    match map_string(args, "lifecycle") {
+        Some(name) if !name.trim().is_empty() => Some(name),
+        _ => prefab
+            .components
+            .as_ref()
+            .and_then(|components| components.lifecycle.clone()),
+    }
+}
+
+fn yaml_value_to_json(value: &serde_yaml::Value) -> Option<JsonValue> {
+    serde_json::to_value(value).ok()
+}
+
+fn yaml_value_to_rhai_dynamic(value: &serde_yaml::Value) -> Option<RhaiDynamic> {
+    yaml_value_to_json(value).map(|json| json_to_rhai_dynamic(&json))
+}
+
+fn runtime_object_transform_args(transform: &RuntimeObjectTransform) -> RhaiMap {
+    let mut args = RhaiMap::new();
+    match transform {
+        RuntimeObjectTransform::TwoD {
+            x, y, rotation_deg, ..
+        } => {
+            args.insert("x".into(), (*x as rhai::FLOAT).into());
+            args.insert("y".into(), (*y as rhai::FLOAT).into());
+            args.insert(
+                "heading".into(),
+                ((*rotation_deg as f64).to_radians() as rhai::FLOAT).into(),
+            );
+        }
+        RuntimeObjectTransform::ThreeD {
+            translation,
+            rotation_deg,
+            ..
+        }
+        | RuntimeObjectTransform::Celestial {
+            translation,
+            rotation_deg,
+            ..
+        } => {
+            args.insert("x".into(), (translation[0] as rhai::FLOAT).into());
+            args.insert("y".into(), (translation[1] as rhai::FLOAT).into());
+            args.insert("z".into(), (translation[2] as rhai::FLOAT).into());
+            args.insert(
+                "pitch".into(),
+                ((rotation_deg[0] as f64).to_radians() as rhai::FLOAT).into(),
+            );
+            args.insert(
+                "heading".into(),
+                ((rotation_deg[1] as f64).to_radians() as rhai::FLOAT).into(),
+            );
+            args.insert(
+                "roll".into(),
+                ((rotation_deg[2] as f64).to_radians() as rhai::FLOAT).into(),
+            );
+        }
+    }
+    args
+}
+
+fn euler_deg_xyz_to_quat(rotation_deg: [f32; 3]) -> [f32; 4] {
+    let [x_deg, y_deg, z_deg] = rotation_deg;
+    let (sx, cx) = (x_deg.to_radians() * 0.5).sin_cos();
+    let (sy, cy) = (y_deg.to_radians() * 0.5).sin_cos();
+    let (sz, cz) = (z_deg.to_radians() * 0.5).sin_cos();
+    [
+        sx * cy * cz - cx * sy * sz,
+        cx * sy * cz + sx * cy * sz,
+        cx * cy * sz - sx * sy * cz,
+        cx * cy * cz + sx * sy * sz,
+    ]
+}
+
+fn runtime_object_transform3d(transform: &RuntimeObjectTransform) -> Option<Transform3D> {
+    match transform {
+        RuntimeObjectTransform::TwoD { .. } => None,
+        RuntimeObjectTransform::ThreeD {
+            translation,
+            rotation_deg,
+            ..
+        }
+        | RuntimeObjectTransform::Celestial {
+            translation,
+            rotation_deg,
+            ..
+        } => Some(Transform3D {
+            position: *translation,
+            orientation: euler_deg_xyz_to_quat(*rotation_deg),
+        }),
+    }
+}
+
+fn runtime_object_component_families_json(node: &RuntimeObjectDocument) -> JsonValue {
+    let mut families = serde_json::to_value(&node.components)
+        .unwrap_or_else(|_| JsonValue::Object(JsonMap::new()));
+    if let Some(overlay) = node
+        .overrides
+        .get("components")
+        .and_then(yaml_value_to_json)
+    {
+        families = merge_json_values(families, overlay);
+    }
+    families
+}
+
+fn canonicalize_runtime_object_family_json(value: JsonValue) -> JsonValue {
+    match value {
+        JsonValue::Object(map) => JsonValue::Object(
+            map.into_iter()
+                .map(|(key, value)| {
+                    (
+                        key.replace('-', "_"),
+                        canonicalize_runtime_object_family_json(value),
+                    )
+                })
+                .collect(),
+        ),
+        JsonValue::Array(values) => JsonValue::Array(
+            values
+                .into_iter()
+                .map(canonicalize_runtime_object_family_json)
+                .collect(),
+        ),
+        other => other,
+    }
+}
+
+fn runtime_object_prefab_components(
+    node: &RuntimeObjectDocument,
+) -> Option<catalog::PrefabComponents> {
+    let families = runtime_object_component_families_json(node);
+    prefab_components_from_runtime_object_families(&families)
+}
+
+fn runtime_object_args(node: &RuntimeObjectDocument, owner_id: Option<u64>) -> RhaiMap {
+    let mut args = runtime_object_transform_args(&node.transform);
+    for (key, value) in &node.overrides {
+        if key == "components" {
+            continue;
+        }
+        let Some(value) = yaml_value_to_rhai_dynamic(value) else {
+            continue;
+        };
+        let merged = match args.remove(key.as_str()) {
+            Some(existing) => merge_rhai_dynamic(existing, value),
+            None => value,
+        };
+        args.insert(key.clone().into(), merged);
+    }
+
+    if let Some(owner_id) = owner_id {
+        args.entry("owner_id".into())
+            .or_insert_with(|| (owner_id as rhai::INT).into());
+        args.entry("inherit_owner_lifecycle".into())
+            .or_insert_with(|| true.into());
+    }
+
+    if !args.contains_key("lifecycle") {
+        if let Some(lifecycle) =
+            runtime_object_prefab_components(node).and_then(|components| components.lifecycle)
+        {
+            args.insert("lifecycle".into(), lifecycle.into());
+        }
+    }
+
+    args
+}
+
+fn runtime_object_bootstrap_assembly3d_from_document(
+    node: &RuntimeObjectDocument,
+    args: &RhaiMap,
+) -> Option<BootstrapAssembly3D> {
+    let mut bootstrap = runtime_object_prefab_components(node)
+        .and_then(|components| prefab_bootstrap_assembly3d_from_components(&components, args))
+        .unwrap_or_default();
+    if let Some(transform) = runtime_object_transform3d(&node.transform) {
+        bootstrap.assembly.spatial.transform = Some(transform);
+    }
+    (!bootstrap.is_empty()).then_some(bootstrap)
+}
+
+fn runtime_object_spawn_kind(node: &RuntimeObjectDocument) -> String {
+    node.kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("runtime-object")
+        .to_string()
+}
+
+fn runtime_object_component_prefab(node: &RuntimeObjectDocument) -> Option<catalog::PrefabTemplate> {
+    Some(catalog::PrefabTemplate {
+        kind: runtime_object_spawn_kind(node),
+        sprite_template: None,
+        transform: None,
+        init_fields: Default::default(),
+        components: Some(runtime_object_prefab_components(node)?),
+        fg_colour: None,
+        default_tags: Vec::new(),
+    })
+}
+
+fn apply_runtime_object_owner_lifecycle(
+    world: &GameplayWorld,
+    entity_id: u64,
+    args: &RhaiMap,
+) -> bool {
+    let owner_id = map_int(args, "owner_id", 0);
+    let inherit_owner_lifecycle = args
+        .get("inherit_owner_lifecycle")
+        .and_then(|value| value.clone().try_cast::<bool>())
+        .unwrap_or(false);
+    let lifecycle = map_string(args, "lifecycle")
+        .filter(|value| !value.trim().is_empty())
+        .map(|name| parse_lifecycle_policy(&name, LifecyclePolicy::Persistent));
+
+    if owner_id > 0 && !world.register_child(owner_id as u64, entity_id) {
+        return false;
+    }
+
+    if let Some(policy) = lifecycle {
+        return world.set_lifecycle(entity_id, policy);
+    }
+
+    if inherit_owner_lifecycle && owner_id > 0 {
+        let inherited = world
+            .lifecycle(owner_id as u64)
+            .unwrap_or(LifecyclePolicy::FollowOwner);
+        return world.set_lifecycle(entity_id, inherited);
+    }
+
+    true
+}
+
+/// Runtime-owned bridge seam for a single materialized `runtime-object` node.
+///
+/// This binds a gameplay entity to an already-materialized scene-runtime target
+/// instead of asking the scene runtime to spawn a fresh clone. Callers own any
+/// parent/child recursion and idempotence checks.
+pub fn bridge_runtime_object_node_to_gameplay(
+    world: GameplayWorld,
+    catalogs: Arc<catalog::ModCatalogs>,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    palette_store: Arc<PaletteStore>,
+    palette_default_id: Option<String>,
+    spatial_meters_per_world_unit: Option<f64>,
+    node: &RuntimeObjectDocument,
+    runtime_target: &str,
+    owner_id: Option<u64>,
+) -> rhai::INT {
+    let runtime_target = runtime_target.trim();
+    if runtime_target.is_empty() {
+        return 0;
+    }
+
+    let empty_hits: Arc<Vec<CollisionHit>> = Arc::new(Vec::new());
+    let mut api = ScriptGameplayApi::new(
+        Some(world),
+        Arc::clone(&empty_hits),
+        Arc::clone(&empty_hits),
+        Arc::clone(&empty_hits),
+        empty_hits,
+        spatial_meters_per_world_unit,
+        catalogs,
+        None,
+        queue,
+        palette_store,
+        None,
+        palette_default_id,
+    );
+    api.spawn_runtime_object_node_bound_to_visual(node, runtime_target, owner_id)
+}
+
+fn prefab_assembly3d_from_components(components: &catalog::PrefabComponents) -> Option<Assembly3D> {
+    let assembly = Assembly3D {
+        spatial: SpatialBundle3D::default(),
+        control: ControlBundle3D {
+            control_intent: None,
+            reference_frame: components.reference_frame.as_ref().map(|frame| {
+                ReferenceFrameBinding3D {
+                    mode: reference_frame_mode_from_str(frame.mode.as_deref()),
+                    entity_id: frame.entity_id,
+                    body_id: frame.body_id.clone(),
+                    inherit_linear_velocity: frame.inherit_linear_velocity.unwrap_or(false),
+                    inherit_angular_velocity: frame.inherit_angular_velocity.unwrap_or(false),
+                }
+            }),
+            reference_frame_state: None,
+        },
+        attachments: AttachmentBundle3D {
+            follow_anchor: components
+                .follow_anchor_3d
+                .as_ref()
+                .map(|follow| FollowAnchor3D {
+                    local_offset: follow
+                        .local_offset
+                        .unwrap_or([0.0, 0.0, 0.0])
+                        .map(|value| value as f32),
+                    inherit_orientation: follow.inherit_orientation.unwrap_or(true),
+                }),
+        },
+        motors: MotorBundle3D {
+            linear_motor: components
+                .linear_motor_3d
+                .as_ref()
+                .map(|motor| LinearMotor3D {
+                    space: motor_space_from_str(motor.space.as_deref()),
+                    accel: motor.accel.unwrap_or(0.0) as f32,
+                    decel: motor.decel.unwrap_or(0.0) as f32,
+                    max_speed: motor.max_speed.unwrap_or(0.0) as f32,
+                    boost_scale: motor.boost_scale.unwrap_or(1.0) as f32,
+                    air_control: motor.air_control.unwrap_or(1.0) as f32,
+                }),
+            angular_motor: components
+                .angular_motor_3d
+                .as_ref()
+                .map(|motor| AngularMotor3D {
+                    mode: angular_motor_mode_from_str(motor.mode.as_deref()),
+                    yaw_rate: motor.yaw_rate.unwrap_or(0.0) as f32,
+                    pitch_rate: motor.pitch_rate.unwrap_or(0.0) as f32,
+                    roll_rate: motor.roll_rate.unwrap_or(0.0) as f32,
+                    torque_scale: motor.torque_scale.unwrap_or(1.0) as f32,
+                    look_sensitivity: motor.look_sensitivity.unwrap_or(1.0) as f32,
+                }),
+            character_motor: components
+                .character_motor_3d
+                .as_ref()
+                .map(|motor| CharacterMotor3D {
+                    up_mode: character_up_mode_from_str(motor.up_mode.as_deref()),
+                    jump_speed: motor.jump_speed.unwrap_or(0.0) as f32,
+                    stick_to_ground: motor.stick_to_ground.unwrap_or(false),
+                    max_slope_deg: motor.max_slope_deg.unwrap_or(45.0) as f32,
+                }),
+            flight_motor: components.flight_motor_3d.as_ref().map(|motor| {
+                engine_game::components::FlightMotor3D {
+                    translational_dofs: motor.translational_dofs.unwrap_or([true, true, true]),
+                    rotational_dofs: motor.rotational_dofs.unwrap_or([true, true, true]),
+                    horizon_lock_strength: motor.horizon_lock_strength.unwrap_or(0.0) as f32,
+                }
+            }),
+        },
+    };
+
+    (!assembly.is_empty()).then_some(assembly)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn prefab_components_from_runtime_object_families(
+    value: &JsonValue,
+) -> Option<catalog::PrefabComponents> {
+    serde_json::from_value::<catalog::PrefabComponents>(canonicalize_runtime_object_family_json(
+        value.clone(),
+    ))
+    .ok()
+}
+
+fn prefab_bootstrap_assembly3d_from_components(
+    components: &catalog::PrefabComponents,
+    args: &RhaiMap,
+) -> Option<BootstrapAssembly3D> {
+    let assembly = prefab_assembly3d_from_components(components).unwrap_or_default();
+    let owner_id = map_int(args, "owner_id", 0);
+    let inherit_owner_lifecycle = args
+        .get("inherit_owner_lifecycle")
+        .and_then(|value| value.clone().try_cast::<bool>())
+        .unwrap_or(false);
+    let lifecycle_name = {
+        let override_name = map_string(args, "lifecycle");
+        if override_name.as_deref().unwrap_or("").trim().is_empty() {
+            components.lifecycle.clone()
+        } else {
+            override_name
+        }
+    };
+    let lifecycle = lifecycle_name
+        .as_deref()
+        .map(|name| parse_lifecycle_policy(name, LifecyclePolicy::Persistent));
+
+    if assembly.is_empty() && owner_id <= 0 && !inherit_owner_lifecycle && lifecycle.is_none() {
+        return None;
+    }
+
+    Some(BootstrapAssembly3D {
+        assembly,
+        controlled: false,
+        owner_id: (owner_id > 0).then_some(owner_id as u64),
+        inherit_owner_lifecycle,
+        lifecycle,
+    })
 }
 
 // ── Struct Definitions ───────────────────────────────────────────────────
@@ -79,13 +630,6 @@ pub(crate) struct ScriptGameplayObjectsApi {
 pub(crate) struct ScriptGameplayObjectApi {
     pub(crate) world: Option<GameplayWorld>,
     pub(crate) id: u64,
-}
-
-#[derive(Clone, Copy)]
-struct PlanetSpawnSelection {
-    row: usize,
-    col: usize,
-    cell: HeightmapCell,
 }
 
 #[derive(Clone, Default)]
@@ -253,7 +797,7 @@ impl ScriptGameplayApi {
     }
 
     fn default_spawn_biomes() -> Vec<Biome> {
-        vec![Biome::Beach, Biome::Desert, Biome::Grassland]
+        engine_celestial::default_spawn_biomes()
     }
 
     fn preferred_biomes_from_array(preferred_biomes: RhaiArray) -> Vec<Biome> {
@@ -268,94 +812,11 @@ impl ScriptGameplayApi {
         biomes
     }
 
-    fn spawn_search_rows(height: usize, band_only: bool) -> Vec<usize> {
-        let height = height.max(1);
-        let mid_row = height / 2;
-        let band = ((height as f32) * 0.12).round() as usize;
-        let mut rows = Vec::new();
-        if band_only {
-            rows.push(mid_row);
-            for offset in 1..=band {
-                let down = mid_row.saturating_add(offset);
-                if down < height {
-                    rows.push(down);
-                }
-                if let Some(up) = mid_row.checked_sub(offset) {
-                    rows.push(up);
-                }
-            }
-        } else {
-            rows.extend(0..height);
-        }
-        rows
-    }
-
-    fn longitude_deg_from_col(col: usize, width: usize) -> f64 {
-        ((col as f64 + 0.5) / width.max(1) as f64) * 360.0
-    }
-
-    fn latitude_deg_from_row(row: usize, height: usize) -> f64 {
-        90.0 - ((row as f64 + 0.5) / height.max(1) as f64) * 180.0
-    }
-
-    fn default_spawn_selection(planet: &engine_terrain::GeneratedPlanet) -> PlanetSpawnSelection {
-        let width = planet.width.max(1);
-        let height = planet.height.max(1);
-        let start_col = (planet.params.seed as usize) % width;
-        let row = height / 2;
-        let col = start_col % width;
-        PlanetSpawnSelection {
-            row,
-            col,
-            cell: *planet.cell(col, row),
-        }
-    }
-
-    fn find_planet_spawn_selection_for_planet(
-        planet: &engine_terrain::GeneratedPlanet,
-        preferred_biomes: &[Biome],
-    ) -> Option<PlanetSpawnSelection> {
-        let preferred = if preferred_biomes.is_empty() {
-            Self::default_spawn_biomes()
-        } else {
-            preferred_biomes.to_vec()
-        };
-        let width = planet.width.max(1);
-        let height = planet.height.max(1);
-        let start_col = (planet.params.seed as usize) % width;
-
-        for &target_biome in &preferred {
-            for rows in [
-                Self::spawn_search_rows(height, true),
-                Self::spawn_search_rows(height, false),
-            ] {
-                for row in rows {
-                    for offset in 0..width {
-                        let col = (start_col + offset) % width;
-                        let cell = planet.cell(col, row);
-                        if cell.biome == target_biome {
-                            return Some(PlanetSpawnSelection {
-                                row,
-                                col,
-                                cell: *cell,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        None
-    }
-
     fn find_planet_spawn_angle_for_params(
         params: &PlanetGenParams,
         preferred_biomes: &[Biome],
     ) -> rhai::FLOAT {
-        let planet = engine_terrain::generate(params);
-        Self::find_planet_spawn_selection_for_planet(&planet, preferred_biomes)
-            .map(|selection| Self::longitude_deg_from_col(selection.col, planet.width))
-            .unwrap_or(0.0)
+        find_planet_spawn_from_params(params, 0.22, preferred_biomes).longitude_deg as rhai::FLOAT
     }
 
     fn find_planet_spawn_for_params(
@@ -363,45 +824,35 @@ impl ScriptGameplayApi {
         displacement_scale: f32,
         preferred_biomes: &[Biome],
     ) -> RhaiMap {
-        let planet = engine_terrain::generate(params);
-        let width = planet.width.max(1);
-        let height = planet.height.max(1);
-        let selection = Self::find_planet_spawn_selection_for_planet(&planet, preferred_biomes)
-            .unwrap_or_else(|| Self::default_spawn_selection(&planet));
-        let longitude_deg = Self::longitude_deg_from_col(selection.col, width);
-        let latitude_deg = Self::latitude_deg_from_row(selection.row, height);
-        let (normal_x, normal_y, normal_z) =
-            engine_terrain::grid::cell_to_xyz(selection.col, selection.row, width, height);
-        let surface_offset =
-            ((selection.cell.elevation as f64 - 0.5) * 2.0) * displacement_scale as f64;
-        let surface_radius_scale = (1.0 + surface_offset).max(0.0001);
+        let sample = find_planet_spawn_from_params(params, displacement_scale, preferred_biomes);
 
         let mut map = RhaiMap::new();
-        map.insert("angle_deg".into(), longitude_deg.into());
-        map.insert("longitude_deg".into(), longitude_deg.into());
-        map.insert("latitude_deg".into(), latitude_deg.into());
-        map.insert("row".into(), (selection.row as i64).into());
-        map.insert("col".into(), (selection.col as i64).into());
-        map.insert("normal_x".into(), normal_x.into());
-        map.insert("normal_y".into(), normal_y.into());
-        map.insert("normal_z".into(), normal_z.into());
-        map.insert("surface_radius_scale".into(), surface_radius_scale.into());
-        map.insert("surface_offset".into(), surface_offset.into());
+        map.insert("angle_deg".into(), sample.longitude_deg.into());
+        map.insert("longitude_deg".into(), sample.longitude_deg.into());
+        map.insert("latitude_deg".into(), sample.latitude_deg.into());
+        map.insert("row".into(), (sample.row as i64).into());
+        map.insert("col".into(), (sample.col as i64).into());
+        map.insert("normal_x".into(), sample.normal.x.into());
+        map.insert("normal_y".into(), sample.normal.y.into());
+        map.insert("normal_z".into(), sample.normal.z.into());
         map.insert(
-            "elevation".into(),
-            (selection.cell.elevation as rhai::FLOAT).into(),
+            "surface_radius_scale".into(),
+            sample.surface_radius_scale.into(),
         );
-        map.insert(
-            "moisture".into(),
-            (selection.cell.moisture as rhai::FLOAT).into(),
-        );
+        map.insert("surface_offset".into(), sample.surface_offset.into());
+        map.insert("elevation".into(), (sample.elevation as rhai::FLOAT).into());
+        map.insert("moisture".into(), (sample.moisture as rhai::FLOAT).into());
         map.insert(
             "temperature".into(),
-            (selection.cell.temperature as rhai::FLOAT).into(),
+            (sample.temperature as rhai::FLOAT).into(),
         );
         map.insert(
             "biome".into(),
-            Self::biome_label(selection.cell.biome).into(),
+            sample
+                .biome
+                .map(Self::biome_label)
+                .unwrap_or_default()
+                .into(),
         );
         map
     }
@@ -456,68 +907,32 @@ impl ScriptGameplayApi {
     }
 
     fn apply_body_patch(body: &mut catalog::BodyDef, patch: &RhaiMap) {
-        if let Some(value) = Self::map_patch_opt_string(patch, "planet_type") {
-            body.planet_type = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "center_x") {
-            body.center_x = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "center_y") {
-            body.center_y = value;
-        }
-        if let Some(value) = Self::map_patch_opt_string(patch, "parent") {
-            body.parent = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "orbit_radius") {
-            body.orbit_radius = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "orbit_period_sec") {
-            body.orbit_period_sec = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "orbit_phase_deg") {
-            body.orbit_phase_deg = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "radius_px") {
-            body.radius_px = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "radius_km") {
-            body.radius_km = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "km_per_px") {
-            body.km_per_px = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "gravity_mu") {
-            body.gravity_mu = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "gravity_mu_km3_s2")
-            .or_else(|| Self::map_patch_opt_number(patch, "gravity-mu-km3-s2"))
-        {
-            body.gravity_mu_km3_s2 = value;
-        }
-        if let Some(value) = Self::map_patch_number(patch, "surface_radius") {
-            body.surface_radius = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_top") {
-            body.atmosphere_top = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_dense_start") {
-            body.atmosphere_dense_start = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_drag_max") {
-            body.atmosphere_drag_max = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_top_km") {
-            body.atmosphere_top_km = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "atmosphere_dense_start_km") {
-            body.atmosphere_dense_start_km = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "cloud_bottom_km") {
-            body.cloud_bottom_km = value;
-        }
-        if let Some(value) = Self::map_patch_opt_number(patch, "cloud_top_km") {
-            body.cloud_top_km = value;
-        }
+        body.apply_patch(&BodyPatch {
+            planet_type: Self::map_patch_opt_string(patch, "planet_type"),
+            center_x: Self::map_patch_number(patch, "center_x"),
+            center_y: Self::map_patch_number(patch, "center_y"),
+            parent: Self::map_patch_opt_string(patch, "parent"),
+            orbit_radius: Self::map_patch_number(patch, "orbit_radius"),
+            orbit_period_sec: Self::map_patch_number(patch, "orbit_period_sec"),
+            orbit_phase_deg: Self::map_patch_number(patch, "orbit_phase_deg"),
+            radius_px: Self::map_patch_number(patch, "radius_px"),
+            radius_km: Self::map_patch_opt_number(patch, "radius_km"),
+            km_per_px: Self::map_patch_opt_number(patch, "km_per_px"),
+            gravity_mu: Self::map_patch_number(patch, "gravity_mu"),
+            gravity_mu_km3_s2: Self::map_patch_opt_number(patch, "gravity_mu_km3_s2")
+                .or_else(|| Self::map_patch_opt_number(patch, "gravity-mu-km3-s2")),
+            surface_radius: Self::map_patch_number(patch, "surface_radius"),
+            atmosphere_top: Self::map_patch_opt_number(patch, "atmosphere_top"),
+            atmosphere_dense_start: Self::map_patch_opt_number(patch, "atmosphere_dense_start"),
+            atmosphere_drag_max: Self::map_patch_opt_number(patch, "atmosphere_drag_max"),
+            atmosphere_top_km: Self::map_patch_opt_number(patch, "atmosphere_top_km"),
+            atmosphere_dense_start_km: Self::map_patch_opt_number(
+                patch,
+                "atmosphere_dense_start_km",
+            ),
+            cloud_bottom_km: Self::map_patch_opt_number(patch, "cloud_bottom_km"),
+            cloud_top_km: Self::map_patch_opt_number(patch, "cloud_top_km"),
+        });
     }
 
     pub(crate) fn body_upsert(&mut self, id: &str, patch: RhaiMap) -> bool {
@@ -1251,22 +1666,29 @@ impl ScriptGameplayApi {
         z: rhai::FLOAT,
     ) -> RhaiMap {
         let mut map = RhaiMap::new();
-        let Some(body) = self.catalogs.celestial.bodies.get(body_id) else {
+        let Some(sample) = self.catalogs.celestial.gravity_sample(
+            body_id,
+            WorldPoint3 { x, y, z },
+            0.0,
+            self.ctx.spatial_meters_per_world_unit,
+        ) else {
             return map;
         };
-        let dx = body.center_x as f32 - x as f32;
-        let dy = body.center_y as f32 - y as f32;
-        let dz = -(z as f32);
-        let dist_sq = dx * dx + dy * dy + dz * dz;
-        let dist = dist_sq.sqrt();
-        let gravity_mu_world_units =
-            body.resolved_gravity_mu_world_units(self.ctx.spatial_meters_per_world_unit) as f32;
-        if let Some((ax, ay, az)) = point_gravity_accel_3d(dx, dy, dz, gravity_mu_world_units) {
-            map.insert("ax".into(), (ax as rhai::FLOAT).into());
-            map.insert("ay".into(), (ay as rhai::FLOAT).into());
-            map.insert("az".into(), (az as rhai::FLOAT).into());
-        }
-        map.insert("distance".into(), (dist as rhai::FLOAT).into());
+        map.insert("ax".into(), (sample.accel.x as rhai::FLOAT).into());
+        map.insert("ay".into(), (sample.accel.y as rhai::FLOAT).into());
+        map.insert("az".into(), (sample.accel.z as rhai::FLOAT).into());
+        map.insert(
+            "distance".into(),
+            (sample.distance_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude".into(),
+            (sample.altitude_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude_km".into(),
+            (sample.altitude_km as rhai::FLOAT).into(),
+        );
         map
     }
 
@@ -1325,31 +1747,6 @@ impl ScriptGameplayApi {
             map.insert("body".into(), body_id.into());
         }
         map.into()
-    }
-
-    pub(crate) fn set_collider_circle(
-        &mut self,
-        id: rhai::INT,
-        radius: rhai::FLOAT,
-        layer: rhai::INT,
-        mask: rhai::INT,
-    ) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return false;
-        };
-        if id < 0 {
-            return false;
-        }
-        world.set_collider(
-            id as u64,
-            Collider2D {
-                shape: ColliderShape::Circle {
-                    radius: radius as f32,
-                },
-                layer: layer as u32,
-                mask: mask as u32,
-            },
-        )
     }
 
     pub(crate) fn set_lifetime(&mut self, id: rhai::INT, ttl_ms: rhai::INT) -> bool {
@@ -1610,7 +2007,7 @@ impl ScriptGameplayApi {
     }
 
     /// Generic prefab applicator: reads catalog components and applies them to an entity.
-    /// This centralizes all prefab component logic (physics, collider, controller, lifecycle)
+    /// This centralizes all prefab component logic (physics, collider, controller, 3D bundle, lifecycle)
     /// in one place, eliminating hardcoded match arms.
     fn apply_prefab_components(
         &mut self,
@@ -1620,6 +2017,9 @@ impl ScriptGameplayApi {
     ) -> bool {
         let Some(components) = &prefab.components else {
             return true; // No components to apply; entity spawned successfully
+        };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
         };
 
         // Apply physics component - check args for overrides
@@ -1645,9 +2045,6 @@ impl ScriptGameplayApi {
                 vz = arg_vz;
             }
 
-            let Some(world) = self.ctx.world.as_ref() else {
-                return false;
-            };
             if !world.set_physics(
                 entity_id as u64,
                 PhysicsBody2D {
@@ -1704,6 +2101,12 @@ impl ScriptGameplayApi {
             }
         }
 
+        if let Some(bootstrap) = prefab_bootstrap_assembly3d_from_components(components, args) {
+            if !world.bootstrap_assembly3d(entity_id as u64, bootstrap) {
+                return false;
+            }
+        }
+
         // Apply collider component - check args for radius override
         if let Some(coll) = &components.collider {
             if coll.shape.as_str() == "circle" {
@@ -1718,7 +2121,16 @@ impl ScriptGameplayApi {
                     }
                 }
 
-                if !self.set_collider_circle(entity_id, radius, layer, mask) {
+                if !world.set_collider(
+                    entity_id as u64,
+                    Collider2D {
+                        shape: ColliderShape::Circle {
+                            radius: radius as f32,
+                        },
+                        layer: layer as u32,
+                        mask: mask as u32,
+                    },
+                ) {
                     return false;
                 }
             }
@@ -1743,20 +2155,18 @@ impl ScriptGameplayApi {
                 // Merge runtime overrides from args["cfg"] (e.g. per-level difficulty)
                 if let Some(cfg_dyn) = args.get("cfg") {
                     if let Some(cfg_map) = cfg_dyn.clone().try_cast::<RhaiMap>() {
-                        for (k, v) in &cfg_map {
-                            config_map.insert(k.clone(), v.clone());
-                        }
+                        config_map = merge_rhai_maps(config_map, &cfg_map);
                     }
                 }
 
-                if !self.attach_controller(entity_id, config_map) {
+                if !attach_vehicle_stack(world, entity_id as u64, config_map) {
                     return false;
                 }
             }
         }
 
         // Apply wrappable flag
-        if components.wrappable.unwrap_or(false) && !self.enable_wrap_bounds(entity_id) {
+        if components.wrappable.unwrap_or(false) && !world.enable_wrap_bounds(entity_id as u64) {
             return false;
         }
 
@@ -1793,7 +2203,11 @@ impl ScriptGameplayApi {
             ]
             .contains(&k.as_str())
             {
-                data.insert(k.clone(), v.clone());
+                let merged = match data.remove(k) {
+                    Some(existing) => merge_rhai_dynamic(existing, v.clone()),
+                    None => v.clone(),
+                };
+                data.insert(k.clone(), merged);
             }
         }
 
@@ -1809,25 +2223,22 @@ impl ScriptGameplayApi {
         let Some(prefab) = self.catalogs.prefabs.get(name).cloned() else {
             return 0; // Prefab not found in catalog
         };
+        let spawn_args = prefab_spawn_args(&prefab, &args);
 
         // Extract position from args
-        let x = Self::map_number(&args, "x", 0.0);
-        let y = Self::map_number(&args, "y", 0.0);
-        let heading = Self::map_number(&args, "heading", 0.0);
+        let x = Self::map_number(&spawn_args, "x", 0.0);
+        let y = Self::map_number(&spawn_args, "y", 0.0);
+        let heading = Self::map_number(&spawn_args, "heading", 0.0);
 
         // Determine spawn approach based on lifecycle
-        let lifecycle_str = prefab
-            .components
-            .as_ref()
-            .and_then(|c| c.lifecycle.as_ref())
-            .map(|s| s.as_str())
-            .unwrap_or("");
+        let lifecycle_name = prefab_lifecycle_name(&prefab, &spawn_args);
+        let lifecycle_str = lifecycle_name.as_deref().unwrap_or("");
 
         let sprite_template = prefab.sprite_template.as_deref().unwrap_or(&prefab.kind);
 
         let id = if is_ephemeral_lifecycle(lifecycle_str) {
             // Ephemeral spawn for TTL-based entities (bullets, smoke, short-lived particles)
-            self.spawn_prefab_ephemeral(&prefab, x, y, heading, &args)
+            self.spawn_prefab_ephemeral(&prefab, x, y, heading, &spawn_args)
         } else {
             // Regular spawn for persistent entities
             let mut visual_args = RhaiMap::new();
@@ -1841,7 +2252,7 @@ impl ScriptGameplayApi {
             }
 
             // Apply catalog components generically
-            if !self.apply_prefab_components(id, &prefab, &args) {
+            if !self.apply_prefab_components(id, &prefab, &spawn_args) {
                 let _ = self.despawn(id);
                 return 0;
             }
@@ -1867,7 +2278,7 @@ impl ScriptGameplayApi {
             for tag in &prefab.default_tags {
                 world.tag_add(id as u64, tag);
             }
-            if let Some(tags_val) = args.get("tags") {
+            if let Some(tags_val) = spawn_args.get("tags") {
                 if let Ok(tags_arr) = tags_val.clone().into_array() {
                     for t in tags_arr {
                         if let Ok(s) = t.into_string() {
@@ -1879,7 +2290,239 @@ impl ScriptGameplayApi {
         }
 
         // Apply fg_colour from prefab (supports "@palette.<key>" and literal colors)
-        self.apply_prefab_fg_colour(id, &prefab.fg_colour, &args);
+        self.apply_prefab_fg_colour(id, &prefab.fg_colour, &spawn_args);
+
+        id
+    }
+
+    fn spawn_prefab_bound_visual(
+        &mut self,
+        name: &str,
+        runtime_target: &str,
+        args: RhaiMap,
+        transform: &RuntimeObjectTransform,
+    ) -> rhai::INT {
+        let Some(prefab) = self.catalogs.prefabs.get(name).cloned() else {
+            return 0;
+        };
+        let spawn_args = prefab_spawn_args(&prefab, &args);
+        let Some(world) = self.ctx.world.clone() else {
+            return 0;
+        };
+
+        let Some(entity_id) = world.spawn(&prefab.kind, JsonValue::Object(JsonMap::new())) else {
+            return 0;
+        };
+
+        if !world.set_visual(
+            entity_id,
+            VisualBinding {
+                visual_id: Some(runtime_target.to_string()),
+                additional_visuals: Vec::new(),
+            },
+        ) {
+            world.despawn(entity_id);
+            return 0;
+        }
+
+        if let RuntimeObjectTransform::TwoD { .. } = transform {
+            let x = Self::map_number(&spawn_args, "x", 0.0) as f32;
+            let y = Self::map_number(&spawn_args, "y", 0.0) as f32;
+            let z = Self::map_number(&spawn_args, "z", 0.0) as f32;
+            let heading = Self::map_number(&spawn_args, "heading", 0.0) as f32;
+            if !world.set_transform(entity_id, Transform2D { x, y, z, heading }) {
+                world.despawn(entity_id);
+                return 0;
+            }
+        }
+
+        let ttl_ms = Self::map_int(&spawn_args, "ttl_ms", Self::map_int(&spawn_args, "lifetime_ms", 0));
+        if ttl_ms > 0
+            && !world.set_lifetime(
+                entity_id,
+                Lifetime {
+                    ttl_ms: ttl_ms as i32,
+                    original_ttl_ms: ttl_ms as i32,
+                    on_expire: DespawnVisual::None,
+                },
+            )
+        {
+            world.despawn(entity_id);
+            return 0;
+        }
+
+        let entity_id_rhai = entity_id as rhai::INT;
+        if !self.apply_prefab_components(entity_id_rhai, &prefab, &spawn_args) {
+            world.despawn(entity_id);
+            return 0;
+        }
+
+        let invulnerable_ms = Self::map_int(&spawn_args, "invulnerable_ms", 0);
+        if invulnerable_ms > 0 {
+            let _ = self
+                .entity(entity_id_rhai)
+                .status_add("invulnerable", invulnerable_ms);
+        }
+
+        for tag in &prefab.default_tags {
+            world.tag_add(entity_id, tag);
+        }
+        if let Some(tags_val) = spawn_args.get("tags") {
+            if let Ok(tags_arr) = tags_val.clone().into_array() {
+                for t in tags_arr {
+                    if let Ok(s) = t.into_string() {
+                        world.tag_add(entity_id, &s);
+                    }
+                }
+            }
+        }
+
+        self.apply_prefab_fg_colour(entity_id_rhai, &prefab.fg_colour, &spawn_args);
+        entity_id_rhai
+    }
+
+    fn spawn_runtime_object_node_bound_to_visual(
+        &mut self,
+        node: &RuntimeObjectDocument,
+        runtime_target: &str,
+        owner_id: Option<u64>,
+    ) -> rhai::INT {
+        let args = runtime_object_args(node, owner_id);
+        if let Some(prefab) = node.prefab.as_deref() {
+            let id =
+                self.spawn_prefab_bound_visual(prefab, runtime_target, args.clone(), &node.transform);
+            if id <= 0 {
+                return 0;
+            }
+
+            if let Some(world) = self.ctx.world.as_ref() {
+                if let Some(bootstrap) =
+                    runtime_object_bootstrap_assembly3d_from_document(node, &args)
+                {
+                    if !world.bootstrap_assembly3d(id as u64, bootstrap) {
+                        let _ = self.despawn(id);
+                        return 0;
+                    }
+                }
+            }
+
+            return id;
+        }
+
+        let Some(world) = self.ctx.world.clone() else {
+            return 0;
+        };
+        let kind = runtime_object_spawn_kind(node);
+        let Some(entity_id) = world.spawn(&kind, JsonValue::Object(JsonMap::new())) else {
+            return 0;
+        };
+
+        if !world.set_visual(
+            entity_id,
+            VisualBinding {
+                visual_id: Some(runtime_target.to_string()),
+                additional_visuals: Vec::new(),
+            },
+        ) {
+            let _ = world.despawn(entity_id);
+            return 0;
+        }
+
+        match &node.transform {
+            RuntimeObjectTransform::TwoD { .. } => {
+                let x = Self::map_number(&args, "x", 0.0) as f32;
+                let y = Self::map_number(&args, "y", 0.0) as f32;
+                let z = Self::map_number(&args, "z", 0.0) as f32;
+                let heading = Self::map_number(&args, "heading", 0.0) as f32;
+                if !world.set_transform(entity_id, Transform2D { x, y, z, heading }) {
+                    let _ = world.despawn(entity_id);
+                    return 0;
+                }
+            }
+            _ => {
+                let Some(transform) = runtime_object_transform3d(&node.transform) else {
+                    let _ = world.despawn(entity_id);
+                    return 0;
+                };
+                if !world.set_transform3d(entity_id, transform) {
+                    let _ = world.despawn(entity_id);
+                    return 0;
+                }
+            }
+        }
+
+        let ttl_ms = Self::map_int(
+            &args,
+            "ttl_ms",
+            Self::map_int(&args, "lifetime_ms", 0),
+        );
+        if ttl_ms > 0
+            && !world.set_lifetime(
+                entity_id,
+                Lifetime {
+                    ttl_ms: ttl_ms as i32,
+                    original_ttl_ms: ttl_ms as i32,
+                    on_expire: DespawnVisual::None,
+                },
+            )
+        {
+            let _ = world.despawn(entity_id);
+            return 0;
+        }
+
+        let entity_id_rhai = entity_id as rhai::INT;
+        if let Some(prefab) = runtime_object_component_prefab(node) {
+            if !self.apply_prefab_components(entity_id_rhai, &prefab, &args) {
+                let _ = world.despawn(entity_id);
+                return 0;
+            }
+        }
+
+        if let Some(bootstrap) = runtime_object_bootstrap_assembly3d_from_document(node, &args) {
+            if !world.bootstrap_assembly3d(entity_id, bootstrap) {
+                let _ = world.despawn(entity_id);
+                return 0;
+            }
+        } else if !apply_runtime_object_owner_lifecycle(&world, entity_id, &args) {
+            let _ = world.despawn(entity_id);
+            return 0;
+        }
+
+        entity_id_rhai
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn spawn_runtime_object_document(
+        &mut self,
+        node: &RuntimeObjectDocument,
+        owner_id: Option<u64>,
+    ) -> rhai::INT {
+        let Some(prefab) = node.prefab.as_deref() else {
+            return 0;
+        };
+
+        let args = runtime_object_args(node, owner_id);
+        let id = self.spawn_prefab(prefab, args.clone());
+        if id <= 0 {
+            return 0;
+        }
+
+        if let Some(world) = self.ctx.world.as_ref() {
+            if let Some(bootstrap) = runtime_object_bootstrap_assembly3d_from_document(node, &args)
+            {
+                if !world.bootstrap_assembly3d(id as u64, bootstrap) {
+                    let _ = self.despawn(id);
+                    return 0;
+                }
+            }
+        }
+
+        for child in &node.children {
+            if self.spawn_runtime_object_document(child, Some(id as u64)) <= 0 {
+                let _ = self.despawn(id);
+                return 0;
+            }
+        }
 
         id
     }
@@ -1998,12 +2641,8 @@ impl ScriptGameplayApi {
             .unwrap_or((0.0, 0.0));
 
         // Determine lifecycle policy
-        let lifecycle_str = prefab
-            .components
-            .as_ref()
-            .and_then(|c| c.lifecycle.as_ref())
-            .map(|s| s.as_str())
-            .unwrap_or("");
+        let lifecycle_name = prefab_lifecycle_name(prefab, args);
+        let lifecycle_str = lifecycle_name.as_deref().unwrap_or("");
 
         let resolved =
             self.resolve_ephemeral_prefab(prefab, args, lifecycle_str, vx, vy, drag, max_speed);
@@ -2031,6 +2670,15 @@ impl ScriptGameplayApi {
             return 0;
         };
 
+        if let Some(components) = &prefab.components {
+            if let Some(assembly) = prefab_assembly3d_from_components(components) {
+                if !world.attach_assembly3d(id as u64, assembly) {
+                    let _ = world.despawn(id);
+                    return 0;
+                }
+            }
+        }
+
         // Apply collider if specified in prefab
         if let Some(components) = &prefab.components {
             if let Some(coll) = &components.collider {
@@ -2038,8 +2686,17 @@ impl ScriptGameplayApi {
                     let radius = coll.radius.unwrap_or(1.0);
                     let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
                     let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
-                    if !self.set_collider_circle(id as rhai::INT, radius, layer, mask) {
-                        let _ = self.despawn(id as rhai::INT);
+                    if !world.set_collider(
+                        id as u64,
+                        Collider2D {
+                            shape: ColliderShape::Circle {
+                                radius: radius as f32,
+                            },
+                            layer: layer as u32,
+                            mask: mask as u32,
+                        },
+                    ) {
+                        let _ = world.despawn(id);
                         return 0;
                     }
                 }
@@ -2052,9 +2709,9 @@ impl ScriptGameplayApi {
             .as_ref()
             .and_then(|c| c.wrappable)
             .unwrap_or(false)
-            && !self.enable_wrap_bounds(id as rhai::INT)
+            && !world.enable_wrap_bounds(id as u64)
         {
-            let _ = self.despawn(id as rhai::INT);
+            let _ = world.despawn(id);
             return 0;
         }
 
@@ -2152,15 +2809,281 @@ impl ScriptGameplayApi {
     /// Returns empty map when body id is unknown or parent chain is invalid.
     pub(crate) fn body_position(&mut self, id: &str, elapsed_sec: rhai::FLOAT) -> RhaiMap {
         let mut map = RhaiMap::new();
-        let Some((x, y)) = self
+        let Some(pose) = self.catalogs.celestial.body_pose(
+            id,
+            elapsed_sec as f64,
+            self.ctx.spatial_meters_per_world_unit,
+        ) else {
+            return map;
+        };
+        map.insert("x".into(), (pose.center.x as rhai::FLOAT).into());
+        map.insert("y".into(), (pose.center.y as rhai::FLOAT).into());
+        map.insert("z".into(), (pose.center.z as rhai::FLOAT).into());
+        map.insert(
+            "surface_radius".into(),
+            (pose.surface_radius_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "render_radius".into(),
+            (pose.render_radius_world as rhai::FLOAT).into(),
+        );
+        map
+    }
+
+    pub(crate) fn body_pose(&mut self, id: &str, elapsed_sec: rhai::FLOAT) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(pose) = self.catalogs.celestial.body_pose(
+            id,
+            elapsed_sec as f64,
+            self.ctx.spatial_meters_per_world_unit,
+        ) else {
+            return map;
+        };
+        map.insert("x".into(), (pose.center.x as rhai::FLOAT).into());
+        map.insert("y".into(), (pose.center.y as rhai::FLOAT).into());
+        map.insert("z".into(), (pose.center.z as rhai::FLOAT).into());
+        map.insert(
+            "orbit_angle_rad".into(),
+            (pose.orbit_angle_rad as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "render_radius".into(),
+            (pose.render_radius_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "surface_radius".into(),
+            (pose.surface_radius_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "gravity_mu".into(),
+            (pose.gravity_mu_world_units as rhai::FLOAT).into(),
+        );
+        if let Some(km) = pose.radius_km {
+            map.insert("radius_km".into(), (km as rhai::FLOAT).into());
+        }
+        if let Some(km_per_world_unit) = pose.km_per_world_unit {
+            map.insert(
+                "km_per_world_unit".into(),
+                (km_per_world_unit as rhai::FLOAT).into(),
+            );
+        }
+        if let Some(parent_center) = pose.parent_center {
+            map.insert("parent_x".into(), (parent_center.x as rhai::FLOAT).into());
+            map.insert("parent_y".into(), (parent_center.y as rhai::FLOAT).into());
+            map.insert("parent_z".into(), (parent_center.z as rhai::FLOAT).into());
+        }
+        map
+    }
+
+    pub(crate) fn body_surface(
+        &mut self,
+        body_id: &str,
+        latitude_deg: rhai::FLOAT,
+        longitude_deg: rhai::FLOAT,
+        altitude_world: rhai::FLOAT,
+        elapsed_sec: rhai::FLOAT,
+    ) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(surface) = self.catalogs.celestial.surface_point(
+            body_id,
+            latitude_deg,
+            longitude_deg,
+            altitude_world,
+            elapsed_sec as f64,
+            self.ctx.spatial_meters_per_world_unit,
+        ) else {
+            return map;
+        };
+        map.insert("x".into(), (surface.point.x as rhai::FLOAT).into());
+        map.insert("y".into(), (surface.point.y as rhai::FLOAT).into());
+        map.insert("z".into(), (surface.point.z as rhai::FLOAT).into());
+        map.insert("normal_x".into(), (surface.normal.x as rhai::FLOAT).into());
+        map.insert("normal_y".into(), (surface.normal.y as rhai::FLOAT).into());
+        map.insert("normal_z".into(), (surface.normal.z as rhai::FLOAT).into());
+        map.insert(
+            "radius_world".into(),
+            (surface.radius_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude".into(),
+            (surface.altitude_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude_km".into(),
+            (surface.altitude_km as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "latitude_deg".into(),
+            (surface.latitude_deg as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "longitude_deg".into(),
+            (surface.longitude_deg as rhai::FLOAT).into(),
+        );
+        map
+    }
+
+    pub(crate) fn body_frame(
+        &mut self,
+        body_id: &str,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        z: rhai::FLOAT,
+        elapsed_sec: rhai::FLOAT,
+    ) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(frame) = self.catalogs.celestial.local_frame(
+            body_id,
+            WorldPoint3 { x, y, z },
+            elapsed_sec as f64,
+        ) else {
+            return map;
+        };
+        map.insert("origin_x".into(), (frame.origin.x as rhai::FLOAT).into());
+        map.insert("origin_y".into(), (frame.origin.y as rhai::FLOAT).into());
+        map.insert("origin_z".into(), (frame.origin.z as rhai::FLOAT).into());
+        map.insert("up_x".into(), (frame.up.x as rhai::FLOAT).into());
+        map.insert("up_y".into(), (frame.up.y as rhai::FLOAT).into());
+        map.insert("up_z".into(), (frame.up.z as rhai::FLOAT).into());
+        map.insert("east_x".into(), (frame.east.x as rhai::FLOAT).into());
+        map.insert("east_y".into(), (frame.east.y as rhai::FLOAT).into());
+        map.insert("east_z".into(), (frame.east.z as rhai::FLOAT).into());
+        map.insert("north_x".into(), (frame.north.x as rhai::FLOAT).into());
+        map.insert("north_y".into(), (frame.north.y as rhai::FLOAT).into());
+        map.insert("north_z".into(), (frame.north.z as rhai::FLOAT).into());
+        map.insert(
+            "forward_x".into(),
+            (frame.tangent_forward.x as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "forward_y".into(),
+            (frame.tangent_forward.y as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "forward_z".into(),
+            (frame.tangent_forward.z as rhai::FLOAT).into(),
+        );
+        map
+    }
+
+    pub(crate) fn body_atmosphere(
+        &mut self,
+        body_id: &str,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        z: rhai::FLOAT,
+        elapsed_sec: rhai::FLOAT,
+    ) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(sample) = self.catalogs.celestial.atmosphere_sample(
+            body_id,
+            WorldPoint3 { x, y, z },
+            elapsed_sec as f64,
+            self.ctx.spatial_meters_per_world_unit,
+        ) else {
+            return map;
+        };
+        map.insert("density".into(), (sample.density as rhai::FLOAT).into());
+        map.insert(
+            "dense_density".into(),
+            (sample.dense_density as rhai::FLOAT).into(),
+        );
+        map.insert("drag".into(), (sample.drag as rhai::FLOAT).into());
+        map.insert("heat_band".into(), (sample.heat_band as rhai::FLOAT).into());
+        map.insert(
+            "altitude".into(),
+            (sample.altitude_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude_km".into(),
+            (sample.altitude_km as rhai::FLOAT).into(),
+        );
+        map
+    }
+
+    pub(crate) fn site_pose(&mut self, site_id: &str, elapsed_sec: rhai::FLOAT) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(site) = self.catalogs.celestial.site_pose(
+            site_id,
+            elapsed_sec as f64,
+            self.ctx.spatial_meters_per_world_unit,
+        ) else {
+            return map;
+        };
+        map.insert("x".into(), (site.position.x as rhai::FLOAT).into());
+        map.insert("y".into(), (site.position.y as rhai::FLOAT).into());
+        map.insert("z".into(), (site.position.z as rhai::FLOAT).into());
+        map.insert("up_x".into(), (site.up.x as rhai::FLOAT).into());
+        map.insert("up_y".into(), (site.up.y as rhai::FLOAT).into());
+        map.insert("up_z".into(), (site.up.z as rhai::FLOAT).into());
+        map.insert(
+            "altitude".into(),
+            (site.altitude_world as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude_km".into(),
+            (site.altitude_km as rhai::FLOAT).into(),
+        );
+        if let Some(body_id) = site.body_id {
+            map.insert("body".into(), body_id.into());
+        }
+        if let Some(body_center) = site.body_center {
+            map.insert("body_x".into(), (body_center.x as rhai::FLOAT).into());
+            map.insert("body_y".into(), (body_center.y as rhai::FLOAT).into());
+            map.insert("body_z".into(), (body_center.z as rhai::FLOAT).into());
+        }
+        if let Some(lat) = site.latitude_deg {
+            map.insert("latitude_deg".into(), (lat as rhai::FLOAT).into());
+        }
+        if let Some(lon) = site.longitude_deg {
+            map.insert("longitude_deg".into(), (lon as rhai::FLOAT).into());
+        }
+        map
+    }
+
+    pub(crate) fn system_query(&mut self, system_id: &str, elapsed_sec: rhai::FLOAT) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(system) = self
             .catalogs
             .celestial
-            .body_world_position(id, elapsed_sec as f64)
+            .system_query(system_id, elapsed_sec as f64)
         else {
             return map;
         };
-        map.insert("x".into(), (x as rhai::FLOAT).into());
-        map.insert("y".into(), (y as rhai::FLOAT).into());
+        map.insert("id".into(), system.id.into());
+        if let Some(region) = system.region {
+            map.insert("region".into(), region.into());
+        }
+        if let Some(star_body_id) = system.star_body_id {
+            map.insert("star_body".into(), star_body_id.into());
+        }
+        if let Some(star_center) = system.star_center {
+            map.insert("star_x".into(), (star_center.x as rhai::FLOAT).into());
+            map.insert("star_y".into(), (star_center.y as rhai::FLOAT).into());
+            map.insert("star_z".into(), (star_center.z as rhai::FLOAT).into());
+        }
+        if let Some(map_position) = system.map_position {
+            map.insert("map_x".into(), (map_position.x as rhai::FLOAT).into());
+            map.insert("map_y".into(), (map_position.y as rhai::FLOAT).into());
+        }
+        map.insert(
+            "bodies".into(),
+            system
+                .bodies
+                .into_iter()
+                .map(RhaiDynamic::from)
+                .collect::<RhaiArray>()
+                .into(),
+        );
+        map.insert(
+            "sites".into(),
+            system
+                .sites
+                .into_iter()
+                .map(RhaiDynamic::from)
+                .collect::<RhaiArray>()
+                .into(),
+        );
         map
     }
 
@@ -2641,13 +3564,6 @@ impl ScriptGameplayApi {
         world.detach_thruster_ramp(id as u64)
     }
 
-    pub(crate) fn enable_wrap_bounds(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return false;
-        };
-        world.enable_wrap_bounds(id as u64)
-    }
-
     pub(crate) fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT {
         let Some(world) = self.ctx.world.as_ref() else {
             return min;
@@ -3020,6 +3936,14 @@ impl ScriptGameplayApi {
                 }
             }
         }
+        extra_data = merge_json_map(
+            extra_data,
+            args,
+            &[
+                "x", "y", "heading", "vx", "vy", "radius", "ttl_ms", "owner_id", "fg", "kind",
+                "template",
+            ],
+        );
         if let Some(radius) = args.get("radius") {
             if let Ok(r) = radius.as_int() {
                 extra_data.insert("radius".to_string(), JsonValue::from(r));
@@ -3207,13 +4131,6 @@ impl ScriptGameplayApi {
             config.spawn_offset.unwrap_or(0.0),
             config.side_offset.unwrap_or(0.0),
         )
-    }
-
-    pub(crate) fn attach_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return false;
-        };
-        attach_vehicle_stack(world, id as u64, config)
     }
 
     pub(crate) fn poll_collision_events(&mut self) -> RhaiArray {
@@ -4423,12 +5340,45 @@ impl ScriptGameplayObjectApi {
 
 #[cfg(test)]
 mod tests {
-    use super::ScriptGameplayApi;
+    use super::{
+        prefab_assembly3d_from_components, prefab_bootstrap_assembly3d_from_components,
+        prefab_components_from_runtime_object_families, ScriptGameplayApi,
+    };
+    use crate::catalog::{
+        AngularMotor3DComponent, CharacterMotor3DComponent, FlightMotor3DComponent,
+        FollowAnchor3DComponent, LinearMotor3DComponent, PrefabComponents, PrefabTemplate,
+        PrefabTransform, ReferenceFrameComponent,
+    };
+    use crate::{catalog, palette::PaletteStore, BehaviorCommand};
+    use engine_core::scene::model::RuntimeObjectDocument;
+    use engine_game::components::{
+        AngularMotorMode, CharacterUpMode, LifecyclePolicy, MotorSpace, ReferenceFrameMode,
+    };
+    use engine_game::GameplayWorld;
     use engine_terrain::{Biome, PlanetGenParams};
     use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
     fn insert(map: &mut RhaiMap, key: &str, value: impl Into<RhaiDynamic>) {
         map.insert(key.into(), value.into());
+    }
+
+    fn build_world_api(world: GameplayWorld, catalogs: catalog::ModCatalogs) -> ScriptGameplayApi {
+        ScriptGameplayApi::new(
+            Some(world),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            None,
+            Arc::new(catalogs),
+            None,
+            Arc::new(Mutex::new(Vec::<BehaviorCommand>::new())),
+            Arc::new(PaletteStore::default()),
+            None,
+            None,
+        )
     }
 
     fn sample_params() -> PlanetGenParams {
@@ -4462,6 +5412,342 @@ mod tests {
             Biome::Mountain,
             Biome::Volcanic,
         ]
+    }
+
+    #[test]
+    fn prefab_assembly3d_from_components_lowers_reference_frame_and_motor_stack() {
+        let components = PrefabComponents {
+            reference_frame: Some(ReferenceFrameComponent {
+                mode: Some("LocalHorizon".to_string()),
+                entity_id: Some(7),
+                body_id: Some("earth".to_string()),
+                inherit_linear_velocity: Some(true),
+                inherit_angular_velocity: Some(false),
+            }),
+            follow_anchor_3d: Some(FollowAnchor3DComponent {
+                local_offset: Some([1.0, 2.0, 3.0]),
+                inherit_orientation: Some(false),
+            }),
+            linear_motor_3d: Some(LinearMotor3DComponent {
+                space: Some("ReferenceFrame".to_string()),
+                accel: Some(24.0),
+                decel: Some(12.0),
+                max_speed: Some(320.0),
+                boost_scale: Some(1.5),
+                air_control: Some(0.75),
+            }),
+            angular_motor_3d: Some(AngularMotor3DComponent {
+                mode: Some("Torque".to_string()),
+                yaw_rate: Some(90.0),
+                pitch_rate: Some(20.0),
+                roll_rate: Some(15.0),
+                torque_scale: Some(2.0),
+                look_sensitivity: Some(1.25),
+            }),
+            character_motor_3d: Some(CharacterMotor3DComponent {
+                up_mode: Some("SurfaceNormal".to_string()),
+                jump_speed: Some(8.5),
+                stick_to_ground: Some(true),
+                max_slope_deg: Some(55.0),
+            }),
+            flight_motor_3d: Some(FlightMotor3DComponent {
+                translational_dofs: Some([true, false, true]),
+                rotational_dofs: Some([true, true, false]),
+                horizon_lock_strength: Some(0.35),
+            }),
+            ..PrefabComponents::default()
+        };
+
+        let assembly =
+            prefab_assembly3d_from_components(&components).expect("prefab should lower to 3D");
+
+        assert_eq!(
+            assembly.control.reference_frame.as_ref().unwrap().mode,
+            ReferenceFrameMode::LocalHorizon
+        );
+        assert_eq!(
+            assembly.control.reference_frame.as_ref().unwrap().entity_id,
+            Some(7)
+        );
+        assert_eq!(
+            assembly
+                .control
+                .reference_frame
+                .as_ref()
+                .unwrap()
+                .body_id
+                .as_deref(),
+            Some("earth")
+        );
+        assert_eq!(
+            assembly
+                .attachments
+                .follow_anchor
+                .as_ref()
+                .unwrap()
+                .local_offset,
+            [1.0, 2.0, 3.0]
+        );
+        assert_eq!(
+            assembly
+                .attachments
+                .follow_anchor
+                .as_ref()
+                .unwrap()
+                .inherit_orientation,
+            false
+        );
+        assert_eq!(
+            assembly.motors.linear_motor.as_ref().unwrap().space,
+            MotorSpace::ReferenceFrame
+        );
+        assert_eq!(assembly.motors.linear_motor.as_ref().unwrap().accel, 24.0);
+        assert_eq!(
+            assembly.motors.angular_motor.as_ref().unwrap().mode,
+            AngularMotorMode::Torque
+        );
+        assert_eq!(
+            assembly.motors.character_motor.as_ref().unwrap().up_mode,
+            CharacterUpMode::SurfaceNormal
+        );
+        assert_eq!(
+            assembly
+                .motors
+                .flight_motor
+                .as_ref()
+                .unwrap()
+                .translational_dofs,
+            [true, false, true]
+        );
+        assert!(assembly.spatial.is_empty());
+    }
+
+    #[test]
+    fn runtime_object_component_families_lower_through_prefab_components_and_bootstrap() {
+        let component_families = serde_json::json!({
+            "reference-frame": {
+                "mode": "LocalHorizon",
+                "body_id": "earth",
+                "inherit_linear_velocity": true
+            },
+            "linear-motor-3d": {
+                "space": "ReferenceFrame",
+                "accel": 24.0
+            },
+            "camera-rig": {
+                "preset": "cockpit"
+            },
+            "celestial-binding": {
+                "body_id": "earth",
+                "frame_mode": "surface-local"
+            },
+            "lifecycle": "TtlFollowOwner"
+        });
+
+        let components = prefab_components_from_runtime_object_families(&component_families)
+            .expect("runtime-object families should deserialize");
+        let mut args = RhaiMap::new();
+        insert(&mut args, "owner_id", 7_i64);
+        let bootstrap = prefab_bootstrap_assembly3d_from_components(&components, &args)
+            .expect("bootstrap lowering should exist");
+
+        assert_eq!(bootstrap.owner_id, Some(7));
+        assert_eq!(bootstrap.lifecycle, Some(LifecyclePolicy::TtlFollowOwner));
+        assert_eq!(
+            bootstrap
+                .assembly
+                .control
+                .reference_frame
+                .as_ref()
+                .expect("reference frame")
+                .mode,
+            ReferenceFrameMode::LocalHorizon
+        );
+        assert_eq!(
+            bootstrap
+                .assembly
+                .motors
+                .linear_motor
+                .as_ref()
+                .expect("linear motor")
+                .space,
+            MotorSpace::ReferenceFrame
+        );
+        assert!(bootstrap.assembly.control.control_intent.is_none());
+        assert!(bootstrap.assembly.attachments.follow_anchor.is_none());
+    }
+
+    #[test]
+    fn runtime_object_prefab_tree_lowers_children_owner_links_and_overrides() {
+        let world = GameplayWorld::new();
+        let mut catalogs = catalog::ModCatalogs::test_catalogs();
+        catalogs.prefabs.insert(
+            "carrier".to_string(),
+            PrefabTemplate {
+                kind: "carrier".to_string(),
+                sprite_template: Some("carrier-template".to_string()),
+                transform: Some(PrefabTransform::default()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents {
+                    lifecycle: Some("Persistent".to_string()),
+                    ..PrefabComponents::default()
+                }),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+        catalogs.prefabs.insert(
+            "camera_mount".to_string(),
+            PrefabTemplate {
+                kind: "camera_mount".to_string(),
+                sprite_template: Some("camera-template".to_string()),
+                transform: Some(PrefabTransform::default()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents::default()),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+        catalogs.prefabs.insert(
+            "escort_drone".to_string(),
+            PrefabTemplate {
+                kind: "escort_drone".to_string(),
+                sprite_template: Some("escort-template".to_string()),
+                transform: Some(PrefabTransform::default()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents::default()),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+
+        let runtime_object: RuntimeObjectDocument = serde_yaml::from_str(
+            r#"
+name: carrier-root
+kind: runtime-object
+prefab: carrier
+transform:
+  space: 3d
+  translation: [10.0, 20.0, 30.0]
+  rotation-deg: [0.0, 90.0, 0.0]
+components:
+  reference-frame:
+    mode: LocalHorizon
+    body_id: earth
+children:
+  - name: camera-mount
+    prefab: camera_mount
+    transform:
+      space: 3d
+      translation: [1.0, 2.0, -3.0]
+    components:
+      follow-anchor-3d:
+        local-offset: [1.0, 2.0, -3.0]
+    overrides:
+      name: Camera Mount
+      components:
+        linear-motor-3d:
+          space: ReferenceFrame
+          accel: 8.0
+  - name: escort
+    prefab: escort_drone
+    transform:
+      space: 3d
+      translation: [4.0, 0.0, 1.0]
+    components:
+      lifecycle: FollowOwner
+      follow-anchor-3d:
+        local-offset: [4.0, 0.0, 1.0]
+"#,
+        )
+        .expect("runtime-object document");
+
+        let mut api = build_world_api(world.clone(), catalogs);
+        let root_id = api.spawn_runtime_object_document(&runtime_object, None);
+        assert!(root_id > 0, "root runtime-object should spawn");
+        let root_id = root_id as u64;
+
+        let root_transform = world.transform3d(root_id).expect("root transform3d");
+        assert_eq!(root_transform.position, [10.0, 20.0, 30.0]);
+        assert!((root_transform.orientation[1] - 0.70710677).abs() < 0.001);
+        assert!((root_transform.orientation[3] - 0.70710677).abs() < 0.001);
+        assert_eq!(
+            world.reference_frame3d(root_id).map(|binding| binding.mode),
+            Some(ReferenceFrameMode::LocalHorizon)
+        );
+        assert_eq!(world.lifecycle(root_id), Some(LifecyclePolicy::Persistent));
+
+        let mut child_ids = world
+            .ids()
+            .into_iter()
+            .filter(|id| *id != root_id)
+            .collect::<Vec<_>>();
+        child_ids.sort_unstable();
+        assert_eq!(child_ids.len(), 2, "two child runtime-objects should spawn");
+
+        let camera_mount_id = child_ids
+            .iter()
+            .copied()
+            .find(|id| world.get(*id, "/name") == Some(serde_json::json!("Camera Mount")))
+            .expect("camera mount child");
+        assert_eq!(
+            world
+                .ownership(camera_mount_id)
+                .map(|ownership| ownership.owner_id),
+            Some(root_id)
+        );
+        assert_eq!(
+            world.lifecycle(camera_mount_id),
+            Some(LifecyclePolicy::Persistent)
+        );
+        assert_eq!(
+            world
+                .follow_anchor3d(camera_mount_id)
+                .expect("camera mount follow anchor")
+                .local_offset,
+            [1.0, 2.0, -3.0]
+        );
+        assert_eq!(
+            world
+                .linear_motor3d(camera_mount_id)
+                .expect("camera mount linear motor")
+                .space,
+            MotorSpace::ReferenceFrame
+        );
+        assert_eq!(
+            world
+                .linear_motor3d(camera_mount_id)
+                .expect("camera mount linear motor")
+                .accel,
+            8.0
+        );
+
+        let escort_id = child_ids
+            .into_iter()
+            .find(|id| *id != camera_mount_id)
+            .expect("escort child");
+        assert_eq!(
+            world
+                .ownership(escort_id)
+                .map(|ownership| ownership.owner_id),
+            Some(root_id)
+        );
+        assert_eq!(
+            world.lifecycle(escort_id),
+            Some(LifecyclePolicy::FollowOwner)
+        );
+        assert_eq!(
+            world
+                .follow_anchor3d(escort_id)
+                .expect("escort follow anchor")
+                .local_offset,
+            [4.0, 0.0, 1.0]
+        );
+
+        assert!(world.despawn(root_id));
+        assert!(!world.exists(root_id));
+        assert!(!world.exists(camera_mount_id));
+        assert!(!world.exists(escort_id));
     }
 
     #[test]

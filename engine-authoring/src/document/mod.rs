@@ -21,6 +21,7 @@ pub use atmosphere_profile::AtmosphereProfileDocument;
 pub use camera_profile::CameraProfileDocument;
 pub use lighting_profile::LightingProfileDocument;
 pub use material::{MaterialDocument, MaterialParamDocument, MaterialValueDocument};
+pub(crate) use object::normalize_runtime_objects_surface;
 pub use object::{LogicKind, LogicSpec, ObjectDocument};
 pub use render_scene3d::RenderScene3dDocument;
 pub use scene::SceneDocument;

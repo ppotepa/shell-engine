@@ -1,0 +1,28 @@
+presets:
+  players:
+    generator-inspector:
+      config:
+        controlled: true
+    celestial-free-flight:
+      config:
+        controlled: true
+    cockpit-proxy:
+      config:
+        controlled: true
+  cameras:
+    celestial-orbit-inspector:
+      controller-kind: Orbit
+      target: planet-mesh
+    cockpit-flight:
+      controller-kind: Cockpit
+      target: controlled-entity
+    cockpit-view:
+      controller-kind: Cockpit
+      target: controlled-entity
+  ui:
+    generator-hud:
+      layout: hud/generator
+    flight-hud:
+      layout: hud/flight
+    cockpit-hud:
+      layout: hud/cockpit

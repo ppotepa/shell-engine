@@ -5,7 +5,10 @@ pub(super) mod scene_effects;
 pub(super) mod scene_logic;
 
 use super::cutscene::{expand_scene_cutscene_ref_with_filters, CutsceneFilterRegistry};
-use crate::document::{LogicKind, ObjectDocument, RenderScene3dDocument, SceneDocument};
+use crate::document::{
+    normalize_runtime_objects_surface, LogicKind, ObjectDocument, RenderScene3dDocument,
+    SceneDocument,
+};
 use engine_core::scene::Scene;
 use scene_effects::*;
 use scene_logic::*;
@@ -99,6 +102,7 @@ where
     expand_scene_effect_presets_ref(&mut raw, scene_source_path, &mut object_loader)?;
     expand_scene_objects(&mut raw, scene_source_path, &mut object_loader);
     expand_layer_objects(&mut raw, scene_source_path, &mut object_loader);
+    normalize_runtime_objects_surface(&mut raw);
     expand_scene_cutscene_ref_with_filters(
         &mut raw,
         scene_source_path,
@@ -278,7 +282,8 @@ where
         let Some(instance_map) = instance.as_mapping() else {
             continue;
         };
-        let Some(mut loaded) = load_object_instance(instance_map, scene_source_path, object_loader)
+        let Some(mut loaded) =
+            load_legacy_object_instance(instance_map, scene_source_path, object_loader)
         else {
             continue;
         };
@@ -386,7 +391,7 @@ where
                 continue;
             };
             let Some(mut loaded) =
-                load_object_instance(instance_map, scene_source_path, object_loader)
+                load_legacy_object_instance(instance_map, scene_source_path, object_loader)
             else {
                 continue;
             };
@@ -572,18 +577,23 @@ fn append_sequence_items(layer_map: &mut Mapping, key: &str, mut items: Vec<Valu
     }
 }
 
-struct LoadedObjectInstance {
+/// Transitional result for legacy scene.objects lowering.
+///
+/// This path expands prefab instances into layers/sprites today. The
+/// vNext runtime-object tree is kept separate and simply passes through the
+/// authored scene model for now.
+struct LoadedLegacyObjectInstance {
     instance_ref: String,
     object_value: Value,
     native_logic_behavior: Option<String>,
     native_logic_params: BTreeMap<String, Value>,
 }
 
-fn load_object_instance<F>(
+fn load_legacy_object_instance<F>(
     instance_map: &Mapping,
     scene_source_path: &str,
     object_loader: &mut F,
-) -> Option<LoadedObjectInstance>
+) -> Option<LoadedLegacyObjectInstance>
 where
     F: FnMut(&str) -> Option<String>,
 {
@@ -635,7 +645,7 @@ where
         .map(|logic| logic.params.clone())
         .unwrap_or_default();
 
-    Some(LoadedObjectInstance {
+    Some(LoadedLegacyObjectInstance {
         instance_ref: use_name.to_string(),
         object_value,
         native_logic_behavior,
@@ -732,6 +742,8 @@ mod tests {
     };
     use crate::compile::{CutsceneCompileFilter, CutsceneCompileFrame, CutsceneFilterRegistry};
     use engine_core::scene::Sprite;
+    use serde_yaml::Value;
+    use std::cell::RefCell;
 
     #[test]
     fn compiles_alternate_scene_yaml_keys_into_runtime_scene() {
@@ -761,6 +773,7 @@ objects:
 "#;
         let object_raw = r#"
 name: sample-object
+kind: object
 exports:
   label: DEFAULT
 sprites:
@@ -1524,6 +1537,445 @@ sprites:
             Sprite::Text { content, .. } => assert_eq!(content, "LAYER"),
             _ => panic!("expected text sprite"),
         }
+    }
+
+    #[test]
+    fn preserves_runtime_objects_while_legacy_objects_still_lower() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+runtime-objects:
+  - name: runtime-root
+    kind: runtime-object
+    transform:
+      space: 2d
+      x: 1
+      y: 2
+layers: []
+objects:
+  - ref: sample-object
+    as: legacy-layer
+next: null
+"#;
+        let object_raw = r#"
+name: sample-object
+sprites:
+  - type: text
+    content: "LEGACY"
+"#;
+
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/sample-object.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+
+        assert_eq!(scene.runtime_objects.len(), 1);
+        assert_eq!(scene.runtime_objects[0].name, "runtime-root");
+        assert_eq!(
+            scene.runtime_objects[0].kind.as_deref(),
+            Some("runtime-object")
+        );
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].name, "legacy-layer");
+    }
+
+    #[test]
+    fn preserves_prefab_first_runtime_objects_with_aliases_and_typed_families() {
+        let scene_raw = r#"
+id: runtime-object-prefab-first
+title: Runtime Object Prefab First
+runtime-objects:
+  - name: player-root
+    ref: /prefabs/player.runtime.yml
+    transform:
+      space: 3d
+      translation: [1.0, 2.0, 3.0]
+    with:
+      gameplay:
+        seat: pilot
+      components:
+        linear_motor_3d:
+          space: ReferenceFrame
+          accel: 18
+    components:
+      reference_frame:
+        mode: LocalHorizon
+        body_id: earth
+      linear_motor_3d:
+        space: ReferenceFrame
+        accel: 24
+      camera_rig:
+        preset: cockpit
+      celestial_binding:
+        body_id: earth
+    children:
+      - name: cockpit
+        use: /prefabs/cockpit.runtime.yml
+        transform:
+          space: 2d
+          x: 5
+          y: 6
+        with:
+          slot: gunner
+          components:
+            follow_anchor_3d:
+              local_offset: [1, 2, 3]
+layers: []
+next: null
+"#;
+
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
+
+        assert_eq!(scene.runtime_objects.len(), 1);
+        let root = &scene.runtime_objects[0];
+        assert_eq!(root.prefab.as_deref(), Some("/prefabs/player.runtime.yml"));
+        assert_eq!(
+            root.overrides
+                .get("gameplay")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("seat".to_string())))
+                .and_then(Value::as_str),
+            Some("pilot")
+        );
+        assert!(root.components.contains_key("reference-frame"));
+        assert!(root.components.contains_key("linear-motor-3d"));
+        assert!(root.components.contains_key("camera-rig"));
+        assert!(root.components.contains_key("celestial-binding"));
+        assert_eq!(
+            root.overrides
+                .get("components")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("linear-motor-3d".to_string())))
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("accel".to_string())))
+                .and_then(Value::as_f64),
+            Some(18.0)
+        );
+        assert_eq!(root.children.len(), 1);
+        assert_eq!(
+            root.children[0].prefab.as_deref(),
+            Some("/prefabs/cockpit.runtime.yml")
+        );
+        assert_eq!(
+            root.children[0]
+                .overrides
+                .get("slot")
+                .and_then(Value::as_str),
+            Some("gunner")
+        );
+        assert!(root.children[0]
+            .overrides
+            .get("components")
+            .and_then(Value::as_mapping)
+            .is_some_and(|map| map.contains_key(Value::String("follow-anchor-3d".to_string()))));
+    }
+
+    #[test]
+    fn preserves_runtime_object_subtrees_and_pass_through_payload_from_runtime_objects_alias() {
+        let scene_raw = r#"
+id: runtime-object-subtree
+title: Runtime Object Subtree
+runtime_objects:
+  - name: carrier-root
+    kind: runtime-object
+    prefab: /prefabs/carrier.runtime.yml
+    preset: carrier-default
+    transform:
+      space: 3d
+      translation: [10.0, 20.0, 30.0]
+      rotation-deg: [0.0, 90.0, 0.0]
+    overrides:
+      metadata:
+        role: carrier
+        slots:
+          - bridge
+          - escort
+      components:
+        extra_data:
+          role: command
+    components:
+      reference_frame:
+        mode: LocalHorizon
+        body_id: earth
+      extra_data:
+        faction: fleet
+    children:
+      - name: cockpit
+        ref: /prefabs/cockpit.runtime.yml
+        transform:
+          space: 3d
+          translation: [1.0, 2.0, -3.0]
+        with:
+          seat: pilot
+          components:
+            follow_anchor_3d:
+              local_offset: [1, 2, -3]
+        children:
+          - name: marker
+            prefab: /prefabs/marker.runtime.yml
+            transform:
+              space: 2d
+              x: 4
+              y: 5
+            overrides:
+              note: keep-me
+layers: []
+next: null
+"#;
+
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
+
+        assert_eq!(scene.runtime_objects.len(), 1);
+        let root = &scene.runtime_objects[0];
+        assert_eq!(root.prefab.as_deref(), Some("/prefabs/carrier.runtime.yml"));
+        assert_eq!(root.preset.as_deref(), Some("carrier-default"));
+        assert!(matches!(
+            root.transform,
+            engine_core::scene::model::RuntimeObjectTransform::ThreeD { .. }
+        ));
+        assert_eq!(
+            root.overrides
+                .get("metadata")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("role".to_string())))
+                .and_then(Value::as_str),
+            Some("carrier")
+        );
+        assert_eq!(
+            root.components
+                .get("extra-data")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("faction".to_string())))
+                .and_then(Value::as_str),
+            Some("fleet")
+        );
+        assert_eq!(root.children.len(), 1);
+        let cockpit = &root.children[0];
+        assert_eq!(
+            cockpit.prefab.as_deref(),
+            Some("/prefabs/cockpit.runtime.yml")
+        );
+        assert_eq!(
+            cockpit.overrides.get("seat").and_then(Value::as_str),
+            Some("pilot")
+        );
+        assert!(cockpit
+            .overrides
+            .get("components")
+            .and_then(Value::as_mapping)
+            .is_some_and(|map| map.contains_key(Value::String("follow-anchor-3d".to_string()))));
+        assert_eq!(cockpit.children.len(), 1);
+        let marker = &cockpit.children[0];
+        assert_eq!(
+            marker.prefab.as_deref(),
+            Some("/prefabs/marker.runtime.yml")
+        );
+        assert_eq!(
+            marker.overrides.get("note").and_then(Value::as_str),
+            Some("keep-me")
+        );
+    }
+
+    #[test]
+    fn preserves_runtime_object_bridge_payload_alongside_multiple_legacy_object_instances() {
+        let scene_raw = r#"
+id: runtime-object-legacy-mix
+title: Runtime Object Legacy Mix
+runtime-objects:
+  - name: bridge-root
+    prefab: /prefabs/bridge.runtime.yml
+    transform:
+      space: 2d
+      x: 3
+      y: 4
+    overrides:
+      ui:
+        panel: nav
+objects:
+  - ref: sample-object
+    as: first-legacy
+  - ref: sample-object
+    as: second-legacy
+layers: []
+next: null
+"#;
+        let object_raw = r#"
+name: sample-object
+sprites:
+  - type: text
+    content: "LEGACY"
+"#;
+
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/sample-object.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+
+        assert_eq!(scene.runtime_objects.len(), 1);
+        assert_eq!(
+            scene.runtime_objects[0].prefab.as_deref(),
+            Some("/prefabs/bridge.runtime.yml")
+        );
+        assert_eq!(
+            scene.runtime_objects[0]
+                .overrides
+                .get("ui")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("panel".to_string())))
+                .and_then(Value::as_str),
+            Some("nav")
+        );
+        assert_eq!(scene.layers.len(), 2);
+        assert_eq!(scene.layers[0].name, "first-legacy");
+        assert_eq!(scene.layers[1].name, "second-legacy");
+    }
+
+    #[test]
+    fn preserves_runtime_object_child_lifecycle_bridge_payload_for_future_owner_propagation() {
+        let scene_raw = r#"
+id: runtime-object-lifecycle-bridge
+title: Runtime Object Lifecycle Bridge
+runtime-objects:
+  - name: carrier-root
+    prefab: /prefabs/carrier.runtime.yml
+    transform:
+      space: 3d
+    components:
+      lifecycle: Persistent
+    children:
+      - name: escort
+        prefab: /prefabs/drone.runtime.yml
+        transform:
+          space: 3d
+          translation: [1, 0, 0]
+        overrides:
+          inherit_owner_lifecycle: true
+        components:
+          lifecycle: FollowOwner
+      - name: wake-fx
+        prefab: /prefabs/fx.runtime.yml
+        transform:
+          space: 2d
+          x: 0
+          y: 1
+        with:
+          ttl_ms: 250
+          components:
+            lifecycle: TtlFollowOwner
+            extra_data:
+              slot: trail
+layers: []
+next: null
+"#;
+
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
+
+        assert_eq!(scene.runtime_objects.len(), 1);
+        let root = &scene.runtime_objects[0];
+        assert_eq!(
+            root.components.get("lifecycle").and_then(Value::as_str),
+            Some("Persistent")
+        );
+        assert_eq!(root.children.len(), 2);
+
+        let escort = &root.children[0];
+        assert_eq!(escort.prefab.as_deref(), Some("/prefabs/drone.runtime.yml"));
+        assert_eq!(
+            escort.components.get("lifecycle").and_then(Value::as_str),
+            Some("FollowOwner")
+        );
+        assert_eq!(
+            escort
+                .overrides
+                .get("inherit_owner_lifecycle")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+
+        let wake_fx = &root.children[1];
+        assert_eq!(wake_fx.prefab.as_deref(), Some("/prefabs/fx.runtime.yml"));
+        assert_eq!(
+            wake_fx.overrides.get("ttl_ms").and_then(Value::as_i64),
+            Some(250)
+        );
+        assert_eq!(
+            wake_fx
+                .overrides
+                .get("components")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("lifecycle".to_string())))
+                .and_then(Value::as_str),
+            Some("TtlFollowOwner")
+        );
+        assert_eq!(
+            wake_fx
+                .overrides
+                .get("components")
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("extra-data".to_string())))
+                .and_then(Value::as_mapping)
+                .and_then(|map| map.get(Value::String("slot".to_string())))
+                .and_then(Value::as_str),
+            Some("trail")
+        );
+    }
+
+    #[test]
+    fn runtime_object_prefab_refs_do_not_hit_legacy_object_loader() {
+        let scene_raw = r#"
+id: runtime-object-loader-boundary
+title: Runtime Object Loader Boundary
+runtime-objects:
+  - name: carrier-root
+    prefab: /prefabs/carrier.runtime.yml
+    transform:
+      space: 3d
+    children:
+      - name: cockpit
+        ref: /prefabs/cockpit.runtime.yml
+        transform:
+          space: 2d
+          x: 1
+          y: 2
+objects:
+  - ref: sample-object
+    as: legacy-layer
+layers: []
+next: null
+"#;
+        let object_raw = r#"
+name: sample-object
+sprites:
+  - type: text
+    content: "LEGACY"
+"#;
+        let requested_paths = RefCell::new(Vec::<String>::new());
+
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            requested_paths.borrow_mut().push(path.to_string());
+            if path == "/objects/sample-object.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+
+        let requested = requested_paths.into_inner();
+        assert_eq!(scene.runtime_objects.len(), 1);
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(requested, vec!["/objects/sample-object.yml".to_string()]);
     }
 
     #[test]

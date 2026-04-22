@@ -1,13 +1,14 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
-# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-menu
-title: Playground Menu
+title: BASE-01 Playground Menu
 virtual-size-override: 640x360
 bg: black
+render-space: 2d
+world-model: planar-2d
+controller-defaults:
+  ui-preset: playground-menu
 layers:
   - ref: main
-# Playground entry scene.
-# This file is meant as the clearest onboarding example for explicit menu authoring before `menu:` sugar exists.
 stages:
   on_enter:
     steps:
@@ -21,9 +22,8 @@ stages:
     steps:
       - { effects: [{ name: fade-out, duration: 300 }] }
 next: playground-3d-scene
-# `to` is the concise authored alias; the compiler normalizes it to the legacy routing fields.
 menu-options:
-  - { key: "1", label: 3D SCENE, to: playground-3d-scene }
+  - { key: "1", label: BASE-02 3D SCENE, to: playground-3d-scene }
   - { key: "2", label: STOP ANIMATION, to: playground-stop-animation }
   - { key: "3", label: DECORATION SHOWCASE, to: playground-decoration-showcase }
   - {
@@ -35,5 +35,21 @@ menu-options:
   - { key: "6", label: LAYOUT LAB, to: playground-layout-lab }
   - { key: "shift+6", label: CRT-TEST, to: playground-crt-test }
   - { key: "7", label: RHAI LAB, to: playground-rhai-lab }
+  - { key: "8", label: CAN-01 PLANAR 2D, to: playground-world-model-planar }
+  - {
+      key: "9",
+      label: CAN-02 EUCLIDEAN 3D,
+      to: playground-world-model-euclidean,
+    }
+  - {
+      key: "shift+8",
+      label: CAN-03 CELESTIAL 3D,
+      to: playground-world-model-celestial,
+    }
+  - {
+      key: "shift+9",
+      label: SCN-04 CONTRACT MAP,
+      to: playground-world-model-contracts,
+    }
   - { key: "shift+7", label: AUDIO DEMO, to: playground-audio-demo }
   - { key: "0", label: EXIT, to: playground-exit }

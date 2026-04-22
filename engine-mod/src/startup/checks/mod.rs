@@ -1,6 +1,7 @@
 //! Built-in startup checks — re-exports all concrete [`StartupCheck`](super::check::StartupCheck) implementations.
 
 mod action_map;
+mod architecture_snapshot;
 mod asset_utils;
 mod audio_sequencer;
 mod catalogs;
@@ -12,6 +13,7 @@ mod image_assets;
 mod level_config;
 mod palettes;
 mod rhai_scripts;
+mod scene_controller_defaults;
 mod scene_graph;
 pub use action_map::ActionMapCheck;
 pub use audio_sequencer::AudioSequencerCheck;
@@ -24,4 +26,5 @@ pub use image_assets::ImageAssetsCheck;
 pub use level_config::LevelConfigCheck;
 pub use palettes::PalettesCheck;
 pub use rhai_scripts::RhaiScriptsCheck;
+pub use scene_controller_defaults::SceneControllerDefaultsCheck;
 pub use scene_graph::SceneGraphCheck;

@@ -1,5 +1,33 @@
-import "generator/presets" as presets;
 import "std/flight_handoff" as flight_handoff;
+import "std/planet_spec" as planet_spec;
+
+fn apply_flight_planet_defaults(local) {
+    let spec = planet_spec::snapshot(local);
+    spec["seed"] = 2701.0;
+    spec["mscale"] = 7.5;
+    spec["mstr"] = 0.22;
+    spec["mroct"] = 5.0;
+    spec["disp"] = 0.0022;
+    spec["ambient"] = 0.09;
+    spec["sunaz"] = 224.0;
+    spec["sunel"] = 34.0;
+    spec["atmo_density"] = 0.62;
+    spec["atmo_height"] = 0.17;
+    spec["atmo_forward_scatter"] = 0.84;
+    spec["atmo_absorption"] = 0.10;
+    spec["atmo_rayleigh_falloff"] = 0.20;
+    spec["atmo_haze_amount"] = 0.34;
+    spec["atmo_haze_falloff"] = 0.52;
+    spec["planet_radius_real_km"] = 6371.0;
+    spec["planet_radius_scale_divisor"] = 1.0;
+    spec["surface_gravity_mps2"] = 9.81;
+    spec["atmo_top_km"] = 80.0;
+    spec["atmo_dense_start_km"] = 12.0;
+    spec["atmo_drag_max"] = 1.6;
+    spec["rotspeed"] = 0.0;
+    spec["subdiv"] = 64.0;
+    planet_spec::apply_snapshot(local, spec)
+}
 
 fn ensure_initialized(local, persist) {
     local = local ?? #{};
@@ -7,12 +35,8 @@ fn ensure_initialized(local, persist) {
         return local;
     }
 
-    local = presets::apply_choice(local, 0);
-
     local.model_mode = 1;
     local.rotation_paused = true;
-    local.rotspeed = 0.0;
-    local.subdiv = 64.0;
     local.render_push_throttle_ms = 0.0;
     local.push_ready = false;
     local.push_dirty = true;
@@ -22,28 +46,7 @@ fn ensure_initialized(local, persist) {
     // preview sphere. Flight mode still needs restrained relief so the camera
     // and spawn point stay sane, but the previous values ended up looking
     // almost flat from orbital altitude.
-    local.seed = 2701.0;
-    local.mscale = 7.5;
-    local.mstr = 0.22;
-    local.mroct = 5.0;
-    local.disp = 0.0022;
-    local.ambient = 0.09;
-    local.sunaz = 224.0;
-    local.sunel = 34.0;
-    local.atmo_density = 0.62;
-    local.atmo_height = 0.17;
-    local.atmo_forward_scatter = 0.84;
-    local.atmo_absorption = 0.10;
-    local.atmo_rayleigh_falloff = 0.20;
-    local.atmo_haze_amount = 0.34;
-    local.atmo_haze_falloff = 0.52;
-
-    local.planet_radius_real_km = 6371.0;
-    local.planet_radius_scale_divisor = 1.0;
-    local.surface_gravity_mps2 = 9.81;
-    local.atmo_top_km = 80.0;
-    local.atmo_dense_start_km = 12.0;
-    local.atmo_drag_max = 1.6;
+    local = apply_flight_planet_defaults(local);
 
     local.camera_mode = "cockpit";
     local.ship_seeded = false;

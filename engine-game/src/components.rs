@@ -18,6 +18,22 @@ pub struct Transform2D {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Transform3D {
+    pub position: [f32; 3],
+    /// Quaternion in `[x, y, z, w]` order.
+    pub orientation: [f32; 4],
+}
+
+impl Default for Transform3D {
+    fn default() -> Self {
+        Self {
+            position: [0.0, 0.0, 0.0],
+            orientation: [0.0, 0.0, 0.0, 1.0],
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PhysicsBody2D {
     pub vx: f32,
     pub vy: f32,
@@ -52,6 +68,115 @@ impl Default for PhysicsBody2D {
             max_speed: 0.0,
             mass: 1.0,
             restitution: 0.7,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PhysicsBody3D {
+    pub linear_velocity: [f32; 3],
+    pub linear_accel: [f32; 3],
+    pub angular_velocity: [f32; 3],
+    pub angular_accel: [f32; 3],
+    pub linear_drag: f32,
+    pub angular_drag: f32,
+    pub max_linear_speed: f32,
+    pub max_angular_speed: f32,
+    pub mass: f32,
+    pub restitution: f32,
+}
+
+impl Default for PhysicsBody3D {
+    fn default() -> Self {
+        Self {
+            linear_velocity: [0.0, 0.0, 0.0],
+            linear_accel: [0.0, 0.0, 0.0],
+            angular_velocity: [0.0, 0.0, 0.0],
+            angular_accel: [0.0, 0.0, 0.0],
+            linear_drag: 0.0,
+            angular_drag: 0.0,
+            max_linear_speed: 0.0,
+            max_angular_speed: 0.0,
+            mass: 1.0,
+            restitution: 0.7,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SpatialKind {
+    #[default]
+    TwoD,
+    ThreeD,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct ControlIntent3D {
+    pub move_local: [f32; 3],
+    pub look_local: [f32; 3],
+    pub aim_world: Option<[f32; 3]>,
+    pub throttle: f32,
+    pub boost: bool,
+    pub brake: bool,
+    pub jump: bool,
+    pub primary: bool,
+    pub secondary: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ReferenceFrameMode {
+    #[default]
+    World,
+    ParentEntity,
+    CelestialBody,
+    LocalHorizon,
+    Orbital,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReferenceFrameBinding3D {
+    pub mode: ReferenceFrameMode,
+    pub entity_id: Option<u64>,
+    pub body_id: Option<String>,
+    pub inherit_linear_velocity: bool,
+    pub inherit_angular_velocity: bool,
+}
+
+impl Default for ReferenceFrameBinding3D {
+    fn default() -> Self {
+        Self {
+            mode: ReferenceFrameMode::World,
+            entity_id: None,
+            body_id: None,
+            inherit_linear_velocity: false,
+            inherit_angular_velocity: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ReferenceFrameState3D {
+    pub origin: [f32; 3],
+    pub basis_right: [f32; 3],
+    pub basis_up: [f32; 3],
+    pub basis_forward: [f32; 3],
+    pub carrier_linear_velocity: [f32; 3],
+    pub carrier_angular_velocity: [f32; 3],
+    pub surface_normal: [f32; 3],
+    pub altitude_km: f32,
+}
+
+impl Default for ReferenceFrameState3D {
+    fn default() -> Self {
+        Self {
+            origin: [0.0, 0.0, 0.0],
+            basis_right: [1.0, 0.0, 0.0],
+            basis_up: [0.0, 1.0, 0.0],
+            basis_forward: [0.0, 0.0, 1.0],
+            carrier_linear_velocity: [0.0, 0.0, 0.0],
+            carrier_angular_velocity: [0.0, 0.0, 0.0],
+            surface_normal: [0.0, 1.0, 0.0],
+            altitude_km: 0.0,
         }
     }
 }
@@ -250,6 +375,428 @@ impl Default for FollowAnchor2D {
             local_y: 0.0,
             inherit_heading: true,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FollowAnchor3D {
+    pub local_offset: [f32; 3],
+    pub inherit_orientation: bool,
+}
+
+impl Default for FollowAnchor3D {
+    fn default() -> Self {
+        Self {
+            local_offset: [0.0, 0.0, 0.0],
+            inherit_orientation: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum MotorSpace {
+    #[default]
+    Local,
+    World,
+    ReferenceFrame,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum AngularMotorMode {
+    #[default]
+    Rate,
+    Torque,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum CharacterUpMode {
+    #[default]
+    WorldUp,
+    SurfaceNormal,
+    ReferenceFrameUp,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LinearMotor3D {
+    pub space: MotorSpace,
+    pub accel: f32,
+    pub decel: f32,
+    pub max_speed: f32,
+    pub boost_scale: f32,
+    pub air_control: f32,
+}
+
+impl Default for LinearMotor3D {
+    fn default() -> Self {
+        Self {
+            space: MotorSpace::Local,
+            accel: 0.0,
+            decel: 0.0,
+            max_speed: 0.0,
+            boost_scale: 1.0,
+            air_control: 1.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AngularMotor3D {
+    pub mode: AngularMotorMode,
+    pub yaw_rate: f32,
+    pub pitch_rate: f32,
+    pub roll_rate: f32,
+    pub torque_scale: f32,
+    pub look_sensitivity: f32,
+}
+
+impl Default for AngularMotor3D {
+    fn default() -> Self {
+        Self {
+            mode: AngularMotorMode::Rate,
+            yaw_rate: 0.0,
+            pitch_rate: 0.0,
+            roll_rate: 0.0,
+            torque_scale: 1.0,
+            look_sensitivity: 1.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CharacterMotor3D {
+    pub up_mode: CharacterUpMode,
+    pub jump_speed: f32,
+    pub stick_to_ground: bool,
+    pub max_slope_deg: f32,
+}
+
+impl Default for CharacterMotor3D {
+    fn default() -> Self {
+        Self {
+            up_mode: CharacterUpMode::WorldUp,
+            jump_speed: 0.0,
+            stick_to_ground: false,
+            max_slope_deg: 45.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FlightMotor3D {
+    pub translational_dofs: [bool; 3],
+    pub rotational_dofs: [bool; 3],
+    pub horizon_lock_strength: f32,
+}
+
+impl Default for FlightMotor3D {
+    fn default() -> Self {
+        Self {
+            translational_dofs: [true, true, true],
+            rotational_dofs: [true, true, true],
+            horizon_lock_strength: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ComponentBundle3D {
+    pub transform: Option<Transform3D>,
+    pub physics: Option<PhysicsBody3D>,
+    pub control_intent: Option<ControlIntent3D>,
+    pub reference_frame: Option<ReferenceFrameBinding3D>,
+    pub reference_frame_state: Option<ReferenceFrameState3D>,
+    pub follow_anchor: Option<FollowAnchor3D>,
+    pub linear_motor: Option<LinearMotor3D>,
+    pub angular_motor: Option<AngularMotor3D>,
+    pub character_motor: Option<CharacterMotor3D>,
+    pub flight_motor: Option<FlightMotor3D>,
+}
+
+impl ComponentBundle3D {
+    pub fn is_empty(&self) -> bool {
+        self.transform.is_none()
+            && self.physics.is_none()
+            && self.control_intent.is_none()
+            && self.reference_frame.is_none()
+            && self.reference_frame_state.is_none()
+            && self.follow_anchor.is_none()
+            && self.linear_motor.is_none()
+            && self.angular_motor.is_none()
+            && self.character_motor.is_none()
+            && self.flight_motor.is_none()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct SpatialBundle3D {
+    pub transform: Option<Transform3D>,
+    pub physics: Option<PhysicsBody3D>,
+}
+
+impl SpatialBundle3D {
+    pub fn is_empty(&self) -> bool {
+        self.transform.is_none() && self.physics.is_none()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ControlBundle3D {
+    pub control_intent: Option<ControlIntent3D>,
+    pub reference_frame: Option<ReferenceFrameBinding3D>,
+    pub reference_frame_state: Option<ReferenceFrameState3D>,
+}
+
+impl ControlBundle3D {
+    pub fn is_empty(&self) -> bool {
+        self.control_intent.is_none()
+            && self.reference_frame.is_none()
+            && self.reference_frame_state.is_none()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct AttachmentBundle3D {
+    pub follow_anchor: Option<FollowAnchor3D>,
+}
+
+impl AttachmentBundle3D {
+    pub fn is_empty(&self) -> bool {
+        self.follow_anchor.is_none()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct MotorBundle3D {
+    pub linear_motor: Option<LinearMotor3D>,
+    pub angular_motor: Option<AngularMotor3D>,
+    pub character_motor: Option<CharacterMotor3D>,
+    pub flight_motor: Option<FlightMotor3D>,
+}
+
+impl MotorBundle3D {
+    pub fn is_empty(&self) -> bool {
+        self.linear_motor.is_none()
+            && self.angular_motor.is_none()
+            && self.character_motor.is_none()
+            && self.flight_motor.is_none()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Assembly3D {
+    pub spatial: SpatialBundle3D,
+    pub control: ControlBundle3D,
+    pub attachments: AttachmentBundle3D,
+    pub motors: MotorBundle3D,
+}
+
+impl Assembly3D {
+    pub fn is_empty(&self) -> bool {
+        self.spatial.is_empty()
+            && self.control.is_empty()
+            && self.attachments.is_empty()
+            && self.motors.is_empty()
+    }
+
+    pub fn with_spatial(mut self, spatial: SpatialBundle3D) -> Self {
+        self.spatial = spatial;
+        self
+    }
+
+    pub fn with_control(mut self, control: ControlBundle3D) -> Self {
+        self.control = control;
+        self
+    }
+
+    pub fn with_attachments(mut self, attachments: AttachmentBundle3D) -> Self {
+        self.attachments = attachments;
+        self
+    }
+
+    pub fn with_motors(mut self, motors: MotorBundle3D) -> Self {
+        self.motors = motors;
+        self
+    }
+
+    pub fn overlay(mut self, overlay: Self) -> Self {
+        if overlay.spatial.transform.is_some() {
+            self.spatial.transform = overlay.spatial.transform;
+        }
+        if overlay.spatial.physics.is_some() {
+            self.spatial.physics = overlay.spatial.physics;
+        }
+        if overlay.control.control_intent.is_some() {
+            self.control.control_intent = overlay.control.control_intent;
+        }
+        if overlay.control.reference_frame.is_some() {
+            self.control.reference_frame = overlay.control.reference_frame;
+        }
+        if overlay.control.reference_frame_state.is_some() {
+            self.control.reference_frame_state = overlay.control.reference_frame_state;
+        }
+        if overlay.attachments.follow_anchor.is_some() {
+            self.attachments.follow_anchor = overlay.attachments.follow_anchor;
+        }
+        if overlay.motors.linear_motor.is_some() {
+            self.motors.linear_motor = overlay.motors.linear_motor;
+        }
+        if overlay.motors.angular_motor.is_some() {
+            self.motors.angular_motor = overlay.motors.angular_motor;
+        }
+        if overlay.motors.character_motor.is_some() {
+            self.motors.character_motor = overlay.motors.character_motor;
+        }
+        if overlay.motors.flight_motor.is_some() {
+            self.motors.flight_motor = overlay.motors.flight_motor;
+        }
+        self
+    }
+}
+
+impl From<ComponentBundle3D> for Assembly3D {
+    fn from(value: ComponentBundle3D) -> Self {
+        Self {
+            spatial: SpatialBundle3D {
+                transform: value.transform,
+                physics: value.physics,
+            },
+            control: ControlBundle3D {
+                control_intent: value.control_intent,
+                reference_frame: value.reference_frame,
+                reference_frame_state: value.reference_frame_state,
+            },
+            attachments: AttachmentBundle3D {
+                follow_anchor: value.follow_anchor,
+            },
+            motors: MotorBundle3D {
+                linear_motor: value.linear_motor,
+                angular_motor: value.angular_motor,
+                character_motor: value.character_motor,
+                flight_motor: value.flight_motor,
+            },
+        }
+    }
+}
+
+impl ComponentBundle3D {
+    /// Lower a flat component bundle into the grouped 3D assembly shape.
+    #[inline]
+    pub fn into_assembly(self) -> Assembly3D {
+        self.into()
+    }
+}
+
+impl From<Assembly3D> for ComponentBundle3D {
+    fn from(value: Assembly3D) -> Self {
+        Self {
+            transform: value.spatial.transform,
+            physics: value.spatial.physics,
+            control_intent: value.control.control_intent,
+            reference_frame: value.control.reference_frame,
+            reference_frame_state: value.control.reference_frame_state,
+            follow_anchor: value.attachments.follow_anchor,
+            linear_motor: value.motors.linear_motor,
+            angular_motor: value.motors.angular_motor,
+            character_motor: value.motors.character_motor,
+            flight_motor: value.motors.flight_motor,
+        }
+    }
+}
+
+impl Assembly3D {
+    /// Lift a grouped 3D assembly back into the flat component bundle shape.
+    #[inline]
+    pub fn into_bundle(self) -> ComponentBundle3D {
+        self.into()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct BootstrapPreset3D {
+    pub components: ComponentBundle3D,
+    pub controlled: bool,
+    pub owner_id: Option<u64>,
+    pub inherit_owner_lifecycle: bool,
+    pub lifecycle: Option<LifecyclePolicy>,
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct BootstrapAssembly3D {
+    pub assembly: Assembly3D,
+    pub controlled: bool,
+    pub owner_id: Option<u64>,
+    pub inherit_owner_lifecycle: bool,
+    pub lifecycle: Option<LifecyclePolicy>,
+}
+
+impl From<BootstrapPreset3D> for BootstrapAssembly3D {
+    fn from(value: BootstrapPreset3D) -> Self {
+        Self {
+            assembly: value.components.into(),
+            controlled: value.controlled,
+            owner_id: value.owner_id,
+            inherit_owner_lifecycle: value.inherit_owner_lifecycle,
+            lifecycle: value.lifecycle,
+        }
+    }
+}
+
+impl BootstrapPreset3D {
+    /// Lower a prefab-style preset into the grouped bootstrap assembly shape.
+    #[inline]
+    pub fn into_bootstrap_assembly(self) -> BootstrapAssembly3D {
+        self.into()
+    }
+}
+
+impl From<BootstrapAssembly3D> for BootstrapPreset3D {
+    fn from(value: BootstrapAssembly3D) -> Self {
+        Self {
+            components: value.assembly.into(),
+            controlled: value.controlled,
+            owner_id: value.owner_id,
+            inherit_owner_lifecycle: value.inherit_owner_lifecycle,
+            lifecycle: value.lifecycle,
+        }
+    }
+}
+
+impl BootstrapAssembly3D {
+    /// Returns true when the bootstrap carries no assembly, ownership, or lifecycle work.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.assembly.is_empty()
+            && !self.controlled
+            && self.owner_id.is_none()
+            && !self.inherit_owner_lifecycle
+            && self.lifecycle.is_none()
+    }
+
+    /// Lift the grouped bootstrap shape back into the prefab-style preset shape.
+    #[inline]
+    pub fn into_bootstrap_preset(self) -> BootstrapPreset3D {
+        self.into()
+    }
+
+    /// Attach an explicit generic gameplay lifecycle policy to the bootstrap.
+    #[inline]
+    pub fn with_lifecycle(mut self, lifecycle: LifecyclePolicy) -> Self {
+        self.lifecycle = Some(lifecycle);
+        self
+    }
+
+    /// Attach an owner link to the bootstrap for child/runtime-object lowering.
+    #[inline]
+    pub fn with_owner(mut self, owner_id: u64) -> Self {
+        self.owner_id = Some(owner_id);
+        self
+    }
+
+    /// Mark whether the bootstrap should inherit the resolved owner lifecycle.
+    #[inline]
+    pub fn with_inherited_owner_lifecycle(mut self, inherit_owner_lifecycle: bool) -> Self {
+        self.inherit_owner_lifecycle = inherit_owner_lifecycle;
+        self
     }
 }
 

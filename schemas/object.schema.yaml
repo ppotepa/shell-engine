@@ -2,9 +2,12 @@
 $id: "https://shell-engine.local/schemas/object.schema.yaml"
 title: Object Schema
 description: >
-  Defines a reusable object/prefab blueprint that scenes can instantiate via the objects[] list.
-  Instances reference this file by path using `ref`, override exported parameters via `with`,
-  assign a scene-local id via `as`, seed runtime state via `state`, and attach role tags via `tags`.
+  Defines a reusable object/prefab blueprint that scenes can still lower through
+  the legacy `objects[]` path. Instances reference this file by path using `ref`,
+  override exported parameters via `with`, assign a scene-local id via `as`,
+  seed runtime state via `state`, and attach role tags via `tags`.
+  Runtime-object vNext graphs use `runtime-object.schema.yaml` instead of this
+  legacy object surface.
 type: object
 additionalProperties: false
 required:
@@ -12,12 +15,12 @@ required:
 properties:
   kind:
     type: string
-    enum: [object]
+    const: object
     description: Optional explicit document kind marker.
   name:
     type: string
     minLength: 1
-    description: Unique object name used by scene `objects[].use`.
+    description: Unique object name used by scene `objects[].ref`/`use`.
   exports:
     type: object
     default: {}
@@ -31,7 +34,7 @@ properties:
   logic:
     type: object
     additionalProperties: false
-    description: Optional behavior/script binding for object code-behind.
+    description: Optional behavior/script binding preserved on the legacy object surface.
     properties:
       type:
         type: string

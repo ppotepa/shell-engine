@@ -1,0 +1,1436 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-engine.local/mods/qwack-3d-celestial/schemas/scenes.yaml
+title: schema qwack-3d-celestial scenes
+$defs:
+  step_overlay:
+    type: object
+    properties:
+      effects:
+        type: array
+        items:
+          $ref: ./effects.yaml#/items
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/step
+  stage_overlay:
+    type: object
+    properties:
+      steps:
+        type: array
+        items:
+          $ref: '#/$defs/step_overlay'
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/stage
+  scene_stages_overlay:
+    type: object
+    additionalProperties: false
+    properties:
+      on_enter:
+        $ref: '#/$defs/stage_overlay'
+      on_idle:
+        $ref: '#/$defs/stage_overlay'
+      on_leave:
+        $ref: '#/$defs/stage_overlay'
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_stages
+  lifecycle_stages_overlay:
+    type: object
+    additionalProperties: false
+    properties:
+      on_enter:
+        $ref: '#/$defs/stage_overlay'
+      on_idle:
+        $ref: '#/$defs/stage_overlay'
+      on_leave:
+        $ref: '#/$defs/stage_overlay'
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer_stages
+  sprite_overlay:
+    type: object
+    properties:
+      use:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/template_names
+        - type: string
+          minLength: 1
+      args:
+        type: object
+        default: {}
+        additionalProperties: true
+      source:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/image_paths
+        - $ref: ./catalog.yaml#/$defs/model_paths
+        - type: string
+          minLength: 1
+      src:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/scene3d_paths
+        - type: string
+          minLength: 1
+      font:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/font_specs
+        - type: string
+          minLength: 1
+        - type: 'null'
+      stages:
+        $ref: '#/$defs/lifecycle_stages_overlay'
+      behaviors:
+        type: array
+        items:
+          $ref: '#/$defs/behavior_overlay'
+      children:
+        type: array
+        items:
+          $ref: '#/$defs/sprite_overlay'
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/sprite
+  behavior_overlay:
+    oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: blink
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to blink
+            visible_ms:
+              type: integer
+              description: Milliseconds visible per cycle
+              default: 250.0
+              minimum: 0.0
+              multipleOf: 10.0
+            hidden_ms:
+              type: integer
+              description: Milliseconds hidden per cycle
+              default: 250.0
+              minimum: 0.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for the blink cycle
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+      required:
+      - name
+      title: blink behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: bob
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to bob
+            amplitude_x:
+              type: integer
+              description: Horizontal oscillation amplitude
+              default: 0.0
+              multipleOf: 1.0
+            amplitude_y:
+              type: integer
+              description: Vertical oscillation amplitude
+              default: 1.0
+              multipleOf: 1.0
+            period_ms:
+              type: integer
+              description: Full oscillation cycle duration
+              default: 2000.0
+              minimum: 1.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for wave phase
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+      required:
+      - name
+      title: bob behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: follow
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to follow
+            amplitude_x:
+              type: integer
+              description: Horizontal offset from the followed sprite
+              default: 0.0
+              multipleOf: 1.0
+            amplitude_y:
+              type: integer
+              description: Vertical offset from the followed sprite
+              default: 0.0
+              multipleOf: 1.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - target
+      required:
+      - name
+      title: follow behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: menu-carousel
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Container or sprite ID used as the center anchor
+            index:
+              type: integer
+              description: Menu option index represented by this sprite
+              minimum: 0.0
+              multipleOf: 1.0
+            count:
+              type: integer
+              description: Total option count override (defaults to scene menu options)
+              minimum: 1.0
+              multipleOf: 1.0
+            window:
+              type: integer
+              description: Visible option window size around selected item
+              default: 5.0
+              minimum: 1.0
+              multipleOf: 1.0
+            step_y:
+              type: integer
+              description: Vertical spacing between neighboring options
+              default: 2.0
+              minimum: 1.0
+              multipleOf: 1.0
+            endless:
+              type: boolean
+              description: Wrap list when navigating past first/last option
+              default: 'true'
+              enum:
+              - 'true'
+              - 'false'
+          required:
+          - target
+          - index
+      required:
+      - name
+      title: menu-carousel behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: menu-selected
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            index:
+              type: integer
+              description: Menu option index this behavior tracks
+              minimum: 0.0
+              multipleOf: 1.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - index
+      required:
+      - name
+      title: menu-selected behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: menu-carousel-object
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Container ID used as the center anchor
+            item_prefix:
+              type: string
+              description: Prefix for menu item aliases (supports {} placeholder)
+              default: menu-item-
+            count:
+              type: integer
+              description: Total option count override (defaults to scene menu options)
+              minimum: 1.0
+              multipleOf: 1.0
+            window:
+              type: integer
+              description: Visible option window size around selected item
+              default: 5.0
+              minimum: 1.0
+              multipleOf: 1.0
+            step_y:
+              type: integer
+              description: Minimum vertical spacing between neighboring options
+              default: 2.0
+              minimum: 1.0
+              multipleOf: 1.0
+            endless:
+              type: boolean
+              description: Wrap list when navigating past first/last option
+              default: 'true'
+              enum:
+              - 'true'
+              - 'false'
+          required:
+          - target
+      required:
+      - name
+      title: menu-carousel-object behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: rhai-script
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            src:
+              type: string
+              description: Script source path (for diagnostics/introspection).
+            script:
+              type: string
+              description: Embedded Rhai script body.
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Primary target alias (script-defined semantics).
+            item_prefix:
+              type: string
+              description: Optional item alias prefix used by scripts.
+              default: menu-item-
+            count:
+              type: integer
+              description: Optional item count hint for scripts.
+              minimum: 1.0
+              multipleOf: 1.0
+            window:
+              type: integer
+              description: Optional visible window hint for scripts.
+              default: 5.0
+              minimum: 1.0
+              multipleOf: 1.0
+            step_y:
+              type: integer
+              description: Optional spacing hint for scripts.
+              default: 2.0
+              minimum: 1.0
+              multipleOf: 1.0
+            endless:
+              type: boolean
+              description: Optional endless-wrap hint for scripts.
+              default: 'true'
+              enum:
+              - 'true'
+              - 'false'
+          required:
+          - script
+      required:
+      - name
+      title: rhai-script behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: selected-arrows
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID that the arrow should flank
+            index:
+              type: integer
+              description: Menu option index this arrow tracks
+              minimum: 0.0
+              multipleOf: 1.0
+            side:
+              type: string
+              description: Which side the arrow appears on
+              default: left
+              enum:
+              - left
+              - right
+            padding:
+              type: integer
+              description: Cell padding from target sprite edge
+              default: 1.0
+              multipleOf: 1.0
+            amplitude_x:
+              type: integer
+              description: Horizontal sway amplitude of the arrow
+              default: 1.0
+              multipleOf: 1.0
+            period_ms:
+              type: integer
+              description: Full sway cycle duration
+              default: 900.0
+              minimum: 1.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for sway phase
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            autoscale_height:
+              type: boolean
+              description: Expand horizontal anchor distance by target item height
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - target
+          - index
+      required:
+      - name
+      title: selected-arrows behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: stage-visibility
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to control visibility
+            stages:
+              type: array
+              description: Scene stages when sprite is visible
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - stages
+      required:
+      - name
+      title: stage-visibility behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: timed-visibility
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to control visibility
+            time_scope:
+              type: string
+              description: Whether times are scene-relative or stage-relative
+              default: scene
+              enum:
+              - scene
+              - stage
+            start_ms:
+              type: integer
+              description: When sprite becomes visible
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            end_ms:
+              type: integer
+              description: When sprite becomes hidden
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+      required:
+      - name
+      title: timed-visibility behavior overlay
+  scene_logic_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/properties/logic
+    - type: object
+      properties:
+        behavior:
+          anyOf:
+          - type: string
+            enum:
+            - blink
+            - bob
+            - follow
+            - menu-carousel
+            - menu-selected
+            - menu-carousel-object
+            - rhai-script
+            - selected-arrows
+            - stage-visibility
+            - timed-visibility
+          - type: string
+            minLength: 1
+        src:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/yaml_paths
+          - type: string
+            minLength: 1
+      allOf:
+      - if:
+          properties:
+            behavior:
+              const: blink
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Sprite ID to blink
+                visible_ms:
+                  type: integer
+                  description: Milliseconds visible per cycle
+                  default: 250.0
+                  minimum: 0.0
+                  multipleOf: 10.0
+                hidden_ms:
+                  type: integer
+                  description: Milliseconds hidden per cycle
+                  default: 250.0
+                  minimum: 0.0
+                  multipleOf: 10.0
+                phase_ms:
+                  type: integer
+                  description: Time offset for the blink cycle
+                  default: 0.0
+                  minimum: 0.0
+                  multipleOf: 10.0
+                stages:
+                  type: array
+                  description: Scene stages when behavior is active
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+      - if:
+          properties:
+            behavior:
+              const: bob
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Sprite ID to bob
+                amplitude_x:
+                  type: integer
+                  description: Horizontal oscillation amplitude
+                  default: 0.0
+                  multipleOf: 1.0
+                amplitude_y:
+                  type: integer
+                  description: Vertical oscillation amplitude
+                  default: 1.0
+                  multipleOf: 1.0
+                period_ms:
+                  type: integer
+                  description: Full oscillation cycle duration
+                  default: 2000.0
+                  minimum: 1.0
+                  multipleOf: 10.0
+                phase_ms:
+                  type: integer
+                  description: Time offset for wave phase
+                  default: 0.0
+                  minimum: 0.0
+                  multipleOf: 10.0
+                stages:
+                  type: array
+                  description: Scene stages when behavior is active
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+      - if:
+          properties:
+            behavior:
+              const: follow
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Sprite ID to follow
+                amplitude_x:
+                  type: integer
+                  description: Horizontal offset from the followed sprite
+                  default: 0.0
+                  multipleOf: 1.0
+                amplitude_y:
+                  type: integer
+                  description: Vertical offset from the followed sprite
+                  default: 0.0
+                  multipleOf: 1.0
+                stages:
+                  type: array
+                  description: Scene stages when behavior is active
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+              required:
+              - target
+      - if:
+          properties:
+            behavior:
+              const: menu-carousel
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Container or sprite ID used as the center anchor
+                index:
+                  type: integer
+                  description: Menu option index represented by this sprite
+                  minimum: 0.0
+                  multipleOf: 1.0
+                count:
+                  type: integer
+                  description: Total option count override (defaults to scene menu options)
+                  minimum: 1.0
+                  multipleOf: 1.0
+                window:
+                  type: integer
+                  description: Visible option window size around selected item
+                  default: 5.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                step_y:
+                  type: integer
+                  description: Vertical spacing between neighboring options
+                  default: 2.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                endless:
+                  type: boolean
+                  description: Wrap list when navigating past first/last option
+                  default: 'true'
+                  enum:
+                  - 'true'
+                  - 'false'
+              required:
+              - target
+              - index
+      - if:
+          properties:
+            behavior:
+              const: menu-selected
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                index:
+                  type: integer
+                  description: Menu option index this behavior tracks
+                  minimum: 0.0
+                  multipleOf: 1.0
+                stages:
+                  type: array
+                  description: Scene stages when behavior is active
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+              required:
+              - index
+      - if:
+          properties:
+            behavior:
+              const: menu-carousel-object
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Container ID used as the center anchor
+                item_prefix:
+                  type: string
+                  description: Prefix for menu item aliases (supports {} placeholder)
+                  default: menu-item-
+                count:
+                  type: integer
+                  description: Total option count override (defaults to scene menu options)
+                  minimum: 1.0
+                  multipleOf: 1.0
+                window:
+                  type: integer
+                  description: Visible option window size around selected item
+                  default: 5.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                step_y:
+                  type: integer
+                  description: Minimum vertical spacing between neighboring options
+                  default: 2.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                endless:
+                  type: boolean
+                  description: Wrap list when navigating past first/last option
+                  default: 'true'
+                  enum:
+                  - 'true'
+                  - 'false'
+              required:
+              - target
+      - if:
+          properties:
+            behavior:
+              const: rhai-script
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                src:
+                  type: string
+                  description: Script source path (for diagnostics/introspection).
+                script:
+                  type: string
+                  description: Embedded Rhai script body.
+                target:
+                  type: string
+                  description: Primary target alias (script-defined semantics).
+                item_prefix:
+                  type: string
+                  description: Optional item alias prefix used by scripts.
+                  default: menu-item-
+                count:
+                  type: integer
+                  description: Optional item count hint for scripts.
+                  minimum: 1.0
+                  multipleOf: 1.0
+                window:
+                  type: integer
+                  description: Optional visible window hint for scripts.
+                  default: 5.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                step_y:
+                  type: integer
+                  description: Optional spacing hint for scripts.
+                  default: 2.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                endless:
+                  type: boolean
+                  description: Optional endless-wrap hint for scripts.
+                  default: 'true'
+                  enum:
+                  - 'true'
+                  - 'false'
+              required:
+              - script
+      - if:
+          properties:
+            behavior:
+              const: selected-arrows
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Sprite ID that the arrow should flank
+                index:
+                  type: integer
+                  description: Menu option index this arrow tracks
+                  minimum: 0.0
+                  multipleOf: 1.0
+                side:
+                  type: string
+                  description: Which side the arrow appears on
+                  default: left
+                  enum:
+                  - left
+                  - right
+                padding:
+                  type: integer
+                  description: Cell padding from target sprite edge
+                  default: 1.0
+                  multipleOf: 1.0
+                amplitude_x:
+                  type: integer
+                  description: Horizontal sway amplitude of the arrow
+                  default: 1.0
+                  multipleOf: 1.0
+                period_ms:
+                  type: integer
+                  description: Full sway cycle duration
+                  default: 900.0
+                  minimum: 1.0
+                  multipleOf: 10.0
+                phase_ms:
+                  type: integer
+                  description: Time offset for sway phase
+                  default: 0.0
+                  minimum: 0.0
+                  multipleOf: 10.0
+                autoscale_height:
+                  type: boolean
+                  description: Expand horizontal anchor distance by target item height
+                stages:
+                  type: array
+                  description: Scene stages when behavior is active
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+              required:
+              - target
+              - index
+      - if:
+          properties:
+            behavior:
+              const: stage-visibility
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Sprite ID to control visibility
+                stages:
+                  type: array
+                  description: Scene stages when sprite is visible
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+              required:
+              - stages
+      - if:
+          properties:
+            behavior:
+              const: timed-visibility
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Sprite ID to control visibility
+                time_scope:
+                  type: string
+                  description: Whether times are scene-relative or stage-relative
+                  default: scene
+                  enum:
+                  - scene
+                  - stage
+                start_ms:
+                  type: integer
+                  description: When sprite becomes visible
+                  default: 0.0
+                  minimum: 0.0
+                  multipleOf: 10.0
+                end_ms:
+                  type: integer
+                  description: When sprite becomes hidden
+                  minimum: 0.0
+                  multipleOf: 10.0
+                stages:
+                  type: array
+                  description: Scene stages when behavior is active
+                  items:
+                    type: string
+                    enum:
+                    - on-enter
+                    - enter
+                    - on-idle
+                    - idle
+                    - on-leave
+                    - leave
+                    - done
+  layer_overlay:
+    type: object
+    properties:
+      stages:
+        $ref: '#/$defs/lifecycle_stages_overlay'
+      behaviors:
+        type: array
+        items:
+          $ref: '#/$defs/behavior_overlay'
+      objects:
+        items:
+          type: object
+          properties:
+            use:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/object_refs
+              - type: string
+                minLength: 1
+            ref:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/object_refs
+              - type: string
+                minLength: 1
+      sprites:
+        type: array
+        items:
+          $ref: '#/$defs/sprite_overlay'
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer
+  layer_ref_instance_overlay:
+    type: object
+    properties:
+      use:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/layer_refs
+        - type: string
+          minLength: 1
+      ref:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/layer_refs
+        - type: string
+          minLength: 1
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer_ref_instance
+allOf:
+- $ref: ../../../schemas/scene.schema.yaml
+- type: object
+  allOf:
+  - if:
+      required:
+      - cutscene-ref
+    then:
+      properties:
+        cutscene-ref:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/cutscene_refs
+          - type: string
+            minLength: 1
+  - if:
+      required:
+      - cutscene_ref
+    then:
+      properties:
+        cutscene_ref:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/cutscene_refs
+          - type: string
+            minLength: 1
+  - if:
+      required:
+      - next
+    then:
+      properties:
+        next:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/scene_refs
+          - type: string
+            minLength: 1
+          - type: 'null'
+  - if:
+      required:
+      - menu-options
+    then:
+      properties:
+        menu-options:
+          items:
+            type: object
+            properties:
+              next:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              scene:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              to:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+  - if:
+      required:
+      - menu_options
+    then:
+      properties:
+        menu_options:
+          items:
+            type: object
+            properties:
+              next:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              scene:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              to:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+  - if:
+      required:
+      - objects
+    then:
+      properties:
+        objects:
+          items:
+            type: object
+            properties:
+              use:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/object_refs
+                - type: string
+                  minLength: 1
+              ref:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/object_refs
+                - type: string
+                  minLength: 1
+  - if:
+      required:
+      - runtime-objects
+    then:
+      properties:
+        runtime-objects:
+          type: array
+          items:
+            $ref: ../../../schemas/runtime-object.schema.yaml
+  - if:
+      required:
+      - runtime_objects
+    then:
+      properties:
+        runtime_objects:
+          type: array
+          items:
+            $ref: ../../../schemas/runtime-object.schema.yaml
+  - if:
+      required:
+      - camera-rig
+    then:
+      properties:
+        camera-rig:
+          type: object
+          properties:
+            preset:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_controller_defaults/properties/camera-preset
+            surface:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_camera_surface
+            obj-viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            free-look-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            orbit-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+          patternProperties:
+            ^obj_viewer$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            ^free_look_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            ^orbit_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+  - if:
+      required:
+      - camera_rig
+    then:
+      properties:
+        camera_rig:
+          type: object
+          properties:
+            preset:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_controller_defaults/properties/camera-preset
+            surface:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_camera_surface
+            obj-viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            free-look-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            orbit-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+          patternProperties:
+            ^obj_viewer$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            ^free_look_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            ^orbit_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+  - if:
+      required:
+      - input
+    then:
+      properties:
+        input:
+          type: object
+          properties:
+            obj-viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            obj_viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            free-look-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            free_look_camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            orbit-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+            orbit_camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+  - if:
+      required:
+      - controller-defaults
+    then:
+      properties:
+        controller-defaults:
+          type: object
+          properties:
+            camera-preset:
+              type: string
+              minLength: 1
+            player-preset:
+              type: string
+              minLength: 1
+            ui-preset:
+              type: string
+              minLength: 1
+            spawn-preset:
+              type: string
+              minLength: 1
+            gravity-preset:
+              type: string
+              minLength: 1
+            surface-preset:
+              type: string
+              minLength: 1
+            camera_preset:
+              type: string
+              minLength: 1
+            player_preset:
+              type: string
+              minLength: 1
+            ui_preset:
+              type: string
+              minLength: 1
+            spawn_preset:
+              type: string
+              minLength: 1
+            gravity_preset:
+              type: string
+              minLength: 1
+            surface_preset:
+              type: string
+              minLength: 1
+  - if:
+      required:
+      - controller_defaults
+    then:
+      properties:
+        controller_defaults:
+          type: object
+          properties:
+            camera-preset:
+              type: string
+              minLength: 1
+            player-preset:
+              type: string
+              minLength: 1
+            ui-preset:
+              type: string
+              minLength: 1
+            spawn-preset:
+              type: string
+              minLength: 1
+            gravity-preset:
+              type: string
+              minLength: 1
+            surface-preset:
+              type: string
+              minLength: 1
+            camera_preset:
+              type: string
+              minLength: 1
+            player_preset:
+              type: string
+              minLength: 1
+            ui_preset:
+              type: string
+              minLength: 1
+            spawn_preset:
+              type: string
+              minLength: 1
+            gravity_preset:
+              type: string
+              minLength: 1
+            surface_preset:
+              type: string
+              minLength: 1
+  - if:
+      required:
+      - behaviors
+    then:
+      properties:
+        behaviors:
+          type: array
+          items:
+            $ref: '#/$defs/behavior_overlay'
+  - if:
+      required:
+      - logic
+    then:
+      properties:
+        logic:
+          $ref: '#/$defs/scene_logic_overlay'
+  - if:
+      required:
+      - layers
+    then:
+      properties:
+        layers:
+          type: array
+          items:
+            anyOf:
+            - $ref: '#/$defs/layer_overlay'
+            - $ref: '#/$defs/layer_ref_instance_overlay'
+  - if:
+      required:
+      - templates
+    then:
+      properties:
+        templates:
+          type: object
+          additionalProperties:
+            $ref: '#/$defs/sprite_overlay'
+  - if:
+      required:
+      - stages
+    then:
+      properties:
+        stages:
+          $ref: '#/$defs/scene_stages_overlay'
+  - if:
+      required:
+      - effect-presets
+    then:
+      properties:
+        effect-presets:
+          type: object
+          additionalProperties:
+            $ref: ./effects.yaml#/items
+  - if:
+      required:
+      - effect_presets
+    then:
+      properties:
+        effect_presets:
+          type: object
+          additionalProperties:
+            $ref: ./effects.yaml#/items
+  - if:
+      required:
+      - effect-presets-ref
+    then:
+      properties:
+        effect-presets-ref:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/effect_refs
+          - type: string
+            minLength: 1
+  - if:
+      required:
+      - effect_presets_ref
+    then:
+      properties:
+        effect_presets_ref:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/effect_refs
+          - type: string
+            minLength: 1
+  - if:
+      required:
+      - postfx
+    then:
+      properties:
+        postfx:
+          type: array
+          items:
+            $ref: ./effects.yaml#/items

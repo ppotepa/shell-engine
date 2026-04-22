@@ -1,7 +1,7 @@
 use engine_api::scene::{
-    Camera3dMutationRequest, Camera3dObjectViewState, Render3dMutationDomain,
-    Render3dMutationRequest, Render3dProfileSlot as RequestProfileSlot, SceneMutationError,
-    SceneMutationRequest,
+    Camera3dMutationRequest, Camera3dNormalizedMutation, Camera3dObjectViewState,
+    Render3dMutationDomain, Render3dMutationRequest, Render3dProfileSlot as RequestProfileSlot,
+    SceneMutationError, SceneMutationRequest,
 };
 use engine_core::render_types::{Camera3DState, MaterialValue, Transform3D};
 use engine_core::scene_runtime_types::SceneCamera3D;
@@ -145,37 +145,19 @@ fn camera3d_mutation_from_request_result(
     request: &Camera3dMutationRequest,
     current_camera_3d: SceneCamera3D,
 ) -> Result<SceneMutation, SceneMutationError> {
-    match request {
-        Camera3dMutationRequest::LookAt { .. } | Camera3dMutationRequest::Up { .. } => Ok(
-            SceneMutation::SetCamera3D(camera3d_state_from_request(request, current_camera_3d)),
-        ),
-        Camera3dMutationRequest::ObjectLookAt {
-            target,
-            eye,
-            look_at,
-            up,
-        } => Ok(SceneMutation::SetRender3D(
+    match request.normalized(current_camera_3d) {
+        Camera3dNormalizedMutation::Scene(camera) => {
+            Ok(SceneMutation::SetCamera3D(Camera3DState {
+                eye: camera.eye,
+                look_at: camera.look_at,
+                up: camera.up,
+                fov_deg: camera.fov_degrees,
+            }))
+        }
+        Camera3dNormalizedMutation::Object { target, view } => Ok(SceneMutation::SetRender3D(
             Render3DMutation::SetGroupedParams {
-                target: Some(target.clone()),
-                params: object_camera_grouped_params(Camera3dObjectViewState::from_look_at(
-                    *eye,
-                    *look_at,
-                    up.unwrap_or([0.0, 1.0, 0.0]),
-                )),
-            },
-        )),
-        Camera3dMutationRequest::ObjectBasis {
-            target,
-            eye,
-            right,
-            up,
-            forward,
-        } => Ok(SceneMutation::SetRender3D(
-            Render3DMutation::SetGroupedParams {
-                target: Some(target.clone()),
-                params: object_camera_grouped_params(Camera3dObjectViewState::from_basis(
-                    *eye, *right, *up, *forward,
-                )),
+                target: Some(target),
+                params: object_camera_grouped_params(view),
             },
         )),
     }
@@ -185,24 +167,20 @@ pub fn camera3d_state_from_request(
     request: &Camera3dMutationRequest,
     current_camera_3d: SceneCamera3D,
 ) -> Camera3DState {
-    let mut camera = Camera3DState {
-        eye: current_camera_3d.eye,
-        look_at: current_camera_3d.look_at,
-        up: current_camera_3d.up,
-        fov_deg: current_camera_3d.fov_degrees,
-    };
-    match request {
-        Camera3dMutationRequest::LookAt { eye, look_at } => {
-            camera.eye = *eye;
-            camera.look_at = *look_at;
-        }
-        Camera3dMutationRequest::Up { up } => {
-            camera.up = *up;
-        }
-        Camera3dMutationRequest::ObjectLookAt { .. }
-        | Camera3dMutationRequest::ObjectBasis { .. } => {}
+    match request.normalized(current_camera_3d) {
+        Camera3dNormalizedMutation::Scene(camera) => Camera3DState {
+            eye: camera.eye,
+            look_at: camera.look_at,
+            up: camera.up,
+            fov_deg: camera.fov_degrees,
+        },
+        Camera3dNormalizedMutation::Object { .. } => Camera3DState {
+            eye: current_camera_3d.eye,
+            look_at: current_camera_3d.look_at,
+            up: current_camera_3d.up,
+            fov_deg: current_camera_3d.fov_degrees,
+        },
     }
-    camera
 }
 
 fn object_camera_grouped_params(

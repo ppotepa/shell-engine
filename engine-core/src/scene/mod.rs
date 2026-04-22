@@ -50,7 +50,8 @@ pub use ui_theme::{
 };
 pub use view_profile::{
     builtin_lighting_profile, builtin_space_environment_profile, builtin_view_profile,
+    environment_policy_renders_space_environment, environment_policy_uses_environment_background,
     merge_lighting_profile, merge_space_environment_profile, resolve_scene_view_profile,
-    LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile, TonemapOperator, ViewProfile,
-    ViewProfileOverrides,
+    LightingProfile, ResolvedViewProfile, SpaceEnvironmentProfile, TonemapOperator,
+    ViewEnvironmentPolicy, ViewProfile, ViewProfileOverrides,
 };

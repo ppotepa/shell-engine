@@ -1170,6 +1170,74 @@ allOf:
                   minLength: 1
   - if:
       required:
+      - runtime-objects
+    then:
+      properties:
+        runtime-objects:
+          type: array
+          items:
+            $ref: ../../../schemas/runtime-object.schema.yaml
+  - if:
+      required:
+      - runtime_objects
+    then:
+      properties:
+        runtime_objects:
+          type: array
+          items:
+            $ref: ../../../schemas/runtime-object.schema.yaml
+  - if:
+      required:
+      - camera-rig
+    then:
+      properties:
+        camera-rig:
+          type: object
+          properties:
+            preset:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_controller_defaults/properties/camera-preset
+            surface:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_camera_surface
+            obj-viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            free-look-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            orbit-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+          patternProperties:
+            ^obj_viewer$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            ^free_look_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            ^orbit_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+  - if:
+      required:
+      - camera_rig
+    then:
+      properties:
+        camera_rig:
+          type: object
+          properties:
+            preset:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_controller_defaults/properties/camera-preset
+            surface:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_camera_surface
+            obj-viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            free-look-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            orbit-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+          patternProperties:
+            ^obj_viewer$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            ^free_look_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            ^orbit_camera$:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+  - if:
+      required:
       - input
     then:
       properties:
@@ -1177,13 +1245,105 @@ allOf:
           type: object
           properties:
             obj-viewer:
-              properties:
-                sprite_id:
-                  anyOf:
-                  - $ref: ./catalog.yaml#/$defs/sprite_ids
-                  - type: string
-                    minLength: 1
-            free-look-camera: {}
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            obj_viewer:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/obj_viewer_controls
+            free-look-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            free_look_camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/free_look_camera_controls
+            orbit-camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+            orbit_camera:
+              $ref: ../../../schemas/scene.schema.yaml#/$defs/orbit_camera_controls
+  - if:
+      required:
+      - controller-defaults
+    then:
+      properties:
+        controller-defaults:
+          type: object
+          properties:
+            camera-preset:
+              type: string
+              minLength: 1
+            player-preset:
+              type: string
+              minLength: 1
+            ui-preset:
+              type: string
+              minLength: 1
+            spawn-preset:
+              type: string
+              minLength: 1
+            gravity-preset:
+              type: string
+              minLength: 1
+            surface-preset:
+              type: string
+              minLength: 1
+            camera_preset:
+              type: string
+              minLength: 1
+            player_preset:
+              type: string
+              minLength: 1
+            ui_preset:
+              type: string
+              minLength: 1
+            spawn_preset:
+              type: string
+              minLength: 1
+            gravity_preset:
+              type: string
+              minLength: 1
+            surface_preset:
+              type: string
+              minLength: 1
+  - if:
+      required:
+      - controller_defaults
+    then:
+      properties:
+        controller_defaults:
+          type: object
+          properties:
+            camera-preset:
+              type: string
+              minLength: 1
+            player-preset:
+              type: string
+              minLength: 1
+            ui-preset:
+              type: string
+              minLength: 1
+            spawn-preset:
+              type: string
+              minLength: 1
+            gravity-preset:
+              type: string
+              minLength: 1
+            surface-preset:
+              type: string
+              minLength: 1
+            camera_preset:
+              type: string
+              minLength: 1
+            player_preset:
+              type: string
+              minLength: 1
+            ui_preset:
+              type: string
+              minLength: 1
+            spawn_preset:
+              type: string
+              minLength: 1
+            gravity_preset:
+              type: string
+              minLength: 1
+            surface_preset:
+              type: string
+              minLength: 1
   - if:
       required:
       - behaviors

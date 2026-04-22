@@ -758,6 +758,94 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         },
     );
     engine.register_fn(
+        "body_pose",
+        |world: &mut ScriptGameplayApi, id: &str, elapsed_sec: rhai::FLOAT| {
+            world.body_pose(id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
+        "world.body_pose",
+        |world: &mut ScriptGameplayApi, id: &str, elapsed_sec: rhai::FLOAT| {
+            world.body_pose(id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
+        "body_surface",
+        |world: &mut ScriptGameplayApi,
+         body_id: &str,
+         latitude_deg: rhai::FLOAT,
+         longitude_deg: rhai::FLOAT,
+         altitude_world: rhai::FLOAT,
+         elapsed_sec: rhai::FLOAT| {
+            world.body_surface(
+                body_id,
+                latitude_deg,
+                longitude_deg,
+                altitude_world,
+                elapsed_sec,
+            )
+        },
+    );
+    engine.register_fn(
+        "world.body_surface",
+        |world: &mut ScriptGameplayApi,
+         body_id: &str,
+         latitude_deg: rhai::FLOAT,
+         longitude_deg: rhai::FLOAT,
+         altitude_world: rhai::FLOAT,
+         elapsed_sec: rhai::FLOAT| {
+            world.body_surface(
+                body_id,
+                latitude_deg,
+                longitude_deg,
+                altitude_world,
+                elapsed_sec,
+            )
+        },
+    );
+    engine.register_fn(
+        "body_frame",
+        |world: &mut ScriptGameplayApi,
+         body_id: &str,
+         x: rhai::FLOAT,
+         y: rhai::FLOAT,
+         z: rhai::FLOAT,
+         elapsed_sec: rhai::FLOAT| { world.body_frame(body_id, x, y, z, elapsed_sec) },
+    );
+    engine.register_fn(
+        "world.body_frame",
+        |world: &mut ScriptGameplayApi,
+         body_id: &str,
+         x: rhai::FLOAT,
+         y: rhai::FLOAT,
+         z: rhai::FLOAT,
+         elapsed_sec: rhai::FLOAT| { world.body_frame(body_id, x, y, z, elapsed_sec) },
+    );
+    engine.register_fn(
+        "site_pose",
+        |world: &mut ScriptGameplayApi, site_id: &str, elapsed_sec: rhai::FLOAT| {
+            world.site_pose(site_id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
+        "world.site_pose",
+        |world: &mut ScriptGameplayApi, site_id: &str, elapsed_sec: rhai::FLOAT| {
+            world.site_pose(site_id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
+        "system_query",
+        |world: &mut ScriptGameplayApi, system_id: &str, elapsed_sec: rhai::FLOAT| {
+            world.system_query(system_id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
+        "world.system_query",
+        |world: &mut ScriptGameplayApi, system_id: &str, elapsed_sec: rhai::FLOAT| {
+            world.system_query(system_id, elapsed_sec)
+        },
+    );
+    engine.register_fn(
         "planet_type_info",
         |world: &mut ScriptGameplayApi, id: &str| world.planet_type_info(id),
     );
@@ -799,6 +887,24 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
          x: rhai::FLOAT,
          y: rhai::FLOAT,
          z: rhai::FLOAT| { world.body_gravity(body_id, x, y, z) },
+    );
+    engine.register_fn(
+        "body_atmosphere",
+        |world: &mut ScriptGameplayApi,
+         body_id: &str,
+         x: rhai::FLOAT,
+         y: rhai::FLOAT,
+         z: rhai::FLOAT,
+         elapsed_sec: rhai::FLOAT| { world.body_atmosphere(body_id, x, y, z, elapsed_sec) },
+    );
+    engine.register_fn(
+        "world.body_atmosphere",
+        |world: &mut ScriptGameplayApi,
+         body_id: &str,
+         x: rhai::FLOAT,
+         y: rhai::FLOAT,
+         z: rhai::FLOAT,
+         elapsed_sec: rhai::FLOAT| { world.body_atmosphere(body_id, x, y, z, elapsed_sec) },
     );
     engine.register_fn(
         "atmosphere_attach",

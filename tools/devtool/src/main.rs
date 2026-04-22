@@ -1,8 +1,9 @@
-﻿mod cli;
+mod cli;
 mod edit;
 mod fs_utils;
 mod scaffold;
 mod schema;
+mod snapshot;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -15,6 +16,7 @@ use scaffold::{
     create_sprite_scaffold,
 };
 use schema::sync_fragment_for_mod;
+use snapshot::write_snapshot;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -105,6 +107,9 @@ fn main() -> Result<()> {
                 }
             }
         },
+        Command::Snapshot(args) => {
+            write_snapshot(&repo_root, &args)?;
+        }
     }
 
     Ok(())

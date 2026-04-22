@@ -1,0 +1,8 @@
+regions:
+  playground-local:
+    kind: sector
+    display-name: Playground Local
+    children: [playground-celestial-system]
+    map-position:
+      x: 0.0
+      y: 0.0

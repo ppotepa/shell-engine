@@ -7,7 +7,6 @@ display:
   min_width: 379
   min_height: 109
   default_font: "generic:2"
-  # Compatibility exception: playground keeps output-tracking so resize-sensitive
-  # lab scenes can still exercise the live output path intentionally.
+  # Intentional output-tracking so resize-sensitive lab scenes can exercise the live output path.
   world_render_size: match-output
   presentation_policy: fit

@@ -15,6 +15,12 @@ pub use engine_celestial::{
 pub struct ModCatalogs {
     pub input_profiles: HashMap<String, InputProfile>,
     pub prefabs: HashMap<String, PrefabTemplate>,
+    /// Named runtime policy presets referenced from scene `controller-defaults`.
+    #[serde(default)]
+    pub presets: CatalogPresets,
+    /// Reusable non-instantiated data blobs referenced by prefabs/scenes.
+    #[serde(default)]
+    pub specs: HashMap<String, CatalogSpec>,
     pub weapons: HashMap<String, WeaponConfig>,
     pub emitters: HashMap<String, EmitterConfig>,
     pub groups: HashMap<String, GroupTemplate>,
@@ -30,12 +36,76 @@ pub struct InputProfile {
     pub bindings: HashMap<String, Vec<String>>,
 }
 
+fn merge_yaml_values(base: serde_yaml::Value, overlay: serde_yaml::Value) -> serde_yaml::Value {
+    match (base, overlay) {
+        (serde_yaml::Value::Mapping(mut base_map), serde_yaml::Value::Mapping(overlay_map)) => {
+            for (key, overlay_value) in overlay_map {
+                let merged_value = match base_map.get(&key).cloned() {
+                    Some(base_value) => merge_yaml_values(base_value, overlay_value),
+                    None => overlay_value,
+                };
+                base_map.insert(key, merged_value);
+            }
+            serde_yaml::Value::Mapping(base_map)
+        }
+        (_, overlay_value) => overlay_value,
+    }
+}
+
+fn resolve_prefab_yaml(
+    name: &str,
+    raw_prefabs: &HashMap<String, serde_yaml::Value>,
+    cache: &mut HashMap<String, serde_yaml::Value>,
+    stack: &mut Vec<String>,
+) -> Result<serde_yaml::Value, String> {
+    if let Some(value) = cache.get(name) {
+        return Ok(value.clone());
+    }
+
+    if stack.iter().any(|entry| entry == name) {
+        let mut chain = stack.join(" -> ");
+        if !chain.is_empty() {
+            chain.push_str(" -> ");
+        }
+        chain.push_str(name);
+        return Err(format!("Prefab inheritance cycle detected: {chain}"));
+    }
+
+    let Some(raw_value) = raw_prefabs.get(name) else {
+        return Err(format!("Prefab '{name}' references missing prefab"));
+    };
+
+    stack.push(name.to_string());
+
+    let resolved = if let Some(base_name) = raw_value.get("ref").and_then(|v| v.as_str()) {
+        let base = resolve_prefab_yaml(base_name, raw_prefabs, cache, stack)?;
+        let mut overlay = raw_value.clone();
+        if let serde_yaml::Value::Mapping(ref mut map) = overlay {
+            map.remove(&serde_yaml::Value::String("ref".to_string()));
+        }
+        merge_yaml_values(base, overlay)
+    } else {
+        raw_value.clone()
+    };
+
+    stack.pop();
+    cache.insert(name.to_string(), resolved.clone());
+    Ok(resolved)
+}
+
 /// Prefab template for entity spawning.
+///
+/// Responsibility split:
+/// - prefab = instantiable object bundle
+/// - preset = named runtime policy (camera/player/ui/spawn/etc.)
+/// - spec = reusable data/config that is not instantiated by itself
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrefabTemplate {
     pub kind: String,
     #[serde(default)]
     pub sprite_template: Option<String>,
+    #[serde(default)]
+    pub transform: Option<PrefabTransform>,
     #[serde(default)]
     pub init_fields: HashMap<String, JsonValue>,
     #[serde(default)]
@@ -50,22 +120,188 @@ pub struct PrefabTemplate {
     pub default_tags: Vec<String>,
 }
 
+/// Reusable runtime presets referenced from scene `controller-defaults`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CatalogPresets {
+    #[serde(default)]
+    pub players: HashMap<String, PlayerPreset>,
+    #[serde(default)]
+    pub cameras: HashMap<String, CameraPreset>,
+    #[serde(default)]
+    pub ui: HashMap<String, UiPreset>,
+    #[serde(default)]
+    pub spawns: HashMap<String, SpawnPreset>,
+    #[serde(default)]
+    pub gravity: HashMap<String, GravityPreset>,
+    #[serde(default)]
+    pub surfaces: HashMap<String, SurfacePreset>,
+}
+
+impl CatalogPresets {
+    pub fn player(&self, id: &str) -> Option<&PlayerPreset> {
+        self.players.get(id)
+    }
+
+    pub fn camera(&self, id: &str) -> Option<&CameraPreset> {
+        self.cameras.get(id)
+    }
+
+    pub fn ui(&self, id: &str) -> Option<&UiPreset> {
+        self.ui.get(id)
+    }
+
+    pub fn spawn(&self, id: &str) -> Option<&SpawnPreset> {
+        self.spawns.get(id)
+    }
+
+    pub fn gravity(&self, id: &str) -> Option<&GravityPreset> {
+        self.gravity.get(id)
+    }
+
+    pub fn surface(&self, id: &str) -> Option<&SurfacePreset> {
+        self.surfaces.get(id)
+    }
+}
+
+/// Reusable non-instantiated config/spec data.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CatalogSpec {
+    pub kind: String,
+    #[serde(default)]
+    pub data: HashMap<String, JsonValue>,
+}
+
+/// Author-time transform defaults for prefab placement.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PrefabTransform {
+    #[serde(default)]
+    pub x: Option<f64>,
+    #[serde(default)]
+    pub y: Option<f64>,
+    #[serde(default)]
+    pub z: Option<f64>,
+    #[serde(default)]
+    pub heading: Option<f64>,
+    #[serde(default)]
+    pub pitch: Option<f64>,
+    #[serde(default)]
+    pub roll: Option<f64>,
+    #[serde(default)]
+    pub scale_x: Option<f64>,
+    #[serde(default)]
+    pub scale_y: Option<f64>,
+    #[serde(default)]
+    pub scale_z: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlayerPreset {
+    #[serde(default)]
+    pub input_profile: Option<String>,
+    #[serde(default)]
+    pub controller: Option<ControllerComponent>,
+    #[serde(default)]
+    pub components: Option<PrefabComponents>,
+    #[serde(default)]
+    pub default_tags: Vec<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CameraPreset {
+    #[serde(default, rename = "controller-kind", alias = "controller_kind")]
+    pub controller_kind: Option<String>,
+    #[serde(default)]
+    pub target: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UiPreset {
+    #[serde(default)]
+    pub layout: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SpawnPreset {
+    #[serde(default, rename = "spawn-type", alias = "spawn_type")]
+    pub spawn_type: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GravityPreset {
+    #[serde(default, rename = "gravity-type", alias = "gravity_type")]
+    pub gravity_type: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SurfacePreset {
+    #[serde(default, rename = "surface-type", alias = "surface_type")]
+    pub surface_type: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
 /// Component specifications for data-driven prefab spawning.
 /// Allows mods to define physics, colliders, controllers, and lifecycle policies without Rust code.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PrefabComponents {
+    #[serde(default)]
+    pub render: Option<RenderComponent>,
     #[serde(default)]
     pub physics: Option<PhysicsComponent>,
     #[serde(default)]
     pub collider: Option<ColliderComponent>,
     #[serde(default)]
     pub controller: Option<ControllerComponent>,
+    #[serde(default, rename = "reference-frame", alias = "reference_frame")]
+    pub reference_frame: Option<ReferenceFrameComponent>,
+    #[serde(default, rename = "follow-anchor-3d", alias = "follow_anchor_3d")]
+    pub follow_anchor_3d: Option<FollowAnchor3DComponent>,
+    #[serde(default, rename = "linear-motor-3d", alias = "linear_motor_3d")]
+    pub linear_motor_3d: Option<LinearMotor3DComponent>,
+    #[serde(default, rename = "angular-motor-3d", alias = "angular_motor_3d")]
+    pub angular_motor_3d: Option<AngularMotor3DComponent>,
+    #[serde(default, rename = "character-motor-3d", alias = "character_motor_3d")]
+    pub character_motor_3d: Option<CharacterMotor3DComponent>,
+    #[serde(default, rename = "flight-motor-3d", alias = "flight_motor_3d")]
+    pub flight_motor_3d: Option<FlightMotor3DComponent>,
+    #[serde(default, rename = "camera-rig", alias = "camera_rig")]
+    pub camera_rig: Option<CameraRigComponent>,
+    #[serde(default)]
+    pub audio: Option<AudioComponent>,
+    #[serde(default)]
+    pub gameplay: Option<GameplayComponent>,
+    #[serde(default, rename = "celestial-binding", alias = "celestial_binding")]
+    pub celestial_binding: Option<CelestialBindingComponent>,
     #[serde(default)]
     pub lifecycle: Option<String>, // "Persistent", "Ttl", "OwnerBound", "TtlOwnerBound"
     #[serde(default)]
     pub wrappable: Option<bool>, // Enable wrap_bounds
     #[serde(default)]
     pub extra_data: Option<HashMap<String, JsonValue>>, // Additional entity fields
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RenderComponent {
+    #[serde(default)]
+    pub sprite_template: Option<String>,
+    #[serde(default)]
+    pub mesh: Option<String>,
+    #[serde(default)]
+    pub material: Option<String>,
+    #[serde(default)]
+    pub camera_source: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
 }
 
 /// Physics component: velocity, drag, max_speed.
@@ -133,6 +369,128 @@ pub struct ControllerComponent {
     pub controller_type: String, // "ArcadeController", "WaveSpawner", etc.
     #[serde(default)]
     pub config: Option<HashMap<String, JsonValue>>, // controller-specific config
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReferenceFrameComponent {
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub entity_id: Option<u64>,
+    #[serde(default)]
+    pub body_id: Option<String>,
+    #[serde(default)]
+    pub inherit_linear_velocity: Option<bool>,
+    #[serde(default)]
+    pub inherit_angular_velocity: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FollowAnchor3DComponent {
+    #[serde(default)]
+    pub local_offset: Option<[f64; 3]>,
+    #[serde(default)]
+    pub inherit_orientation: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LinearMotor3DComponent {
+    #[serde(default)]
+    pub space: Option<String>,
+    #[serde(default)]
+    pub accel: Option<f64>,
+    #[serde(default)]
+    pub decel: Option<f64>,
+    #[serde(default)]
+    pub max_speed: Option<f64>,
+    #[serde(default)]
+    pub boost_scale: Option<f64>,
+    #[serde(default)]
+    pub air_control: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AngularMotor3DComponent {
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub yaw_rate: Option<f64>,
+    #[serde(default)]
+    pub pitch_rate: Option<f64>,
+    #[serde(default)]
+    pub roll_rate: Option<f64>,
+    #[serde(default)]
+    pub torque_scale: Option<f64>,
+    #[serde(default)]
+    pub look_sensitivity: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CharacterMotor3DComponent {
+    #[serde(default)]
+    pub up_mode: Option<String>,
+    #[serde(default)]
+    pub jump_speed: Option<f64>,
+    #[serde(default)]
+    pub stick_to_ground: Option<bool>,
+    #[serde(default)]
+    pub max_slope_deg: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FlightMotor3DComponent {
+    #[serde(default)]
+    pub translational_dofs: Option<[bool; 3]>,
+    #[serde(default)]
+    pub rotational_dofs: Option<[bool; 3]>,
+    #[serde(default)]
+    pub horizon_lock_strength: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CameraRigComponent {
+    #[serde(default, rename = "rig-type", alias = "rig_type")]
+    pub rig_type: Option<String>,
+    #[serde(default)]
+    pub preset: Option<String>,
+    #[serde(default)]
+    pub target: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AudioComponent {
+    #[serde(default)]
+    pub bus: Option<String>,
+    #[serde(default)]
+    pub events: Vec<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GameplayComponent {
+    #[serde(default)]
+    pub module: Option<String>,
+    #[serde(default)]
+    pub config: HashMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CelestialBindingComponent {
+    #[serde(default)]
+    pub body_id: Option<String>,
+    #[serde(default)]
+    pub site_id: Option<String>,
+    #[serde(default)]
+    pub region_id: Option<String>,
+    #[serde(default)]
+    pub system_id: Option<String>,
+    #[serde(default)]
+    pub route_id: Option<String>,
+    #[serde(default)]
+    pub frame_mode: Option<String>,
 }
 
 /// Weapon configuration for firing.
@@ -325,6 +683,14 @@ impl ModCatalogs {
         Self::default()
     }
 
+    pub fn prefab(&self, id: &str) -> Option<&PrefabTemplate> {
+        self.prefabs.get(id)
+    }
+
+    pub fn spec(&self, id: &str) -> Option<&CatalogSpec> {
+        self.specs.get(id)
+    }
+
     /// Load catalogs from a directory (mod_source/catalogs/).
     pub fn load_from_directory(catalogs_dir: &std::path::Path) -> Result<Self, String> {
         let mut catalogs = Self::new();
@@ -357,11 +723,55 @@ impl ModCatalogs {
                 .map_err(|e| format!("Failed to parse prefabs.yaml: {}", e))?;
 
             if let Some(prefabs) = parsed.get("prefabs").and_then(|v| v.as_mapping()) {
+                let mut raw_prefabs = HashMap::new();
                 for (key, value) in prefabs.iter() {
                     if let Some(key_str) = key.as_str() {
-                        if let Ok(prefab) = serde_yaml::from_value::<PrefabTemplate>(value.clone())
-                        {
-                            catalogs.prefabs.insert(key_str.to_string(), prefab);
+                        raw_prefabs.insert(key_str.to_string(), value.clone());
+                    }
+                }
+
+                let mut resolved_prefabs = HashMap::new();
+                for key in raw_prefabs.keys().cloned().collect::<Vec<_>>() {
+                    let resolved = resolve_prefab_yaml(
+                        &key,
+                        &raw_prefabs,
+                        &mut resolved_prefabs,
+                        &mut Vec::new(),
+                    )?;
+                    let prefab = serde_yaml::from_value::<PrefabTemplate>(resolved)
+                        .map_err(|e| format!("Failed to decode prefab '{key}': {}", e))?;
+                    catalogs.prefabs.insert(key, prefab);
+                }
+            }
+        }
+
+        // Load runtime presets
+        let presets_path = catalogs_dir.join("presets.yaml");
+        if presets_path.exists() {
+            let content = std::fs::read_to_string(&presets_path)
+                .map_err(|e| format!("Failed to read presets.yaml: {}", e))?;
+            let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
+                .map_err(|e| format!("Failed to parse presets.yaml: {}", e))?;
+
+            if let Some(presets) = parsed.get("presets") {
+                catalogs.presets = serde_yaml::from_value::<CatalogPresets>(presets.clone())
+                    .map_err(|e| format!("Failed to decode presets.yaml: {}", e))?;
+            }
+        }
+
+        // Load reusable specs
+        let specs_path = catalogs_dir.join("specs.yaml");
+        if specs_path.exists() {
+            let content = std::fs::read_to_string(&specs_path)
+                .map_err(|e| format!("Failed to read specs.yaml: {}", e))?;
+            let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
+                .map_err(|e| format!("Failed to parse specs.yaml: {}", e))?;
+
+            if let Some(specs) = parsed.get("specs").and_then(|v| v.as_mapping()) {
+                for (key, value) in specs.iter() {
+                    if let Some(key_str) = key.as_str() {
+                        if let Ok(spec) = serde_yaml::from_value::<CatalogSpec>(value.clone()) {
+                            catalogs.specs.insert(key_str.to_string(), spec);
                         }
                     }
                 }
@@ -468,6 +878,7 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "vehicle".to_string(),
                 sprite_template: Some("vehicle".to_string()),
+                transform: None,
                 fg_colour: None,
                 default_tags: vec![],
                 init_fields: HashMap::new(),
@@ -496,6 +907,7 @@ impl ModCatalogs {
                     lifecycle: None,
                     wrappable: Some(true),
                     extra_data: None,
+                    ..PrefabComponents::default()
                 }),
             },
         );
@@ -506,6 +918,7 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "entity".to_string(),
                 sprite_template: Some("entity-template".to_string()),
+                transform: None,
                 fg_colour: None,
                 default_tags: vec![],
                 init_fields: HashMap::new(),
@@ -530,7 +943,17 @@ impl ModCatalogs {
                     controller: None,
                     lifecycle: None,
                     wrappable: Some(true),
-                    extra_data: None,
+                    extra_data: Some(HashMap::from([(
+                        "metadata".to_string(),
+                        json!({
+                            "family": "test-core",
+                            "canary": {
+                                "revision": 1,
+                                "enabled": true
+                            }
+                        }),
+                    )])),
+                    ..PrefabComponents::default()
                 }),
             },
         );
@@ -541,6 +964,7 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "projectile".to_string(),
                 sprite_template: Some("projectile-template".to_string()),
+                transform: None,
                 fg_colour: None,
                 default_tags: vec![],
                 init_fields: HashMap::new(),
@@ -566,6 +990,7 @@ impl ModCatalogs {
                     lifecycle: Some("Ttl".to_string()),
                     wrappable: Some(true),
                     extra_data: None,
+                    ..PrefabComponents::default()
                 }),
             },
         );
@@ -576,6 +1001,7 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "smoke".to_string(),
                 sprite_template: Some("smoke-template".to_string()),
+                transform: None,
                 fg_colour: None,
                 default_tags: vec![],
                 init_fields: HashMap::new(),
@@ -594,6 +1020,7 @@ impl ModCatalogs {
                     lifecycle: Some("Ttl".to_string()),
                     wrappable: None,
                     extra_data: None,
+                    ..PrefabComponents::default()
                 }),
             },
         );
@@ -605,12 +1032,30 @@ impl ModCatalogs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_catalog_dir(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be after unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "shell-quest-engine-behavior-{label}-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("temp catalog dir should be created");
+        dir
+    }
 
     #[test]
     fn test_empty_catalogs() {
         let catalogs = ModCatalogs::new();
         assert!(catalogs.input_profiles.is_empty());
         assert!(catalogs.prefabs.is_empty());
+        assert!(catalogs.presets.players.is_empty());
+        assert!(catalogs.specs.is_empty());
         assert!(catalogs.weapons.is_empty());
         assert!(catalogs.emitters.is_empty());
         assert!(catalogs.groups.is_empty());
@@ -654,6 +1099,291 @@ prefabs:
         assert_eq!(prefab.kind, "vehicle");
         assert_eq!(prefab.sprite_template, Some("vehicle".to_string()));
         assert!(!prefab.init_fields.is_empty());
+    }
+
+    #[test]
+    fn test_prefab_parsing_supports_extended_runtime_bundle_fields() {
+        let yaml = r#"
+prefabs:
+  cockpit:
+    kind: "cockpit"
+    sprite_template: "cockpit-panel"
+    transform:
+      z: 1.5
+      pitch: 4.0
+      scale_z: 0.9
+    components:
+      render:
+        mesh: "cockpit://sim"
+        camera_source: "scene"
+      reference-frame:
+        mode: "LocalHorizon"
+        body_id: "generated-planet"
+        inherit_linear_velocity: true
+      linear-motor-3d:
+        space: "ReferenceFrame"
+        accel: 24.0
+        max_speed: 320.0
+      angular-motor-3d:
+        mode: "Rate"
+        yaw_rate: 90.0
+        look_sensitivity: 1.4
+      character-motor-3d:
+        up_mode: "SurfaceNormal"
+        max_slope_deg: 50.0
+      flight-motor-3d:
+        translational_dofs: [true, true, true]
+        rotational_dofs: [true, true, false]
+        horizon_lock_strength: 0.2
+      camera-rig:
+        rig-type: "Cockpit"
+        preset: "cockpit-default"
+      audio:
+        bus: "sfx"
+        events: ["engine_hum"]
+      gameplay:
+        module: "player.ship"
+      celestial-binding:
+        body_id: "generated-planet"
+        site_id: "surface-spawn"
+"#;
+        let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        let prefab_val = parsed.get("prefabs").unwrap().get("cockpit").unwrap();
+        let prefab: PrefabTemplate = serde_yaml::from_value(prefab_val.clone()).unwrap();
+
+        assert_eq!(prefab.transform.as_ref().and_then(|t| t.z), Some(1.5));
+        let components = prefab.components.expect("prefab should decode components");
+        assert_eq!(
+            components
+                .render
+                .as_ref()
+                .and_then(|render| render.mesh.as_deref()),
+            Some("cockpit://sim")
+        );
+        assert_eq!(
+            components
+                .reference_frame
+                .as_ref()
+                .and_then(|frame| frame.mode.as_deref()),
+            Some("LocalHorizon")
+        );
+        assert_eq!(
+            components
+                .camera_rig
+                .as_ref()
+                .and_then(|rig| rig.rig_type.as_deref()),
+            Some("Cockpit")
+        );
+        assert_eq!(
+            components
+                .celestial_binding
+                .as_ref()
+                .and_then(|binding| binding.site_id.as_deref()),
+            Some("surface-spawn")
+        );
+    }
+
+    #[test]
+    fn test_prefab_ref_resolution_deep_merges_nested_component_fields() {
+        let dir = temp_catalog_dir("prefab-ref");
+        fs::write(
+            dir.join("prefabs.yaml"),
+            r#"
+prefabs:
+  canary-base:
+    kind: "probe"
+    sprite_template: "probe-template"
+    components:
+      extra_data:
+        profile:
+          family: "euclidean"
+          revision: 1
+          nested:
+            enabled: true
+  canary-nested:
+    ref: canary-base
+    components:
+      extra_data:
+        profile:
+          revision: 2
+          nested:
+            note: "merged"
+"#,
+        )
+        .unwrap();
+
+        let catalogs = ModCatalogs::load_from_directory(&dir).unwrap();
+        let prefab = catalogs.prefabs.get("canary-nested").unwrap();
+        assert_eq!(prefab.kind, "probe");
+        assert_eq!(prefab.sprite_template.as_deref(), Some("probe-template"));
+
+        let profile = prefab
+            .components
+            .as_ref()
+            .and_then(|components| components.extra_data.as_ref())
+            .and_then(|extra| extra.get("profile"))
+            .and_then(|value| value.as_object())
+            .unwrap();
+        assert_eq!(
+            profile.get("family").and_then(|v| v.as_str()),
+            Some("euclidean")
+        );
+        assert_eq!(profile.get("revision").and_then(|v| v.as_i64()), Some(2));
+        let nested = profile
+            .get("nested")
+            .and_then(|value| value.as_object())
+            .unwrap();
+        assert_eq!(nested.get("enabled").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(nested.get("note").and_then(|v| v.as_str()), Some("merged"));
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_preset_catalog_parsing_separates_runtime_policy_roles() {
+        let yaml = r#"
+presets:
+  players:
+    eva-6dof:
+      input_profile: "default-flight"
+      controller:
+        controller_type: "VehicleAssembly"
+      config:
+        controlled: true
+  cameras:
+    cockpit-default:
+      controller-kind: "Cockpit"
+      target: "controlled-entity"
+      config:
+        sway_lag_sec: 0.08
+  ui:
+    hud-standard:
+      layout: "hud/cockpit"
+  spawns:
+    surface-spawn:
+      spawn-type: "planet-surface"
+      config:
+        clearance_m: 6.0
+  gravity:
+    radial-body:
+      gravity-type: "radial-body"
+      config:
+        body_id: "generated-planet"
+  surfaces:
+    local-horizon:
+      surface-type: "local-horizon"
+"#;
+        let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        let presets_val = parsed.get("presets").unwrap();
+        let presets: CatalogPresets = serde_yaml::from_value(presets_val.clone()).unwrap();
+
+        assert_eq!(
+            presets
+                .player("eva-6dof")
+                .and_then(|preset| preset.input_profile.as_deref()),
+            Some("default-flight")
+        );
+        assert_eq!(
+            presets
+                .camera("cockpit-default")
+                .and_then(|preset| preset.controller_kind.as_deref()),
+            Some("Cockpit")
+        );
+        assert_eq!(
+            presets
+                .spawn("surface-spawn")
+                .and_then(|preset| preset.spawn_type.as_deref()),
+            Some("planet-surface")
+        );
+        assert_eq!(
+            presets
+                .surface("local-horizon")
+                .and_then(|preset| preset.surface_type.as_deref()),
+            Some("local-horizon")
+        );
+    }
+
+    #[test]
+    fn test_spec_catalog_parsing_supports_reusable_non_instantiated_data() {
+        let yaml = r#"
+specs:
+  cockpit-view:
+    kind: "render"
+    data:
+      fov: 42
+      glare: "thin"
+"#;
+        let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        let spec_val = parsed.get("specs").unwrap().get("cockpit-view").unwrap();
+        let spec: CatalogSpec = serde_yaml::from_value(spec_val.clone()).unwrap();
+
+        assert_eq!(spec.kind, "render");
+        assert_eq!(
+            spec.data
+                .get("glare")
+                .and_then(|value| value.as_str())
+                .unwrap(),
+            "thin"
+        );
+    }
+
+    #[test]
+    fn test_load_from_directory_reads_presets_and_specs() {
+        let dir = temp_catalog_dir("catalog-load");
+        fs::write(
+            dir.join("prefabs.yaml"),
+            r#"
+prefabs:
+  probe:
+    kind: "probe"
+    sprite_template: "probe-template"
+"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("presets.yaml"),
+            r#"
+presets:
+  cameras:
+    orbit-inspector:
+      controller-kind: "Orbit"
+      config:
+        distance: 240.0
+"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("specs.yaml"),
+            r#"
+specs:
+  probe-view:
+    kind: "render"
+    data:
+      mesh: "cockpit://probe"
+"#,
+        )
+        .unwrap();
+
+        let catalogs = ModCatalogs::load_from_directory(&dir).unwrap();
+
+        assert!(catalogs.prefabs.contains_key("probe"));
+        assert_eq!(
+            catalogs
+                .presets
+                .camera("orbit-inspector")
+                .and_then(|preset| preset.controller_kind.as_deref()),
+            Some("Orbit")
+        );
+        assert_eq!(
+            catalogs
+                .specs
+                .get("probe-view")
+                .and_then(|spec| spec.data.get("mesh"))
+                .and_then(|value| value.as_str()),
+            Some("cockpit://probe")
+        );
+
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

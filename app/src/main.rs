@@ -1,10 +1,10 @@
-﻿use clap::Parser;
+use clap::Parser;
 use engine::behavior::init_behavior_system;
 use engine::{logging, EngineConfig, ShellEngine};
 use engine_mod::startup::checks::{
     AudioSequencerCheck, CatalogsCheck, EffectRegistryCheck, FontGlyphCoverageCheck,
     FontManifestCheck, GuiWidgetBindingsCheck, ImageAssetsCheck, LevelConfigCheck,
-    RhaiScriptsCheck, SceneGraphCheck,
+    RhaiScriptsCheck, SceneControllerDefaultsCheck, SceneGraphCheck,
 };
 use engine_mod::startup::{
     StartupContext, StartupIssueLevel, StartupReport, StartupRunner, StartupSceneFile,
@@ -403,6 +403,7 @@ fn run_scene_checks(
         Box::new(SceneGraphCheck),
         Box::new(LevelConfigCheck),
         Box::new(CatalogsCheck),
+        Box::new(SceneControllerDefaultsCheck),
         Box::new(AudioSequencerCheck),
         Box::new(RhaiScriptsCheck),
         Box::new(GuiWidgetBindingsCheck),
@@ -441,8 +442,8 @@ fn print_scene_check_report(report: &StartupReport) {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_ratio_arg, resolve_dev_mode, resolve_opt_comp, resolve_opt_rowdiff,
-        resolve_startup_output, Cli,
+        output_for_scene_checks, parse_ratio_arg, resolve_dev_mode, resolve_opt_comp,
+        resolve_opt_rowdiff, Cli,
     };
     use clap::Parser;
     use engine_mod::StartupOutputSetting;

@@ -38,7 +38,7 @@ impl SceneRuntime {
     /// Clear all held keys (used on focus-loss to avoid stuck movement input).
     pub fn clear_keys_down(&mut self) {
         self.ui_state.keys_down.clear();
-        if let Some(state) = self.free_look_camera.as_mut() {
+        if let Some(state) = self.camera_director.free_look.as_mut() {
             state.held_keys.clear();
             state.last_mouse_pos = None;
         }

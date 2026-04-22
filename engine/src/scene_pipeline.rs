@@ -88,6 +88,7 @@ impl Default for ScenePipeline {
     /// on the first frame even for dynamic (non-prerendered) sprites.
     fn default() -> Self {
         Self::new(vec![
+            Box::new(crate::systems::scene_bootstrap::SceneBootstrapPreparationStep),
             #[cfg(feature = "render-3d")]
             Box::new(crate::systems::warmup::MeshWarmupStep),
             #[cfg(feature = "render-3d")]

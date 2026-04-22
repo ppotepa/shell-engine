@@ -11,6 +11,8 @@ use super::view_profile::{LightingProfile, SpaceEnvironmentProfile, ViewProfile}
 use crate::animations::AnimationParams;
 use crate::spatial::SpatialContext;
 use serde::Deserialize;
+use serde_yaml::Value;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
 pub enum SceneSpace {
@@ -19,6 +21,34 @@ pub enum SceneSpace {
     TwoD,
     #[serde(rename = "3d")]
     ThreeD,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+pub enum SceneWorldModel {
+    #[default]
+    #[serde(rename = "planar-2d")]
+    Planar2D,
+    #[serde(rename = "euclidean-3d")]
+    Euclidean3D,
+    #[serde(rename = "celestial-3d")]
+    Celestial3D,
+}
+
+#[derive(Debug, Clone, Deserialize, Default, PartialEq, Eq)]
+pub struct SceneControllerDefaults {
+    /// Default camera controller preset id for the scene.
+    #[serde(default, rename = "camera-preset", alias = "camera_preset")]
+    pub camera_preset: Option<String>,
+    #[serde(default, rename = "player-preset", alias = "player_preset")]
+    pub player_preset: Option<String>,
+    #[serde(default, rename = "ui-preset", alias = "ui_preset")]
+    pub ui_preset: Option<String>,
+    #[serde(default, rename = "spawn-preset", alias = "spawn_preset")]
+    pub spawn_preset: Option<String>,
+    #[serde(default, rename = "gravity-preset", alias = "gravity_preset")]
+    pub gravity_preset: Option<String>,
+    #[serde(default, rename = "surface-preset", alias = "surface_preset")]
+    pub surface_preset: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -441,9 +471,49 @@ pub struct SceneInput {
     #[serde(default, rename = "obj-viewer")]
     pub obj_viewer: Option<ObjViewerControls>,
     /// Optional free-look scene camera controls profile.
+    ///
+    /// Use `surface-mode: true` only for the explicit surface-locked rig that
+    /// pairs with `camera-preset: surface-free-look`.
+    ///
     #[serde(default, rename = "free-look-camera", alias = "free_look_camera")]
     pub free_look_camera: Option<FreeLookCameraControls>,
     /// Optional orbit camera controls — Ctrl+F orbits a target OBJ sprite.
+    #[serde(default, rename = "orbit-camera", alias = "orbit_camera")]
+    pub orbit_camera: Option<ObjOrbitCameraControls>,
+}
+
+/// Explicit authored camera-surface mode for scene camera rigs.
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum SceneCameraSurfaceMode {
+    #[default]
+    Free,
+    Locked,
+}
+
+/// Optional authored camera-surface contract for a scene rig.
+#[derive(Debug, Clone, Deserialize, Default, PartialEq, Eq)]
+pub struct SceneCameraSurface {
+    #[serde(default)]
+    pub mode: SceneCameraSurfaceMode,
+}
+
+/// Explicit authored camera-rig contract.
+///
+/// This is a compatibility-safe authored surface layered above the current
+/// `controller-defaults.camera-preset` + `input.*` runtime contract. Scene
+/// normalization lowers this shape into the existing fields so runtime camera
+/// behavior remains unchanged.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SceneCameraRig {
+    #[serde(default)]
+    pub preset: Option<String>,
+    #[serde(default)]
+    pub surface: Option<SceneCameraSurface>,
+    #[serde(default, rename = "obj-viewer", alias = "obj_viewer")]
+    pub obj_viewer: Option<ObjViewerControls>,
+    #[serde(default, rename = "free-look-camera", alias = "free_look_camera")]
+    pub free_look_camera: Option<FreeLookCameraControls>,
     #[serde(default, rename = "orbit-camera", alias = "orbit_camera")]
     pub orbit_camera: Option<ObjOrbitCameraControls>,
 }
@@ -731,6 +801,8 @@ pub struct FreeLookCameraControls {
     )]
     pub mouse_sensitivity: f32,
     /// Keep the camera constrained around a sphere surface and move tangentially.
+    ///
+    /// This is the explicit surface-locked variant of the free-look rig.
     #[serde(
         default = "default_free_look_surface_mode",
         rename = "surface-mode",
@@ -862,6 +934,107 @@ fn default_visible() -> bool {
     true
 }
 
+fn default_runtime_object_scale() -> f32 {
+    1.0
+}
+
+fn default_runtime_object_translation() -> [f32; 3] {
+    [0.0, 0.0, 0.0]
+}
+
+fn default_runtime_object_rotation() -> [f32; 3] {
+    [0.0, 0.0, 0.0]
+}
+
+fn default_runtime_object_scale3() -> [f32; 3] {
+    [1.0, 1.0, 1.0]
+}
+
+/// Canonical typed placement scaffold for the vNext authored runtime-object
+/// surface.
+///
+/// Authoring re-exports this type so the runtime-object bridge stays defined
+/// in one place. It remains separate from the legacy `objects` compile-time
+/// lowering path and does not imply runtime instancing or component assembly
+/// yet.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "space", rename_all = "kebab-case")]
+pub enum RuntimeObjectTransform {
+    #[serde(rename = "2d")]
+    TwoD {
+        #[serde(default)]
+        x: f32,
+        #[serde(default)]
+        y: f32,
+        #[serde(
+            default = "default_runtime_object_scale",
+            rename = "scale-x",
+            alias = "scale_x"
+        )]
+        scale_x: f32,
+        #[serde(
+            default = "default_runtime_object_scale",
+            rename = "scale-y",
+            alias = "scale_y"
+        )]
+        scale_y: f32,
+        #[serde(default, rename = "rotation-deg", alias = "rotation_deg")]
+        rotation_deg: f32,
+    },
+    #[serde(rename = "3d")]
+    ThreeD {
+        #[serde(default = "default_runtime_object_translation")]
+        translation: [f32; 3],
+        #[serde(
+            default = "default_runtime_object_rotation",
+            rename = "rotation-deg",
+            alias = "rotation_deg"
+        )]
+        rotation_deg: [f32; 3],
+        #[serde(default = "default_runtime_object_scale3")]
+        scale: [f32; 3],
+    },
+    #[serde(rename = "celestial")]
+    Celestial {
+        #[serde(default)]
+        frame: Option<String>,
+        #[serde(default = "default_runtime_object_translation")]
+        translation: [f32; 3],
+        #[serde(
+            default = "default_runtime_object_rotation",
+            rename = "rotation-deg",
+            alias = "rotation_deg"
+        )]
+        rotation_deg: [f32; 3],
+    },
+}
+
+/// Authored runtime-object node retained in the scene model as a bridge to
+/// future runtime-object assembly.
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeObjectDocument {
+    pub name: String,
+    /// Optional explicit document kind marker for authored bridge tooling.
+    #[serde(default)]
+    pub kind: Option<String>,
+    pub transform: RuntimeObjectTransform,
+    /// Optional prefab reference that seeds the future runtime-object bridge.
+    #[serde(default)]
+    pub prefab: Option<String>,
+    /// Optional preset reference used to seed future bridge defaults.
+    #[serde(default)]
+    pub preset: Option<String>,
+    /// Opaque typed component bag carried through the bridge for now.
+    #[serde(default)]
+    pub components: BTreeMap<String, Value>,
+    /// Nested authored child runtime objects, retained verbatim for now.
+    #[serde(default)]
+    pub children: Vec<RuntimeObjectDocument>,
+    /// Per-node override bag retained as authored bridge data.
+    #[serde(default)]
+    pub overrides: BTreeMap<String, Value>,
+}
+
 /// Runtime scene assembled from authored YAML, package fragments, templates,
 /// and object expansion.
 ///
@@ -878,8 +1051,17 @@ pub struct Scene {
     pub cutscene: bool,
     #[serde(default, rename = "target-fps", alias = "target_fps")]
     pub target_fps: Option<u16>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "render-space",
+        alias = "render_space",
+        alias = "space"
+    )]
     pub space: SceneSpace,
+    #[serde(default, rename = "world-model", alias = "world_model")]
+    pub world_model: SceneWorldModel,
+    #[serde(default, rename = "controller-defaults", alias = "controller_defaults")]
+    pub controller_defaults: SceneControllerDefaults,
     #[serde(default)]
     pub spatial: SceneSpatial,
     #[serde(default)]
@@ -905,6 +1087,11 @@ pub struct Scene {
     pub ui: SceneUi,
     #[serde(default)]
     pub layers: Vec<Layer>,
+    /// vNext authored runtime-object tree. This is a pass-through bridge for
+    /// now; legacy `objects` still lowers through compile-time scene-template
+    /// expansion.
+    #[serde(default, rename = "runtime-objects", alias = "runtime_objects")]
+    pub runtime_objects: Vec<RuntimeObjectDocument>,
     #[serde(default, alias = "menu_options", rename = "menu-options")]
     pub menu_options: Vec<MenuOption>,
     #[serde(default)]
@@ -1261,11 +1448,13 @@ impl Scene {
 #[cfg(test)]
 mod tests {
     use super::{
-        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneGuiWidgetDef, SceneSpace,
-        UiPersistence,
+        CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneCameraRig,
+        SceneCameraSurfaceMode, SceneControllerDefaults, SceneGuiWidgetDef, SceneSpace,
+        SceneWorldModel, UiPersistence,
     };
     use crate::scene::Stage;
     use crate::spatial::{Handedness, UpAxis};
+    use serde::Deserialize;
 
     #[test]
     fn parses_scene_target_fps_kebab_case() {
@@ -1295,6 +1484,203 @@ layers: []
         .expect("scene should parse");
 
         assert_eq!(scene.target_fps, Some(24));
+    }
+
+    #[test]
+    fn parses_scene_render_space_kebab_case() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: render-space-scene
+title: Render Space
+render-space: 3d
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.space, SceneSpace::ThreeD);
+    }
+
+    #[test]
+    fn parses_scene_render_space_snake_case_alias() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: render-space-alias
+title: Render Space Alias
+render_space: 3d
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.space, SceneSpace::ThreeD);
+    }
+
+    #[test]
+    fn parses_scene_legacy_space_alias() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: legacy-space-scene
+title: Legacy Space
+space: 3d
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.space, SceneSpace::ThreeD);
+    }
+
+    #[test]
+    fn parses_scene_world_model_kebab_case() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: world-model-scene
+title: World Model
+world-model: celestial-3d
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.world_model, SceneWorldModel::Celestial3D);
+    }
+
+    #[test]
+    fn parses_scene_world_model_snake_case_alias() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: world-model-alias-scene
+title: World Model Alias
+world_model: euclidean-3d
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.world_model, SceneWorldModel::Euclidean3D);
+    }
+
+    #[test]
+    fn parses_scene_controller_defaults_with_aliases() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: controller-defaults-scene
+title: Controller Defaults
+controller-defaults:
+  camera-preset: surface-free-look
+  player_preset: eva-6dof
+  ui-preset: hud-standard
+  spawn_preset: surface-spawn
+  gravity-preset: radial-body
+  surface_preset: local-horizon
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(
+            scene.controller_defaults,
+            SceneControllerDefaults {
+                camera_preset: Some("surface-free-look".to_string()),
+                player_preset: Some("eva-6dof".to_string()),
+                ui_preset: Some("hud-standard".to_string()),
+                spawn_preset: Some("surface-spawn".to_string()),
+                gravity_preset: Some("radial-body".to_string()),
+                surface_preset: Some("local-horizon".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn parses_scene_input_camera_profiles_with_surface_mode() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: input-camera-scene
+title: Input Camera Scene
+input:
+  obj-viewer:
+    sprite_id: orbit-probe
+  free-look-camera:
+    surface-mode: true
+    surface-radius: 2.5
+  orbit_camera:
+    target: orbit-probe
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(
+            scene
+                .input
+                .obj_viewer
+                .as_ref()
+                .map(|profile| profile.sprite_id.as_str()),
+            Some("orbit-probe")
+        );
+        assert_eq!(
+            scene
+                .input
+                .free_look_camera
+                .as_ref()
+                .map(|profile| profile.surface_mode),
+            Some(true)
+        );
+        assert_eq!(
+            scene
+                .input
+                .free_look_camera
+                .as_ref()
+                .map(|profile| profile.surface_radius),
+            Some(2.5)
+        );
+        assert_eq!(
+            scene
+                .input
+                .orbit_camera
+                .as_ref()
+                .map(|profile| profile.target.as_str()),
+            Some("orbit-probe")
+        );
+    }
+
+    #[test]
+    fn parses_scene_camera_rig_with_surface_contract() {
+        #[derive(Debug, Deserialize)]
+        struct CameraRigSceneStub {
+            #[serde(rename = "camera-rig", alias = "camera_rig")]
+            camera_rig: SceneCameraRig,
+        }
+
+        let scene = serde_yaml::from_str::<CameraRigSceneStub>(
+            r#"
+id: camera-rig-scene
+title: Camera Rig Scene
+camera-rig:
+  preset: surface-free-look
+  surface:
+    mode: locked
+  free-look-camera:
+    move-speed: 2.0
+layers: []
+"#,
+        )
+        .expect("camera rig scene should parse");
+
+        let camera_rig = scene.camera_rig;
+        assert_eq!(camera_rig.preset.as_deref(), Some("surface-free-look"));
+        assert_eq!(
+            camera_rig.surface.as_ref().map(|surface| surface.mode),
+            Some(SceneCameraSurfaceMode::Locked)
+        );
+        assert_eq!(
+            camera_rig
+                .free_look_camera
+                .as_ref()
+                .map(|profile| profile.move_speed),
+            Some(2.0)
+        );
     }
 
     #[test]

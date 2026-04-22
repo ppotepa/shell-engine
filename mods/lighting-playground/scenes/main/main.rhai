@@ -1,3 +1,5 @@
+import "lighting/common" as lighting_common;
+
 const TRACK_W = 168;
 
 if local.active_view == () { local.active_view = "orbit-realistic"; }
@@ -6,10 +8,7 @@ if local.active_env == () { local.active_env = "deep-space-sparse"; }
 if local.active_model == () { local.active_model = "planet"; }
 
 fn clamp01(v) {
-    let out = v;
-    if out < 0.0 { out = 0.0; }
-    if out > 1.0 { out = 1.0; }
-    out
+    lighting_common::clamp01(v)
 }
 
 fn to_fixed_2(v) {

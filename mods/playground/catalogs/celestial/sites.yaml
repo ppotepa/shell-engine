@@ -1,0 +1,7 @@
+sites:
+  playground-demo-orbit:
+    kind: orbit
+    display-name: Playground Demo Orbit
+    system: playground-celestial-system
+    body: playground-demo-world
+    orbit-altitude-km: 40.0

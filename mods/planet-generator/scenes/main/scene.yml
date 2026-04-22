@@ -3,6 +3,38 @@ id: planet-generator-main
 title: Planet Generator
 bg: "#000008"
 render-size: 640x360
+render-space: 3d
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: celestial-orbit-inspector
+  player-preset: generator-inspector
+  ui-preset: generator-hud
+camera-rig:
+  preset: celestial-orbit-inspector
+  surface:
+    mode: locked
+  orbit-camera:
+    target: planet-mesh
+    yaw: 30.0
+    pitch: 20.0
+    distance: 3.0
+    pitch-min: -85.0
+    pitch-max: 85.0
+    distance-min: 2.6
+    distance-max: 6.0
+    distance-step: 0.2
+    drag-sensitivity: 0.14
+  free-look-camera:
+    move-speed: 0.45
+    mouse-sensitivity: 0.45
+    surface-center-x: 0.0
+    surface-center-y: 0.0
+    surface-center-z: 0.0
+    surface-radius: 1.0
+    surface-altitude: 0.03
+    surface-min-altitude: 0.01
+    surface-max-altitude: 0.35
+    surface-vertical-speed: 0.22
 spatial:
   meters-per-world-unit: 1000.0
 celestial:
@@ -19,7 +51,7 @@ layers:
   - ref: hud-models
   - ref: hud-panel
   - ref: hud-sliders
-  - ref: hud-actions # action shortcuts + game-message toast anchor
+  - ref: hud-actions
   - ref: hud-presets
   - ref: hud-stats
 logic:
@@ -29,32 +61,6 @@ logic:
 ui:
   scale: 1.0
   font-scale: 1.12
-input:
-  orbit-camera:
-    target: planet-mesh
-    yaw: 30.0
-    pitch: 20.0
-    distance: 3.0
-    pitch-min: -85.0
-    pitch-max: 85.0
-    distance-min: 2.6
-    distance-max: 6.0
-    distance-step: 0.2
-    drag-sensitivity: 0.14
-  free-look-camera:
-    move-speed: 0.45
-    mouse-sensitivity: 0.45
-    surface-mode: true
-    surface-center-x: 0.0
-    surface-center-y: 0.0
-    surface-center-z: 0.0
-    # Bootstrap fallback only: runtime free-look surface mode now follows the
-    # focus-body render shell (`radius_px`) after body_sync patches the body.
-    surface-radius: 1.0
-    surface-altitude: 0.03
-    surface-min-altitude: 0.01
-    surface-max-altitude: 0.35
-    surface-vertical-speed: 0.22
 gui:
   widgets:
     # ── Top HUD selectors ─────────────────────────────────────────────────────

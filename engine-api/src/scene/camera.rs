@@ -1,3 +1,4 @@
+use engine_core::scene_runtime_types::SceneCamera3D;
 use serde::{Deserialize, Serialize};
 
 /// Typed 3D camera mutation requests.
@@ -74,6 +75,17 @@ impl Camera3dObjectViewState {
     }
 }
 
+/// Normalized camera mutation payload shared by scene-wide and object-targeted
+/// requests.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Camera3dNormalizedMutation {
+    Scene(SceneCamera3D),
+    Object {
+        target: String,
+        view: Camera3dObjectViewState,
+    },
+}
+
 impl Camera3dMutationRequest {
     pub fn kind_name(&self) -> &'static str {
         match self {
@@ -81,6 +93,43 @@ impl Camera3dMutationRequest {
             Self::Up { .. } => "up",
             Self::ObjectLookAt { .. } => "object_look_at",
             Self::ObjectBasis { .. } => "object_basis",
+        }
+    }
+
+    pub fn normalized(&self, current_camera_3d: SceneCamera3D) -> Camera3dNormalizedMutation {
+        match self {
+            Self::LookAt { eye, look_at } => Camera3dNormalizedMutation::Scene(SceneCamera3D {
+                eye: *eye,
+                look_at: *look_at,
+                ..current_camera_3d
+            }),
+            Self::Up { up } => Camera3dNormalizedMutation::Scene(SceneCamera3D {
+                up: *up,
+                ..current_camera_3d
+            }),
+            Self::ObjectLookAt {
+                target,
+                eye,
+                look_at,
+                up,
+            } => Camera3dNormalizedMutation::Object {
+                target: target.clone(),
+                view: Camera3dObjectViewState::from_look_at(
+                    *eye,
+                    *look_at,
+                    up.as_ref().copied().unwrap_or([0.0, 1.0, 0.0]),
+                ),
+            },
+            Self::ObjectBasis {
+                target,
+                eye,
+                right,
+                up,
+                forward,
+            } => Camera3dNormalizedMutation::Object {
+                target: target.clone(),
+                view: Camera3dObjectViewState::from_basis(*eye, *right, *up, *forward),
+            },
         }
     }
 }
@@ -111,7 +160,8 @@ fn normalize_or(v: [f32; 3], fallback: [f32; 3]) -> [f32; 3] {
 
 #[cfg(test)]
 mod tests {
-    use super::{Camera3dMutationRequest, Camera3dObjectViewState};
+    use super::{Camera3dMutationRequest, Camera3dNormalizedMutation, Camera3dObjectViewState};
+    use engine_core::scene_runtime_types::SceneCamera3D;
     use serde_json::json;
 
     #[test]
@@ -169,5 +219,35 @@ mod tests {
         assert_eq!(cockpit.kind_name(), "object_look_at");
         assert_eq!(chase.kind_name(), "object_basis");
         assert_ne!(cockpit, chase);
+    }
+
+    #[test]
+    fn scene_and_object_camera_mutations_normalize_through_one_backbone() {
+        let scene_request = Camera3dMutationRequest::LookAt {
+            eye: [9.0, 8.0, 7.0],
+            look_at: [6.0, 5.0, 4.0],
+        };
+        let object_request = Camera3dMutationRequest::ObjectLookAt {
+            target: "cockpit-camera".to_string(),
+            eye: [1.0, 2.0, 3.0],
+            look_at: [0.0, 0.0, 0.0],
+            up: Some([0.0, 1.0, 0.0]),
+        };
+
+        match scene_request.normalized(SceneCamera3D::default()) {
+            Camera3dNormalizedMutation::Scene(camera) => {
+                assert_eq!(camera.eye, [9.0, 8.0, 7.0]);
+                assert_eq!(camera.look_at, [6.0, 5.0, 4.0]);
+            }
+            _ => panic!("scene mutation should normalize to scene camera state"),
+        }
+
+        match object_request.normalized(SceneCamera3D::default()) {
+            Camera3dNormalizedMutation::Object { target, view } => {
+                assert_eq!(target, "cockpit-camera");
+                assert_eq!(view.eye, [1.0, 2.0, 3.0]);
+            }
+            _ => panic!("object mutation should normalize to object camera state"),
+        }
     }
 }

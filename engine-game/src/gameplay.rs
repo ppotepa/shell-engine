@@ -9,10 +9,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{
-    AngularBody, ArcadeController, AtmosphereAffected2D, Collider2D, EntityTimers, FollowAnchor2D,
-    GameplayEvent, GravityAffected2D, LifecyclePolicy, Lifetime, LinearBrake, Ownership,
-    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ThrusterRamp, Transform2D,
-    VehicleRuntimePrimitives, VehicleStateCache, VisualBinding, WrapBounds,
+    AngularBody, AngularMotor3D, ArcadeController, Assembly3D, AtmosphereAffected2D,
+    AttachmentBundle3D, BootstrapAssembly3D, BootstrapPreset3D, CharacterMotor3D, Collider2D,
+    ComponentBundle3D, ControlBundle3D, ControlIntent3D, EntityTimers, FlightMotor3D,
+    FollowAnchor2D, FollowAnchor3D, GameplayEvent, GravityAffected2D, LifecyclePolicy, Lifetime,
+    LinearBrake, LinearMotor3D, MotorBundle3D, Ownership, ParticleColorRamp, ParticlePhysics,
+    PhysicsBody2D, PhysicsBody3D, ReferenceFrameBinding3D, ReferenceFrameState3D, SpatialBundle3D,
+    SpatialKind, ThrusterRamp, Transform2D, Transform3D, VehicleRuntimePrimitives,
+    VehicleStateCache, VisualBinding, WrapBounds,
 };
 use engine_vehicle::{BrakePhase, VehicleProfile, VehicleTelemetry};
 
@@ -30,7 +34,12 @@ struct GameplayStore {
     next_id: u64,
     entities: BTreeMap<u64, GameplayEntity>,
     transforms: BTreeMap<u64, Transform2D>,
+    transforms_3d: BTreeMap<u64, Transform3D>,
     physics: BTreeMap<u64, PhysicsBody2D>,
+    physics_3d: BTreeMap<u64, PhysicsBody3D>,
+    control_intents_3d: BTreeMap<u64, ControlIntent3D>,
+    reference_frame_bindings_3d: BTreeMap<u64, ReferenceFrameBinding3D>,
+    reference_frame_state_3d: BTreeMap<u64, ReferenceFrameState3D>,
     gravity: BTreeMap<u64, GravityAffected2D>,
     atmosphere: BTreeMap<u64, AtmosphereAffected2D>,
     colliders: BTreeMap<u64, Collider2D>,
@@ -38,6 +47,7 @@ struct GameplayStore {
     lifecycles: BTreeMap<u64, LifecyclePolicy>,
     ownership: BTreeMap<u64, Ownership>,
     follow_anchors: BTreeMap<u64, FollowAnchor2D>,
+    follow_anchors_3d: BTreeMap<u64, FollowAnchor3D>,
     visuals: BTreeMap<u64, VisualBinding>,
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
@@ -47,6 +57,10 @@ struct GameplayStore {
     angular_bodies: BTreeMap<u64, AngularBody>,
     linear_brakes: BTreeMap<u64, LinearBrake>,
     thruster_ramps: BTreeMap<u64, ThrusterRamp>,
+    linear_motors_3d: BTreeMap<u64, LinearMotor3D>,
+    angular_motors_3d: BTreeMap<u64, AngularMotor3D>,
+    character_motors_3d: BTreeMap<u64, CharacterMotor3D>,
+    flight_motors_3d: BTreeMap<u64, FlightMotor3D>,
     vehicle_state: VehicleStateCache,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
@@ -70,7 +84,12 @@ impl Default for GameplayStore {
             next_id: 0,
             entities: BTreeMap::new(),
             transforms: BTreeMap::new(),
+            transforms_3d: BTreeMap::new(),
             physics: BTreeMap::new(),
+            physics_3d: BTreeMap::new(),
+            control_intents_3d: BTreeMap::new(),
+            reference_frame_bindings_3d: BTreeMap::new(),
+            reference_frame_state_3d: BTreeMap::new(),
             gravity: BTreeMap::new(),
             atmosphere: BTreeMap::new(),
             colliders: BTreeMap::new(),
@@ -78,6 +97,7 @@ impl Default for GameplayStore {
             lifecycles: BTreeMap::new(),
             ownership: BTreeMap::new(),
             follow_anchors: BTreeMap::new(),
+            follow_anchors_3d: BTreeMap::new(),
             visuals: BTreeMap::new(),
             timers: BTreeMap::new(),
             wrap_bounds: BTreeMap::new(),
@@ -87,6 +107,10 @@ impl Default for GameplayStore {
             angular_bodies: BTreeMap::new(),
             linear_brakes: BTreeMap::new(),
             thruster_ramps: BTreeMap::new(),
+            linear_motors_3d: BTreeMap::new(),
+            angular_motors_3d: BTreeMap::new(),
+            character_motors_3d: BTreeMap::new(),
+            flight_motors_3d: BTreeMap::new(),
             vehicle_state: VehicleStateCache::default(),
             children: BTreeMap::new(),
             events: Vec::new(),
@@ -180,6 +204,134 @@ impl GameplayWorld {
         }
     }
 
+    fn apply_assembly3d_to_store(store: &mut GameplayStore, id: u64, assembly: Assembly3D) {
+        if let Some(transform) = assembly.spatial.transform {
+            store.transforms_3d.insert(id, transform);
+        }
+        if let Some(physics) = assembly.spatial.physics {
+            store.physics_3d.insert(id, physics);
+        }
+        if let Some(intent) = assembly.control.control_intent {
+            store.control_intents_3d.insert(id, intent);
+        }
+        if let Some(reference_frame) = assembly.control.reference_frame {
+            store
+                .reference_frame_bindings_3d
+                .insert(id, reference_frame);
+        }
+        if let Some(reference_frame_state) = assembly.control.reference_frame_state {
+            store
+                .reference_frame_state_3d
+                .insert(id, reference_frame_state);
+        }
+        if let Some(follow_anchor) = assembly.attachments.follow_anchor {
+            store.follow_anchors_3d.insert(id, follow_anchor);
+        }
+        if let Some(linear_motor) = assembly.motors.linear_motor {
+            store.linear_motors_3d.insert(id, linear_motor);
+        }
+        if let Some(angular_motor) = assembly.motors.angular_motor {
+            store.angular_motors_3d.insert(id, angular_motor);
+        }
+        if let Some(character_motor) = assembly.motors.character_motor {
+            store.character_motors_3d.insert(id, character_motor);
+        }
+        if let Some(flight_motor) = assembly.motors.flight_motor {
+            store.flight_motors_3d.insert(id, flight_motor);
+        }
+    }
+
+    fn apply_bundle3d_to_store(store: &mut GameplayStore, id: u64, bundle: ComponentBundle3D) {
+        Self::apply_assembly3d_to_store(store, id, bundle.into_assembly());
+    }
+
+    fn snapshot_assembly3d_from_store(store: &GameplayStore, id: u64) -> Option<Assembly3D> {
+        if !store.entities.contains_key(&id) {
+            return None;
+        }
+        let assembly = Assembly3D {
+            spatial: SpatialBundle3D {
+                transform: store.transforms_3d.get(&id).copied(),
+                physics: store.physics_3d.get(&id).copied(),
+            },
+            control: ControlBundle3D {
+                control_intent: store.control_intents_3d.get(&id).copied(),
+                reference_frame: store.reference_frame_bindings_3d.get(&id).cloned(),
+                reference_frame_state: store.reference_frame_state_3d.get(&id).copied(),
+            },
+            attachments: AttachmentBundle3D {
+                follow_anchor: store.follow_anchors_3d.get(&id).copied(),
+            },
+            motors: MotorBundle3D {
+                linear_motor: store.linear_motors_3d.get(&id).copied(),
+                angular_motor: store.angular_motors_3d.get(&id).copied(),
+                character_motor: store.character_motors_3d.get(&id).copied(),
+                flight_motor: store.flight_motors_3d.get(&id).copied(),
+            },
+        };
+        (!assembly.is_empty()).then_some(assembly)
+    }
+
+    fn snapshot_bundle3d_from_store(store: &GameplayStore, id: u64) -> Option<ComponentBundle3D> {
+        Self::snapshot_assembly3d_from_store(store, id).map(Assembly3D::into_bundle)
+    }
+
+    fn detach_assembly3d_from_store(store: &mut GameplayStore, id: u64) -> Option<Assembly3D> {
+        let assembly = Assembly3D {
+            spatial: SpatialBundle3D {
+                transform: store.transforms_3d.remove(&id),
+                physics: store.physics_3d.remove(&id),
+            },
+            control: ControlBundle3D {
+                control_intent: store.control_intents_3d.remove(&id),
+                reference_frame: store.reference_frame_bindings_3d.remove(&id),
+                reference_frame_state: store.reference_frame_state_3d.remove(&id),
+            },
+            attachments: AttachmentBundle3D {
+                follow_anchor: store.follow_anchors_3d.remove(&id),
+            },
+            motors: MotorBundle3D {
+                linear_motor: store.linear_motors_3d.remove(&id),
+                angular_motor: store.angular_motors_3d.remove(&id),
+                character_motor: store.character_motors_3d.remove(&id),
+                flight_motor: store.flight_motors_3d.remove(&id),
+            },
+        };
+        (!assembly.is_empty()).then_some(assembly)
+    }
+
+    fn detach_bundle3d_from_store(store: &mut GameplayStore, id: u64) -> Option<ComponentBundle3D> {
+        Self::detach_assembly3d_from_store(store, id).map(Assembly3D::into_bundle)
+    }
+
+    fn ids_with_any_3d_from_store(store: &GameplayStore) -> BTreeSet<u64> {
+        let mut ids = BTreeSet::new();
+        ids.extend(store.transforms_3d.keys().copied());
+        ids.extend(store.physics_3d.keys().copied());
+        ids.extend(store.control_intents_3d.keys().copied());
+        ids.extend(store.reference_frame_bindings_3d.keys().copied());
+        ids.extend(store.reference_frame_state_3d.keys().copied());
+        ids.extend(store.follow_anchors_3d.keys().copied());
+        ids.extend(store.linear_motors_3d.keys().copied());
+        ids.extend(store.angular_motors_3d.keys().copied());
+        ids.extend(store.character_motors_3d.keys().copied());
+        ids.extend(store.flight_motors_3d.keys().copied());
+        ids
+    }
+
+    fn with_existing_entity<R, F>(&self, id: u64, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut GameplayStore) -> R,
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return None;
+        };
+        if !store.entities.contains_key(&id) {
+            return None;
+        }
+        Some(f(&mut store))
+    }
+
     /// Collects all visual IDs that need cleanup, then clears all gameplay entities.
     ///
     /// Returns a list of scene object IDs (visual IDs) that should be despawned
@@ -204,6 +356,153 @@ impl GameplayWorld {
             return 0;
         };
         store.entities.len()
+    }
+
+    pub fn attach_component_bundle3d(&self, id: u64, bundle: ComponentBundle3D) -> bool {
+        self.with_existing_entity(id, |store| {
+            Self::apply_bundle3d_to_store(store, id, bundle);
+            true
+        })
+        .unwrap_or(false)
+    }
+
+    pub fn attach_assembly3d(&self, id: u64, assembly: Assembly3D) -> bool {
+        self.with_existing_entity(id, |store| {
+            Self::apply_assembly3d_to_store(store, id, assembly);
+            true
+        })
+        .unwrap_or(false)
+    }
+
+    pub fn bootstrap_preset3d(&self, id: u64, preset: BootstrapPreset3D) -> bool {
+        self.bootstrap_assembly3d(id, preset.into_bootstrap_assembly())
+    }
+
+    pub fn bootstrap_assembly3d(&self, id: u64, preset: BootstrapAssembly3D) -> bool {
+        self.with_existing_entity(id, |store| {
+            let BootstrapAssembly3D {
+                assembly,
+                controlled,
+                owner_id,
+                inherit_owner_lifecycle,
+                lifecycle,
+            } = preset;
+            if let Some(owner_id) = owner_id {
+                if !store.entities.contains_key(&owner_id) {
+                    return false;
+                }
+            }
+            Self::apply_assembly3d_to_store(store, id, assembly);
+
+            if controlled {
+                store.vehicle_state.controlled_entity = Some(id);
+            }
+
+            if let Some(owner_id) = owner_id {
+                store.ownership.insert(id, Ownership { owner_id });
+                let children = store.children.entry(owner_id).or_default();
+                if !children.contains(&id) {
+                    children.push(id);
+                }
+                if lifecycle.is_none() && inherit_owner_lifecycle {
+                    let inherited = store
+                        .lifecycles
+                        .get(&owner_id)
+                        .copied()
+                        .unwrap_or(LifecyclePolicy::FollowOwner);
+                    store.lifecycles.insert(id, inherited);
+                }
+            }
+
+            if let Some(policy) = lifecycle {
+                store.lifecycles.insert(id, policy);
+            }
+
+            true
+        })
+        .unwrap_or(false)
+    }
+
+    pub fn component_bundle3d(&self, id: u64) -> Option<ComponentBundle3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        Self::snapshot_bundle3d_from_store(&store, id)
+    }
+
+    pub fn assembly3d(&self, id: u64) -> Option<Assembly3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        Self::snapshot_assembly3d_from_store(&store, id)
+    }
+
+    pub fn batch_read_component_bundles3d(&self, ids: &[u64]) -> Vec<(u64, ComponentBundle3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        ids.iter()
+            .filter_map(|&id| {
+                Self::snapshot_bundle3d_from_store(&store, id).map(|bundle| (id, bundle))
+            })
+            .collect()
+    }
+
+    pub fn batch_read_assemblies3d(&self, ids: &[u64]) -> Vec<(u64, Assembly3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        ids.iter()
+            .filter_map(|&id| {
+                Self::snapshot_assembly3d_from_store(&store, id).map(|assembly| (id, assembly))
+            })
+            .collect()
+    }
+
+    pub fn batch_read_all_component_bundles3d(&self) -> Vec<(u64, ComponentBundle3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        Self::ids_with_any_3d_from_store(&store)
+            .into_iter()
+            .filter_map(|id| {
+                Self::snapshot_bundle3d_from_store(&store, id).map(|bundle| (id, bundle))
+            })
+            .collect()
+    }
+
+    pub fn batch_read_all_assemblies3d(&self) -> Vec<(u64, Assembly3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        Self::ids_with_any_3d_from_store(&store)
+            .into_iter()
+            .filter_map(|id| {
+                Self::snapshot_assembly3d_from_store(&store, id).map(|assembly| (id, assembly))
+            })
+            .collect()
+    }
+
+    pub fn detach_component_bundle3d(&self, id: u64) -> Option<ComponentBundle3D> {
+        let Ok(mut store) = self.store.lock() else {
+            return None;
+        };
+        let detached = Self::detach_bundle3d_from_store(&mut store, id);
+        if store.vehicle_state.controlled_entity == Some(id) {
+            store.vehicle_state.controlled_entity = None;
+        }
+        detached
+    }
+
+    pub fn detach_assembly3d(&self, id: u64) -> Option<Assembly3D> {
+        let Ok(mut store) = self.store.lock() else {
+            return None;
+        };
+        let detached = Self::detach_assembly3d_from_store(&mut store, id);
+        if store.vehicle_state.controlled_entity == Some(id) {
+            store.vehicle_state.controlled_entity = None;
+        }
+        detached
     }
 
     /// Returns the total number of bound visual IDs across all entities.
@@ -309,7 +608,12 @@ impl GameplayWorld {
                 false
             };
             store.transforms.remove(&id);
+            store.transforms_3d.remove(&id);
             store.physics.remove(&id);
+            store.physics_3d.remove(&id);
+            store.control_intents_3d.remove(&id);
+            store.reference_frame_bindings_3d.remove(&id);
+            store.reference_frame_state_3d.remove(&id);
             store.gravity.remove(&id);
             store.atmosphere.remove(&id);
             store.colliders.remove(&id);
@@ -317,6 +621,7 @@ impl GameplayWorld {
             store.lifecycles.remove(&id);
             store.ownership.remove(&id);
             store.follow_anchors.remove(&id);
+            store.follow_anchors_3d.remove(&id);
             store.visuals.remove(&id);
             store.timers.remove(&id);
             store.wrap_bounds.remove(&id);
@@ -326,6 +631,10 @@ impl GameplayWorld {
             store.angular_bodies.remove(&id);
             store.linear_brakes.remove(&id);
             store.thruster_ramps.remove(&id);
+            store.linear_motors_3d.remove(&id);
+            store.angular_motors_3d.remove(&id);
+            store.character_motors_3d.remove(&id);
+            store.flight_motors_3d.remove(&id);
             store.vehicle_state.clear_entity(id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
@@ -632,6 +941,45 @@ impl GameplayWorld {
         store.transforms.get(&id).copied()
     }
 
+    pub fn set_transform3d(&self, id: u64, xf: Transform3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.transforms_3d.insert(id, xf);
+        true
+    }
+
+    pub fn transform3d(&self, id: u64) -> Option<Transform3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.transforms_3d.get(&id).copied()
+    }
+
+    pub fn with_transform3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut Transform3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(xf) = store.transforms_3d.get_mut(&id) else {
+            return false;
+        };
+        f(xf);
+        true
+    }
+
+    pub fn remove_transform3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.transforms_3d.remove(&id).is_some()
+    }
+
     pub fn set_physics(&self, id: u64, body: PhysicsBody2D) -> bool {
         let Ok(mut store) = self.store.lock() else {
             return false;
@@ -648,6 +996,157 @@ impl GameplayWorld {
             return None;
         };
         store.physics.get(&id).copied()
+    }
+
+    pub fn set_physics3d(&self, id: u64, body: PhysicsBody3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.physics_3d.insert(id, body);
+        true
+    }
+
+    pub fn physics3d(&self, id: u64) -> Option<PhysicsBody3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.physics_3d.get(&id).copied()
+    }
+
+    pub fn with_physics3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut PhysicsBody3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(body) = store.physics_3d.get_mut(&id) else {
+            return false;
+        };
+        f(body);
+        true
+    }
+
+    pub fn remove_physics3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.physics_3d.remove(&id).is_some()
+    }
+
+    pub fn attach_control_intent3d(&self, id: u64, intent: ControlIntent3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.control_intents_3d.insert(id, intent);
+        true
+    }
+
+    pub fn control_intent3d(&self, id: u64) -> Option<ControlIntent3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.control_intents_3d.get(&id).copied()
+    }
+
+    pub fn with_control_intent3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut ControlIntent3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(intent) = store.control_intents_3d.get_mut(&id) else {
+            return false;
+        };
+        f(intent);
+        true
+    }
+
+    pub fn remove_control_intent3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.control_intents_3d.remove(&id).is_some()
+    }
+
+    pub fn attach_reference_frame3d(&self, id: u64, binding: ReferenceFrameBinding3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.reference_frame_bindings_3d.insert(id, binding);
+        true
+    }
+
+    pub fn reference_frame3d(&self, id: u64) -> Option<ReferenceFrameBinding3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.reference_frame_bindings_3d.get(&id).cloned()
+    }
+
+    pub fn with_reference_frame3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut ReferenceFrameBinding3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(binding) = store.reference_frame_bindings_3d.get_mut(&id) else {
+            return false;
+        };
+        f(binding);
+        true
+    }
+
+    pub fn set_reference_frame_state3d(&self, id: u64, state: ReferenceFrameState3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.reference_frame_state_3d.insert(id, state);
+        true
+    }
+
+    pub fn reference_frame_state3d(&self, id: u64) -> Option<ReferenceFrameState3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.reference_frame_state_3d.get(&id).copied()
+    }
+
+    pub fn with_reference_frame_state3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut ReferenceFrameState3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(state) = store.reference_frame_state_3d.get_mut(&id) else {
+            return false;
+        };
+        f(state);
+        true
+    }
+
+    pub fn remove_reference_frame3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let removed_binding = store.reference_frame_bindings_3d.remove(&id).is_some();
+        let removed_state = store.reference_frame_state_3d.remove(&id).is_some();
+        removed_binding || removed_state
     }
 
     pub fn attach_gravity(&self, id: u64, gravity: GravityAffected2D) -> bool {
@@ -853,6 +1352,24 @@ impl GameplayWorld {
         store.follow_anchors.get(&id).copied()
     }
 
+    pub fn set_follow_anchor3d(&self, id: u64, follow: FollowAnchor3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.follow_anchors_3d.insert(id, follow);
+        true
+    }
+
+    pub fn follow_anchor3d(&self, id: u64) -> Option<FollowAnchor3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.follow_anchors_3d.get(&id).copied()
+    }
+
     pub fn ids_with_follow_anchor(&self) -> Vec<u64> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
@@ -864,6 +1381,13 @@ impl GameplayWorld {
         if let Ok(mut store) = self.store.lock() {
             store.follow_anchors.remove(&id);
         }
+    }
+
+    pub fn remove_follow_anchor3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.follow_anchors_3d.remove(&id).is_some()
     }
 
     pub fn set_visual(&self, id: u64, binding: VisualBinding) -> bool {
@@ -905,6 +1429,57 @@ impl GameplayWorld {
             return Vec::new();
         };
         store.physics.keys().copied().collect()
+    }
+
+    pub fn ids_with_transform3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.transforms_3d.keys().copied().collect()
+    }
+
+    pub fn ids_with_physics3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.physics_3d.keys().copied().collect()
+    }
+
+    pub fn ids_with_control_intent3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.control_intents_3d.keys().copied().collect()
+    }
+
+    pub fn ids_with_reference_frame3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.reference_frame_bindings_3d.keys().copied().collect()
+    }
+
+    pub fn ids_with_reference_frame_state3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.reference_frame_state_3d.keys().copied().collect()
+    }
+
+    pub fn ids_with_follow_anchor3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.follow_anchors_3d.keys().copied().collect()
+    }
+
+    pub fn ids_with_any_3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        Self::ids_with_any_3d_from_store(&store)
+            .into_iter()
+            .collect()
     }
 
     pub fn ids_with_lifetime(&self) -> Vec<u64> {
@@ -1182,6 +1757,30 @@ impl GameplayWorld {
         }
     }
 
+    pub fn spatial_kind(&self, id: u64) -> Option<SpatialKind> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        if !store.entities.contains_key(&id) {
+            return None;
+        }
+        if store.transforms_3d.contains_key(&id)
+            || store.physics_3d.contains_key(&id)
+            || store.control_intents_3d.contains_key(&id)
+            || store.reference_frame_bindings_3d.contains_key(&id)
+            || store.reference_frame_state_3d.contains_key(&id)
+            || store.follow_anchors_3d.contains_key(&id)
+            || store.linear_motors_3d.contains_key(&id)
+            || store.angular_motors_3d.contains_key(&id)
+            || store.character_motors_3d.contains_key(&id)
+            || store.flight_motors_3d.contains_key(&id)
+        {
+            Some(SpatialKind::ThreeD)
+        } else {
+            Some(SpatialKind::TwoD)
+        }
+    }
+
     /// Attach an ArcadeController to an entity.
     pub fn attach_controller(&self, id: u64, controller: ArcadeController) -> bool {
         let Ok(mut store) = self.store.lock() else {
@@ -1231,6 +1830,190 @@ impl GameplayWorld {
         if let Ok(mut store) = self.store.lock() {
             store.controllers.remove(&id);
         }
+    }
+
+    pub fn attach_linear_motor3d(&self, id: u64, motor: LinearMotor3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.linear_motors_3d.insert(id, motor);
+        true
+    }
+
+    pub fn linear_motor3d(&self, id: u64) -> Option<LinearMotor3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.linear_motors_3d.get(&id).copied()
+    }
+
+    pub fn ids_with_linear_motor3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.linear_motors_3d.keys().copied().collect()
+    }
+
+    pub fn with_linear_motor3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut LinearMotor3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(motor) = store.linear_motors_3d.get_mut(&id) else {
+            return false;
+        };
+        f(motor);
+        true
+    }
+
+    pub fn remove_linear_motor3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.linear_motors_3d.remove(&id).is_some()
+    }
+
+    pub fn attach_angular_motor3d(&self, id: u64, motor: AngularMotor3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.angular_motors_3d.insert(id, motor);
+        true
+    }
+
+    pub fn angular_motor3d(&self, id: u64) -> Option<AngularMotor3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.angular_motors_3d.get(&id).copied()
+    }
+
+    pub fn ids_with_angular_motor3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.angular_motors_3d.keys().copied().collect()
+    }
+
+    pub fn with_angular_motor3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut AngularMotor3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(motor) = store.angular_motors_3d.get_mut(&id) else {
+            return false;
+        };
+        f(motor);
+        true
+    }
+
+    pub fn remove_angular_motor3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.angular_motors_3d.remove(&id).is_some()
+    }
+
+    pub fn attach_character_motor3d(&self, id: u64, motor: CharacterMotor3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.character_motors_3d.insert(id, motor);
+        true
+    }
+
+    pub fn character_motor3d(&self, id: u64) -> Option<CharacterMotor3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.character_motors_3d.get(&id).copied()
+    }
+
+    pub fn ids_with_character_motor3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.character_motors_3d.keys().copied().collect()
+    }
+
+    pub fn with_character_motor3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut CharacterMotor3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(motor) = store.character_motors_3d.get_mut(&id) else {
+            return false;
+        };
+        f(motor);
+        true
+    }
+
+    pub fn remove_character_motor3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.character_motors_3d.remove(&id).is_some()
+    }
+
+    pub fn attach_flight_motor3d(&self, id: u64, motor: FlightMotor3D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.flight_motors_3d.insert(id, motor);
+        true
+    }
+
+    pub fn flight_motor3d(&self, id: u64) -> Option<FlightMotor3D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.flight_motors_3d.get(&id).copied()
+    }
+
+    pub fn ids_with_flight_motor3d(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.flight_motors_3d.keys().copied().collect()
+    }
+
+    pub fn with_flight_motor3d<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut FlightMotor3D),
+    {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(motor) = store.flight_motors_3d.get_mut(&id) else {
+            return false;
+        };
+        f(motor);
+        true
+    }
+
+    pub fn remove_flight_motor3d(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        store.flight_motors_3d.remove(&id).is_some()
     }
 
     /// Set the currently controlled gameplay entity.
@@ -1953,6 +2736,106 @@ impl GameplayWorld {
             .collect()
     }
 
+    pub fn batch_read_physics3d(&self, ids: &[u64]) -> Vec<(u64, Transform3D, PhysicsBody3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        ids.iter()
+            .filter_map(|&id| {
+                let xf = store.transforms_3d.get(&id)?;
+                let body = store.physics_3d.get(&id)?;
+                Some((id, *xf, *body))
+            })
+            .collect()
+    }
+
+    pub fn batch_read_all_physics3d(&self) -> Vec<(u64, Transform3D, PhysicsBody3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store
+            .physics_3d
+            .keys()
+            .filter_map(|&id| {
+                let xf = store.transforms_3d.get(&id)?;
+                let body = store.physics_3d.get(&id)?;
+                Some((id, *xf, *body))
+            })
+            .collect()
+    }
+
+    pub fn batch_write_physics3d(&self, results: &[(u64, Transform3D, PhysicsBody3D)]) {
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        for (id, xf, body) in results {
+            if store.entities.contains_key(id) {
+                store.transforms_3d.insert(*id, *xf);
+                store.physics_3d.insert(*id, *body);
+            }
+        }
+    }
+
+    pub fn batch_read_control_intents3d(&self) -> Vec<(u64, ControlIntent3D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store
+            .control_intents_3d
+            .iter()
+            .map(|(&id, intent)| (id, *intent))
+            .collect()
+    }
+
+    pub fn batch_read_reference_frames3d(
+        &self,
+    ) -> Vec<(u64, ReferenceFrameBinding3D, Option<ReferenceFrameState3D>)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store
+            .reference_frame_bindings_3d
+            .iter()
+            .map(|(&id, binding)| {
+                (
+                    id,
+                    binding.clone(),
+                    store.reference_frame_state_3d.get(&id).copied(),
+                )
+            })
+            .collect()
+    }
+
+    pub fn batch_read_motor_stack3d(
+        &self,
+    ) -> Vec<(
+        u64,
+        Option<LinearMotor3D>,
+        Option<AngularMotor3D>,
+        Option<CharacterMotor3D>,
+        Option<FlightMotor3D>,
+    )> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let mut ids = BTreeSet::new();
+        ids.extend(store.linear_motors_3d.keys().copied());
+        ids.extend(store.angular_motors_3d.keys().copied());
+        ids.extend(store.character_motors_3d.keys().copied());
+        ids.extend(store.flight_motors_3d.keys().copied());
+        ids.into_iter()
+            .map(|id| {
+                (
+                    id,
+                    store.linear_motors_3d.get(&id).copied(),
+                    store.angular_motors_3d.get(&id).copied(),
+                    store.character_motors_3d.get(&id).copied(),
+                    store.flight_motors_3d.get(&id).copied(),
+                )
+            })
+            .collect()
+    }
+
     /// Batch read ALL physics entities in a single lock acquisition.
     pub fn batch_read_all_physics(
         &self,
@@ -2441,8 +3324,12 @@ fn push_path(payload: &mut JsonValue, path: &str, value: JsonValue) -> bool {
 mod tests {
     use super::GameplayWorld;
     use crate::components::{
-        AngularBody, ArcadeController, FollowAnchor2D, LifecyclePolicy, LinearBrake, PhysicsBody2D,
-        ThrusterRamp, Transform2D,
+        AngularBody, AngularMotor3D, ArcadeController, Assembly3D, BootstrapAssembly3D,
+        BootstrapPreset3D, CharacterMotor3D, ComponentBundle3D, ControlBundle3D, ControlIntent3D,
+        FlightMotor3D, FollowAnchor2D, FollowAnchor3D, LifecyclePolicy, LinearBrake, LinearMotor3D,
+        MotorBundle3D, PhysicsBody2D, PhysicsBody3D, ReferenceFrameBinding3D, ReferenceFrameMode,
+        ReferenceFrameState3D, SpatialBundle3D, SpatialKind, ThrusterRamp, Transform2D,
+        Transform3D,
     };
     use engine_vehicle::{BrakePhase, VehicleProfile};
     use serde_json::json;
@@ -2730,5 +3617,511 @@ mod tests {
         assert!(world.despawn(ship));
         assert_eq!(world.vehicle_telemetry(ship), None);
         assert_eq!(world.snapshot_vehicle_telemetry(ship), None);
+    }
+
+    #[test]
+    fn stores_and_reads_true_3d_components_without_affecting_legacy_2d() {
+        let world = GameplayWorld::new();
+        let entity = world.spawn("pilot", json!({})).expect("entity");
+
+        let transform = Transform3D {
+            position: [1.0, 2.0, 3.0],
+            orientation: [0.0, 0.0, 0.0, 1.0],
+        };
+        let physics = PhysicsBody3D {
+            linear_velocity: [4.0, 5.0, 6.0],
+            angular_velocity: [0.1, 0.2, 0.3],
+            ..PhysicsBody3D::default()
+        };
+        let intent = ControlIntent3D {
+            move_local: [1.0, 0.0, -1.0],
+            throttle: 0.75,
+            boost: true,
+            ..ControlIntent3D::default()
+        };
+        let frame = ReferenceFrameBinding3D {
+            mode: ReferenceFrameMode::LocalHorizon,
+            body_id: Some("terra".to_string()),
+            inherit_linear_velocity: true,
+            ..ReferenceFrameBinding3D::default()
+        };
+        let frame_state = ReferenceFrameState3D {
+            altitude_km: 42.0,
+            ..ReferenceFrameState3D::default()
+        };
+        let anchor = FollowAnchor3D {
+            local_offset: [0.0, 1.0, -3.0],
+            inherit_orientation: true,
+        };
+
+        assert!(world.set_transform3d(entity, transform));
+        assert!(world.set_physics3d(entity, physics));
+        assert!(world.attach_control_intent3d(entity, intent));
+        assert!(world.attach_reference_frame3d(entity, frame.clone()));
+        assert!(world.set_reference_frame_state3d(entity, frame_state));
+        assert!(world.set_follow_anchor3d(entity, anchor));
+        assert!(world.attach_linear_motor3d(entity, LinearMotor3D::default()));
+        assert!(world.attach_angular_motor3d(entity, AngularMotor3D::default()));
+        assert!(world.attach_character_motor3d(entity, CharacterMotor3D::default()));
+        assert!(world.attach_flight_motor3d(entity, FlightMotor3D::default()));
+
+        assert_eq!(world.transform3d(entity), Some(transform));
+        assert_eq!(world.physics3d(entity), Some(physics));
+        assert_eq!(world.control_intent3d(entity), Some(intent));
+        assert_eq!(world.reference_frame3d(entity), Some(frame));
+        assert_eq!(world.reference_frame_state3d(entity), Some(frame_state));
+        assert_eq!(world.follow_anchor3d(entity), Some(anchor));
+        assert_eq!(world.spatial_kind(entity), Some(SpatialKind::ThreeD));
+        assert_eq!(world.transform(entity), None);
+        assert_eq!(world.physics(entity), None);
+    }
+
+    #[test]
+    fn three_d_batch_accessors_round_trip_and_cleanup_on_despawn() {
+        let world = GameplayWorld::new();
+        let entity = world.spawn("ship", json!({})).expect("entity");
+
+        let transform = Transform3D {
+            position: [10.0, 20.0, 30.0],
+            ..Transform3D::default()
+        };
+        let physics = PhysicsBody3D {
+            linear_velocity: [2.0, 3.0, 4.0],
+            ..PhysicsBody3D::default()
+        };
+
+        assert!(world.set_transform3d(entity, transform));
+        assert!(world.set_physics3d(entity, physics));
+
+        assert_eq!(world.ids_with_transform3d(), vec![entity]);
+        assert_eq!(world.ids_with_physics3d(), vec![entity]);
+        assert_eq!(
+            world.batch_read_physics3d(&[entity]),
+            vec![(entity, transform, physics)]
+        );
+        assert_eq!(
+            world.batch_read_all_physics3d(),
+            vec![(entity, transform, physics)]
+        );
+
+        let next = (
+            entity,
+            Transform3D {
+                position: [11.0, 22.0, 33.0],
+                ..transform
+            },
+            PhysicsBody3D {
+                linear_velocity: [5.0, 6.0, 7.0],
+                ..physics
+            },
+        );
+        world.batch_write_physics3d(&[next]);
+
+        assert_eq!(world.transform3d(entity), Some(next.1));
+        assert_eq!(world.physics3d(entity), Some(next.2));
+
+        assert!(world.despawn(entity));
+        assert_eq!(world.transform3d(entity), None);
+        assert_eq!(world.physics3d(entity), None);
+        assert_eq!(world.ids_with_transform3d(), Vec::<u64>::new());
+        assert_eq!(world.ids_with_physics3d(), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn three_d_defaults_and_accessors_reject_missing_entities() {
+        let world = GameplayWorld::new();
+        assert_eq!(Transform3D::default().orientation, [0.0, 0.0, 0.0, 1.0]);
+        assert_eq!(PhysicsBody3D::default().mass, 1.0);
+        assert_eq!(
+            ReferenceFrameBinding3D::default().mode,
+            ReferenceFrameMode::World
+        );
+        assert_eq!(ReferenceFrameState3D::default().basis_up, [0.0, 1.0, 0.0]);
+        assert!(LinearMotor3D::default().boost_scale > 0.0);
+
+        assert!(!world.set_transform3d(999, Transform3D::default()));
+        assert!(!world.set_physics3d(999, PhysicsBody3D::default()));
+        assert!(!world.attach_control_intent3d(999, ControlIntent3D::default()));
+        assert!(!world.attach_reference_frame3d(999, ReferenceFrameBinding3D::default()));
+        assert!(!world.set_reference_frame_state3d(999, ReferenceFrameState3D::default()));
+        assert!(!world.set_follow_anchor3d(999, FollowAnchor3D::default()));
+        assert!(!world.attach_linear_motor3d(999, LinearMotor3D::default()));
+        assert!(!world.attach_angular_motor3d(999, AngularMotor3D::default()));
+        assert!(!world.attach_character_motor3d(999, CharacterMotor3D::default()));
+        assert!(!world.attach_flight_motor3d(999, FlightMotor3D::default()));
+        assert_eq!(world.spatial_kind(999), None);
+    }
+
+    #[test]
+    fn three_d_helpers_batch_and_mutation_cover_full_runtime_stack() {
+        let world = GameplayWorld::new();
+        let entity = world.spawn("drone", json!({})).expect("entity");
+
+        assert!(world.set_transform3d(entity, Transform3D::default()));
+        assert!(world.set_physics3d(entity, PhysicsBody3D::default()));
+        assert!(world.attach_control_intent3d(entity, ControlIntent3D::default()));
+        assert!(world.attach_reference_frame3d(entity, ReferenceFrameBinding3D::default()));
+        assert!(world.set_reference_frame_state3d(entity, ReferenceFrameState3D::default()));
+        assert!(world.set_follow_anchor3d(entity, FollowAnchor3D::default()));
+        assert!(world.attach_linear_motor3d(entity, LinearMotor3D::default()));
+        assert!(world.attach_angular_motor3d(entity, AngularMotor3D::default()));
+        assert!(world.attach_character_motor3d(entity, CharacterMotor3D::default()));
+        assert!(world.attach_flight_motor3d(entity, FlightMotor3D::default()));
+
+        assert!(world.with_transform3d(entity, |xf| xf.position = [7.0, 8.0, 9.0]));
+        assert!(world.with_physics3d(entity, |body| body.linear_velocity = [1.0, 2.0, 3.0]));
+        assert!(world.with_control_intent3d(entity, |intent| intent.throttle = 0.5));
+        assert!(world.with_reference_frame3d(entity, |frame| {
+            frame.mode = ReferenceFrameMode::Orbital;
+        }));
+        assert!(world.with_reference_frame_state3d(entity, |state| {
+            state.altitude_km = 123.0;
+        }));
+        assert!(world.with_linear_motor3d(entity, |motor| motor.accel = 4.0));
+        assert!(world.with_angular_motor3d(entity, |motor| motor.yaw_rate = 2.0));
+        assert!(world.with_character_motor3d(entity, |motor| motor.jump_speed = 6.0));
+        assert!(world.with_flight_motor3d(entity, |motor| {
+            motor.horizon_lock_strength = 0.25;
+        }));
+
+        assert_eq!(world.ids_with_any_3d(), vec![entity]);
+        assert_eq!(
+            world.batch_read_control_intents3d(),
+            vec![(
+                entity,
+                ControlIntent3D {
+                    throttle: 0.5,
+                    ..ControlIntent3D::default()
+                }
+            )]
+        );
+        assert_eq!(
+            world.batch_read_reference_frames3d(),
+            vec![(
+                entity,
+                ReferenceFrameBinding3D {
+                    mode: ReferenceFrameMode::Orbital,
+                    ..ReferenceFrameBinding3D::default()
+                },
+                Some(ReferenceFrameState3D {
+                    altitude_km: 123.0,
+                    ..ReferenceFrameState3D::default()
+                })
+            )]
+        );
+        assert_eq!(
+            world.batch_read_motor_stack3d(),
+            vec![(
+                entity,
+                Some(LinearMotor3D {
+                    accel: 4.0,
+                    ..LinearMotor3D::default()
+                }),
+                Some(AngularMotor3D {
+                    yaw_rate: 2.0,
+                    ..AngularMotor3D::default()
+                }),
+                Some(CharacterMotor3D {
+                    jump_speed: 6.0,
+                    ..CharacterMotor3D::default()
+                }),
+                Some(FlightMotor3D {
+                    horizon_lock_strength: 0.25,
+                    ..FlightMotor3D::default()
+                }),
+            )]
+        );
+
+        assert!(world.remove_control_intent3d(entity));
+        assert!(world.remove_reference_frame3d(entity));
+        assert!(world.remove_follow_anchor3d(entity));
+        assert!(world.remove_linear_motor3d(entity));
+        assert!(world.remove_angular_motor3d(entity));
+        assert!(world.remove_character_motor3d(entity));
+        assert!(world.remove_flight_motor3d(entity));
+        assert!(world.remove_physics3d(entity));
+        assert!(world.remove_transform3d(entity));
+        assert_eq!(world.ids_with_any_3d(), Vec::<u64>::new());
+        assert_eq!(world.spatial_kind(entity), Some(SpatialKind::TwoD));
+    }
+
+    #[test]
+    fn component_bundle3d_round_trips_and_detaches_as_one_unit() {
+        let world = GameplayWorld::new();
+        let entity = world.spawn("probe", json!({})).expect("entity");
+        let bundle = ComponentBundle3D {
+            transform: Some(Transform3D {
+                position: [3.0, 4.0, 5.0],
+                ..Transform3D::default()
+            }),
+            physics: Some(PhysicsBody3D {
+                linear_velocity: [1.0, 2.0, 3.0],
+                ..PhysicsBody3D::default()
+            }),
+            control_intent: Some(ControlIntent3D {
+                throttle: 1.0,
+                ..ControlIntent3D::default()
+            }),
+            linear_motor: Some(LinearMotor3D {
+                accel: 9.0,
+                ..LinearMotor3D::default()
+            }),
+            ..ComponentBundle3D::default()
+        };
+
+        assert!(world.attach_component_bundle3d(entity, bundle.clone()));
+        assert_eq!(world.component_bundle3d(entity), Some(bundle.clone()));
+        assert_eq!(
+            world.batch_read_component_bundles3d(&[entity]),
+            vec![(entity, bundle.clone())]
+        );
+        assert_eq!(
+            world.batch_read_all_component_bundles3d(),
+            vec![(entity, bundle.clone())]
+        );
+
+        let detached = world
+            .detach_component_bundle3d(entity)
+            .expect("detached bundle should exist");
+        assert_eq!(detached, bundle);
+        assert_eq!(world.component_bundle3d(entity), None);
+        assert_eq!(world.ids_with_any_3d(), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn assembly3d_overlay_and_round_trip_lower_into_component_storage() {
+        let world = GameplayWorld::new();
+        let entity = world.spawn("probe", json!({})).expect("entity");
+
+        let base = Assembly3D::default()
+            .with_spatial(SpatialBundle3D {
+                transform: Some(Transform3D {
+                    position: [1.0, 2.0, 3.0],
+                    ..Transform3D::default()
+                }),
+                physics: None,
+            })
+            .with_control(ControlBundle3D {
+                control_intent: Some(ControlIntent3D {
+                    throttle: 0.25,
+                    ..ControlIntent3D::default()
+                }),
+                reference_frame: None,
+                reference_frame_state: None,
+            });
+        let overlay = Assembly3D::default()
+            .with_spatial(SpatialBundle3D {
+                transform: None,
+                physics: Some(PhysicsBody3D {
+                    linear_velocity: [8.0, 0.0, 0.0],
+                    ..PhysicsBody3D::default()
+                }),
+            })
+            .with_motors(MotorBundle3D {
+                linear_motor: Some(LinearMotor3D {
+                    accel: 11.0,
+                    ..LinearMotor3D::default()
+                }),
+                angular_motor: None,
+                character_motor: None,
+                flight_motor: Some(FlightMotor3D {
+                    horizon_lock_strength: 0.5,
+                    ..FlightMotor3D::default()
+                }),
+            });
+        let assembly = base.overlay(overlay);
+
+        assert!(world.attach_assembly3d(entity, assembly.clone()));
+        assert_eq!(world.assembly3d(entity), Some(assembly.clone()));
+        assert_eq!(
+            world.batch_read_assemblies3d(&[entity]),
+            vec![(entity, assembly.clone())]
+        );
+        assert_eq!(
+            world.batch_read_all_assemblies3d(),
+            vec![(entity, assembly.clone())]
+        );
+
+        let bundle: ComponentBundle3D = assembly.clone().into_bundle();
+        assert_eq!(world.component_bundle3d(entity), Some(bundle.clone()));
+        assert_eq!(bundle.into_assembly(), assembly.clone());
+
+        let detached = world
+            .detach_assembly3d(entity)
+            .expect("detached assembly should exist");
+        assert_eq!(detached, assembly);
+        assert_eq!(world.assembly3d(entity), None);
+        assert_eq!(world.ids_with_any_3d(), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn bootstrap_preset3d_applies_bundle_sets_controlled_and_owner_links() {
+        let world = GameplayWorld::new();
+        let owner = world.spawn("owner", json!({})).expect("owner");
+        let entity = world.spawn("pilot", json!({})).expect("entity");
+        assert!(world.set_lifecycle(owner, LifecyclePolicy::FollowOwner));
+
+        let preset = BootstrapPreset3D {
+            components: ComponentBundle3D {
+                transform: Some(Transform3D {
+                    position: [10.0, 0.0, 0.0],
+                    ..Transform3D::default()
+                }),
+                reference_frame: Some(ReferenceFrameBinding3D {
+                    mode: ReferenceFrameMode::ParentEntity,
+                    entity_id: Some(owner),
+                    ..ReferenceFrameBinding3D::default()
+                }),
+                follow_anchor: Some(FollowAnchor3D {
+                    local_offset: [0.0, 2.0, -4.0],
+                    inherit_orientation: true,
+                }),
+                flight_motor: Some(FlightMotor3D::default()),
+                ..ComponentBundle3D::default()
+            },
+            controlled: true,
+            owner_id: Some(owner),
+            inherit_owner_lifecycle: true,
+            lifecycle: None,
+        };
+
+        assert!(world.bootstrap_preset3d(entity, preset));
+        assert_eq!(world.controlled_entity(), Some(entity));
+        assert_eq!(
+            world.ownership(entity).map(|ownership| ownership.owner_id),
+            Some(owner)
+        );
+        assert_eq!(world.lifecycle(entity), Some(LifecyclePolicy::FollowOwner));
+        assert!(world.follow_anchor3d(entity).is_some());
+        assert!(world.flight_motor3d(entity).is_some());
+
+        let detached = world
+            .detach_component_bundle3d(entity)
+            .expect("detached bundle should exist");
+        assert!(detached.reference_frame.is_some());
+        assert!(detached.follow_anchor.is_some());
+        assert!(detached.flight_motor.is_some());
+        assert_eq!(world.controlled_entity(), None);
+    }
+
+    #[test]
+    fn bootstrap_assembly3d_applies_grouped_defaults_and_owner_links() {
+        let world = GameplayWorld::new();
+        let owner = world.spawn("carrier", json!({})).expect("owner");
+        let entity = world.spawn("camera", json!({})).expect("entity");
+        assert!(world.set_lifecycle(owner, LifecyclePolicy::FollowOwner));
+
+        let preset = BootstrapAssembly3D {
+            assembly: Assembly3D::default()
+                .with_spatial(SpatialBundle3D {
+                    transform: Some(Transform3D {
+                        position: [0.0, 3.0, -6.0],
+                        ..Transform3D::default()
+                    }),
+                    physics: Some(PhysicsBody3D::default()),
+                })
+                .with_control(ControlBundle3D {
+                    control_intent: Some(ControlIntent3D {
+                        look_local: [0.0, 1.0, 0.0],
+                        ..ControlIntent3D::default()
+                    }),
+                    reference_frame: Some(ReferenceFrameBinding3D {
+                        mode: ReferenceFrameMode::ParentEntity,
+                        entity_id: Some(owner),
+                        ..ReferenceFrameBinding3D::default()
+                    }),
+                    reference_frame_state: Some(ReferenceFrameState3D {
+                        altitude_km: 1.5,
+                        ..ReferenceFrameState3D::default()
+                    }),
+                })
+                .with_motors(MotorBundle3D {
+                    linear_motor: None,
+                    angular_motor: Some(AngularMotor3D {
+                        yaw_rate: 1.5,
+                        ..AngularMotor3D::default()
+                    }),
+                    character_motor: None,
+                    flight_motor: None,
+                }),
+            controlled: true,
+            owner_id: Some(owner),
+            inherit_owner_lifecycle: true,
+            lifecycle: None,
+        };
+
+        assert!(world.bootstrap_assembly3d(entity, preset));
+        assert_eq!(world.controlled_entity(), Some(entity));
+        assert_eq!(
+            world.ownership(entity).map(|ownership| ownership.owner_id),
+            Some(owner)
+        );
+        assert_eq!(world.lifecycle(entity), Some(LifecyclePolicy::FollowOwner));
+        assert_eq!(
+            world.assembly3d(entity).expect("assembly"),
+            Assembly3D {
+                spatial: SpatialBundle3D {
+                    transform: Some(Transform3D {
+                        position: [0.0, 3.0, -6.0],
+                        ..Transform3D::default()
+                    }),
+                    physics: Some(PhysicsBody3D::default()),
+                },
+                control: ControlBundle3D {
+                    control_intent: Some(ControlIntent3D {
+                        look_local: [0.0, 1.0, 0.0],
+                        ..ControlIntent3D::default()
+                    }),
+                    reference_frame: Some(ReferenceFrameBinding3D {
+                        mode: ReferenceFrameMode::ParentEntity,
+                        entity_id: Some(owner),
+                        ..ReferenceFrameBinding3D::default()
+                    }),
+                    reference_frame_state: Some(ReferenceFrameState3D {
+                        altitude_km: 1.5,
+                        ..ReferenceFrameState3D::default()
+                    }),
+                },
+                attachments: Default::default(),
+                motors: MotorBundle3D {
+                    linear_motor: None,
+                    angular_motor: Some(AngularMotor3D {
+                        yaw_rate: 1.5,
+                        ..AngularMotor3D::default()
+                    }),
+                    character_motor: None,
+                    flight_motor: None,
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn bootstrap_assembly3d_applies_explicit_lifecycle_even_without_spatial_components() {
+        let world = GameplayWorld::new();
+        let owner = world.spawn("carrier", json!({})).expect("owner");
+        let entity = world.spawn("turret", json!({})).expect("entity");
+        assert!(world.set_lifecycle(owner, LifecyclePolicy::FollowOwner));
+
+        let preset = BootstrapAssembly3D {
+            assembly: Assembly3D::default(),
+            controlled: false,
+            owner_id: Some(owner),
+            inherit_owner_lifecycle: true,
+            lifecycle: Some(LifecyclePolicy::TtlFollowOwner),
+        };
+
+        assert!(world.bootstrap_assembly3d(entity, preset.clone()));
+        assert_eq!(
+            world.ownership(entity).map(|ownership| ownership.owner_id),
+            Some(owner)
+        );
+        assert_eq!(
+            world.lifecycle(entity),
+            Some(LifecyclePolicy::TtlFollowOwner)
+        );
+
+        let round_trip = preset.into_bootstrap_preset().into_bootstrap_assembly();
+        assert_eq!(round_trip.lifecycle, Some(LifecyclePolicy::TtlFollowOwner));
     }
 }

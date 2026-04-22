@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-world-model-contracts
+title: SCN-04 World Model Contract Map
+virtual-size-override: 640x360
+bg: "#040507"
+render-space: 2d
+world-model: planar-2d
+controller-defaults:
+  ui-preset: world-model-map
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 250 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+next: playground-menu

@@ -1,6 +1,7 @@
 import "std/runtime_scene" as scene_ui;
 import "std/math" as math;
 import "std/planet_spec" as planet_spec;
+import "generator/body_sync" as body_sync;
 import "generator/params" as params;
 
 fn near_map_number(cache, key, value, epsilon) {
@@ -144,13 +145,19 @@ fn light_state_changed(previous, current) {
         || !near_map_number(previous, "z", current["z"], 0.0001)
 }
 
-fn step(local, runtime, frame_ms) {
-    local = planet_spec::sync_spec_from_legacy(local);
+fn step(local, runtime, world, frame_ms) {
     let throttle_ms = push_throttle_ms(local);
     let world_state = current_world_state(local);
-    let previous_world_state = local["render_world_observed"] ?? world_state;
-    let world_changed = world_state_changed(previous_world_state, world_state);
-    local["render_world_observed"] = world_state;
+    let previous_world_state = local["render_world_observed"] ?? ();
+    let world_changed = previous_world_state == () || world_state_changed(previous_world_state, world_state);
+
+    let body_state = body_sync::build_generated_body_from_local(local);
+    let previous_body_state = local["render_body_cache"] ?? ();
+    if previous_body_state == () || body_sync::generated_body_changed(previous_body_state, body_state) {
+        if world.apply_planet_spec("planet-mesh", "generated-planet", #{ body: body_state }) {
+            local["render_body_cache"] = body_state;
+        }
+    }
 
     if !(local.push_ready ?? false) {
         local.push_ready = true;
@@ -170,75 +177,88 @@ fn step(local, runtime, frame_ms) {
 
         let model_mode = world_state["model_mode"] ?? 1;
         scene_ui::set(runtime, "planet-mesh", "obj.source", params::model_source(model_mode));
-        scene_ui::render_surface_mode(runtime, "planet-mesh", "material");
-
-        if model_mode == 1 {
-            scene_ui::render_generator(runtime, "planet-mesh", "seed", world_state["seed"] ?? 0.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "has_ocean", world_state["has_ocean"] ?? true);
-            scene_ui::render_generator(runtime, "planet-mesh", "ocean_fraction", world_state["ocean"] ?? 0.55);
-            scene_ui::render_generator(runtime, "planet-mesh", "continent_scale", world_state["cscale"] ?? 2.5);
-            scene_ui::render_generator(runtime, "planet-mesh", "continent_warp", world_state["cwarp"] ?? 0.65);
-            scene_ui::render_generator(runtime, "planet-mesh", "continent_octaves", world_state["coct"] ?? 5.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "mountain_scale", world_state["mscale"] ?? 6.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "mountain_strength", world_state["mstr"] ?? 0.45);
-            scene_ui::render_generator(runtime, "planet-mesh", "mountain_ridge_octaves", world_state["mroct"] ?? 5.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "moisture_scale", world_state["moisture"] ?? 3.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "ice_cap_strength", world_state["ice"] ?? 1.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "lapse_rate", world_state["lapse"] ?? 0.6);
-            scene_ui::render_generator(runtime, "planet-mesh", "rain_shadow", world_state["rain"] ?? 0.4);
-            scene_ui::render_generator(runtime, "planet-mesh", "displacement_scale", world_state["disp"] ?? 0.22);
-            scene_ui::render_generator(runtime, "planet-mesh", "subdivisions", world_state["subdiv"] ?? 32.0);
-            scene_ui::render_generator(runtime, "planet-mesh", "shape", "sphere");
-            scene_ui::render_generator(runtime, "planet-mesh", "base", "cube");
-            scene_ui::render_generator(runtime, "planet-mesh", "coloring", params::coloring_mode(world_state["coloring"] ?? 0.0));
+        let material_params = #{ surface_mode: "material" };
+        let generator_params = if model_mode == 1 {
+            #{
+                seed: world_state["seed"] ?? 0.0,
+                has_ocean: world_state["has_ocean"] ?? true,
+                ocean_fraction: world_state["ocean"] ?? 0.55,
+                continent_scale: world_state["cscale"] ?? 2.5,
+                continent_warp: world_state["cwarp"] ?? 0.65,
+                continent_octaves: world_state["coct"] ?? 5.0,
+                mountain_scale: world_state["mscale"] ?? 6.0,
+                mountain_strength: world_state["mstr"] ?? 0.45,
+                mountain_ridge_octaves: world_state["mroct"] ?? 5.0,
+                moisture_scale: world_state["moisture"] ?? 3.0,
+                ice_cap_strength: world_state["ice"] ?? 1.0,
+                lapse_rate: world_state["lapse"] ?? 0.6,
+                rain_shadow: world_state["rain"] ?? 0.4,
+                displacement_scale: world_state["disp"] ?? 0.22,
+                subdivisions: world_state["subdiv"] ?? 32.0,
+                shape: "sphere",
+                base: "cube",
+                coloring: params::coloring_mode(world_state["coloring"] ?? 0.0)
+            }
+        } else {
+            #{}
+        };
+        if world.apply_planet_spec(
+            "planet-mesh",
+            "generated-planet",
+            #{
+                material_params: material_params,
+                generator_params: generator_params
+            }
+        ) {
+            local["render_world_observed"] = world_state;
         }
     }
 
     let visual_state = current_visual_state(local);
     let previous_visual_state = local["render_visual_cache"] ?? ();
     if previous_visual_state == () || visual_state_changed(previous_visual_state, visual_state) {
-        scene_ui::render_visual(
-            runtime,
+        if world.apply_planet_spec(
             "planet-mesh",
-            visual_state["effective_rotspeed"] ?? 0.0,
-            visual_state["ambient"] ?? 0.12
-        );
-        local["render_visual_cache"] = visual_state;
+            "generated-planet",
+            #{
+                material_params: #{
+                    rotation_speed: visual_state["effective_rotspeed"] ?? 0.0,
+                    ambient: visual_state["ambient"] ?? 0.12
+                }
+            }
+        ) {
+            local["render_visual_cache"] = visual_state;
+        }
     }
 
     let atmo_state = current_atmo_state(local);
     let previous_atmo_state = local["render_atmo_cache"] ?? ();
     if previous_atmo_state == () || atmo_state_changed(previous_atmo_state, atmo_state) {
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "height", atmo_state["height"] ?? 0.02);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "density", atmo_state["density"] ?? 0.0);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "rayleigh_amount", atmo_state["rayleigh_amount"] ?? 0.0);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "rayleigh_color", atmo_state["rayleigh_color"] ?? "#7cc8ff");
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "rayleigh_falloff", atmo_state["rayleigh_falloff"] ?? 0.22);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "haze_amount", atmo_state["haze_amount"] ?? 0.22);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "haze_color", atmo_state["haze_color"] ?? "#edf7ff");
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "haze_falloff", atmo_state["haze_falloff"] ?? 0.46);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "absorption_amount", atmo_state["absorption_amount"] ?? 0.12);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "absorption_color", atmo_state["absorption_color"] ?? "#ffd59d");
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "absorption_height", atmo_state["absorption_height"] ?? 0.70);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "absorption_width", atmo_state["absorption_width"] ?? 0.10);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "forward_scatter", atmo_state["forward_scatter"] ?? 0.78);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "limb_boost", atmo_state["limb_boost"] ?? 0.95);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "terminator_softness", atmo_state["terminator_softness"] ?? 0.75);
-        scene_ui::render_atmosphere(runtime, "planet-mesh", "night_glow", atmo_state["night_glow"] ?? 0.0);
-        local["render_atmo_cache"] = atmo_state;
+        if world.apply_planet_spec(
+            "planet-mesh",
+            "generated-planet",
+            #{ atmosphere_params: atmo_state }
+        ) {
+            local["render_atmo_cache"] = atmo_state;
+        }
     }
 
     let light_state = current_light_state(local);
     let previous_light_state = local["render_light_cache"] ?? ();
     if previous_light_state == () || light_state_changed(previous_light_state, light_state) {
-        scene_ui::render_light(
-            runtime,
+        if world.apply_planet_spec(
             "planet-mesh",
-            light_state["x"] ?? 0.0,
-            light_state["y"] ?? 0.0,
-            light_state["z"] ?? 0.0
-        );
-        local["render_light_cache"] = light_state;
+            "generated-planet",
+            #{
+                material_params: #{
+                    light_x: light_state["x"] ?? 0.0,
+                    light_y: light_state["y"] ?? 0.0,
+                    light_z: light_state["z"] ?? 0.0
+                }
+            }
+        ) {
+            local["render_light_cache"] = light_state;
+        }
     }
 
     local

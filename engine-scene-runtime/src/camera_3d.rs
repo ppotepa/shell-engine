@@ -17,10 +17,338 @@ const OBJ_SCALE_MIN: f32 = 0.0000001;
 const OBJ_SCALE_MAX: f32 = 8.0;
 
 impl SceneRuntime {
+    pub fn apply_catalog_camera_preset(
+        &mut self,
+        controller_kind: &str,
+        controller_id: &str,
+    ) -> bool {
+        let Some(kind) = camera::CameraControllerKind::from_controller_kind_name(controller_kind)
+        else {
+            return false;
+        };
+
+        match kind {
+            camera::CameraControllerKind::FreeLook | camera::CameraControllerKind::Orbit => {
+                self.set_active_camera_controller(kind, None)
+            }
+            camera::CameraControllerKind::Fps
+            | camera::CameraControllerKind::Chase
+            | camera::CameraControllerKind::Cockpit => {
+                let slot_ready = self.ensure_camera_controller_slot(kind, controller_id);
+                if !slot_ready {
+                    return false;
+                }
+                let fallback_pose = self.scene_camera_3d();
+                let controller = self.camera_director.ensure_reserved_controller(kind, controller_id);
+                if controller.target_pose.is_none() {
+                    controller.target_pose = Some(fallback_pose);
+                }
+                self.set_active_camera_controller(kind, Some(controller_id))
+            }
+        }
+    }
+
+    fn free_look_state(&self) -> Option<&camera::FreeLookCameraState> {
+        self.camera_director.free_look.as_ref()
+    }
+
+    fn free_look_state_mut(&mut self) -> Option<&mut camera::FreeLookCameraState> {
+        self.camera_director.free_look.as_mut()
+    }
+
+    fn orbit_state(&self) -> Option<&camera::ObjOrbitCameraState> {
+        self.camera_director.orbit.as_ref()
+    }
+
+    fn orbit_state_mut(&mut self) -> Option<&mut camera::ObjOrbitCameraState> {
+        self.camera_director.orbit.as_mut()
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn active_camera_controller_kind(&self) -> Option<camera::CameraControllerKind> {
+        self.camera_director.active_controller
+    }
+
+    pub fn begin_camera_director_frame(&mut self) {
+        self.camera_director.begin_frame();
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn ensure_camera_controller_slot(
+        &mut self,
+        kind: camera::CameraControllerKind,
+        id: &str,
+    ) -> bool {
+        match kind {
+            camera::CameraControllerKind::FreeLook | camera::CameraControllerKind::Orbit => false,
+            _ => {
+                self.camera_director.ensure_reserved_controller(kind, id);
+                true
+            }
+        }
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn set_reserved_camera_controller_pose(
+        &mut self,
+        kind: camera::CameraControllerKind,
+        id: &str,
+        pose: SceneCamera3D,
+    ) -> bool {
+        match kind {
+            camera::CameraControllerKind::FreeLook | camera::CameraControllerKind::Orbit => false,
+            _ => {
+                let controller = self.camera_director.ensure_reserved_controller(kind, id);
+                controller.target_pose = Some(pose);
+                true
+            }
+        }
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn set_active_camera_controller(
+        &mut self,
+        kind: camera::CameraControllerKind,
+        id: Option<&str>,
+    ) -> bool {
+        match kind {
+            camera::CameraControllerKind::FreeLook | camera::CameraControllerKind::Orbit => {
+                let before = self.camera_director.active_controller;
+                self.camera_director.set_active_if_available(kind);
+                self.camera_director.active_controller != before
+            }
+            _ => {
+                let Some(id) = id else {
+                    return false;
+                };
+                if self.camera_director.reserved_controller(kind, id).is_none() {
+                    return false;
+                }
+                self.camera_director.active_controller = Some(kind);
+                self.camera_director.active_reserved_controller_id = Some(id.to_string());
+                true
+            }
+        }
+    }
+
+    pub fn step_camera_director(&mut self, dt_ms: u64) -> bool {
+        match self.resolve_camera_controller_for_step() {
+            Some(camera::CameraControllerKind::FreeLook) => self.step_free_look_camera(dt_ms),
+            Some(camera::CameraControllerKind::Orbit) => self.step_orbit_camera(dt_ms),
+            Some(
+                kind @ (camera::CameraControllerKind::Fps
+                | camera::CameraControllerKind::Chase
+                | camera::CameraControllerKind::Cockpit),
+            ) => self.step_reserved_camera_controller(kind, dt_ms),
+            None => false,
+        }
+    }
+
+    pub fn step_camera_director_adapters(&mut self, dt_ms: u64) -> bool {
+        if self.camera_director.adapter_step_consumed {
+            return false;
+        }
+        self.camera_director.adapter_step_consumed = true;
+        self.step_camera_director(dt_ms)
+    }
+
+    pub fn apply_camera_input_frame(&mut self, frame: &CameraInputFrame) -> bool {
+        let mut handled = false;
+        if self.legacy_camera_input_enabled() {
+            if !frame.key_presses.is_empty() || !frame.key_releases.is_empty() {
+                handled |= self.apply_free_look_key_events(&frame.key_presses, &frame.key_releases);
+                handled |=
+                    self.apply_orbit_camera_key_events(&frame.key_presses, &frame.key_releases);
+            }
+            for &(x, y) in &frame.alt_left_mouse_downs {
+                handled |= self.begin_free_look_drag(x, y);
+            }
+            if frame.left_mouse_ups > 0 || frame.focus_lost {
+                handled |= self.end_free_look_drag();
+            }
+            if !frame.mouse_moves.is_empty() {
+                self.apply_free_look_mouse_moves(&frame.mouse_moves);
+                self.apply_orbit_camera_mouse_moves(&frame.mouse_moves);
+                handled = true;
+            }
+            if !frame.ctrl_scroll_deltas.is_empty() {
+                self.apply_free_look_scroll(&frame.ctrl_scroll_deltas);
+                handled = true;
+            }
+            if !frame.scroll_deltas.is_empty() {
+                self.apply_orbit_camera_scroll(&frame.scroll_deltas);
+                handled = true;
+            }
+        }
+        handled
+    }
+
     pub fn free_look_surface_mode_enabled(&self) -> bool {
-        self.free_look_camera
-            .as_ref()
+        self.free_look_state()
             .is_some_and(|state| state.surface_mode)
+    }
+
+    fn legacy_camera_input_enabled(&self) -> bool {
+        self.camera_director.active_controller.is_none_or(|kind| {
+            matches!(
+                kind,
+                camera::CameraControllerKind::FreeLook | camera::CameraControllerKind::Orbit
+            )
+        })
+    }
+
+    fn resolve_camera_controller_for_step(&self) -> Option<camera::CameraControllerKind> {
+        match self.camera_director.active_controller {
+            Some(camera::CameraControllerKind::FreeLook) => self
+                .free_look_state()
+                .is_some()
+                .then_some(camera::CameraControllerKind::FreeLook),
+            Some(camera::CameraControllerKind::Orbit) => self
+                .orbit_state()
+                .is_some()
+                .then_some(camera::CameraControllerKind::Orbit),
+            Some(
+                kind @ (camera::CameraControllerKind::Fps
+                | camera::CameraControllerKind::Chase
+                | camera::CameraControllerKind::Cockpit),
+            ) => Some(kind),
+            None => {
+                if self.free_look_camera_engaged() {
+                    Some(camera::CameraControllerKind::FreeLook)
+                } else if self.orbit_state().is_some() {
+                    Some(camera::CameraControllerKind::Orbit)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn step_reserved_camera_controller(
+        &mut self,
+        kind: camera::CameraControllerKind,
+        dt_ms: u64,
+    ) -> bool {
+        let active_id = self
+            .camera_director
+            .active_reserved_controller_id
+            .as_deref();
+        let Some(controller_index) = self
+            .camera_director
+            .reserved
+            .iter()
+            .position(|entry| entry.kind == kind && active_id.is_none_or(|id| entry.id == id))
+            .or_else(|| {
+                self.camera_director
+                    .reserved
+                    .iter()
+                    .position(|entry| entry.kind == kind)
+            })
+        else {
+            return false;
+        };
+        let dt_s = (dt_ms as f32 / 1000.0).max(0.0);
+        let current_camera = self.scene_camera_3d;
+        let controller = &mut self.camera_director.reserved[controller_index];
+        let Some(target_pose) = controller.target_pose else {
+            return false;
+        };
+
+        let next_pose = match kind {
+            camera::CameraControllerKind::Fps | camera::CameraControllerKind::Cockpit => {
+                let desired_pose = SceneCamera3D {
+                    up: normalize_or_fallback(target_pose.up, current_camera.up),
+                    ..target_pose
+                };
+                smooth_scene_camera_pose(
+                    controller.applied_pose.unwrap_or(desired_pose),
+                    desired_pose,
+                    dt_s,
+                    controller.position_lag_sec,
+                    controller.aim_lag_sec,
+                )
+            }
+            camera::CameraControllerKind::Chase => {
+                let subject_forward = normalize_or_fallback(
+                    sub3(target_pose.look_at, target_pose.eye),
+                    current_camera.forward(),
+                );
+                let subject_up = normalize_or_fallback(target_pose.up, current_camera.up);
+                let subject_right = normalize_or_fallback(
+                    cross3(subject_forward, subject_up),
+                    cross3(current_camera.forward(), current_camera.up),
+                );
+                let stable_up =
+                    normalize_or_fallback(cross3(subject_right, subject_forward), subject_up);
+                let desired_eye = add3(
+                    target_pose.eye,
+                    add3(
+                        scale3(subject_forward, -controller.chase_distance.max(0.5)),
+                        scale3(stable_up, controller.chase_height),
+                    ),
+                );
+                let desired_look_at = add3(
+                    target_pose.eye,
+                    add3(
+                        scale3(subject_forward, controller.chase_look_ahead.max(1.0)),
+                        scale3(stable_up, controller.chase_height * 0.35),
+                    ),
+                );
+                let desired_pose = SceneCamera3D {
+                    eye: desired_eye,
+                    look_at: desired_look_at,
+                    up: stable_up,
+                    fov_degrees: target_pose.fov_degrees,
+                    near_clip: target_pose.near_clip,
+                };
+                smooth_scene_camera_pose(
+                    controller.applied_pose.unwrap_or(desired_pose),
+                    desired_pose,
+                    dt_s,
+                    controller.position_lag_sec,
+                    controller.aim_lag_sec,
+                )
+            }
+            camera::CameraControllerKind::FreeLook | camera::CameraControllerKind::Orbit => {
+                return false;
+            }
+        };
+
+        controller.applied_pose = Some(next_pose);
+        self.set_scene_camera_3d_internal(next_pose);
+        true
+    }
+
+    pub fn sync_free_look_surface_anchor(&mut self, anchor: Option<CameraSurfaceAnchor>) -> bool {
+        let normalized = anchor.map(|anchor| CameraSurfaceAnchor {
+            center: [
+                if anchor.center[0].is_finite() {
+                    anchor.center[0]
+                } else {
+                    0.0
+                },
+                if anchor.center[1].is_finite() {
+                    anchor.center[1]
+                } else {
+                    0.0
+                },
+                if anchor.center[2].is_finite() {
+                    anchor.center[2]
+                } else {
+                    0.0
+                },
+            ],
+            radius: if anchor.radius.is_finite() {
+                anchor.radius.max(0.001)
+            } else {
+                0.001
+            },
+        });
+        if self.camera_director.surface_anchor == normalized {
+            return false;
+        }
+        self.camera_director.surface_anchor = normalized;
+        true
     }
 
     pub fn sync_free_look_surface_shell_2d(
@@ -29,39 +357,17 @@ impl SceneRuntime {
         center_y: f32,
         radius: f32,
     ) -> bool {
-        let Some(state) = self.free_look_camera.as_mut() else {
-            return false;
-        };
-        if !state.surface_mode {
+        if !self.free_look_surface_mode_enabled() {
             return false;
         }
-
-        let center_x = if center_x.is_finite() { center_x } else { 0.0 };
-        let center_y = if center_y.is_finite() { center_y } else { 0.0 };
-        let radius = if radius.is_finite() {
-            radius.max(0.001)
-        } else {
-            0.001
-        };
-
-        let mut updated = false;
-        if (state.surface_center[0] - center_x).abs() > f32::EPSILON {
-            state.surface_center[0] = center_x;
-            updated = true;
-        }
-        if (state.surface_center[1] - center_y).abs() > f32::EPSILON {
-            state.surface_center[1] = center_y;
-            updated = true;
-        }
-        if (state.surface_radius - radius).abs() > f32::EPSILON {
-            state.surface_radius = radius;
-            updated = true;
-        }
-        updated
+        self.sync_free_look_surface_anchor(Some(CameraSurfaceAnchor::new(
+            [center_x, center_y, 0.0],
+            radius,
+        )))
     }
 
     pub(crate) fn clamp_orbit_camera_bootstrap(&mut self) {
-        let Some(state) = self.orbit_camera.as_ref() else {
+        let Some(state) = self.orbit_state() else {
             return;
         };
         let target = state.target.clone();
@@ -73,7 +379,7 @@ impl SceneRuntime {
         let (effective_min, effective_max) =
             self.obj_orbit_effective_distance_limits(&target, authored_min, authored_max);
         let clamped_distance = authored_distance.clamp(effective_min, effective_max);
-        if let Some(state) = self.orbit_camera.as_mut() {
+        if let Some(state) = self.orbit_state_mut() {
             state.distance_min = effective_min;
             state.distance_max = effective_max;
             state.distance = clamped_distance;
@@ -85,11 +391,15 @@ impl SceneRuntime {
             Some(pitch),
             Some(clamped_distance),
         );
+        if self.camera_director.active_controller.is_none() {
+            self.camera_director
+                .set_active_if_available(camera::CameraControllerKind::Orbit);
+        }
     }
 
     /// Returns `true` if the orbit camera is currently active.
     pub fn orbit_camera_active(&self) -> bool {
-        self.orbit_camera.as_ref().is_some_and(|s| s.active)
+        self.orbit_state().is_some_and(|s| s.active)
     }
 
     /// Handle key events for the orbit camera.
@@ -102,16 +412,16 @@ impl SceneRuntime {
         key_releases: &[KeyEvent],
     ) -> bool {
         // Yield to free-look camera when it is engaged.
-        if self.orbit_camera.is_none() || self.free_look_camera_engaged() {
+        if self.orbit_state().is_none() || self.free_look_camera_engaged() {
             return false;
         }
 
         let _ = key_releases;
 
-        let active = self.orbit_camera.as_ref().is_some_and(|s| s.active);
+        let active = self.orbit_state().is_some_and(|s| s.active);
         if active {
             let (mut dist, dist_min, dist_max, step, target) = {
-                let s = self.orbit_camera.as_ref().unwrap();
+                let s = self.orbit_state().unwrap();
                 (
                     s.distance,
                     s.distance_min,
@@ -137,7 +447,7 @@ impl SceneRuntime {
                 }
             }
             if changed {
-                self.orbit_camera.as_mut().unwrap().distance = dist;
+                self.orbit_state_mut().unwrap().distance = dist;
             }
         }
 
@@ -147,15 +457,15 @@ impl SceneRuntime {
     /// Apply mouse-wheel scroll to orbit camera zoom.
     /// Positive `delta_y` = scroll up = zoom in; negative = scroll down = zoom out.
     pub fn apply_orbit_camera_scroll(&mut self, scroll_deltas: &[f32]) {
-        if self.orbit_camera.is_none() || self.free_look_camera_engaged() {
+        if self.orbit_state().is_none() || self.free_look_camera_engaged() {
             return;
         }
-        let active = self.orbit_camera.as_ref().is_some_and(|s| s.active);
+        let active = self.orbit_state().is_some_and(|s| s.active);
         if !active {
             return;
         }
         let (mut dist, dist_min, dist_max, step, target) = {
-            let s = self.orbit_camera.as_ref().unwrap();
+            let s = self.orbit_state().unwrap();
             (
                 s.distance,
                 s.distance_min,
@@ -177,7 +487,7 @@ impl SceneRuntime {
             }
         }
         if changed {
-            self.orbit_camera.as_mut().unwrap().distance = dist;
+            self.orbit_state_mut().unwrap().distance = dist;
         }
     }
 
@@ -197,7 +507,7 @@ impl SceneRuntime {
                 && self.gui_state.drag_widget.is_none()
         };
 
-        let Some(state) = self.orbit_camera.as_mut() else {
+        let Some(state) = self.orbit_state_mut() else {
             return;
         };
         if !state.active {
@@ -244,7 +554,7 @@ impl SceneRuntime {
     /// Updates target OBJ orbit-camera fields (yaw, pitch, distance) to position the
     /// camera around the target sprite. Does not override auto-rotation — Rhai controls that.
     pub fn step_orbit_camera(&mut self, dt_ms: u64) -> bool {
-        let Some(state) = self.orbit_camera.as_ref() else {
+        let Some(state) = self.orbit_state() else {
             return false;
         };
         if !state.active {
@@ -287,7 +597,7 @@ impl SceneRuntime {
             lerp(applied_distance, clamped_dist, distance_alpha).clamp(effective_min, effective_max)
         };
 
-        if let Some(state) = self.orbit_camera.as_mut() {
+        if let Some(state) = self.orbit_state_mut() {
             if state.target == target {
                 state.distance = clamped_dist;
                 state.applied_yaw = next_applied_yaw;
@@ -302,6 +612,8 @@ impl SceneRuntime {
             Some(next_applied_pitch),
             Some(next_applied_dist),
         );
+        self.camera_director
+            .set_active_if_available(camera::CameraControllerKind::Orbit);
         true
     }
 
@@ -501,8 +813,7 @@ impl SceneRuntime {
     }
 
     pub fn free_look_camera_engaged(&self) -> bool {
-        self.free_look_camera
-            .as_ref()
+        self.free_look_state()
             .is_some_and(|state| state.active || state.pending_activate)
     }
 
@@ -511,26 +822,29 @@ impl SceneRuntime {
         key_presses: &[KeyEvent],
         key_releases: &[KeyEvent],
     ) -> bool {
-        if self.free_look_camera.is_none() {
+        if self.free_look_state().is_none() {
             return false;
         }
 
         let mut toggled = false;
         for key in key_presses {
             if self
-                .free_look_camera
-                .as_ref()
+                .free_look_state()
                 .is_some_and(|state| state.matches_toggle_key(key))
             {
+                let toggle_key = self
+                    .free_look_state()
+                    .map(|state| state.toggle_key.clone())
+                    .unwrap_or_default();
                 self.toggle_free_look_camera();
-                if let Some(state) = self.free_look_camera.as_ref() {
-                    self.ui_state.keys_down.remove(&state.toggle_key);
+                if !toggle_key.is_empty() {
+                    self.ui_state.keys_down.remove(&toggle_key);
                 }
                 toggled = true;
                 continue;
             }
             if let Some(name) = free_look_captured_key_name(key) {
-                if let Some(state) = self.free_look_camera.as_mut() {
+                if let Some(state) = self.free_look_state_mut() {
                     if state.active || state.pending_activate {
                         state.held_keys.insert(name.to_string());
                     }
@@ -540,7 +854,7 @@ impl SceneRuntime {
 
         for key in key_releases {
             if let Some(name) = free_look_captured_key_name(key) {
-                if let Some(state) = self.free_look_camera.as_mut() {
+                if let Some(state) = self.free_look_state_mut() {
                     state.held_keys.remove(name);
                 }
             }
@@ -554,7 +868,7 @@ impl SceneRuntime {
     }
 
     pub fn apply_free_look_mouse_moves(&mut self, mouse_moves: &[(f32, f32)]) {
-        let Some(state) = self.free_look_camera.as_mut() else {
+        let Some(state) = self.free_look_state_mut() else {
             return;
         };
         if !(state.active || state.pending_activate) {
@@ -589,7 +903,7 @@ impl SceneRuntime {
     /// Apply Ctrl+mouse-wheel zoom to free-look camera.
     /// Positive `delta_y` = zoom in (move closer), negative = zoom out.
     pub fn apply_free_look_scroll(&mut self, scroll_deltas: &[f32]) {
-        let Some(state) = self.free_look_camera.as_mut() else {
+        let Some(state) = self.free_look_state_mut() else {
             return;
         };
         if !(state.active || state.pending_activate) || scroll_deltas.is_empty() {
@@ -627,7 +941,7 @@ impl SceneRuntime {
         if self.free_look_drag_hits_gui(mouse_x, mouse_y) {
             return false;
         }
-        let Some(state) = self.free_look_camera.as_mut() else {
+        let Some(state) = self.free_look_state_mut() else {
             return false;
         };
         let was_engaged = state.active || state.pending_activate;
@@ -648,7 +962,7 @@ impl SceneRuntime {
 
     pub fn end_free_look_drag(&mut self) -> bool {
         let reinject_keys = {
-            let Some(state) = self.free_look_camera.as_mut() else {
+            let Some(state) = self.free_look_state_mut() else {
                 return false;
             };
             if !state.drag_hold {
@@ -681,9 +995,17 @@ impl SceneRuntime {
 
     pub fn step_free_look_camera(&mut self, dt_ms: u64) -> bool {
         let current_camera = self.scene_camera_3d;
-        let Some(state) = self.free_look_camera.as_mut() else {
+        let mut activate_free_look = false;
+        let surface_anchor = self.camera_director.surface_anchor;
+        let Some(state) = self.free_look_state_mut() else {
             return false;
         };
+        if state.surface_mode {
+            if let Some(anchor) = surface_anchor {
+                state.surface_center = anchor.center;
+                state.surface_radius = anchor.radius;
+            }
+        }
         if !(state.active || state.pending_activate) {
             return false;
         }
@@ -714,6 +1036,7 @@ impl SceneRuntime {
             state.active = true;
             state.pending_activate =
                 state.drag_hold && state.held_keys.contains(FREE_LOOK_TRANSIENT_DRAG_MARKER);
+            activate_free_look = true;
         }
 
         let dt_s = dt_ms as f32 / 1000.0;
@@ -815,39 +1138,66 @@ impl SceneRuntime {
         }
 
         self.set_scene_camera_3d_internal(camera);
+        if activate_free_look {
+            self.camera_director
+                .set_active_if_available(camera::CameraControllerKind::FreeLook);
+        }
         true
     }
 
     fn toggle_free_look_camera(&mut self) {
-        let Some(state) = self.free_look_camera.as_mut() else {
+        let has_orbit = self.orbit_state().is_some();
+        let mut activate_free_look = false;
+        let mut activate_orbit = false;
+        let mut mask_inputs = false;
+        let mut reinject_keys = Vec::new();
+        let captured_scene_keys = FREE_LOOK_CAPTURED_KEYS
+            .iter()
+            .filter(|key| self.ui_state.keys_down.contains(**key))
+            .map(|key| (*key).to_string())
+            .collect::<Vec<_>>();
+        let Some(state) = self.free_look_state_mut() else {
             return;
         };
         if state.active || state.pending_activate {
-            for key in state
+            reinject_keys = state
                 .held_keys
                 .iter()
                 .filter(|key| is_free_look_captured_key_name(key))
-            {
-                self.ui_state.keys_down.insert(key.clone());
-            }
+                .cloned()
+                .collect::<Vec<_>>();
             state.held_keys.remove(FREE_LOOK_TRANSIENT_DRAG_MARKER);
             state.active = false;
             state.pending_activate = false;
             state.drag_hold = false;
             state.last_mouse_pos = None;
+            activate_orbit = has_orbit;
+        } else {
+            state.drag_hold = false;
+            state.held_keys.clear();
+            for key in &captured_scene_keys {
+                state.held_keys.insert(key.clone());
+            }
+            state.last_mouse_pos = None;
+            state.pending_activate = true;
+            activate_free_look = true;
+            mask_inputs = true;
+        }
+        for key in reinject_keys {
+            self.ui_state.keys_down.insert(key);
+        }
+        if activate_orbit {
+            self.camera_director
+                .set_active_if_available(camera::CameraControllerKind::Orbit);
             return;
         }
-
-        state.drag_hold = false;
-        state.held_keys.clear();
-        for key in FREE_LOOK_CAPTURED_KEYS {
-            if self.ui_state.keys_down.contains(*key) {
-                state.held_keys.insert((*key).to_string());
-            }
+        if mask_inputs {
+            self.mask_free_look_keys_from_scene_input();
         }
-        state.last_mouse_pos = None;
-        state.pending_activate = true;
-        self.mask_free_look_keys_from_scene_input();
+        if activate_free_look {
+            self.camera_director
+                .set_active_if_available(camera::CameraControllerKind::FreeLook);
+        }
     }
 
     fn mask_free_look_keys_from_scene_input(&mut self) {
@@ -1041,6 +1391,47 @@ fn smooth_angle_deg(current: f32, target: f32, alpha: f32) -> f32 {
 
 fn lerp(current: f32, target: f32, alpha: f32) -> f32 {
     current + (target - current) * alpha.clamp(0.0, 1.0)
+}
+
+fn normalize_or_fallback(v: [f32; 3], fallback: [f32; 3]) -> [f32; 3] {
+    if length3(v) > 1e-5 {
+        normalize3(v)
+    } else {
+        normalize3(fallback)
+    }
+}
+
+fn smooth_scene_camera_pose(
+    current: SceneCamera3D,
+    target: SceneCamera3D,
+    dt_s: f32,
+    position_lag_sec: f32,
+    aim_lag_sec: f32,
+) -> SceneCamera3D {
+    let pos_alpha = smoothing_alpha(dt_s, position_lag_sec);
+    let aim_alpha = smoothing_alpha(dt_s, aim_lag_sec);
+    SceneCamera3D {
+        eye: [
+            lerp(current.eye[0], target.eye[0], pos_alpha),
+            lerp(current.eye[1], target.eye[1], pos_alpha),
+            lerp(current.eye[2], target.eye[2], pos_alpha),
+        ],
+        look_at: [
+            lerp(current.look_at[0], target.look_at[0], aim_alpha),
+            lerp(current.look_at[1], target.look_at[1], aim_alpha),
+            lerp(current.look_at[2], target.look_at[2], aim_alpha),
+        ],
+        up: normalize_or_fallback(
+            [
+                lerp(current.up[0], target.up[0], aim_alpha),
+                lerp(current.up[1], target.up[1], aim_alpha),
+                lerp(current.up[2], target.up[2], aim_alpha),
+            ],
+            target.up,
+        ),
+        fov_degrees: lerp(current.fov_degrees, target.fov_degrees, aim_alpha),
+        near_clip: lerp(current.near_clip, target.near_clip, aim_alpha),
+    }
 }
 
 fn surface_reference_forward(up: [f32; 3]) -> [f32; 3] {

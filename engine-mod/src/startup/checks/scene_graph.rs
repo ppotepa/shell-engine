@@ -1,6 +1,7 @@
 //! Validates the scene graph — unique scene IDs, reachability from the entrypoint, and no dangling transitions.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 
 use engine_core::scene::Scene;
 use engine_error::EngineError;
@@ -47,7 +48,12 @@ impl StartupCheck for SceneGraphCheck {
                 edges.push(option.next.clone());
             }
             let current_mod_name = ctx.manifest().get("name").and_then(|value| value.as_str());
-            edges.extend(collect_scripted_scene_jumps(&sf.scene, current_mod_name));
+            edges.extend(collect_scripted_scene_jumps(
+                ctx,
+                &sf.path,
+                &sf.scene,
+                current_mod_name,
+            ));
             id_to_edges.insert(sf.scene.id.clone(), edges);
             path_to_id.insert(normalize_scene_path(&sf.path), sf.scene.id.clone());
         }
@@ -151,18 +157,29 @@ fn resolve_graph_edges(
         .collect()
 }
 
-fn collect_scripted_scene_jumps(scene: &Scene, current_mod_name: Option<&str>) -> Vec<String> {
+fn collect_scripted_scene_jumps(
+    ctx: &StartupContext,
+    scene_path: &str,
+    scene: &Scene,
+    current_mod_name: Option<&str>,
+) -> Vec<String> {
     let mut jumps = Vec::new();
     for behavior in &scene.behaviors {
         jumps.extend(collect_behavior_jumps(
+            ctx,
+            scene_path,
             behavior.params.script.as_deref(),
+            behavior.params.src.as_deref(),
             current_mod_name,
         ));
     }
     for layer in &scene.layers {
         for behavior in &layer.behaviors {
             jumps.extend(collect_behavior_jumps(
+                ctx,
+                scene_path,
                 behavior.params.script.as_deref(),
+                behavior.params.src.as_deref(),
                 current_mod_name,
             ));
         }
@@ -170,7 +187,10 @@ fn collect_scripted_scene_jumps(scene: &Scene, current_mod_name: Option<&str>) -
             sprite.walk_recursive(&mut |node| {
                 for behavior in node.behaviors() {
                     jumps.extend(collect_behavior_jumps(
+                        ctx,
+                        scene_path,
                         behavior.params.script.as_deref(),
+                        behavior.params.src.as_deref(),
                         current_mod_name,
                     ));
                 }
@@ -182,15 +202,57 @@ fn collect_scripted_scene_jumps(scene: &Scene, current_mod_name: Option<&str>) -
     jumps
 }
 
-fn collect_behavior_jumps(script: Option<&str>, current_mod_name: Option<&str>) -> Vec<String> {
-    let Some(script) = script else {
+fn collect_behavior_jumps(
+    ctx: &StartupContext,
+    scene_path: &str,
+    script: Option<&str>,
+    src: Option<&str>,
+    current_mod_name: Option<&str>,
+) -> Vec<String> {
+    let source_path = src.and_then(|src| resolve_script_src_path(ctx.mod_source(), scene_path, src));
+    let owned_script = script
+        .is_none()
+        .then(|| src.and_then(|src| load_script_from_src(ctx.mod_source(), scene_path, src)))
+        .flatten();
+    let Some(script) = script.or(owned_script.as_deref()) else {
         return Vec::new();
     };
-    let mut jumps = collect_literal_game_jumps(script);
-    jumps.extend(collect_literal_game_jump_mods(script, current_mod_name));
-    jumps.sort();
-    jumps.dedup();
-    jumps
+    collect_script_jumps_recursive(
+        ctx.mod_source(),
+        script,
+        source_path.as_deref(),
+        current_mod_name,
+        &mut BTreeSet::new(),
+    )
+}
+
+fn load_script_from_src(mod_source: &Path, scene_path: &str, src: &str) -> Option<String> {
+    let target = resolve_script_src_path(mod_source, scene_path, src)?;
+    std::fs::read_to_string(target).ok()
+}
+
+fn resolve_script_src_path(mod_source: &Path, scene_path: &str, src: &str) -> Option<PathBuf> {
+    let src = src.trim();
+    if src.is_empty() {
+        return None;
+    }
+
+    let target = if src.starts_with('/') {
+        mod_source.join(src.trim_start_matches('/'))
+    } else {
+        let scene_rel = scene_path.trim_start_matches('/');
+        let scene_parent = Path::new(scene_rel).parent().unwrap_or_else(|| Path::new(""));
+        mod_source.join(scene_parent).join(src)
+    };
+    Some(normalize_behavior_src_path(target))
+}
+
+fn normalize_behavior_src_path(path: PathBuf) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        normalized.push(component);
+    }
+    normalized
 }
 
 fn collect_literal_game_jumps(script: &str) -> Vec<String> {
@@ -278,6 +340,91 @@ fn collect_literal_game_jump_mods(script: &str, current_mod_name: Option<&str>) 
         offset = next_idx;
     }
     out
+}
+
+fn collect_script_jumps_recursive(
+    mod_source: &Path,
+    script: &str,
+    source_path: Option<&Path>,
+    current_mod_name: Option<&str>,
+    visited: &mut BTreeSet<PathBuf>,
+) -> Vec<String> {
+    let mut jumps = collect_literal_game_jumps(script);
+    jumps.extend(collect_literal_game_jump_mods(script, current_mod_name));
+
+    for import_ref in collect_literal_import_refs(script) {
+        let Some(import_path) = resolve_import_src_path(mod_source, source_path, &import_ref) else {
+            continue;
+        };
+        if !visited.insert(import_path.clone()) {
+            continue;
+        }
+        let Ok(import_script) = std::fs::read_to_string(&import_path) else {
+            continue;
+        };
+        jumps.extend(collect_script_jumps_recursive(
+            mod_source,
+            &import_script,
+            Some(import_path.as_path()),
+            current_mod_name,
+            visited,
+        ));
+    }
+
+    jumps.sort();
+    jumps.dedup();
+    jumps
+}
+
+fn collect_literal_import_refs(script: &str) -> Vec<String> {
+    let mut refs = Vec::new();
+    let bytes = script.as_bytes();
+    let mut idx = 0usize;
+    while idx < bytes.len() {
+        let Some(found) = script[idx..].find("import") else {
+            break;
+        };
+        idx += found + "import".len();
+        let Some((import_ref, next_idx)) = parse_literal_string_arg(script, idx) else {
+            continue;
+        };
+        if !import_ref.trim().is_empty() {
+            refs.push(import_ref.trim().to_string());
+        }
+        idx = next_idx;
+    }
+    refs.sort();
+    refs.dedup();
+    refs
+}
+
+fn resolve_import_src_path(
+    mod_source: &Path,
+    source_path: Option<&Path>,
+    import_ref: &str,
+) -> Option<PathBuf> {
+    let import_ref = import_ref.trim();
+    if import_ref.is_empty() {
+        return None;
+    }
+
+    let target = if import_ref.starts_with('/') {
+        mod_source.join(import_ref.trim_start_matches('/'))
+    } else if import_ref.starts_with("./") || import_ref.starts_with("../") {
+        let base_dir = source_path
+            .and_then(Path::parent)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| mod_source.join("scripts"));
+        base_dir.join(import_ref)
+    } else {
+        mod_source.join("scripts").join(import_ref)
+    };
+
+    let mut normalized = normalize_behavior_src_path(target);
+    if normalized.extension().is_none() {
+        normalized.set_extension("rhai");
+    }
+    Some(normalized)
 }
 
 fn parse_literal_string_arg(script: &str, start: usize) -> Option<(String, usize)> {
@@ -619,6 +766,137 @@ behaviors:
         assert!(!report.issues().iter().any(|issue| {
             issue.level == StartupIssueLevel::Warning
                 && issue.message.contains("missing target scene")
+        }));
+    }
+
+    #[test]
+    fn accepts_scripted_external_src_transitions() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/intro")).expect("create intro dir");
+        fs::create_dir_all(mod_dir.join("scenes/flight")).expect("create flight dir");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            r#"
+id: intro
+title: Intro
+layers: []
+behaviors:
+  - name: rhai-script
+    params:
+      src: ./main.rhai
+"#,
+        )
+        .expect("write intro scene");
+        fs::write(
+            mod_dir.join("scenes/intro/main.rhai"),
+            r#"
+if input.just_pressed("F10") {
+    game.jump("flight");
+}
+"#,
+        )
+        .expect("write intro rhai");
+        fs::write(
+            mod_dir.join("scenes/flight/scene.yml"),
+            r#"
+id: flight
+title: Flight
+layers: []
+"#,
+        )
+        .expect("write flight scene");
+
+        let manifest: Value = serde_yaml::from_str(
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
+        )
+        .expect("manifest");
+        let ctx = StartupContext::new(
+            &mod_dir,
+            &manifest,
+            "/scenes/intro/scene.yml",
+            &scene_loader,
+        );
+        let mut report = StartupReport::default();
+
+        SceneGraphCheck
+            .run(&ctx, &mut report)
+            .expect("scene graph ok");
+
+        assert!(!report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Warning
+                && issue.message.contains("unreachable scenes")
+        }));
+    }
+
+    #[test]
+    fn accepts_scripted_imported_module_transitions() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/intro")).expect("create intro dir");
+        fs::create_dir_all(mod_dir.join("scenes/flight")).expect("create flight dir");
+        fs::create_dir_all(mod_dir.join("scripts/generator")).expect("create scripts dir");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            r#"
+id: intro
+title: Intro
+layers: []
+behaviors:
+  - name: rhai-script
+    params:
+      src: ./main.rhai
+"#,
+        )
+        .expect("write intro scene");
+        fs::write(
+            mod_dir.join("scenes/intro/main.rhai"),
+            r#"
+import "generator/input" as generator_input;
+generator_input::step();
+"#,
+        )
+        .expect("write intro rhai");
+        fs::write(
+            mod_dir.join("scripts/generator/input.rhai"),
+            r#"
+fn step() {
+    if input.just_pressed("F10") {
+        game.jump("flight");
+    }
+}
+"#,
+        )
+        .expect("write imported module");
+        fs::write(
+            mod_dir.join("scenes/flight/scene.yml"),
+            r#"
+id: flight
+title: Flight
+layers: []
+"#,
+        )
+        .expect("write flight scene");
+
+        let manifest: Value = serde_yaml::from_str(
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
+        )
+        .expect("manifest");
+        let ctx = StartupContext::new(
+            &mod_dir,
+            &manifest,
+            "/scenes/intro/scene.yml",
+            &scene_loader,
+        );
+        let mut report = StartupReport::default();
+
+        SceneGraphCheck
+            .run(&ctx, &mut report)
+            .expect("scene graph ok");
+
+        assert!(!report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Warning
+                && issue.message.contains("unreachable scenes")
         }));
     }
 }

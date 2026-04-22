@@ -3,7 +3,14 @@ id: planet-generator-flight
 title: Planet Flight
 bg: "#000008"
 render-size: 640x360
-space: 3d
+render-space: 3d
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: cockpit-flight
+  player-preset: celestial-free-flight
+  ui-preset: flight-hud
+camera-rig:
+  preset: cockpit-flight
 spatial:
   meters-per-world-unit: 1000.0
 celestial:

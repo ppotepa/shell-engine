@@ -25,7 +25,6 @@ fn apply_launch_snapshot(local, snapshot) {
 
     local.model_mode = 1;
     local.rotation_paused = true;
-    local.rotspeed = 0.0;
     local.push_ready = false;
     local.push_dirty = true;
     local.push_timer = 0.0;

@@ -4,7 +4,7 @@ use crate::audio::AudioCommand;
 use crate::debug_log::DebugLogBuffer;
 use crate::events::EngineEvent;
 use crate::scene::{self};
-use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
+use crate::scene_runtime::{CameraInputFrame, RawKeyEvent, SceneRuntime};
 use crate::services::EngineWorldAccess;
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
@@ -116,20 +116,15 @@ impl SceneLifecycleManager {
             runtime.accumulate_frame_scroll_state(total_scroll, total_ctrl_scroll);
         }
 
-        handle_scene_free_look_input(
+        handle_scene_camera_input(
             world,
             &lifecycle.input_events,
             &lifecycle.key_presses,
             &lifecycle.key_releases,
             &mouse_moves,
-            &ctrl_scroll_deltas,
-        );
-        handle_scene_orbit_camera_input(
-            world,
-            &lifecycle.key_presses,
-            &lifecycle.key_releases,
-            &mouse_moves,
             &scroll_deltas,
+            &ctrl_scroll_deltas,
+            lifecycle.input_focus_lost,
         );
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
@@ -291,8 +286,36 @@ impl SceneLifecycleManager {
             // 3. Activate the scene.
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
+            crate::systems::scene_bootstrap::activate_scene_bootstrap(world);
             if let Some(runtime) = world.scene_runtime() {
                 let scene = runtime.scene();
+                if let Some(bootstrap) =
+                    world.get::<crate::systems::scene_bootstrap::ResolvedSceneBootstrap>()
+                {
+                    logging::info(
+                        "engine.scene",
+                        format!("scene bootstrap resolved: {}", bootstrap.summary()),
+                    );
+                }
+                if let Some(applied) =
+                    world.get::<crate::systems::scene_bootstrap::AppliedSceneBootstrap>()
+                {
+                    logging::info(
+                        "engine.scene",
+                        format!("scene bootstrap applied: {}", applied.summary()),
+                    );
+                    if !applied.diagnostics.is_empty() {
+                        let label = if applied.has_pending_work() {
+                            "scene bootstrap pending diagnostics"
+                        } else {
+                            "scene bootstrap diagnostics"
+                        };
+                        logging::info(
+                            "engine.scene",
+                            format!("{label}: {}", applied.diagnostics.join(" | ")),
+                        );
+                    }
+                }
                 let audio_cue_count = scene.audio.on_enter.len()
                     + scene.audio.on_idle.len()
                     + scene.audio.on_leave.len();
@@ -588,68 +611,53 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(f32, f32)]) {
     }
 }
 
-fn handle_scene_orbit_camera_input(
-    world: &mut World,
-    key_presses: &[KeyEvent],
-    key_releases: &[KeyEvent],
-    mouse_moves: &[(f32, f32)],
-    scroll_deltas: &[f32],
-) {
-    if !is_scene_idle(world) {
-        return;
-    }
-    if let Some(runtime) = world.scene_runtime_mut() {
-        let _ = runtime.apply_orbit_camera_key_events(key_presses, key_releases);
-        if !mouse_moves.is_empty() {
-            runtime.apply_orbit_camera_mouse_moves(mouse_moves);
-        }
-        if !scroll_deltas.is_empty() {
-            runtime.apply_orbit_camera_scroll(scroll_deltas);
-        }
-    }
-}
-
-fn handle_scene_free_look_input(
+fn handle_scene_camera_input(
     world: &mut World,
     input_events: &[InputEvent],
     key_presses: &[KeyEvent],
     key_releases: &[KeyEvent],
     mouse_moves: &[(f32, f32)],
+    scroll_deltas: &[f32],
     ctrl_scroll_deltas: &[f32],
+    focus_lost: bool,
 ) {
     if !is_scene_idle(world) {
         return;
     }
-    if let Some(runtime) = world.scene_runtime_mut() {
-        let _ = runtime.apply_free_look_key_events(key_presses, key_releases);
-        for event in input_events {
-            match event {
-                InputEvent::MouseDown {
-                    x,
-                    y,
-                    button: MouseButton::Left,
-                    modifiers,
-                } if modifiers.contains(KeyModifiers::ALT) => {
-                    let _ = runtime.begin_free_look_drag(*x, *y);
-                }
-                InputEvent::MouseUp {
-                    button: MouseButton::Left,
-                    ..
-                } => {
-                    let _ = runtime.end_free_look_drag();
-                }
-                InputEvent::FocusLost => {
-                    let _ = runtime.end_free_look_drag();
-                }
-                _ => {}
+    let mut frame = CameraInputFrame {
+        key_presses: key_presses.to_vec(),
+        key_releases: key_releases.to_vec(),
+        mouse_moves: mouse_moves.to_vec(),
+        scroll_deltas: scroll_deltas.to_vec(),
+        ctrl_scroll_deltas: ctrl_scroll_deltas.to_vec(),
+        focus_lost,
+        ..CameraInputFrame::default()
+    };
+    for event in input_events {
+        match event {
+            InputEvent::MouseDown {
+                x,
+                y,
+                button: MouseButton::Left,
+                modifiers,
+            } if modifiers.contains(KeyModifiers::ALT) => {
+                frame.alt_left_mouse_downs.push((*x, *y));
             }
+            InputEvent::MouseUp {
+                button: MouseButton::Left,
+                ..
+            } => {
+                frame.left_mouse_ups += 1;
+            }
+            InputEvent::FocusLost => {
+                frame.focus_lost = true;
+            }
+            _ => {}
         }
-        if !mouse_moves.is_empty() {
-            runtime.apply_free_look_mouse_moves(mouse_moves);
-        }
-        if !ctrl_scroll_deltas.is_empty() {
-            runtime.apply_free_look_scroll(ctrl_scroll_deltas);
-        }
+    }
+    if let Some(runtime) = world.scene_runtime_mut() {
+        runtime.begin_camera_director_frame();
+        let _ = runtime.apply_camera_input_frame(&frame);
     }
 }
 
@@ -793,6 +801,8 @@ mod tests {
             cutscene: false,
             target_fps: None,
             space: Default::default(),
+            world_model: Default::default(),
+            controller_defaults: Default::default(),
             celestial: Default::default(),
             lighting: None,
             view: None,
@@ -821,6 +831,7 @@ mod tests {
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
             gui: Default::default(),
+            runtime_objects: Vec::new(),
             spatial: Default::default(),
         }
     }
@@ -832,6 +843,8 @@ mod tests {
             cutscene: true,
             target_fps: None,
             space: Default::default(),
+            world_model: Default::default(),
+            controller_defaults: Default::default(),
             celestial: Default::default(),
             lighting: None,
             view: None,
@@ -852,6 +865,7 @@ mod tests {
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
             gui: Default::default(),
+            runtime_objects: Vec::new(),
             spatial: Default::default(),
         }
     }

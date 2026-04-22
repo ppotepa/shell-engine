@@ -500,6 +500,7 @@ dependencies = [
  "clap",
  "engine-authoring",
  "serde_yaml",
+ "tempfile",
 ]
 
 [[package]]
@@ -728,8 +729,10 @@ dependencies = [
 name = "engine-celestial"
 version = "0.1.0"
 dependencies = [
+ "engine-core",
  "engine-terrain",
  "serde",
+ "serde_json",
  "serde_yaml",
  "tempfile",
 ]

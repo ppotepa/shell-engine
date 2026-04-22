@@ -1,6 +1,13 @@
 id: asteroids-bench-cloud
 title: Asteroids Cloud Bench
 bg: "#000000"
+render-space: 3d
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: free-look-camera
+camera-rig:
+  preset: free-look-camera
+  free-look-camera: {}
 celestial:
   scope: local
   region: asteroids-sector
@@ -11,8 +18,6 @@ celestial:
   clock-source: scene
 layers:
   - ref: bench-cloud/layers/planet-bench-layer.yml
-input:
-  free-look-camera: {}
 stages:
   on_enter:
     steps:

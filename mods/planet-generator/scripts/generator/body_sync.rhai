@@ -54,22 +54,18 @@ fn build_generated_body_from_local(local) {
     )
 }
 
-fn sync_generated_body(local, world) {
-    local = planet_spec::sync_spec_from_legacy(local);
-    let spec = local["planet_spec"] ?? #{};
-    local["planet_radius_sim_km"] = sim_radius_km(
-        spec["planet_radius_real_km"] ?? 6371.0,
-        spec["planet_radius_scale_divisor"] ?? 1.0
-    );
-
-    let body = build_generated_body_from_local(local);
-    let patched = world.body_patch("generated-planet", body);
-    let body_snapshot = world.body("generated-planet");
-
-    #{
-        local: local,
-        body: body,
-        body_snapshot: body_snapshot,
-        patched: patched
-    }
+fn generated_body_changed(previous, current) {
+    (previous["center_x"] ?? current["center_x"]) != current["center_x"]
+        || (previous["center_y"] ?? current["center_y"]) != current["center_y"]
+        || (previous["radius_px"] ?? current["radius_px"]) != current["radius_px"]
+        || (previous["km_per_px"] ?? current["km_per_px"]) != current["km_per_px"]
+        || (previous["surface_radius"] ?? current["surface_radius"]) != current["surface_radius"]
+        || (previous["radius_km"] ?? current["radius_km"]) != current["radius_km"]
+        || (previous["gravity_mu_km3_s2"] ?? current["gravity_mu_km3_s2"]) != current["gravity_mu_km3_s2"]
+        || (previous["atmosphere_top_km"] ?? current["atmosphere_top_km"]) != current["atmosphere_top_km"]
+        || (previous["atmosphere_dense_start_km"] ?? current["atmosphere_dense_start_km"]) != current["atmosphere_dense_start_km"]
+        || (previous["atmosphere_drag_max"] ?? current["atmosphere_drag_max"]) != current["atmosphere_drag_max"]
+        || (previous["cloud_bottom_km"] ?? current["cloud_bottom_km"]) != current["cloud_bottom_km"]
+        || (previous["cloud_top_km"] ?? current["cloud_top_km"]) != current["cloud_top_km"]
+        || (previous["planet_type"] ?? current["planet_type"]) != current["planet_type"]
 }

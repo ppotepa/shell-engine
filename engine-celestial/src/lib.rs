@@ -10,7 +10,16 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub mod derive;
+pub mod services;
 pub use engine_terrain::PlanetGenParams;
+pub use services::{
+    default_spawn_biomes, find_planet_spawn, find_planet_spawn_from_params,
+    find_planet_spawn_selection, resolve_official_clock_seconds, sample_planet_spawn,
+    AtmosphereSample, BodyPatch, BodyPose3, CelestialQueryContext, GravitySample3, LocalFrame3,
+    OfficialClockResolution, PlanetSpawnSample, SitePose3, SurfaceAnchor3, SurfacePoint3,
+    SystemQuery3, WorldPoint3, WorldVec3, CAMPAIGN_CLOCK_MS_PATH, CAMPAIGN_CLOCK_SEC_PATH,
+    FIXED_CLOCK_MS_PATH, FIXED_CLOCK_SEC_PATH,
+};
 
 /// Complete celestial catalog set for a mod.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]

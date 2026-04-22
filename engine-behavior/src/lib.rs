@@ -1178,6 +1178,9 @@ mod tests {
     use engine_core::scene_runtime_types::{
         ObjectRuntimeState, SidecarIoFrameState, TargetResolver,
     };
+    use engine_game::components::{
+        AngularMotorMode, CharacterUpMode, LifecyclePolicy, MotorSpace, ReferenceFrameMode,
+    };
     use engine_game::GameplayWorld;
     use rhai::Map as RhaiMap;
     use serde_json::json;
@@ -1203,6 +1206,8 @@ mod tests {
             cutscene: true,
             target_fps: None,
             space: Default::default(),
+            world_model: Default::default(),
+            controller_defaults: Default::default(),
             celestial: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -1224,6 +1229,7 @@ mod tests {
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
             gui: Default::default(),
+            runtime_objects: Vec::new(),
         }
     }
 
@@ -3703,7 +3709,13 @@ let vehicle = world.spawn_prefab("vehicle", #{
   invulnerable_ms: 3000
 });
 let entity = world.spawn_prefab("entity", #{
-  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
+  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2,
+  metadata: #{
+    canary: #{
+      revision: 2,
+      note: "nested-override"
+    }
+  }
 });
 "#
                 .to_string(),
@@ -3790,9 +3802,373 @@ let entity = world.spawn_prefab("entity", #{
         assert!((phys.vy + 1.0).abs() < 0.01);
         assert_eq!(
             gameplay_world
+                .get(entity_id, "/metadata/family")
+                .and_then(|v| v.as_str().map(|s| s.to_string())),
+            Some("test-core".to_string())
+        );
+        assert_eq!(
+            gameplay_world
+                .get(entity_id, "/metadata/canary/revision")
+                .and_then(|v| v.as_i64()),
+            Some(2)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(entity_id, "/metadata/canary/enabled")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(entity_id, "/metadata/canary/note")
+                .and_then(|v| v.as_str().map(|s| s.to_string())),
+            Some("nested-override".to_string())
+        );
+        assert_eq!(
+            gameplay_world
                 .get(entity_id, "/size")
                 .and_then(|v| v.as_i64()),
             Some(2)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_prefab_lowers_default_tags_and_init_fields() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let id = world.spawn_prefab("scout", #{
+  tags: ["callsite-tag"],
+  boot_marker: "runtime"
+});
+game.set("/test/scout_id", id);
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut catalogs = catalog::ModCatalogs::test_catalogs();
+        catalogs.prefabs.insert(
+            "scout".to_string(),
+            catalog::PrefabTemplate {
+                kind: "scout".to_string(),
+                sprite_template: Some("scout-template".to_string()),
+                transform: None,
+                init_fields: HashMap::from([
+                    ("boot_marker".to_string(), json!("prefab")),
+                    ("ai_state".to_string(), json!("idle")),
+                ]),
+                components: Some(Default::default()),
+                fg_colour: None,
+                default_tags: vec!["prefab-tag".to_string()],
+            },
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.gameplay_world = Some(gameplay_world.clone());
+        test_ctx.catalogs = std::sync::Arc::new(catalogs);
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_prefab should not produce ScriptError: {commands:?}"
+        );
+
+        let scout_ids = gameplay_world.query_kind("scout");
+        assert_eq!(scout_ids.len(), 1);
+        let scout_id = scout_ids[0];
+        assert!(gameplay_world.query_tag("prefab-tag").contains(&scout_id));
+        assert!(gameplay_world.query_tag("callsite-tag").contains(&scout_id));
+        let runtime_marker = json!("runtime");
+        let idle_marker = json!("idle");
+        assert_eq!(
+            gameplay_world.get(scout_id, "/boot_marker"),
+            Some(runtime_marker.clone())
+        );
+        assert_eq!(
+            gameplay_world.get(scout_id, "/ai_state"),
+            Some(idle_marker.clone())
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_prefab_lowers_prefab_transform_and_3d_components() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let id = world.spawn_prefab("cockpit", #{ tags: ["runtime-tag"] });
+game.set("/test/cockpit_id", id);
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut catalogs = catalog::ModCatalogs::test_catalogs();
+        catalogs.prefabs.insert(
+            "cockpit".to_string(),
+            catalog::PrefabTemplate {
+                kind: "cockpit".to_string(),
+                sprite_template: Some("cockpit-panel".to_string()),
+                transform: Some(catalog::PrefabTransform {
+                    x: Some(4.0),
+                    y: Some(5.0),
+                    heading: Some(0.25),
+                    z: Some(1.5),
+                    pitch: Some(4.0),
+                    roll: Some(-2.0),
+                    scale_x: Some(1.2),
+                    scale_y: Some(1.3),
+                    scale_z: Some(0.9),
+                }),
+                init_fields: HashMap::from([(
+                    "profile".to_string(),
+                    json!({
+                        "family": "cockpit",
+                        "revision": 3
+                    }),
+                )]),
+                components: Some(catalog::PrefabComponents {
+                    reference_frame: Some(catalog::ReferenceFrameComponent {
+                        mode: Some("LocalHorizon".to_string()),
+                        entity_id: Some(7),
+                        body_id: Some("earth".to_string()),
+                        inherit_linear_velocity: Some(true),
+                        inherit_angular_velocity: Some(false),
+                    }),
+                    follow_anchor_3d: Some(catalog::FollowAnchor3DComponent {
+                        local_offset: Some([1.0, 2.0, 3.0]),
+                        inherit_orientation: Some(false),
+                    }),
+                    linear_motor_3d: Some(catalog::LinearMotor3DComponent {
+                        space: Some("ReferenceFrame".to_string()),
+                        accel: Some(24.0),
+                        decel: Some(12.0),
+                        max_speed: Some(320.0),
+                        boost_scale: Some(1.5),
+                        air_control: Some(0.75),
+                    }),
+                    angular_motor_3d: Some(catalog::AngularMotor3DComponent {
+                        mode: Some("Torque".to_string()),
+                        yaw_rate: Some(90.0),
+                        pitch_rate: Some(20.0),
+                        roll_rate: Some(15.0),
+                        torque_scale: Some(2.0),
+                        look_sensitivity: Some(1.25),
+                    }),
+                    character_motor_3d: Some(catalog::CharacterMotor3DComponent {
+                        up_mode: Some("SurfaceNormal".to_string()),
+                        jump_speed: Some(8.5),
+                        stick_to_ground: Some(true),
+                        max_slope_deg: Some(55.0),
+                    }),
+                    flight_motor_3d: Some(catalog::FlightMotor3DComponent {
+                        translational_dofs: Some([true, false, true]),
+                        rotational_dofs: Some([true, true, false]),
+                        horizon_lock_strength: Some(0.35),
+                    }),
+                    lifecycle: Some("Persistent".to_string()),
+                    ..catalog::PrefabComponents::default()
+                }),
+                fg_colour: None,
+                default_tags: vec!["prefab-tag".to_string()],
+            },
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.gameplay_world = Some(gameplay_world.clone());
+        test_ctx.catalogs = std::sync::Arc::new(catalogs);
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_prefab should not produce ScriptError: {commands:?}"
+        );
+
+        let cockpit_ids = gameplay_world.query_kind("cockpit");
+        assert_eq!(cockpit_ids.len(), 1);
+        let cockpit_id = cockpit_ids[0];
+        assert!(gameplay_world.query_tag("prefab-tag").contains(&cockpit_id));
+        assert!(gameplay_world
+            .query_tag("runtime-tag")
+            .contains(&cockpit_id));
+        let transform = gameplay_world
+            .transform(cockpit_id)
+            .expect("cockpit transform should exist");
+        assert!((transform.x - 4.0).abs() < 0.01);
+        assert!((transform.y - 5.0).abs() < 0.01);
+        assert!((transform.heading - 0.25).abs() < 0.01);
+        assert_eq!(
+            gameplay_world
+                .get(cockpit_id, "/z")
+                .and_then(|v| v.as_f64()),
+            Some(1.5)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(cockpit_id, "/scale_z")
+                .and_then(|v| v.as_f64()),
+            Some(0.9)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(cockpit_id, "/profile/family")
+                .and_then(|v| v.as_str().map(|s| s.to_string())),
+            Some("cockpit".to_string())
+        );
+        assert_eq!(
+            gameplay_world
+                .reference_frame3d(cockpit_id)
+                .map(|binding| binding.mode),
+            Some(ReferenceFrameMode::LocalHorizon)
+        );
+        assert_eq!(
+            gameplay_world
+                .reference_frame3d(cockpit_id)
+                .and_then(|binding| binding.body_id.clone()),
+            Some("earth".to_string())
+        );
+        assert_eq!(
+            gameplay_world
+                .follow_anchor3d(cockpit_id)
+                .map(|follow| follow.local_offset),
+            Some([1.0, 2.0, 3.0])
+        );
+        assert_eq!(
+            gameplay_world
+                .linear_motor3d(cockpit_id)
+                .map(|motor| motor.space),
+            Some(MotorSpace::ReferenceFrame)
+        );
+        assert_eq!(
+            gameplay_world
+                .angular_motor3d(cockpit_id)
+                .map(|motor| motor.mode),
+            Some(AngularMotorMode::Torque)
+        );
+        assert_eq!(
+            gameplay_world
+                .character_motor3d(cockpit_id)
+                .map(|motor| motor.up_mode),
+            Some(CharacterUpMode::SurfaceNormal)
+        );
+        assert_eq!(
+            gameplay_world
+                .flight_motor3d(cockpit_id)
+                .map(|motor| motor.rotational_dofs),
+            Some([true, true, false])
+        );
+        assert!(gameplay_world.ids_with_any_3d().contains(&cockpit_id));
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_prefab_bootstraps_owner_and_lifecycle_through_typed_path() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let owner = world.spawn_prefab("carrier", #{});
+let id = world.spawn_prefab("drone", #{
+  owner_id: owner,
+  lifecycle: "TtlFollowOwner",
+  ttl_ms: 250
+});
+game.set("/test/drone_id", id);
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut catalogs = catalog::ModCatalogs::test_catalogs();
+        catalogs.prefabs.insert(
+            "carrier".to_string(),
+            catalog::PrefabTemplate {
+                kind: "carrier".to_string(),
+                sprite_template: Some("carrier-visual".to_string()),
+                transform: Some(catalog::PrefabTransform::default()),
+                init_fields: HashMap::new(),
+                components: Some(catalog::PrefabComponents {
+                    lifecycle: Some("Persistent".to_string()),
+                    ..catalog::PrefabComponents::default()
+                }),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+        catalogs.prefabs.insert(
+            "drone".to_string(),
+            catalog::PrefabTemplate {
+                kind: "drone".to_string(),
+                sprite_template: Some("drone-visual".to_string()),
+                transform: Some(catalog::PrefabTransform {
+                    x: Some(2.0),
+                    y: Some(3.0),
+                    heading: Some(0.5),
+                    ..catalog::PrefabTransform::default()
+                }),
+                init_fields: HashMap::new(),
+                components: Some(catalog::PrefabComponents {
+                    reference_frame: Some(catalog::ReferenceFrameComponent {
+                        mode: Some("ParentEntity".to_string()),
+                        entity_id: Some(1),
+                        body_id: None,
+                        inherit_linear_velocity: Some(true),
+                        inherit_angular_velocity: Some(false),
+                    }),
+                    linear_motor_3d: Some(catalog::LinearMotor3DComponent {
+                        space: Some("ReferenceFrame".to_string()),
+                        accel: Some(12.0),
+                        ..catalog::LinearMotor3DComponent::default()
+                    }),
+                    lifecycle: Some("OwnerBound".to_string()),
+                    ..catalog::PrefabComponents::default()
+                }),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.gameplay_world = Some(gameplay_world.clone());
+        test_ctx.catalogs = std::sync::Arc::new(catalogs);
+        test_ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_prefab should not produce ScriptError: {commands:?}"
+        );
+
+        let drone_id = game_state
+            .get("/test/drone_id")
+            .and_then(|value| value.as_i64())
+            .expect("drone id") as u64;
+        assert_eq!(
+            gameplay_world
+                .ownership(drone_id)
+                .map(|ownership| ownership.owner_id),
+            Some(1)
+        );
+        assert_eq!(
+            gameplay_world.lifecycle(drone_id),
+            Some(LifecyclePolicy::TtlFollowOwner)
+        );
+        assert_eq!(
+            gameplay_world
+                .reference_frame3d(drone_id)
+                .map(|binding| binding.mode),
+            Some(ReferenceFrameMode::ParentEntity)
+        );
+        assert_eq!(
+            gameplay_world
+                .linear_motor3d(drone_id)
+                .map(|motor| motor.space),
+            Some(MotorSpace::ReferenceFrame)
         );
     }
 

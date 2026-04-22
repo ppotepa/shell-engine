@@ -6,7 +6,9 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+engine-core   = { workspace = true }
 engine-terrain = { workspace = true }
+serde_json     = { workspace = true }
 serde          = { workspace = true }
 serde_yaml     = { workspace = true }
 

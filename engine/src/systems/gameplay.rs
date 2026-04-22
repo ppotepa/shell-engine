@@ -1,4 +1,5 @@
 use engine_behavior::EmitterState;
+use engine_core::logging;
 use engine_game::components::{DespawnReason, LifecyclePolicy};
 use engine_game::{GameplayStrategies, GameplayWorld};
 use rayon::prelude::*;
@@ -46,8 +47,57 @@ fn despawn_lifecycle_entity(
     }
 }
 
+fn reference_frame_3d_system(world: &mut engine_core::world::World, dt_ms: u64) {
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        let catalogs = world.get::<engine_behavior::catalog::ModCatalogs>();
+        super::reference_frame_3d::reference_frame_3d_system(gameplay_world, catalogs, world);
+    }
+
+    if let (Some(strategies), Some(gameplay_world)) = (
+        world.get::<GameplayStrategies>(),
+        world.get::<GameplayWorld>(),
+    ) {
+        strategies
+            .reference_frames_3d
+            .resolve(gameplay_world, dt_ms);
+    }
+}
+
+fn motor_3d_system(world: &mut engine_core::world::World, dt_ms: u64) {
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        super::motor_3d::motor_3d_system(gameplay_world, dt_ms);
+    }
+
+    if let (Some(strategies), Some(gameplay_world)) = (
+        world.get::<GameplayStrategies>(),
+        world.get::<GameplayWorld>(),
+    ) {
+        strategies.motors_3d.apply(gameplay_world, dt_ms);
+    }
+}
+
+fn physics_3d_system(world: &mut engine_core::world::World, dt_ms: u64) {
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        super::physics_3d::physics_3d_system(gameplay_world, dt_ms);
+    }
+
+    if let (Some(strategies), Some(gameplay_world)) = (
+        world.get::<GameplayStrategies>(),
+        world.get::<GameplayWorld>(),
+    ) {
+        strategies.physics_3d.step(gameplay_world, dt_ms);
+    }
+}
+
 /// Gameplay driver: runs ship controllers, physics, wrap, timer, and lifetime systems over gameplay components.
 pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
+    if let Some(applied) = super::scene_bootstrap::apply_pending_scene_bootstrap_core(world) {
+        logging::info(
+            "engine.scene",
+            format!("scene bootstrap retry updated: {}", applied.summary()),
+        );
+    }
+
     // Run ship controller logic BEFORE physics (controller sets acceleration)
     if let Some(gameplay_world) = world.get::<GameplayWorld>() {
         super::arcade_controller::arcade_controller_system(gameplay_world, dt_ms);
@@ -56,21 +106,30 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         super::thruster_ramp::thruster_ramp_system(gameplay_world, dt_ms);
     }
 
+    // Additive 3D stack. This runs beside the legacy 2D controller systems so
+    // euclidean/celestial controller work does not need to branch the arcade
+    // path or overload 2D components with new semantics.
+    reference_frame_3d_system(world, dt_ms);
+    motor_3d_system(world, dt_ms);
+
     super::gravity::gravity_system(world, dt_ms);
     super::atmosphere::atmosphere_system(world, dt_ms);
 
-    // Run physics integration
+    // Run physics integration for both spatial stacks.
     if let (Some(strategies), Some(gameplay_world)) = (
         world.get::<GameplayStrategies>(),
         world.get::<GameplayWorld>(),
     ) {
         strategies.physics.step(gameplay_world, dt_ms);
     }
+    physics_3d_system(world, dt_ms);
 
-    // Apply toroidal wrap after physics (entities with WrapBounds)
+    // Apply post-physics spatial follow/wrap hooks.
     if let Some(gameplay_world) = world.get::<GameplayWorld>() {
         gameplay_world.apply_wrap();
+        super::physics_3d::apply_wrap_3d_system(gameplay_world);
         gameplay_world.apply_follow_anchors();
+        super::physics_3d::apply_follow_anchors_3d_system(gameplay_world);
     }
 
     // Tick entity timers (cooldowns + statuses) and world-level one-shot timers.

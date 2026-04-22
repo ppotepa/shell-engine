@@ -27,3 +27,25 @@ prefabs:
       wrappable: false
       extra_data:
         role: player
+
+  # Prefab merge canary: exercises nested component override merging in a celestial mod.
+  canary-probe-base:
+    kind: probe
+    sprite_template: probe-template
+    components:
+      extra_data:
+        profile:
+          family: celestial
+          revision: 1
+          nested:
+            label: base
+
+  canary-probe-nested:
+    ref: canary-probe-base
+    components:
+      extra_data:
+        profile:
+          revision: 2
+          nested:
+            label: nested
+            note: deep-override

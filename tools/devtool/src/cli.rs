@@ -23,6 +23,8 @@ pub enum Command {
         #[command(subcommand)]
         action: SchemaCommand,
     },
+    /// Print a repo-wide architecture snapshot report for migration status.
+    Snapshot(SchemaTargetArgs),
 }
 
 #[derive(Debug, Subcommand)]

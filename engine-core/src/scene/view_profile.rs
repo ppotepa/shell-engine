@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::model::Scene;
+use super::model::SceneSpace;
 
 /// Supported scene-level tone mapping operators for resolved 3D view profiles.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,6 +71,16 @@ pub struct SpaceEnvironmentProfile {
     pub dust_band_strength: Option<f32>,
 }
 
+/// Coarse environment rendering policy resolved before any concrete environment values.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ViewEnvironmentPolicy {
+    #[default]
+    TwoD,
+    ThreeDEuclidean,
+    ThreeDCelestial,
+}
+
 /// Small, explicit top-level overrides applied by a scene-facing view profile.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ViewProfileOverrides {
@@ -93,6 +104,8 @@ pub struct ViewProfileOverrides {
 pub struct ViewProfile {
     pub id: String,
     #[serde(default)]
+    pub environment_policy: Option<ViewEnvironmentPolicy>,
+    #[serde(default)]
     pub lighting_profile: Option<String>,
     #[serde(default)]
     pub space_environment_profile: Option<String>,
@@ -103,6 +116,7 @@ pub struct ViewProfile {
 /// Fully resolved 3D view contract consumed by runtime/render systems.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ResolvedViewProfile {
+    pub environment_policy: ViewEnvironmentPolicy,
     pub lighting: LightingProfile,
     pub environment: SpaceEnvironmentProfile,
     #[serde(default)]
@@ -198,6 +212,7 @@ pub fn builtin_view_profile(id: &str) -> Option<ViewProfile> {
     match id {
         "orbit-realistic" => Some(ViewProfile {
             id: id.to_string(),
+            environment_policy: Some(ViewEnvironmentPolicy::ThreeDCelestial),
             lighting_profile: Some("space-hard-vacuum".to_string()),
             space_environment_profile: Some("deep-space-sparse".to_string()),
             overrides: ViewProfileOverrides {
@@ -210,6 +225,7 @@ pub fn builtin_view_profile(id: &str) -> Option<ViewProfile> {
         }),
         "orbit-cinematic" => Some(ViewProfile {
             id: id.to_string(),
+            environment_policy: Some(ViewEnvironmentPolicy::ThreeDCelestial),
             lighting_profile: Some("space-cinematic-soft".to_string()),
             space_environment_profile: Some("deep-space-rich".to_string()),
             overrides: ViewProfileOverrides {
@@ -222,6 +238,7 @@ pub fn builtin_view_profile(id: &str) -> Option<ViewProfile> {
         }),
         "deep-space-harsh" => Some(ViewProfile {
             id: id.to_string(),
+            environment_policy: Some(ViewEnvironmentPolicy::ThreeDCelestial),
             lighting_profile: Some("space-hard-vacuum".to_string()),
             space_environment_profile: Some("deep-space-sparse".to_string()),
             overrides: ViewProfileOverrides {
@@ -240,8 +257,33 @@ fn default_lighting_profile() -> LightingProfile {
     builtin_lighting_profile("lab-neutral").unwrap_or_default()
 }
 
-fn default_environment_profile() -> SpaceEnvironmentProfile {
-    builtin_space_environment_profile("deep-space-sparse").unwrap_or_default()
+fn default_environment_profile(policy: ViewEnvironmentPolicy) -> SpaceEnvironmentProfile {
+    match policy {
+        ViewEnvironmentPolicy::TwoD | ViewEnvironmentPolicy::ThreeDEuclidean => {
+            SpaceEnvironmentProfile {
+                id: "neutral-empty".to_string(),
+                ..Default::default()
+            }
+        }
+        ViewEnvironmentPolicy::ThreeDCelestial => {
+            builtin_space_environment_profile("deep-space-sparse").unwrap_or_default()
+        }
+    }
+}
+
+fn default_environment_policy(scene: &Scene) -> ViewEnvironmentPolicy {
+    match scene.space {
+        SceneSpace::TwoD => ViewEnvironmentPolicy::TwoD,
+        SceneSpace::ThreeD => ViewEnvironmentPolicy::ThreeDEuclidean,
+    }
+}
+
+pub fn environment_policy_renders_space_environment(policy: ViewEnvironmentPolicy) -> bool {
+    matches!(policy, ViewEnvironmentPolicy::ThreeDCelestial)
+}
+
+pub fn environment_policy_uses_environment_background(policy: ViewEnvironmentPolicy) -> bool {
+    matches!(policy, ViewEnvironmentPolicy::ThreeDCelestial)
 }
 
 pub fn merge_lighting_profile(
@@ -393,8 +435,9 @@ fn normalize_view_overrides(overrides: &mut ViewProfileOverrides) {
 }
 
 pub fn resolve_scene_view_profile(scene: &Scene) -> ResolvedViewProfile {
+    let mut environment_policy = default_environment_policy(scene);
     let mut lighting = default_lighting_profile();
-    let mut environment = default_environment_profile();
+    let mut environment = default_environment_profile(environment_policy);
     let mut overrides = ViewProfileOverrides::default();
 
     if let Some(view) = scene.view.as_ref() {
@@ -404,6 +447,10 @@ pub fn resolve_scene_view_profile(scene: &Scene) -> ResolvedViewProfile {
                 .clone()
                 .or_else(|| builtin_view_profile(view_id))
             {
+                if let Some(policy) = view_profile.environment_policy {
+                    environment_policy = policy;
+                    environment = default_environment_profile(environment_policy);
+                }
                 if let Some(lighting_id) = view_profile.lighting_profile.as_deref() {
                     if let Some(profile) = view
                         .resolved_lighting_profile_asset
@@ -436,6 +483,8 @@ pub fn resolve_scene_view_profile(scene: &Scene) -> ResolvedViewProfile {
             }
         }
         if let Some(env_id) = view.space_environment_profile.as_deref() {
+            environment_policy = ViewEnvironmentPolicy::ThreeDCelestial;
+            environment = default_environment_profile(environment_policy);
             if let Some(profile) = view
                 .resolved_space_environment_profile_asset
                 .clone()
@@ -459,6 +508,7 @@ pub fn resolve_scene_view_profile(scene: &Scene) -> ResolvedViewProfile {
     normalize_space_environment_profile(&mut environment);
 
     ResolvedViewProfile {
+        environment_policy,
         lighting,
         environment,
         overrides,
@@ -477,6 +527,8 @@ mod tests {
             cutscene: false,
             target_fps: None,
             space: Default::default(),
+            world_model: Default::default(),
+            controller_defaults: Default::default(),
             spatial: Default::default(),
             celestial: Default::default(),
             lighting: None,
@@ -490,6 +542,7 @@ mod tests {
             audio: Default::default(),
             ui: Default::default(),
             layers: Vec::new(),
+            runtime_objects: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
             postfx: Vec::new(),
@@ -515,6 +568,10 @@ mod tests {
 
         let resolved = resolve_scene_view_profile(&scene);
 
+        assert_eq!(
+            resolved.environment_policy,
+            ViewEnvironmentPolicy::ThreeDCelestial
+        );
         assert_eq!(resolved.lighting.id, "space-hard-vacuum");
         assert_eq!(resolved.environment.id, "deep-space-sparse");
         assert_eq!(resolved.lighting.black_level, Some(0.0));
@@ -535,8 +592,12 @@ mod tests {
 
         let resolved = resolve_scene_view_profile(&scene);
 
-        assert_eq!(resolved.lighting.id, "space-hard-vacuum");
-        assert_eq!(resolved.environment.id, "deep-space-sparse");
+        assert_eq!(
+            resolved.environment_policy,
+            ViewEnvironmentPolicy::ThreeDCelestial
+        );
+        assert_eq!(resolved.lighting.id, "space-cinematic-soft");
+        assert_eq!(resolved.environment.id, "deep-space-rich");
         assert_eq!(resolved.lighting.fill_light_intensity, Some(0.18));
         assert_eq!(resolved.environment.nebula_strength, Some(0.04));
     }
@@ -570,6 +631,7 @@ mod tests {
             space_environment_profile: None,
             resolved_view_profile_asset: Some(ViewProfile {
                 id: "mod-view".to_string(),
+                environment_policy: Some(ViewEnvironmentPolicy::ThreeDCelestial),
                 lighting_profile: Some("mod-light".to_string()),
                 space_environment_profile: Some("mod-space".to_string()),
                 overrides: ViewProfileOverrides {
@@ -605,6 +667,58 @@ mod tests {
             resolved.environment.background_color.as_deref(),
             Some("#010203")
         );
+    }
+
+    #[test]
+    fn default_2d_scene_resolves_neutral_two_d_environment_policy() {
+        let scene = base_scene();
+
+        let resolved = resolve_scene_view_profile(&scene);
+
+        assert_eq!(resolved.environment_policy, ViewEnvironmentPolicy::TwoD);
+        assert_eq!(resolved.environment.id, "neutral-empty");
+        assert_eq!(resolved.environment.background_color, None);
+        assert_eq!(resolved.environment.starfield_density, None);
+        assert_eq!(resolved.environment.primary_star_glare_strength, None);
+    }
+
+    #[test]
+    fn default_3d_scene_resolves_neutral_euclidean_environment_policy() {
+        let mut scene = base_scene();
+        scene.space = SceneSpace::ThreeD;
+
+        let resolved = resolve_scene_view_profile(&scene);
+
+        assert_eq!(
+            resolved.environment_policy,
+            ViewEnvironmentPolicy::ThreeDEuclidean
+        );
+        assert_eq!(resolved.environment.id, "neutral-empty");
+        assert_eq!(resolved.environment.background_color, None);
+        assert_eq!(resolved.environment.starfield_density, None);
+        assert_eq!(resolved.environment.primary_star_glare_strength, None);
+    }
+
+    #[test]
+    fn explicit_space_environment_profile_promotes_to_celestial_policy() {
+        let mut scene = base_scene();
+        scene.space = SceneSpace::ThreeD;
+        scene.view = Some(SceneView {
+            profile: None,
+            lighting_profile: None,
+            space_environment_profile: Some("deep-space-rich".to_string()),
+            resolved_view_profile_asset: None,
+            resolved_lighting_profile_asset: None,
+            resolved_space_environment_profile_asset: None,
+        });
+
+        let resolved = resolve_scene_view_profile(&scene);
+
+        assert_eq!(
+            resolved.environment_policy,
+            ViewEnvironmentPolicy::ThreeDCelestial
+        );
+        assert_eq!(resolved.environment.id, "deep-space-rich");
     }
 
     #[test]

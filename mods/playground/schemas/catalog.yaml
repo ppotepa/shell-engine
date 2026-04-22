@@ -30,6 +30,10 @@ $defs:
     - playground-rhai-text-lab
     - playground-rhai-time
     - playground-stop-animation
+    - playground-world-model-celestial
+    - playground-world-model-contracts
+    - playground-world-model-euclidean
+    - playground-world-model-planar
   scene_paths:
     type: string
     enum:
@@ -58,6 +62,10 @@ $defs:
     - /scenes/rhai-text-lab/scene.yml
     - /scenes/rhai-time/scene.yml
     - /scenes/stop-animation/scene.yml
+    - /scenes/world-model-celestial/scene.yml
+    - /scenes/world-model-contracts/scene.yml
+    - /scenes/world-model-euclidean/scene.yml
+    - /scenes/world-model-planar/scene.yml
   scene_refs:
     type: string
     enum:
@@ -86,6 +94,10 @@ $defs:
     - /scenes/rhai-text-lab/scene.yml
     - /scenes/rhai-time/scene.yml
     - /scenes/stop-animation/scene.yml
+    - /scenes/world-model-celestial/scene.yml
+    - /scenes/world-model-contracts/scene.yml
+    - /scenes/world-model-euclidean/scene.yml
+    - /scenes/world-model-planar/scene.yml
     - playground-3d-scene
     - playground-audio-demo
     - playground-crt-test
@@ -111,6 +123,10 @@ $defs:
     - playground-rhai-text-lab
     - playground-rhai-time
     - playground-stop-animation
+    - playground-world-model-celestial
+    - playground-world-model-contracts
+    - playground-world-model-euclidean
+    - playground-world-model-planar
   object_names:
     type: string
     enum:
@@ -140,6 +156,10 @@ $defs:
     - rhai-object/layers/main.yml
     - rhai-text-lab/layers/main.yml
     - rhai-time/layers/main.yml
+    - world-model-celestial/layers/main.yml
+    - world-model-contracts/layers/main.yml
+    - world-model-euclidean/layers/main.yml
+    - world-model-planar/layers/main.yml
   sprite_refs:
     type: string
     enum: []

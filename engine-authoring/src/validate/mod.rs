@@ -7,6 +7,7 @@ mod render3d;
 
 use engine_core::scene::{Scene, Sprite, TextOverflowMode, TextWrapMode};
 pub use render3d::{validate_render_scene3d_document, Render3dDiagnostic};
+use serde_yaml::{Mapping, Value};
 
 /// Validation diagnostic for sprite timeline issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +49,313 @@ pub enum TextLayoutDiagnostic {
         reserve_width_ch: u16,
         max_width: u16,
     },
+}
+
+/// Validation diagnostic for scene-level authored model/controller mismatches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SceneDocumentDiagnostic {
+    /// Celestial bindings are only valid for celestial world models.
+    CelestialRequiresCelestialWorldModel { world_model: String },
+    /// Planar scenes cannot author 3D scene camera control profiles.
+    PlanarWorldModelDisallowsCameraInput { input_profile: String },
+    /// Planar scenes cannot select known 3D camera presets.
+    PlanarWorldModelDisallowsCameraPreset { preset: String },
+    /// Controller preset hooks should never be empty/whitespace.
+    EmptyControllerPreset { field: String },
+    /// Known camera presets still require a matching input profile.
+    KnownCameraPresetMissingLegacyBinding {
+        preset: String,
+        required_input: String,
+    },
+    /// Runtime-object bridge nodes may carry an explicit kind marker.
+    RuntimeObjectKindMismatch { path: String, kind: String },
+}
+
+/// Validates raw scene-document semantics that do not require full `Scene`
+/// materialization.
+pub fn validate_scene_document_semantics(scene: &Value) -> Vec<SceneDocumentDiagnostic> {
+    let Some(scene_map) = scene.as_mapping() else {
+        return Vec::new();
+    };
+
+    let mut diagnostics = Vec::new();
+    let effective_world_model =
+        mapping_get_str(scene_map, &["world-model", "world_model"]).unwrap_or("planar-2d");
+    let input = scene_map
+        .get(Value::String("input".to_string()))
+        .and_then(Value::as_mapping);
+    let camera_rig = scene_map
+        .get(Value::String("camera-rig".to_string()))
+        .or_else(|| scene_map.get(Value::String("camera_rig".to_string())))
+        .and_then(Value::as_mapping);
+    let controller_defaults = scene_map
+        .get(Value::String("controller-defaults".to_string()))
+        .or_else(|| scene_map.get(Value::String("controller_defaults".to_string())))
+        .and_then(Value::as_mapping);
+    let camera_preset = controller_defaults
+        .and_then(|defaults| mapping_get_str(defaults, &["camera-preset", "camera_preset"]))
+        .or_else(|| infer_camera_rig_preset(camera_rig));
+
+    if mapping_has_non_null(scene_map, &["celestial"]) && effective_world_model != "celestial-3d" {
+        diagnostics.push(
+            SceneDocumentDiagnostic::CelestialRequiresCelestialWorldModel {
+                world_model: effective_world_model.to_string(),
+            },
+        );
+    }
+
+    if effective_world_model == "planar-2d" {
+        if let Some(input) = input {
+            for profile in [
+                ("obj-viewer", "obj_viewer"),
+                ("free-look-camera", "free_look_camera"),
+                ("orbit-camera", "orbit_camera"),
+            ] {
+                if mapping_has_non_null(input, &[profile.0, profile.1]) {
+                    diagnostics.push(
+                        SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraInput {
+                            input_profile: profile.0.to_string(),
+                        },
+                    );
+                }
+            }
+        }
+
+        if let Some(camera_rig) = camera_rig {
+            for profile in [
+                ("obj-viewer", "obj_viewer"),
+                ("free-look-camera", "free_look_camera"),
+                ("orbit-camera", "orbit_camera"),
+            ] {
+                if mapping_has_non_null(camera_rig, &[profile.0, profile.1]) {
+                    diagnostics.push(
+                        SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraInput {
+                            input_profile: profile.0.to_string(),
+                        },
+                    );
+                }
+            }
+        }
+
+        if let Some(preset) = camera_preset.filter(|preset| is_known_3d_camera_preset(preset)) {
+            diagnostics.push(
+                SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraPreset {
+                    preset: preset.to_string(),
+                },
+            );
+        }
+    }
+
+    if let Some(controller_defaults) = controller_defaults {
+        for (field, aliases) in [
+            ("camera-preset", &["camera-preset", "camera_preset"][..]),
+            ("player-preset", &["player-preset", "player_preset"][..]),
+            ("ui-preset", &["ui-preset", "ui_preset"][..]),
+            ("spawn-preset", &["spawn-preset", "spawn_preset"][..]),
+            ("gravity-preset", &["gravity-preset", "gravity_preset"][..]),
+            ("surface-preset", &["surface-preset", "surface_preset"][..]),
+        ] {
+            if let Some(value) = mapping_get_str(controller_defaults, aliases) {
+                if value.trim().is_empty() {
+                    diagnostics.push(SceneDocumentDiagnostic::EmptyControllerPreset {
+                        field: field.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    diagnostics.extend(validate_runtime_object_kind_markers(scene_map));
+
+    if let Some(preset) = camera_preset {
+        let required_input = match preset {
+            "obj-viewer"
+                if !has_camera_rig_profile(input, camera_rig, &["obj-viewer", "obj_viewer"]) =>
+            {
+                Some("input.obj-viewer or camera-rig.obj-viewer")
+            }
+            "orbit-camera"
+                if !has_camera_rig_profile(
+                    input,
+                    camera_rig,
+                    &["orbit-camera", "orbit_camera"],
+                ) =>
+            {
+                Some("input.orbit-camera or camera-rig.orbit-camera")
+            }
+            "free-look-camera"
+                if !has_camera_rig_profile(
+                    input,
+                    camera_rig,
+                    &["free-look-camera", "free_look_camera"],
+                ) =>
+            {
+                Some("input.free-look-camera or camera-rig.free-look-camera")
+            }
+            "surface-free-look" if !surface_free_look_compat(input, camera_rig) => {
+                Some("input.free-look-camera (surface-mode=true) or camera-rig.surface.mode=locked")
+            }
+            _ => None,
+        };
+
+        if let Some(required_input) = required_input {
+            diagnostics.push(
+                SceneDocumentDiagnostic::KnownCameraPresetMissingLegacyBinding {
+                    preset: preset.to_string(),
+                    required_input: required_input.to_string(),
+                },
+            );
+        }
+    }
+
+    diagnostics
+}
+
+fn validate_runtime_object_kind_markers(scene_map: &Mapping) -> Vec<SceneDocumentDiagnostic> {
+    let Some(runtime_objects) = scene_map
+        .get(Value::String("runtime-objects".to_string()))
+        .or_else(|| scene_map.get(Value::String("runtime_objects".to_string())))
+        .and_then(Value::as_sequence)
+    else {
+        return Vec::new();
+    };
+
+    let mut diagnostics = Vec::new();
+    for (index, node) in runtime_objects.iter().enumerate() {
+        validate_runtime_object_kind_node(
+            node,
+            format!("runtime-objects[{index}]"),
+            &mut diagnostics,
+        );
+    }
+    diagnostics
+}
+
+fn validate_runtime_object_kind_node(
+    node: &Value,
+    path: String,
+    diagnostics: &mut Vec<SceneDocumentDiagnostic>,
+) {
+    let Some(node_map) = node.as_mapping() else {
+        return;
+    };
+
+    if let Some(kind) = node_map
+        .get(Value::String("kind".to_string()))
+        .and_then(Value::as_str)
+        .filter(|kind| *kind != "runtime-object")
+    {
+        diagnostics.push(SceneDocumentDiagnostic::RuntimeObjectKindMismatch {
+            path: path.clone(),
+            kind: kind.to_string(),
+        });
+    }
+
+    if let Some(children) = node_map
+        .get(Value::String("children".to_string()))
+        .and_then(Value::as_sequence)
+    {
+        for (index, child) in children.iter().enumerate() {
+            validate_runtime_object_kind_node(
+                child,
+                format!("{path}.children[{index}]"),
+                diagnostics,
+            );
+        }
+    }
+}
+
+fn mapping_get_str<'a>(map: &'a Mapping, keys: &[&str]) -> Option<&'a str> {
+    keys.iter().find_map(|key| {
+        map.get(Value::String((*key).to_string()))
+            .and_then(Value::as_str)
+    })
+}
+
+fn mapping_get_bool(map: &Mapping, keys: &[&str]) -> Option<bool> {
+    keys.iter().find_map(|key| {
+        map.get(Value::String((*key).to_string()))
+            .and_then(Value::as_bool)
+    })
+}
+
+fn mapping_has_non_null(map: &Mapping, keys: &[&str]) -> bool {
+    keys.iter().any(|key| {
+        map.get(Value::String((*key).to_string()))
+            .is_some_and(|value| !matches!(value, Value::Null))
+    })
+}
+
+fn is_known_3d_camera_preset(preset: &str) -> bool {
+    matches!(
+        preset,
+        "obj-viewer" | "free-look-camera" | "orbit-camera" | "surface-free-look"
+    )
+}
+
+fn has_camera_rig_profile(
+    input: Option<&Mapping>,
+    camera_rig: Option<&Mapping>,
+    aliases: &[&str],
+) -> bool {
+    input.is_some_and(|map| mapping_has_non_null(map, aliases))
+        || camera_rig.is_some_and(|map| mapping_has_non_null(map, aliases))
+}
+
+fn surface_free_look_compat(input: Option<&Mapping>, camera_rig: Option<&Mapping>) -> bool {
+    input.is_some_and(has_surface_free_look_compat)
+        || camera_rig.is_some_and(has_surface_free_look_camera_rig_compat)
+}
+
+fn has_surface_free_look_compat(input: &Mapping) -> bool {
+    let profile = input
+        .get(Value::String("free-look-camera".to_string()))
+        .or_else(|| input.get(Value::String("free_look_camera".to_string())))
+        .and_then(Value::as_mapping);
+    let Some(profile) = profile else {
+        return false;
+    };
+    mapping_get_bool(profile, &["surface-mode", "surface_mode"]).unwrap_or(false)
+}
+
+fn has_surface_free_look_camera_rig_compat(camera_rig: &Mapping) -> bool {
+    let surface_locked = camera_rig
+        .get(Value::String("surface".to_string()))
+        .and_then(Value::as_mapping)
+        .and_then(|surface| mapping_get_str(surface, &["mode"]))
+        .is_some_and(|mode| mode.eq_ignore_ascii_case("locked"));
+    if surface_locked {
+        return true;
+    }
+    camera_rig
+        .get(Value::String("free-look-camera".to_string()))
+        .or_else(|| camera_rig.get(Value::String("free_look_camera".to_string())))
+        .and_then(Value::as_mapping)
+        .and_then(|profile| mapping_get_bool(profile, &["surface-mode", "surface_mode"]))
+        .unwrap_or(false)
+}
+
+fn infer_camera_rig_preset(camera_rig: Option<&Mapping>) -> Option<&str> {
+    let camera_rig = camera_rig?;
+    if let Some(preset) = mapping_get_str(camera_rig, &["preset"]) {
+        return Some(preset);
+    }
+    if mapping_has_non_null(camera_rig, &["orbit-camera", "orbit_camera"]) {
+        return Some("orbit-camera");
+    }
+    if mapping_has_non_null(camera_rig, &["free-look-camera", "free_look_camera"]) {
+        if has_surface_free_look_camera_rig_compat(camera_rig) {
+            return Some("surface-free-look");
+        }
+        return Some("free-look-camera");
+    }
+    if has_surface_free_look_camera_rig_compat(camera_rig) {
+        return Some("surface-free-look");
+    }
+    if mapping_has_non_null(camera_rig, &["obj-viewer", "obj_viewer"]) {
+        return Some("obj-viewer");
+    }
+    None
 }
 
 /// Validates sprite timeline against scene duration.
@@ -194,7 +502,9 @@ pub fn validate_text_layout_semantics(scene: &Scene) -> Vec<TextLayoutDiagnostic
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::scene::model::{SceneControllerDefaults, SceneWorldModel};
     use engine_core::scene::{Layer, Scene, SceneStages, Sprite, Stage, Step};
+    use serde_yaml::Value;
 
     fn make_test_scene(on_enter_duration: u64) -> Scene {
         Scene {
@@ -203,6 +513,8 @@ mod tests {
             cutscene: true,
             target_fps: None,
             space: Default::default(),
+            world_model: SceneWorldModel::default(),
+            controller_defaults: SceneControllerDefaults::default(),
             spatial: Default::default(),
             celestial: Default::default(),
             lighting: None,
@@ -228,6 +540,7 @@ mod tests {
             gui: Default::default(),
             ui: Default::default(),
             layers: vec![],
+            runtime_objects: vec![],
             menu_options: vec![],
             input: Default::default(),
             postfx: vec![],
@@ -426,5 +739,276 @@ mod tests {
 
         let diags = validate_text_layout_semantics(&scene);
         assert!(diags.is_empty(), "Valid text layout semantics should pass");
+    }
+
+    #[test]
+    fn document_semantics_require_celestial_world_model_for_celestial_block() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: euclidean-3d
+celestial:
+  focus-body: earth
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![
+                SceneDocumentDiagnostic::CelestialRequiresCelestialWorldModel {
+                    world_model: "euclidean-3d".to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn document_semantics_reject_planar_camera_profiles() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: planar-2d
+input:
+  orbit-camera:
+    target: viewer
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![
+                SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraInput {
+                    input_profile: "orbit-camera".to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn document_semantics_reject_planar_obj_viewer_profile() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: planar-2d
+input:
+  obj-viewer:
+    sprite-id: probe
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![
+                SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraInput {
+                    input_profile: "obj-viewer".to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn document_semantics_reject_planar_known_camera_preset() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: planar-2d
+controller-defaults:
+  camera-preset: obj-viewer
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![
+                SceneDocumentDiagnostic::PlanarWorldModelDisallowsCameraPreset {
+                    preset: "obj-viewer".to_string()
+                },
+                SceneDocumentDiagnostic::KnownCameraPresetMissingLegacyBinding {
+                    preset: "obj-viewer".to_string(),
+                    required_input: "input.obj-viewer or camera-rig.obj-viewer".to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn document_semantics_reject_empty_controller_presets() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+controller-defaults:
+  camera-preset: "   "
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![SceneDocumentDiagnostic::EmptyControllerPreset {
+                field: "camera-preset".to_string()
+            }]
+        );
+    }
+
+    #[test]
+    fn document_semantics_require_matching_input_for_builtin_camera_preset() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: orbit-camera
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![
+                SceneDocumentDiagnostic::KnownCameraPresetMissingLegacyBinding {
+                    preset: "orbit-camera".to_string(),
+                    required_input: "input.orbit-camera or camera-rig.orbit-camera".to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn document_semantics_accept_surface_free_look_with_explicit_surface_mode() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: surface-free-look
+input:
+  free-look-camera:
+    surface-mode: true
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert!(diags.is_empty(), "unexpected diagnostics: {diags:?}");
+    }
+
+    #[test]
+    fn document_semantics_accept_runtime_object_kind_marker() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+runtime-objects:
+  - name: root
+    kind: runtime-object
+    transform:
+      space: 2d
+      x: 1
+      y: 2
+    children:
+      - name: child
+        kind: runtime-object
+        transform:
+          space: 3d
+          translation: [0.0, 0.0, 0.0]
+          rotation-deg: [0.0, 0.0, 0.0]
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert!(diags.is_empty(), "unexpected diagnostics: {diags:?}");
+    }
+
+    #[test]
+    fn document_semantics_reject_runtime_object_kind_mismatch() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+runtime-objects:
+  - name: root
+    kind: object
+    transform:
+      space: 2d
+      x: 1
+      y: 2
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![SceneDocumentDiagnostic::RuntimeObjectKindMismatch {
+                path: "runtime-objects[0]".to_string(),
+                kind: "object".to_string()
+            }]
+        );
+    }
+
+    #[test]
+    fn document_semantics_reject_surface_free_look_without_explicit_surface_mode() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: surface-free-look
+input:
+  free-look-camera: {}
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert_eq!(
+            diags,
+            vec![
+                SceneDocumentDiagnostic::KnownCameraPresetMissingLegacyBinding {
+                    preset: "surface-free-look".to_string(),
+                    required_input:
+                        "input.free-look-camera (surface-mode=true) or camera-rig.surface.mode=locked"
+                            .to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn document_semantics_accept_surface_free_look_via_camera_rig_surface_contract() {
+        let scene: Value = serde_yaml::from_str(
+            r#"
+id: test
+title: Test
+world-model: celestial-3d
+camera-rig:
+  surface:
+    mode: locked
+  free-look-camera: {}
+"#,
+        )
+        .expect("scene doc");
+
+        let diags = validate_scene_document_semantics(&scene);
+        assert!(diags.is_empty(), "unexpected diagnostics: {diags:?}");
     }
 }

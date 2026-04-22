@@ -369,6 +369,8 @@ mod tests {
             cutscene: false,
             target_fps: None,
             space: Default::default(),
+            world_model: Default::default(),
+            controller_defaults: Default::default(),
             spatial: Default::default(),
             celestial: Default::default(),
             lighting: None,
@@ -380,6 +382,8 @@ mod tests {
                 resolved_lighting_profile_asset: None,
                 resolved_space_environment_profile_asset: None,
             }),
+            planet_spec: None,
+            planet_spec_ref: None,
             virtual_size_override: None,
             bg_colour: None,
             stages: Default::default(),
@@ -394,6 +398,7 @@ mod tests {
             prerender: false,
             palette_bindings: Vec::new(),
             game_state_bindings: Vec::new(),
+            runtime_objects: Vec::new(),
             gui: Default::default(),
         })
     }
@@ -430,6 +435,7 @@ mod tests {
     #[test]
     fn apply_scene_level_profile_param_mutations_refreshes_resolved_view() {
         let mut runtime = test_scene_runtime();
+        let initial_policy = runtime.resolved_view_profile().environment_policy;
         assert!(runtime.apply_profile_selection(
             crate::mutations::Render3DProfileSlot::Lighting,
             "lab-neutral",
@@ -466,6 +472,10 @@ mod tests {
                 .background_color
                 .as_deref(),
             Some("#010203")
+        );
+        assert_eq!(
+            runtime.resolved_view_profile().environment_policy,
+            initial_policy
         );
     }
 }

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-world-model-celestial
+title: CAN-03 Celestial 3D World Model
+virtual-size-override: 640x360
+bg: "#040507"
+render-space: 3d
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: surface-free-look
+  player-preset: celestial-observer
+  ui-preset: celestial-contract
+camera-rig:
+  preset: surface-free-look
+  surface:
+    mode: locked
+  free-look-camera: {}
+celestial:
+  scope: local
+  region: playground-local
+  system: playground-celestial-system
+  focus-body: playground-demo-world
+  focus-site: playground-demo-orbit
+  frame: focus-relative
+  clock-source: scene
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 250 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+next: playground-menu

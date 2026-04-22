@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../../../schemas/layers.yaml
+- name: combat
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "QWACK 3D COMBAT CONTRACT",
+        at: ct,
+        y: -10,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "expected loop: move -> aim -> fire -> damage -> pickup",
+        at: ct,
+        y: -3,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "future gameplay hooks: weapon stack, hitscan/projectile, health, ammo",
+        at: ct,
+        y: 1,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "This scene stays euclidean-3d: fixed up-axis, room traversal, no radial frame.",
+        at: ct,
+        y: 5,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "Any key advances to chase-camera coverage.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+      }

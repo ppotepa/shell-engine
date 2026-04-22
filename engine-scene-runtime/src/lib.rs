@@ -15,6 +15,7 @@
 
 pub mod access;
 pub mod behavior_runner;
+pub mod camera;
 pub mod camera_3d;
 pub mod construction;
 pub mod dirty_tracking;
@@ -27,6 +28,7 @@ pub mod request_adapter;
 pub mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
+pub use camera::{CameraInputFrame, CameraSurfaceAnchor};
 pub use dirty_tracking::{dirty_for_render3d_mutation, dirty_for_scene_mutation};
 use engine_animation::SceneStage;
 use engine_behavior::{
@@ -38,9 +40,8 @@ use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::render_types::DirtyMask3D;
 use engine_core::scene::{
-    resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, LightingProfile,
-    ObjOrbitCameraControls, ResolvedViewProfile, Scene, SpaceEnvironmentProfile, Sprite,
-    TermColour, UiThemeStyle,
+    resolve_ui_theme_or_default, BehaviorSpec, LightingProfile, ResolvedViewProfile, Scene,
+    SpaceEnvironmentProfile, Sprite, TermColour, UiThemeStyle,
 };
 pub use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, RawKeyEvent, SceneCamera3D, SidecarIoFrameState,
@@ -87,8 +88,7 @@ pub struct SceneRuntime {
     obj_orbit_default_speed: HashMap<String, f32>,
     obj_camera_states: HashMap<String, ObjCameraState>,
     cached_obj_camera_states: Option<std::sync::Arc<HashMap<String, ObjCameraState>>>,
-    free_look_camera: Option<FreeLookCameraState>,
-    orbit_camera: Option<ObjOrbitCameraState>,
+    camera_director: camera::CameraDirectorRuntime,
     ui_state: UiRuntimeState,
     pending_bindings: Vec<BehaviorBinding>,
     action_bindings: HashMap<String, Vec<String>>,
@@ -129,113 +129,6 @@ pub struct SceneRuntime {
     cached_gui_state: Option<std::sync::Arc<engine_gui::GuiRuntimeState>>,
 }
 
-#[derive(Debug, Clone)]
-struct FreeLookCameraState {
-    active: bool,
-    pending_activate: bool,
-    drag_hold: bool,
-    toggle_key: String,
-    toggle_with_ctrl: bool,
-    position: [f32; 3],
-    yaw_deg: f32,
-    pitch_deg: f32,
-    target_yaw_deg: f32,
-    target_pitch_deg: f32,
-    move_speed: f32,
-    mouse_sensitivity: f32,
-    surface_mode: bool,
-    surface_center: [f32; 3],
-    surface_radius: f32,
-    surface_altitude: f32,
-    surface_min_altitude: f32,
-    surface_max_altitude: f32,
-    surface_vertical_speed: f32,
-    last_mouse_pos: Option<(f32, f32)>,
-    held_keys: HashSet<String>,
-}
-
-impl FreeLookCameraState {
-    fn from_controls(controls: &FreeLookCameraControls) -> Self {
-        Self {
-            active: false,
-            pending_activate: false,
-            drag_hold: false,
-            toggle_key: normalize_toggle_key_name(&controls.toggle_key),
-            toggle_with_ctrl: controls.toggle_with_ctrl,
-            position: [0.0, 0.0, 0.0],
-            yaw_deg: 0.0,
-            pitch_deg: 0.0,
-            target_yaw_deg: 0.0,
-            target_pitch_deg: 0.0,
-            move_speed: controls.move_speed,
-            mouse_sensitivity: controls.mouse_sensitivity,
-            surface_mode: controls.surface_mode,
-            surface_center: [
-                controls.surface_center_x,
-                controls.surface_center_y,
-                controls.surface_center_z,
-            ],
-            surface_radius: controls.surface_radius.max(0.001),
-            surface_altitude: controls.surface_altitude.max(0.0),
-            surface_min_altitude: controls.surface_min_altitude.max(0.0),
-            surface_max_altitude: controls.surface_max_altitude.max(0.0),
-            surface_vertical_speed: controls.surface_vertical_speed.max(0.001),
-            last_mouse_pos: None,
-            held_keys: HashSet::new(),
-        }
-    }
-
-    fn matches_toggle_key(&self, key: &KeyEvent) -> bool {
-        let code_name = normalize_toggle_key_name(&key.code.to_string());
-        if code_name.is_empty() || code_name != self.toggle_key {
-            return false;
-        }
-        key.modifiers.contains(KeyModifiers::CONTROL) == self.toggle_with_ctrl
-    }
-}
-
-/// Runtime state for the orbit camera — arcs around a single OBJ sprite target.
-#[derive(Debug, Clone)]
-struct ObjOrbitCameraState {
-    target: String,
-    active: bool,
-    yaw: f32,
-    pitch: f32,
-    distance: f32,
-    applied_yaw: f32,
-    applied_pitch: f32,
-    applied_distance: f32,
-    pitch_min: f32,
-    pitch_max: f32,
-    distance_min: f32,
-    distance_max: f32,
-    distance_step: f32,
-    drag_sensitivity: f32,
-    last_mouse_pos: Option<(f32, f32)>,
-}
-
-impl ObjOrbitCameraState {
-    fn from_controls(controls: &ObjOrbitCameraControls) -> Self {
-        Self {
-            target: controls.target.clone(),
-            active: true,
-            yaw: controls.yaw,
-            pitch: controls.pitch,
-            distance: controls.distance,
-            applied_yaw: controls.yaw,
-            applied_pitch: controls.pitch,
-            applied_distance: controls.distance,
-            pitch_min: controls.pitch_min,
-            pitch_max: controls.pitch_max,
-            distance_min: controls.distance_min,
-            distance_max: controls.distance_max,
-            distance_step: controls.distance_step,
-            drag_sensitivity: controls.drag_sensitivity,
-            last_mouse_pos: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 struct PanelLayoutSpec {
@@ -251,26 +144,6 @@ struct TextLayoutSpec {
     x: i32,
     y: i32,
     font: Option<String>,
-}
-
-fn normalize_toggle_key_name(value: &str) -> String {
-    let trimmed = value.trim();
-    if trimmed.eq_ignore_ascii_case("space") {
-        return " ".to_string();
-    }
-    if trimmed.eq_ignore_ascii_case("up") || trimmed.eq_ignore_ascii_case("arrowup") {
-        return "up".to_string();
-    }
-    if trimmed.eq_ignore_ascii_case("down") || trimmed.eq_ignore_ascii_case("arrowdown") {
-        return "down".to_string();
-    }
-    if trimmed.eq_ignore_ascii_case("left") || trimmed.eq_ignore_ascii_case("arrowleft") {
-        return "left".to_string();
-    }
-    if trimmed.eq_ignore_ascii_case("right") || trimmed.eq_ignore_ascii_case("arrowright") {
-        return "right".to_string();
-    }
-    trimmed.to_ascii_lowercase()
 }
 
 #[derive(Debug, Clone, Default)]
@@ -429,7 +302,9 @@ impl RuntimeMutationImpact {
 
 #[cfg(test)]
 mod tests {
-    use super::{ObjOrbitCameraState, ObjectBehaviorRuntime, SceneRuntime};
+    use super::{ObjectBehaviorRuntime, SceneCamera3D, SceneRuntime};
+    use crate::camera::{CameraControllerKind, ObjOrbitCameraState};
+    use crate::CameraInputFrame;
     use engine_animation::SceneStage;
     use engine_api::commands::scene_mutation_request_from_set_path;
     use engine_api::scene::{Render3dMutationRequest, SceneMutationRequest};
@@ -2346,6 +2221,379 @@ layers: []
     }
 
     #[test]
+    fn camera_input_frame_routes_free_look_and_surface_anchor_context() {
+        use crate::{CameraInputFrame, CameraSurfaceAnchor};
+        use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: camera-input-frame-free-look
+title: Camera Input Frame Free Look
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+    surface-mode: true
+    surface-radius: 1.0
+    surface-altitude: 0.05
+    surface-min-altitude: 0.05
+    surface-max-altitude: 0.05
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        runtime.sync_free_look_surface_anchor(Some(CameraSurfaceAnchor::new([5.0, 0.0, 0.0], 2.5)));
+
+        let handled = runtime.apply_camera_input_frame(&CameraInputFrame {
+            key_presses: vec![KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            ..CameraInputFrame::default()
+        });
+        assert!(handled, "expected camera input frame to toggle free-look");
+        assert!(runtime.step_free_look_camera(16));
+
+        let eye = runtime.scene_camera_3d().eye;
+        let dx = eye[0] - 5.0;
+        let dy = eye[1];
+        let dz = eye[2];
+        let shell_radius = (dx * dx + dy * dy + dz * dz).sqrt();
+        assert!(
+            (shell_radius - 2.55).abs() < 0.03,
+            "expected runtime surface anchor to drive free-look shell, got {shell_radius}"
+        );
+    }
+
+    #[test]
+    fn camera_director_tracks_active_controller_for_legacy_compat_surfaces() {
+        use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: legacy-camera-controller-compat
+title: Legacy Camera Controller Compat
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+  orbit-camera:
+    target: helsinki-uni-wireframe
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        assert_eq!(
+            runtime.camera_director.active_controller,
+            Some(CameraControllerKind::Orbit)
+        );
+
+        let handled = runtime.apply_camera_input_frame(&CameraInputFrame {
+            key_presses: vec![KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            ..CameraInputFrame::default()
+        });
+        assert!(handled, "expected camera input frame to toggle free-look");
+        assert!(runtime.step_free_look_camera(16));
+        assert_eq!(
+            runtime.camera_director.active_controller,
+            Some(CameraControllerKind::FreeLook)
+        );
+
+        let handled = runtime.apply_camera_input_frame(&CameraInputFrame {
+            key_presses: vec![KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            ..CameraInputFrame::default()
+        });
+        assert!(
+            handled,
+            "expected camera input frame to toggle free-look off"
+        );
+        assert_eq!(
+            runtime.camera_director.active_controller,
+            Some(CameraControllerKind::Orbit)
+        );
+    }
+
+    #[test]
+    fn constructor_leaves_controller_default_camera_selection_to_bootstrap() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: controller-default-camera-preset
+title: Controller Default Camera Preset
+controller-defaults:
+  camera-preset: free-look-camera
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+  orbit-camera:
+    target: helsinki-uni-wireframe
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+"#,
+        )
+        .expect("scene parse");
+
+        let runtime = SceneRuntime::new(scene);
+
+        assert_eq!(
+            runtime.active_camera_controller_kind(),
+            Some(CameraControllerKind::Orbit),
+            "constructor should keep only the legacy fallback until bootstrap applies controller-defaults"
+        );
+    }
+
+    #[test]
+    fn reserved_camera_controller_pose_can_drive_scene_camera() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: reserved-camera-controller
+title: Reserved Camera Controller
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        assert!(
+            runtime.ensure_camera_controller_slot(CameraControllerKind::Cockpit, "cockpit-main")
+        );
+        assert!(runtime.set_reserved_camera_controller_pose(
+            CameraControllerKind::Cockpit,
+            "cockpit-main",
+            SceneCamera3D {
+                eye: [4.0, 5.0, 6.0],
+                look_at: [5.0, 5.0, 6.0],
+                up: [0.0, 1.0, 0.0],
+                fov_degrees: 52.0,
+                near_clip: 0.01,
+            }
+        ));
+        assert!(runtime
+            .set_active_camera_controller(CameraControllerKind::Cockpit, Some("cockpit-main")));
+
+        assert!(runtime.step_camera_director(16));
+        let camera = runtime.scene_camera_3d();
+        assert_eq!(camera.eye, [4.0, 5.0, 6.0]);
+        assert_eq!(camera.look_at, [5.0, 5.0, 6.0]);
+        assert_eq!(
+            runtime.active_camera_controller_kind(),
+            Some(CameraControllerKind::Cockpit)
+        );
+    }
+
+    #[test]
+    fn reserved_camera_controller_activation_uses_specific_slot_id() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: reserved-camera-controller-ids
+title: Reserved Camera Controller Ids
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        for (id, eye_x) in [("cockpit-a", 4.0_f32), ("cockpit-b", 9.0_f32)] {
+            assert!(runtime.ensure_camera_controller_slot(CameraControllerKind::Cockpit, id));
+            assert!(runtime.set_reserved_camera_controller_pose(
+                CameraControllerKind::Cockpit,
+                id,
+                SceneCamera3D {
+                    eye: [eye_x, 5.0, 6.0],
+                    look_at: [eye_x + 1.0, 5.0, 6.0],
+                    up: [0.0, 1.0, 0.0],
+                    fov_degrees: 52.0,
+                    near_clip: 0.01,
+                }
+            ));
+        }
+
+        assert!(
+            runtime.set_active_camera_controller(CameraControllerKind::Cockpit, Some("cockpit-b"))
+        );
+        assert!(runtime.step_camera_director(16));
+        let camera = runtime.scene_camera_3d();
+        assert_eq!(camera.eye, [9.0, 5.0, 6.0]);
+        assert_eq!(camera.look_at, [10.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn chase_controller_builds_offset_camera_from_target_pose() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: chase-camera-controller
+title: Chase Camera Controller
+layers: []
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        assert!(runtime.ensure_camera_controller_slot(CameraControllerKind::Chase, "chase-main"));
+        assert!(runtime.set_reserved_camera_controller_pose(
+            CameraControllerKind::Chase,
+            "chase-main",
+            SceneCamera3D {
+                eye: [0.0, 0.0, 0.0],
+                look_at: [0.0, 0.0, 1.0],
+                up: [0.0, 1.0, 0.0],
+                fov_degrees: 58.0,
+                near_clip: 0.02,
+            }
+        ));
+        assert!(
+            runtime.set_active_camera_controller(CameraControllerKind::Chase, Some("chase-main"))
+        );
+
+        assert!(runtime.step_camera_director(16));
+        let camera = runtime.scene_camera_3d();
+        assert!(
+            camera.eye[2] < -6.0,
+            "expected chase eye behind subject, got {:?}",
+            camera.eye
+        );
+        assert!(
+            camera.eye[1] > 1.5,
+            "expected chase eye elevated above subject, got {:?}",
+            camera.eye
+        );
+        assert!(
+            camera.look_at[2] > 8.0,
+            "expected chase look-at ahead of subject, got {:?}",
+            camera.look_at
+        );
+    }
+
+    #[test]
+    fn reserved_controller_selection_blocks_legacy_camera_input() {
+        use engine_events::{KeyCode, KeyEvent, KeyModifiers};
+
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: reserved-beats-legacy-camera-input
+title: Reserved Beats Legacy Camera Input
+input:
+  free-look-camera:
+    toggle-key: f
+    toggle-with-ctrl: false
+  orbit-camera:
+    target: helsinki-uni-wireframe
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+"#,
+        )
+        .expect("scene parse");
+
+        let mut runtime = SceneRuntime::new(scene);
+        assert!(
+            runtime.ensure_camera_controller_slot(CameraControllerKind::Cockpit, "cockpit-main")
+        );
+        assert!(runtime.set_reserved_camera_controller_pose(
+            CameraControllerKind::Cockpit,
+            "cockpit-main",
+            SceneCamera3D {
+                eye: [2.0, 3.0, 4.0],
+                look_at: [3.0, 3.0, 4.0],
+                up: [0.0, 1.0, 0.0],
+                fov_degrees: 50.0,
+                near_clip: 0.01,
+            }
+        ));
+        assert!(runtime
+            .set_active_camera_controller(CameraControllerKind::Cockpit, Some("cockpit-main")));
+
+        let handled = runtime.apply_camera_input_frame(&CameraInputFrame {
+            key_presses: vec![KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)],
+            mouse_moves: vec![(120.0, 120.0), (180.0, 140.0)],
+            scroll_deltas: vec![1.0],
+            ctrl_scroll_deltas: vec![1.0],
+            ..CameraInputFrame::default()
+        });
+        assert!(
+            !handled,
+            "legacy free-look/orbit input should be ignored while a reserved controller is active"
+        );
+
+        assert!(runtime.step_camera_director(16));
+        let camera = runtime.scene_camera_3d();
+        assert_eq!(camera.eye, [2.0, 3.0, 4.0]);
+        assert_eq!(camera.look_at, [3.0, 3.0, 4.0]);
+        assert_eq!(
+            runtime.active_camera_controller_kind(),
+            Some(CameraControllerKind::Cockpit)
+        );
+    }
+
+    #[test]
+    fn camera_director_adapters_step_only_once_per_frame() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        runtime.begin_camera_director_frame();
+        runtime.camera_director.orbit = Some(ObjOrbitCameraState {
+            target: "helsinki-uni-wireframe".to_string(),
+            active: true,
+            yaw: 90.0,
+            pitch: 20.0,
+            distance: 1.6,
+            applied_yaw: 0.0,
+            applied_pitch: 0.0,
+            applied_distance: 4.0,
+            pitch_min: -89.0,
+            pitch_max: 89.0,
+            distance_min: 0.4,
+            distance_max: 8.0,
+            distance_step: 0.2,
+            drag_sensitivity: 0.2,
+            last_mouse_pos: None,
+        });
+        runtime
+            .camera_director
+            .set_active_if_available(CameraControllerKind::Orbit);
+
+        assert!(runtime.step_camera_director_adapters(16));
+        let first_applied_yaw = runtime
+            .camera_director
+            .orbit
+            .as_ref()
+            .expect("orbit state")
+            .applied_yaw;
+        assert!(
+            !runtime.step_camera_director_adapters(16),
+            "second compat adapter step in the same frame should be gated"
+        );
+        let second_applied_yaw = runtime
+            .camera_director
+            .orbit
+            .as_ref()
+            .expect("orbit state")
+            .applied_yaw;
+        assert_eq!(first_applied_yaw, second_applied_yaw);
+
+        runtime.begin_camera_director_frame();
+        assert!(runtime.step_camera_director_adapters(16));
+        let third_applied_yaw = runtime
+            .camera_director
+            .orbit
+            .as_ref()
+            .expect("orbit state")
+            .applied_yaw;
+        assert_ne!(third_applied_yaw, second_applied_yaw);
+    }
+
+    #[test]
     fn toggles_obj_surface_mode() {
         let mut runtime = SceneRuntime::new(obj_scene(""));
         assert!(runtime.toggle_obj_surface_mode("helsinki-uni-wireframe"));
@@ -2405,7 +2653,7 @@ layers: []
     #[test]
     fn step_orbit_camera_applies_typed_obj_camera_fields() {
         let mut runtime = SceneRuntime::new(obj_scene(""));
-        runtime.orbit_camera = Some(ObjOrbitCameraState {
+        runtime.camera_director.orbit = Some(ObjOrbitCameraState {
             target: "helsinki-uni-wireframe".to_string(),
             active: true,
             yaw: 24.0,
@@ -2452,7 +2700,7 @@ layers: []
     #[test]
     fn step_orbit_camera_smooths_toward_target_fields() {
         let mut runtime = SceneRuntime::new(obj_scene(""));
-        runtime.orbit_camera = Some(ObjOrbitCameraState {
+        runtime.camera_director.orbit = Some(ObjOrbitCameraState {
             target: "helsinki-uni-wireframe".to_string(),
             active: true,
             yaw: 90.0,
@@ -2516,7 +2764,7 @@ layers: []
         atmo-halo-strength: 1.0
         atmo-halo-width: 0.20"#,
         ));
-        runtime.orbit_camera = Some(ObjOrbitCameraState {
+        runtime.camera_director.orbit = Some(ObjOrbitCameraState {
             target: "helsinki-uni-wireframe".to_string(),
             active: true,
             yaw: 12.0,
@@ -2569,7 +2817,7 @@ layers: []
         atmo-limb-boost: 2.10
         world-displacement-scale: 0.55"#,
         ));
-        runtime.orbit_camera = Some(ObjOrbitCameraState {
+        runtime.camera_director.orbit = Some(ObjOrbitCameraState {
             target: "helsinki-uni-wireframe".to_string(),
             active: true,
             yaw: 12.0,

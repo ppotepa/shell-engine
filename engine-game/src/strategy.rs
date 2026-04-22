@@ -9,18 +9,57 @@ use rayon::prelude::*;
 /// Strategies controlling gameplay simulation behavior.
 pub struct GameplayStrategies {
     pub physics: Box<dyn PhysicsIntegrationStrategy + Send + Sync>,
+    pub physics_3d: Box<dyn PhysicsIntegrationStrategy3D + Send + Sync>,
+    pub reference_frames_3d: Box<dyn ReferenceFrameResolutionStrategy3D + Send + Sync>,
+    pub motors_3d: Box<dyn MotorApplyStrategy3D + Send + Sync>,
 }
 
 impl Default for GameplayStrategies {
     fn default() -> Self {
         Self {
             physics: Box::new(ParallelEulerIntegration),
+            physics_3d: Box::new(NoopPhysicsIntegration3D),
+            reference_frames_3d: Box::new(NoopReferenceFrameResolution3D),
+            motors_3d: Box::new(NoopMotorApply3D),
         }
     }
 }
 
 pub trait PhysicsIntegrationStrategy: Send + Sync {
     fn step(&self, world: &GameplayWorld, dt_ms: u64);
+}
+
+pub trait PhysicsIntegrationStrategy3D: Send + Sync {
+    fn step(&self, world: &GameplayWorld, dt_ms: u64);
+}
+
+pub trait ReferenceFrameResolutionStrategy3D: Send + Sync {
+    fn resolve(&self, world: &GameplayWorld, dt_ms: u64);
+}
+
+pub trait MotorApplyStrategy3D: Send + Sync {
+    fn apply(&self, world: &GameplayWorld, dt_ms: u64);
+}
+
+#[derive(Default)]
+pub struct NoopPhysicsIntegration3D;
+
+impl PhysicsIntegrationStrategy3D for NoopPhysicsIntegration3D {
+    fn step(&self, _world: &GameplayWorld, _dt_ms: u64) {}
+}
+
+#[derive(Default)]
+pub struct NoopReferenceFrameResolution3D;
+
+impl ReferenceFrameResolutionStrategy3D for NoopReferenceFrameResolution3D {
+    fn resolve(&self, _world: &GameplayWorld, _dt_ms: u64) {}
+}
+
+#[derive(Default)]
+pub struct NoopMotorApply3D;
+
+impl MotorApplyStrategy3D for NoopMotorApply3D {
+    fn apply(&self, _world: &GameplayWorld, _dt_ms: u64) {}
 }
 
 /// Simple semi-implicit Euler integrator with optional drag and max speed.

@@ -3,7 +3,14 @@ id: planet-generator-cockpit-simulator
 title: COCKPIT SIMULATOR
 bg: "#000008"
 render-size: 640x360
-space: 3d
+render-space: 3d
+world-model: celestial-3d
+controller-defaults:
+  camera-preset: cockpit-view
+  player-preset: cockpit-proxy
+  ui-preset: cockpit-hud
+camera-rig:
+  preset: cockpit-view
 spatial:
   meters-per-world-unit: 1000.0
 celestial:

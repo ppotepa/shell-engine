@@ -230,7 +230,7 @@ fn collect_behavior_failure(
         };
 
         collect_script_policy_findings(
-            path, scene_id, scope, src, script, true, failures, warnings,
+            path, scene, scene_id, scope, src, script, true, failures, warnings,
         );
 
         if let Err(error) = ctx.validate_rhai_script(script, behavior.params.src.as_deref(), scene)
@@ -255,7 +255,7 @@ fn collect_behavior_failure(
     let script = mod_behavior.script.as_str();
 
     collect_script_policy_findings(
-        path, scene_id, scope, src, script, false, failures, warnings,
+        path, scene, scene_id, scope, src, script, false, failures, warnings,
     );
 
     if let Err(error) = ctx.validate_rhai_script(script, mod_behavior.src.as_deref(), scene) {
@@ -267,6 +267,7 @@ fn collect_behavior_failure(
 
 fn collect_script_policy_findings(
     path: &str,
+    scene: &Scene,
     scene_id: &str,
     scope: &str,
     src: &str,
@@ -324,6 +325,15 @@ fn collect_script_policy_findings(
         ));
     }
 
+    if is_scene_entrypoint
+        && scene.controller_defaults != Default::default()
+        && uses_custom_bootstrap(&compact)
+    {
+        warnings.push(format!(
+            "{script_ref} migration warning: scene still bootstraps `local` through `std/bootstrap` even though authored `controller-defaults` now resolve at runtime; move preset setup into scene defaults and keep the entrypoint thin."
+        ));
+    }
+
     let line_count = script.lines().count();
     let has_import = compact.contains("import\"");
     if is_scene_entrypoint && line_count > LARGE_SCENE_SCRIPT_WARNING_LINES && !has_import {
@@ -331,6 +341,10 @@ fn collect_script_policy_findings(
             "{script_ref} policy warning: scene entrypoint is {line_count} lines and has no `import`; consider moving helpers into `mods/<mod>/scripts/...` modules and keeping the entrypoint thin."
         ));
     }
+}
+
+fn uses_custom_bootstrap(compact: &str) -> bool {
+    compact.contains("import\"std/bootstrap\"") || compact.contains("bootstrap::ensure(local)")
 }
 
 fn collect_module_policy_findings(
@@ -446,6 +460,7 @@ mod tests {
         let temp = tempdir().expect("temp dir");
         let mod_dir = temp.path().join("mod");
         fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
+        fs::create_dir_all(mod_dir.join("scripts/std")).expect("create scripts");
         fs::write(
             mod_dir.join("scenes/main.yml"),
             r#"
@@ -1026,5 +1041,59 @@ fn ensure(local) {
         RhaiScriptsCheck
             .run(&ctx, &mut report)
             .expect("bootstrap-style type_of(local) in imported module should remain allowed");
+    }
+
+    #[test]
+    fn warns_when_scene_entrypoint_bootstraps_local_state_despite_controller_defaults() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
+        fs::create_dir_all(mod_dir.join("scripts/std")).expect("create scripts");
+        fs::write(
+            mod_dir.join("scenes/main.yml"),
+            r#"
+id: main
+title: Main
+controller-defaults:
+  player-preset: pilot
+behaviors:
+  - name: rhai-script
+    params:
+      src: ./scene.rhai
+      script: |
+        import "std/bootstrap" as bootstrap;
+        local = bootstrap::ensure(local);
+        #{}
+layers: []
+"#,
+        )
+        .expect("write scene");
+
+        fs::write(
+            mod_dir.join("scripts/std/bootstrap.rhai"),
+            r#"
+fn ensure(local) {
+    if type_of(local) == "()" { return #{}; }
+    local
+}
+"#,
+        )
+        .expect("write bootstrap module");
+
+        let manifest: Value =
+            serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
+                .expect("manifest");
+        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml", &scene_loader);
+        let mut report = StartupReport::default();
+        RhaiScriptsCheck
+            .run(&ctx, &mut report)
+            .expect("bootstrap-style scene should still pass startup");
+
+        assert!(report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Warning
+                && issue.check == "rhai-scripts"
+                && issue.message.contains("controller-defaults")
+                && issue.message.contains("bootstrap")
+        }));
     }
 }

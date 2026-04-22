@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-world-model-euclidean
+title: CAN-02 Euclidean 3D World Model
+virtual-size-override: 640x360
+bg: "#05070b"
+render-space: 3d
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: euclidean-orbit-inspector
+  player-preset: euclidean-debug-pawn
+camera-rig:
+  preset: euclidean-orbit-inspector
+  obj-viewer:
+    sprite_id: world-model-euclidean-suzanne
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 250 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+next: playground-menu
+objects:
+  - {
+      ref: suzan,
+      as: euclidean-demo,
+      with:
+        {
+          id: world-model-euclidean-suzanne,
+          scale: 1.25,
+          camera_distance: 2.9,
+          fov_degrees: 52,
+          rotate_y_deg_per_sec: 18,
+          fg: "#d7e5ff",
+        },
+    }

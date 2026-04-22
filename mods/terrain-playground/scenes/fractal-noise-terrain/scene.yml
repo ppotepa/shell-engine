@@ -2,14 +2,12 @@
 id: terrain-fractal-noise
 title: Fractal Noise Terrain
 bg: "#08080c"
-layers:
-  - ref: main
-  - ref: settings
-logic:
-  kind: script
-  behavior: rhai-script
-  src: ./terrain.rhai
-input:
+render-space: 3d
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: orbit-camera
+camera-rig:
+  preset: orbit-camera
   orbit-camera:
     target: terrain-mesh
     yaw: 30.0
@@ -21,6 +19,13 @@ input:
     distance-max: 8.0
     distance-step: 0.2
     drag-sensitivity: 0.3
+layers:
+  - ref: main
+  - ref: settings
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./terrain.rhai
 postfx:
   - name: crt-scan-glitch
     params:

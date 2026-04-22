@@ -263,6 +263,24 @@ impl SceneRuntime {
             spatial_meters_per_world_unit: Some(self.spatial_context.scale.meters_per_world_unit),
             orbit_active: self.orbit_camera_active(),
         };
+        if let Some(gameplay_world) = ctx.gameplay_world.clone() {
+            let bridge_commands = self.bridge_runtime_objects_to_gameplay_if_needed(
+                &gameplay_world,
+                std::sync::Arc::clone(&ctx.catalogs),
+                std::sync::Arc::clone(&ctx.palettes),
+                ctx.default_palette.clone(),
+            );
+            if !bridge_commands.is_empty() {
+                let diagnostic_commands = self.apply_behavior_commands(&resolver, &bridge_commands);
+                commands.extend(bridge_commands.iter().cloned());
+                commands.extend(diagnostic_commands);
+                ctx.object_states = self.effective_object_states_snapshot();
+                ctx.object_props = self.object_props_snapshot();
+                ctx.object_text = self.object_text_snapshot();
+                ctx.object_regions = std::sync::Arc::clone(&self.object_regions);
+                ctx.layout_regions_stale = self.layout_regions_stale();
+            }
+        }
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {
             let object_id = &self.behaviors[idx].object_id;
@@ -299,6 +317,154 @@ impl SceneRuntime {
         self.prev_keys_down = (*keys_down_for_prev).clone();
         self.prev_scene_elapsed_ms = scene_elapsed_ms;
         commands
+    }
+
+    fn bridge_runtime_objects_to_gameplay_if_needed(
+        &mut self,
+        gameplay_world: &engine_game::GameplayWorld,
+        catalogs: std::sync::Arc<engine_behavior::catalog::ModCatalogs>,
+        palettes: std::sync::Arc<engine_behavior::palette::PaletteStore>,
+        default_palette: Option<String>,
+    ) -> Vec<BehaviorCommand> {
+        let queue = std::sync::Arc::new(std::sync::Mutex::new(Vec::<BehaviorCommand>::new()));
+        let runtime_objects = self.scene.runtime_objects.clone();
+        let mut live_targets = std::collections::BTreeSet::new();
+        for (idx, node) in runtime_objects.iter().enumerate() {
+            collect_runtime_object_targets("runtime-objects", idx, node, &mut live_targets);
+        }
+        self.prune_stale_runtime_object_gameplay_entities(gameplay_world, &live_targets);
+
+        for (idx, node) in runtime_objects.iter().enumerate() {
+            let target = runtime_object_path_alias_for_index("runtime-objects", idx, node);
+            let _ = self.bridge_runtime_object_subtree_to_gameplay(
+                gameplay_world,
+                std::sync::Arc::clone(&catalogs),
+                std::sync::Arc::clone(&palettes),
+                default_palette.clone(),
+                std::sync::Arc::clone(&queue),
+                node,
+                &target,
+                None,
+            );
+        }
+        let drained = match queue.lock() {
+            Ok(mut commands) => std::mem::take(&mut *commands),
+            Err(_) => Vec::new(),
+        };
+        drained
+    }
+
+    fn prune_stale_runtime_object_gameplay_entities(
+        &self,
+        gameplay_world: &engine_game::GameplayWorld,
+        live_targets: &std::collections::BTreeSet<String>,
+    ) {
+        let stale_ids: Vec<u64> = gameplay_world
+            .ids_with_visual_binding()
+            .into_iter()
+            .filter(|id| {
+                gameplay_world.visual(*id).is_some_and(|binding| {
+                    binding.all_visual_ids().into_iter().any(|visual_id| {
+                        visual_id.starts_with("runtime-objects/")
+                            && !live_targets.contains(visual_id)
+                    })
+                })
+            })
+            .collect();
+
+        for id in stale_ids {
+            if gameplay_world.exists(id) {
+                let _ = gameplay_world.despawn(id);
+            }
+        }
+    }
+
+    fn bridge_runtime_object_subtree_to_gameplay(
+        &self,
+        gameplay_world: &engine_game::GameplayWorld,
+        catalogs: std::sync::Arc<engine_behavior::catalog::ModCatalogs>,
+        palettes: std::sync::Arc<engine_behavior::palette::PaletteStore>,
+        default_palette: Option<String>,
+        queue: std::sync::Arc<std::sync::Mutex<Vec<BehaviorCommand>>>,
+        node: &engine_core::scene::model::RuntimeObjectDocument,
+        runtime_target: &str,
+        owner_id: Option<u64>,
+    ) -> Option<u64> {
+        let root_id = self
+            .gameplay_entity_for_runtime_target(gameplay_world, runtime_target)
+            .and_then(|id| {
+                if self.runtime_object_gameplay_owner_matches(gameplay_world, id, owner_id) {
+                    Some(id)
+                } else {
+                    let _ = gameplay_world.despawn(id);
+                    None
+                }
+            })
+            .or_else(|| {
+                let id = engine_behavior::scripting::gameplay_impl::bridge_runtime_object_node_to_gameplay(
+                    gameplay_world.clone(),
+                    catalogs.clone(),
+                    queue.clone(),
+                    palettes.clone(),
+                    default_palette.clone(),
+                    Some(self.spatial_context.scale.meters_per_world_unit),
+                    node,
+                    runtime_target,
+                    owner_id,
+                );
+                (id > 0).then_some(id as u64)
+            })?;
+
+        for (idx, child) in node.children.iter().enumerate() {
+            let child_target = runtime_object_path_alias_for_index(runtime_target, idx, child);
+            if self
+                .bridge_runtime_object_subtree_to_gameplay(
+                    gameplay_world,
+                    catalogs.clone(),
+                    palettes.clone(),
+                    default_palette.clone(),
+                    queue.clone(),
+                    child,
+                    &child_target,
+                    Some(root_id),
+                )
+                .is_none()
+            {
+                return None;
+            }
+        }
+
+        Some(root_id)
+    }
+
+    fn runtime_object_gameplay_owner_matches(
+        &self,
+        gameplay_world: &engine_game::GameplayWorld,
+        id: u64,
+        owner_id: Option<u64>,
+    ) -> bool {
+        match owner_id {
+            Some(expected_owner) => gameplay_world
+                .ownership(id)
+                .map(|ownership| ownership.owner_id)
+                == Some(expected_owner),
+            None => gameplay_world.ownership(id).is_none(),
+        }
+    }
+
+    fn gameplay_entity_for_runtime_target(
+        &self,
+        gameplay_world: &engine_game::GameplayWorld,
+        runtime_target: &str,
+    ) -> Option<u64> {
+        gameplay_world.ids_with_visual_binding().into_iter().find(|id| {
+            gameplay_world.visual(*id).is_some_and(|binding| {
+                binding
+                    .all_visual_ids()
+                    .into_iter()
+                    .any(|visual_id| visual_id == runtime_target)
+            })
+        })
     }
 
     /// Applies palette color bindings if the active palette has changed since the last
@@ -1752,6 +1918,11 @@ impl SceneRuntime {
         let mut any_removed = false;
 
         for target in targets {
+            if self.remove_runtime_object_subtree(target) {
+                any_removed = true;
+                continue;
+            }
+
             let object_id = if let Some(id) = current_resolver.resolve_alias(target) {
                 id.to_string()
             } else if let Some(id) = resolver.resolve_alias(target) {
@@ -1812,6 +1983,10 @@ impl SceneRuntime {
     }
 
     fn soft_despawn_target(&mut self, resolver: &TargetResolver, target: &str) -> bool {
+        if self.remove_runtime_object_subtree(target) {
+            return true;
+        }
+
         // Prefer the fresh resolver: after a previous despawn in the same batch,
         // rebuild_runtime_graph_preserving_state renumbers layer indices, making
         // the passed resolver's object_ids stale. Trying the stale resolver first
@@ -1942,6 +2117,16 @@ impl SceneRuntime {
             }
         }
 
+        register_runtime_objects_preserving_state(
+            &mut objects,
+            &mut object_states,
+            &mut obj_camera_states,
+            &preserved_states,
+            &preserved_camera_states,
+            &self.root_id,
+            &self.scene.runtime_objects,
+        );
+
         self.objects = objects;
         self.object_states = object_states;
         self.layer_ids = layer_ids;
@@ -2056,6 +2241,59 @@ fn sanitize_fragment_runtime(value: &str) -> String {
         "_".to_string()
     } else {
         out
+    }
+}
+
+fn runtime_object_path_alias_for_index(
+    parent_path: &str,
+    node_idx: usize,
+    node: &engine_core::scene::model::RuntimeObjectDocument,
+) -> String {
+    let display_name = if node.name.trim().is_empty() {
+        format!("runtime-object-{node_idx}")
+    } else {
+        node.name.clone()
+    };
+    format!(
+        "{}/{}",
+        parent_path,
+        sanitize_runtime_object_fragment(&display_name)
+    )
+}
+
+fn sanitize_runtime_object_fragment(input: &str) -> String {
+    let sanitized = input
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':') {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    let collapsed = sanitized
+        .split('-')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    if collapsed.is_empty() {
+        "unnamed".to_string()
+    } else {
+        collapsed
+    }
+}
+
+fn collect_runtime_object_targets(
+    parent_path: &str,
+    node_idx: usize,
+    node: &engine_core::scene::model::RuntimeObjectDocument,
+    targets: &mut std::collections::BTreeSet<String>,
+) {
+    let target = runtime_object_path_alias_for_index(parent_path, node_idx, node);
+    targets.insert(target.clone());
+    for (child_idx, child) in node.children.iter().enumerate() {
+        collect_runtime_object_targets(&target, child_idx, child, targets);
     }
 }
 
@@ -2284,6 +2522,161 @@ fn register_runtime_sprite_preserving_state(
     }
 }
 
+fn register_runtime_objects_preserving_state(
+    objects: &mut HashMap<String, GameObject>,
+    object_states: &mut HashMap<String, ObjectRuntimeState>,
+    obj_camera_states: &mut HashMap<String, ObjCameraState>,
+    preserved_states: &HashMap<String, ObjectRuntimeState>,
+    preserved_camera_states: &HashMap<String, ObjCameraState>,
+    root_id: &str,
+    docs: &[engine_core::scene::model::RuntimeObjectDocument],
+) {
+    if docs.is_empty() {
+        return;
+    }
+
+    let container_id = format!("{root_id}/runtime-objects");
+    objects.insert(
+        container_id.clone(),
+        GameObject {
+            id: container_id.clone(),
+            name: "runtime-objects".to_string(),
+            kind: GameObjectKind::Layer,
+            aliases: Vec::new(),
+            parent_id: Some(root_id.to_string()),
+            children: Vec::new(),
+        },
+    );
+    object_states.insert(
+        container_id.clone(),
+        preserved_states
+            .get(&container_id)
+            .cloned()
+            .unwrap_or_default(),
+    );
+    if let Some(camera_state) = preserved_camera_states.get(&container_id) {
+        obj_camera_states.insert(container_id.clone(), camera_state.clone());
+    }
+    if let Some(root) = objects.get_mut(root_id) {
+        root.children.push(container_id.clone());
+    }
+
+    for (idx, doc) in docs.iter().enumerate() {
+        register_runtime_object_preserving_state(
+            objects,
+            object_states,
+            obj_camera_states,
+            preserved_states,
+            preserved_camera_states,
+            &container_id,
+            idx,
+            doc,
+            "runtime-objects",
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn register_runtime_object_preserving_state(
+    objects: &mut HashMap<String, GameObject>,
+    object_states: &mut HashMap<String, ObjectRuntimeState>,
+    obj_camera_states: &mut HashMap<String, ObjCameraState>,
+    preserved_states: &HashMap<String, ObjectRuntimeState>,
+    preserved_camera_states: &HashMap<String, ObjCameraState>,
+    parent_id: &str,
+    node_idx: usize,
+    doc: &engine_core::scene::model::RuntimeObjectDocument,
+    parent_path_alias: &str,
+) {
+    let display_name = if doc.name.trim().is_empty() {
+        format!("runtime-object-{node_idx}")
+    } else {
+        doc.name.clone()
+    };
+    let segment = sanitize_runtime_object_fragment(&display_name);
+    let node_id = format!("{parent_id}/runtime-object:{node_idx}:{segment}");
+    let path_alias = format!("{parent_path_alias}/{segment}");
+    let mut aliases = vec![path_alias.clone()];
+    if runtime_object_bare_alias_available(objects, &display_name) {
+        aliases.insert(0, display_name.clone());
+    }
+
+    objects.insert(
+        node_id.clone(),
+        GameObject {
+            id: node_id.clone(),
+            name: display_name,
+            kind: GameObjectKind::Layer,
+            aliases,
+            parent_id: Some(parent_id.to_string()),
+            children: Vec::new(),
+        },
+    );
+    object_states.insert(
+        node_id.clone(),
+        preserved_states
+            .get(&node_id)
+            .cloned()
+            .unwrap_or_else(|| runtime_object_initial_state_runtime(&doc.transform)),
+    );
+    if let Some(camera_state) = preserved_camera_states.get(&node_id) {
+        obj_camera_states.insert(node_id.clone(), camera_state.clone());
+    }
+    if let Some(parent) = objects.get_mut(parent_id) {
+        parent.children.push(node_id.clone());
+    }
+
+    for (child_idx, child) in doc.children.iter().enumerate() {
+        register_runtime_object_preserving_state(
+            objects,
+            object_states,
+            obj_camera_states,
+            preserved_states,
+            preserved_camera_states,
+            &node_id,
+            child_idx,
+            child,
+            &path_alias,
+        );
+    }
+}
+
+fn runtime_object_bare_alias_available(
+    objects: &HashMap<String, GameObject>,
+    alias: &str,
+) -> bool {
+    let alias = alias.trim();
+    !alias.is_empty()
+        && !objects.values().any(|object| {
+            object.name == alias || object.aliases.iter().any(|existing| existing == alias)
+        })
+}
+
+fn runtime_object_initial_state_runtime(
+    transform: &engine_core::scene::model::RuntimeObjectTransform,
+) -> ObjectRuntimeState {
+    let mut state = ObjectRuntimeState::default();
+    match transform {
+        engine_core::scene::model::RuntimeObjectTransform::TwoD {
+            x,
+            y,
+            rotation_deg,
+            ..
+        } => {
+            state.offset_x = x.round() as i32;
+            state.offset_y = y.round() as i32;
+            state.heading = rotation_deg.to_radians();
+        }
+        engine_core::scene::model::RuntimeObjectTransform::ThreeD { translation, .. }
+        | engine_core::scene::model::RuntimeObjectTransform::Celestial { translation, .. } => {
+            state.offset_x = translation[0].round() as i32;
+            state.offset_y = translation[1].round() as i32;
+            state.offset_z = translation[2].round() as i32;
+        }
+    }
+    state
+}
+
 fn retag_sprite_ids(sprite: &mut Sprite, base: &str, counter: &mut usize) {
     let next_id = if *counter == 0 {
         base.to_string()
@@ -2346,8 +2739,12 @@ mod tests {
         commands::{scene_mutation_request_from_set_path, DebugLogSeverity},
         scene::{SceneMutationError, SceneMutationRequest, SceneMutationResult},
     };
-    use engine_behavior::BehaviorCommand;
+    use engine_behavior::{catalog, palette::PaletteStore, BehaviorCommand};
     use engine_core::scene::Scene;
+    use engine_game::{GameplayWorld, VisualBinding};
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::sync::Arc;
 
     fn intro_scene() -> Scene {
         serde_yaml::from_str(
@@ -2373,6 +2770,142 @@ layers:
         .expect("scene should parse")
     }
 
+    fn runtime_object_bridge_scene() -> Scene {
+        serde_yaml::from_str(
+            r#"
+id: runtime-object-bridge
+title: Runtime Object Bridge
+layers: []
+runtime-objects:
+  - name: carrier
+    prefab: carrier
+    transform:
+      space: 3d
+      translation: [10.0, 20.0, 30.0]
+      rotation-deg: [0.0, 90.0, 0.0]
+    components:
+      reference-frame:
+        mode: LocalHorizon
+        body_id: earth
+      lifecycle: Persistent
+    children:
+      - name: escort
+        prefab: escort
+        transform:
+          space: 3d
+          translation: [4.0, 0.0, 1.0]
+        components:
+          lifecycle: FollowOwner
+          follow-anchor-3d:
+            local-offset: [4.0, 0.0, 1.0]
+"#,
+        )
+        .expect("scene should parse")
+    }
+
+    fn runtime_object_generic_bridge_scene() -> Scene {
+        serde_yaml::from_str(
+            r#"
+id: runtime-object-generic-bridge
+title: Runtime Object Generic Bridge
+layers: []
+runtime-objects:
+  - name: carrier
+    kind: runtime-object
+    transform:
+      space: 3d
+      translation: [10.0, 20.0, 30.0]
+      rotation-deg: [0.0, 90.0, 0.0]
+    components:
+      reference-frame:
+        mode: LocalHorizon
+        body_id: earth
+      lifecycle: Persistent
+    children:
+      - name: escort
+        kind: runtime-object
+        transform:
+          space: 3d
+          translation: [4.0, 0.0, 1.0]
+        components:
+          lifecycle: FollowOwner
+          follow-anchor-3d:
+            local-offset: [4.0, 0.0, 1.0]
+"#,
+        )
+        .expect("scene should parse")
+    }
+
+    fn runtime_object_rebuild_bridge_scene() -> Scene {
+        serde_yaml::from_str(
+            r#"
+id: runtime-object-rebuild-bridge
+title: Runtime Object Rebuild Bridge
+layers:
+  - name: hud
+    sprites:
+      - type: text
+        id: title
+        content: TITLE
+runtime-objects:
+  - name: carrier
+    prefab: carrier
+    transform:
+      space: 3d
+      translation: [10.0, 20.0, 30.0]
+      rotation-deg: [0.0, 90.0, 0.0]
+    components:
+      reference-frame:
+        mode: LocalHorizon
+        body_id: earth
+      lifecycle: Persistent
+    children:
+      - name: escort
+        prefab: escort
+        transform:
+          space: 3d
+          translation: [4.0, 0.0, 1.0]
+        components:
+          lifecycle: FollowOwner
+          follow-anchor-3d:
+            local-offset: [4.0, 0.0, 1.0]
+"#,
+        )
+        .expect("scene should parse")
+    }
+
+    fn runtime_object_bridge_catalogs() -> catalog::ModCatalogs {
+        let mut catalogs = catalog::ModCatalogs::new();
+        catalogs.prefabs.insert(
+            "carrier".to_string(),
+            catalog::PrefabTemplate {
+                kind: "carrier".to_string(),
+                sprite_template: None,
+                transform: Some(catalog::PrefabTransform::default()),
+                init_fields: HashMap::new(),
+                components: Some(catalog::PrefabComponents {
+                    lifecycle: Some("Persistent".to_string()),
+                    ..catalog::PrefabComponents::default()
+                }),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+        catalogs.prefabs.insert(
+            "escort".to_string(),
+            catalog::PrefabTemplate {
+                kind: "escort".to_string(),
+                sprite_template: None,
+                transform: Some(catalog::PrefabTransform::default()),
+                init_fields: HashMap::new(),
+                components: Some(catalog::PrefabComponents::default()),
+                fg_colour: None,
+                default_tags: vec![],
+            },
+        );
+        catalogs
+    }
+
     fn assert_single_debug_log(
         diagnostics: &[BehaviorCommand],
         severity: DebugLogSeverity,
@@ -2390,6 +2923,442 @@ layers:
                 && *actual_severity == severity
                 && message.contains(expected_fragment)
         ));
+    }
+
+    #[test]
+    fn update_behaviors_bridges_runtime_object_tree_into_gameplay_world_once() {
+        let mut runtime = SceneRuntime::new(runtime_object_bridge_scene());
+        let gameplay = GameplayWorld::new();
+        let catalogs = runtime_object_bridge_catalogs();
+
+        let diagnostics = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            16,
+            0,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(catalogs),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert!(diagnostics.is_empty());
+        let ids = gameplay.ids();
+        assert_eq!(ids.len(), 2);
+
+        let carrier_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier")
+                })
+            })
+            .expect("carrier bridge entity");
+        let escort_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier/escort")
+                })
+            })
+            .expect("escort bridge entity");
+
+        let carrier_transform = gameplay.transform3d(carrier_id).expect("carrier transform");
+        assert_eq!(carrier_transform.position, [10.0, 20.0, 30.0]);
+        assert!((carrier_transform.orientation[1] - 0.70710677).abs() < 0.001);
+        assert!((carrier_transform.orientation[3] - 0.70710677).abs() < 0.001);
+        assert_eq!(
+            gameplay.reference_frame3d(carrier_id).map(|binding| binding.mode),
+            Some(engine_game::components::ReferenceFrameMode::LocalHorizon)
+        );
+        assert_eq!(
+            gameplay.ownership(escort_id).map(|ownership| ownership.owner_id),
+            Some(carrier_id)
+        );
+        assert_eq!(
+            gameplay.lifecycle(escort_id),
+            Some(engine_game::components::LifecyclePolicy::FollowOwner)
+        );
+
+        let diagnostics_second = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            32,
+            16,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(catalog::ModCatalogs::new()),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert!(diagnostics_second.is_empty());
+        assert_eq!(gameplay.ids().len(), 2);
+    }
+
+    #[test]
+    fn update_behaviors_bridges_runtime_object_tree_without_prefab_backing() {
+        let mut runtime = SceneRuntime::new(runtime_object_generic_bridge_scene());
+        let gameplay = GameplayWorld::new();
+
+        let diagnostics = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            16,
+            0,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(catalog::ModCatalogs::new()),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert!(diagnostics.is_empty());
+        assert_eq!(gameplay.ids().len(), 2);
+
+        let carrier_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier")
+                })
+            })
+            .expect("carrier bridge entity");
+        let escort_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier/escort")
+                })
+            })
+            .expect("escort bridge entity");
+
+        let carrier_transform = gameplay
+            .transform3d(carrier_id)
+            .expect("carrier transform3d");
+        let escort_transform = gameplay
+            .transform3d(escort_id)
+            .expect("escort transform3d");
+        assert_eq!(carrier_transform.position, [10.0, 20.0, 30.0]);
+        assert_eq!(escort_transform.position, [4.0, 0.0, 1.0]);
+        assert_eq!(
+            gameplay.reference_frame3d(carrier_id).map(|binding| binding.mode),
+            Some(engine_game::components::ReferenceFrameMode::LocalHorizon)
+        );
+        assert_eq!(
+            gameplay.ownership(escort_id).map(|ownership| ownership.owner_id),
+            Some(carrier_id)
+        );
+        assert_eq!(
+            gameplay.lifecycle(escort_id),
+            Some(engine_game::components::LifecyclePolicy::FollowOwner)
+        );
+    }
+
+    #[test]
+    fn update_behaviors_prunes_removed_runtime_object_child_entities() {
+        let mut runtime = SceneRuntime::new(runtime_object_bridge_scene());
+        let gameplay = GameplayWorld::new();
+
+        let diagnostics = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            16,
+            0,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(runtime_object_bridge_catalogs()),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+        assert!(diagnostics.is_empty());
+
+        let carrier_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier")
+                })
+            })
+            .expect("carrier bridge entity");
+        let escort_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier/escort")
+                })
+            })
+            .expect("escort bridge entity");
+
+        let resolver = runtime.target_resolver();
+        let despawn_diagnostics = runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::ApplySceneMutation {
+                request: SceneMutationRequest::DespawnObject {
+                    target: "runtime-objects/carrier/escort".to_string(),
+                },
+            }],
+        );
+        assert!(despawn_diagnostics.is_empty());
+        assert_eq!(runtime.scene().runtime_objects.len(), 1);
+        assert_eq!(runtime.scene().runtime_objects[0].children.len(), 0);
+
+        let diagnostics_after_removal = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            32,
+            16,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(catalog::ModCatalogs::new()),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert!(diagnostics_after_removal.is_empty());
+        assert!(gameplay.exists(carrier_id));
+        assert!(!gameplay.exists(escort_id));
+        assert_eq!(gameplay.ids().len(), 1);
+    }
+
+    #[test]
+    fn update_behaviors_replaces_runtime_object_child_binding_when_owner_is_wrong() {
+        let mut runtime = SceneRuntime::new(runtime_object_bridge_scene());
+        let gameplay = GameplayWorld::new();
+
+        let diagnostics = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            16,
+            0,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(runtime_object_bridge_catalogs()),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+        assert!(diagnostics.is_empty());
+
+        let carrier_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier")
+                })
+            })
+            .expect("carrier bridge entity");
+        let escort_id = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier/escort")
+                })
+            })
+            .expect("escort bridge entity");
+        assert!(gameplay.despawn(escort_id));
+
+        let stale_escort = gameplay
+            .spawn("escort-stale", json!({}))
+            .expect("stale escort entity");
+        assert!(gameplay.set_visual(
+            stale_escort,
+            VisualBinding {
+                visual_id: Some("runtime-objects/carrier/escort".to_string()),
+                additional_visuals: Vec::new(),
+            }
+        ));
+        assert!(gameplay.ownership(stale_escort).is_none());
+
+        let diagnostics_repair = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            32,
+            16,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(runtime_object_bridge_catalogs()),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert!(diagnostics_repair.is_empty());
+        assert!(gameplay.exists(carrier_id));
+        assert!(!gameplay.exists(stale_escort));
+        let repaired_escort = gameplay
+            .ids_with_visual_binding()
+            .into_iter()
+            .find(|id| {
+                gameplay.visual(*id).is_some_and(|binding| {
+                    binding
+                        .all_visual_ids()
+                        .into_iter()
+                        .any(|target| target == "runtime-objects/carrier/escort")
+                })
+            })
+            .expect("repaired escort bridge entity");
+        assert_ne!(repaired_escort, stale_escort);
+        assert_eq!(
+            gameplay
+                .ownership(repaired_escort)
+                .map(|ownership| ownership.owner_id),
+            Some(carrier_id)
+        );
+        assert_eq!(gameplay.ids().len(), 2);
+    }
+
+    #[test]
+    fn rebuild_runtime_graph_preserves_runtime_object_bridge_targets_and_state() {
+        let mut runtime = SceneRuntime::new(runtime_object_rebuild_bridge_scene());
+        let resolver = runtime.target_resolver();
+        let diagnostics = runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SetProps {
+                    target: "runtime-objects/carrier".to_string(),
+                    visible: Some(false),
+                    dx: Some(6),
+                    dy: Some(-4),
+                    text: None,
+                },
+                BehaviorCommand::ApplySceneMutation {
+                    request: SceneMutationRequest::DespawnObject {
+                        target: "title".to_string(),
+                    },
+                },
+            ],
+        );
+
+        assert!(diagnostics.is_empty());
+
+        let resolver = runtime.target_resolver();
+        assert!(resolver.resolve_alias("title").is_none());
+        let carrier_id = resolver
+            .resolve_alias("runtime-objects/carrier")
+            .expect("carrier alias after rebuild")
+            .to_string();
+        let escort_id = resolver
+            .resolve_alias("runtime-objects/carrier/escort")
+            .expect("escort alias after rebuild")
+            .to_string();
+
+        let carrier_state = runtime.object_state(&carrier_id).expect("carrier state");
+        assert!(!carrier_state.visible);
+        assert_eq!(carrier_state.offset_x, 16);
+        assert_eq!(carrier_state.offset_y, 16);
+        assert_eq!(carrier_state.offset_z, 30);
+        assert_eq!(
+            runtime.object(&escort_id).and_then(|object| object.parent_id.clone()),
+            Some(carrier_id.clone())
+        );
+
+        let gameplay = GameplayWorld::new();
+        let catalogs = runtime_object_bridge_catalogs();
+
+        let bridge_diagnostics = runtime.update_behaviors(
+            engine_animation::SceneStage::OnIdle,
+            16,
+            0,
+            0,
+            None,
+            None,
+            None,
+            Some(gameplay.clone()),
+            None,
+            Arc::new(Vec::new()),
+            Arc::new(catalogs),
+            Arc::new(PaletteStore::default()),
+            None,
+            false,
+        );
+
+        assert!(bridge_diagnostics.is_empty());
+        assert_eq!(gameplay.ids().len(), 2);
+        assert!(
+            gameplay
+                .ids_with_visual_binding()
+                .into_iter()
+                .any(|id| gameplay.visual(id).is_some_and(|binding| binding
+                    .all_visual_ids()
+                    .into_iter()
+                    .any(|target| target == "runtime-objects/carrier")))
+        );
+        assert!(
+            gameplay
+                .ids_with_visual_binding()
+                .into_iter()
+                .any(|id| gameplay.visual(id).is_some_and(|binding| binding
+                    .all_visual_ids()
+                    .into_iter()
+                    .any(|target| target == "runtime-objects/carrier/escort")))
+        );
     }
 
     #[test]

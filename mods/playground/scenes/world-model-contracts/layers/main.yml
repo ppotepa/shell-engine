@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: contracts-map
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "SCN-04 WORLD MODEL CONTRACT MAP",
+        at: ct,
+        y: -11,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "PLANAR 2D  -> UI, menus, flat authored scenes",
+        at: ct,
+        y: -4,
+        font: "generic:2",
+        fg: "#86d39e",
+      }
+    - {
+        type: text,
+        content: "EUCLIDEAN 3D -> fps, maze, room-scale traversal",
+        at: ct,
+        y: 0,
+        font: "generic:2",
+        fg: "#8cc7ff",
+      }
+    - {
+        type: text,
+        content: "CELESTIAL 3D -> planet/local-horizon/orbital worlds",
+        at: ct,
+        y: 4,
+        font: "generic:2",
+        fg: "#ffd38c",
+      }
+    - {
+        type: text,
+        content: "author with controller-defaults + camera-rig first; low-level input blocks are the lowered compatibility path",
+        at: ct,
+        y: 8,
+        font: "generic:2",
+        fg: gray,
+      }
+    - {
+        type: text,
+        content: "Ladder: CAN-01, CAN-02, CAN-03, SCN-04, BASE-01, BASE-02. CAN-03 pins surface-free-look through camera-rig.surface.mode=locked. Planet-generator stays the heavier celestial canary stack.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+        hide_on_leave: true,
+      }

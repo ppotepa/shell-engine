@@ -106,8 +106,9 @@ The intended boundary is:
   aliases to the same live APIs for now.
 - `world.set_world_bounds` uses the natural Rhai argument order
   `min_x, min_y, max_x, max_y`.
-- `spawn_prefab("ship", #{ cfg: ... })` merges `args["cfg"]` into the catalog
-  controller config. This is the intended path for per-level controller tuning.
+- `spawn_prefab("ship", #{ cfg: ... })` deep-merges `args["cfg"]` into the
+  catalog controller config. This is the intended path for per-level controller
+  tuning and nested overrides.
 - `runtime.scene.objects.find(target)` is the primary live scene-handle path.
   `scene.object(target)` is the concise shorthand for the same live handle.
   `scene.inspect(target)` stays a snapshot and will not reflect pending

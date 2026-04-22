@@ -3,7 +3,23 @@ id: lighting-playground-main
 title: Lighting Playground
 bg: "#000008"
 render-size: 960x540
-space: 3d
+render-space: 3d
+world-model: euclidean-3d
+controller-defaults:
+  camera-preset: orbit-camera
+camera-rig:
+  preset: orbit-camera
+  orbit-camera:
+    target: world-atmo
+    yaw: 28.0
+    pitch: 18.0
+    distance: 3.0
+    pitch-min: -85.0
+    pitch-max: 85.0
+    distance-min: 2.6
+    distance-max: 6.0
+    distance-step: 0.2
+    drag-sensitivity: 0.14
 ui:
   scale: 1.04
   font-scale: 1.12
@@ -17,18 +33,6 @@ logic:
   kind: script
   behavior: rhai-script
   src: ./main.rhai
-input:
-  orbit-camera:
-    target: world-atmo
-    yaw: 28.0
-    pitch: 18.0
-    distance: 3.0
-    pitch-min: -85.0
-    pitch-max: 85.0
-    distance-min: 2.6
-    distance-max: 6.0
-    distance-step: 0.2
-    drag-sensitivity: 0.14
 gui:
   widgets:
     - type: segmented-control

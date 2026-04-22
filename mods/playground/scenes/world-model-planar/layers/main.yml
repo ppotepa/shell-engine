@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: planar-canary
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "CAN-01 PLANAR 2D WORLD MODEL",
+        at: ct,
+        y: -8,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "render-space: 2d",
+        at: ct,
+        y: -1,
+        font: "generic:2",
+        fg: "#86d39e",
+      }
+    - {
+        type: text,
+        content: "world-model: planar-2d",
+        at: ct,
+        y: 3,
+        font: "generic:2",
+        fg: "#86d39e",
+      }
+    - {
+        type: text,
+        content: "Contract canary for planar scene rules. Any key returns.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+        hide_on_leave: true,
+      }

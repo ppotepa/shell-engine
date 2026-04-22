@@ -1,0 +1,8 @@
+systems:
+  qwack-celestial-system:
+    region: qwack-celestial-local
+    display-name: Qwack Celestial System
+    bodies: [qwack-celestial-demo-world]
+    map-position:
+      x: 0.0
+      y: 0.0

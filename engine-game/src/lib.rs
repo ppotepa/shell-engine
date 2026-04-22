@@ -16,10 +16,15 @@ pub mod gameplay;
 pub mod strategy;
 
 pub use components::{
-    AngularBody, AtmosphereAffected2D, Collider2D, ColliderShape, DespawnReason, EntityTimers,
-    FollowAnchor2D, GravityAffected2D, GravityMode2D, LifecyclePolicy, Lifetime, LinearBrake,
-    Ownership, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, PhysicsBody2D, Transform2D,
-    VehicleRuntimePrimitives, VehicleStateCache, VisualBinding, WrapBounds,
+    AngularBody, AngularMotor3D, Assembly3D, AtmosphereAffected2D, AttachmentBundle3D,
+    BootstrapAssembly3D, BootstrapPreset3D, CharacterMotor3D, Collider2D, ColliderShape,
+    ComponentBundle3D, ControlBundle3D, ControlIntent3D, DespawnReason, EntityTimers,
+    FlightMotor3D, FollowAnchor2D, FollowAnchor3D, GravityAffected2D, GravityMode2D,
+    LifecyclePolicy, Lifetime, LinearBrake, LinearMotor3D, MotorBundle3D, Ownership,
+    ParticleColorRamp, ParticlePhysics, ParticleThreadMode, PhysicsBody2D, PhysicsBody3D,
+    ReferenceFrameBinding3D, ReferenceFrameMode, ReferenceFrameState3D, SpatialBundle3D,
+    SpatialKind, Transform2D, Transform3D, VehicleRuntimePrimitives, VehicleStateCache,
+    VisualBinding, WrapBounds,
 };
 pub use diagnostics::{EntityCountSnapshot, EntityEventLog};
 pub use engine_vehicle::{
@@ -35,8 +40,9 @@ pub use collision::{
     BroadphaseKind, CollisionHit, CollisionStrategies, NarrowphaseKind, WrapStrategy,
 };
 pub use strategy::{
-    GameplayStrategies, ParallelEulerIntegration, PhysicsIntegrationStrategy,
-    SimpleEulerIntegration,
+    GameplayStrategies, MotorApplyStrategy3D, NoopMotorApply3D, NoopPhysicsIntegration3D,
+    NoopReferenceFrameResolution3D, ParallelEulerIntegration, PhysicsIntegrationStrategy,
+    PhysicsIntegrationStrategy3D, ReferenceFrameResolutionStrategy3D, SimpleEulerIntegration,
 };
 
 #[inline]

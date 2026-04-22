@@ -253,7 +253,7 @@ fn slot_value(local, tab, index) {
 }
 
 fn sync_widgets_from_state(local, gui, tab) {
-    local = planet_spec::sync_spec_from_legacy(local);
+    local = planet_spec::ensure(local);
     let spec = local["planet_spec"] ?? #{};
     let seed = spec["seed"] ?? 0.0;
     let has_ocean = spec["has_ocean"] ?? true;
@@ -320,7 +320,7 @@ fn sync_widgets_from_state(local, gui, tab) {
 }
 
 fn read_widgets_into_state(local, gui, tab) {
-    local = planet_spec::sync_spec_from_legacy(local);
+    local = planet_spec::ensure(local);
     let spec = local["planet_spec"] ?? #{};
     if tab == 0 {
         spec.seed = seed_from_01(gui.slider_value("param-0"));

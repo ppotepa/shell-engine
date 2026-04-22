@@ -29,3 +29,25 @@ prefabs:
       extra_data:
         role: player
 
+  # Canary prefab: exercises nested component override merging without touching live gameplay.
+  canary-ship-base:
+    kind: ship
+    sprite_template: ship
+    components:
+      extra_data:
+        profile:
+          family: euclidean
+          revision: 1
+          nested:
+            label: base
+
+  canary-ship-nested:
+    ref: canary-ship-base
+    components:
+      extra_data:
+        profile:
+          revision: 2
+          nested:
+            label: nested
+            note: deep-override
+

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: celestial-canary
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "CAN-03 CELESTIAL 3D WORLD MODEL",
+        at: ct,
+        y: -10,
+        font: "generic:2",
+        fg: white,
+      }
+    - {
+        type: text,
+        content: "render-space: 3d",
+        at: ct,
+        y: -3,
+        font: "generic:2",
+        fg: "#ffd38c",
+      }
+    - {
+        type: text,
+        content: "world-model: celestial-3d",
+        at: ct,
+        y: 1,
+        font: "generic:2",
+        fg: "#ffd38c",
+      }
+    - {
+        type: text,
+        content: "authored celestial binding: focus-body + focus-site + local catalogs",
+        at: ct,
+        y: 5,
+        font: "generic:2",
+        fg: "#ffd38c",
+      }
+    - {
+        type: text,
+        content: "Celestial contract canary with canonical `controller-defaults.camera-preset: surface-free-look` + `camera-rig.preset: surface-free-look` and `camera-rig.surface.mode: locked`. Any key returns.",
+        at: cb,
+        y: -2,
+        font: "generic:2",
+        fg: gray,
+        hide_on_leave: true,
+      }
