@@ -19,6 +19,8 @@ use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton as WinitMouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode as WinitKeyCode, ModifiersState, PhysicalKey};
+#[cfg(target_os = "windows")]
+use winit::platform::windows::EventLoopBuilderExtWindows;
 use winit::window::{Window, WindowId};
 
 #[derive(Debug, Clone, Copy)]
@@ -566,7 +568,12 @@ fn run_window_runtime(
     rx: Receiver<RuntimeCommand>,
     input_queue: WgpuInputQueue,
 ) {
-    let event_loop = match EventLoop::new() {
+    let mut builder = EventLoop::builder();
+    #[cfg(target_os = "windows")]
+    {
+        builder.with_any_thread(true);
+    }
+    let event_loop = match builder.build() {
         Ok(loop_handle) => loop_handle,
         Err(error) => {
             eprintln!("[wgpu-runtime] event loop init failed: {error}");
