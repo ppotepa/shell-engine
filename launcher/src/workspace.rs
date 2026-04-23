@@ -27,7 +27,8 @@ pub struct DisplayConfig {
     #[serde(default)]
     pub default_font: String,
     #[serde(default)]
-    pub render_size: String,
+    #[serde(alias = "render_size")]
+    pub world_render_size: String,
     #[serde(default)]
     pub presentation_policy: String,
 }
@@ -43,36 +44,6 @@ pub struct SceneEntry {
     pub dir_name: String,
     pub id: Option<String>,
     pub title: Option<String>,
-}
-
-/// Parse a "WxH" render_size string into (width, height).
-pub fn parse_render_size(s: &str) -> Option<(u32, u32)> {
-    let parts: Vec<&str> = s.split('x').collect();
-    if parts.len() == 2 {
-        let w = parts[0].parse::<u32>().ok()?;
-        let h = parts[1].parse::<u32>().ok()?;
-        if w > 0 && h > 0 {
-            return Some((w, h));
-        }
-    }
-    None
-}
-
-/// Compute an appropriate SDL pixel scale so the window fits comfortably
-/// on a 1920×1080 screen. Returns a scale in [1, 16].
-pub fn auto_pixel_scale(render_w: u32, render_h: u32) -> u32 {
-    const TARGET_W: u32 = 1600;
-    const TARGET_H: u32 = 900;
-    let scale_w = TARGET_W / render_w.max(1);
-    let scale_h = TARGET_H / render_h.max(1);
-    scale_w.min(scale_h).clamp(1, 16)
-}
-
-/// Read a mod's manifest from its mod.yaml file.
-pub fn read_mod_manifest(workspace_root: &Path, mod_name: &str) -> Option<ModManifest> {
-    let manifest_path = workspace_root.join("mods").join(mod_name).join("mod.yaml");
-    let content = fs::read_to_string(&manifest_path).ok()?;
-    serde_yaml::from_str(&content).ok()
 }
 
 pub fn find_workspace_root() -> Result<PathBuf> {

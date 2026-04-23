@@ -5,12 +5,34 @@ use engine_core::scene::SpriteSizePreset;
 /// Built-in engine fallback used when `font: "default"` is authored but the
 /// mod does not provide a `default_font`.
 pub const ENGINE_DEFAULT_FONT_SPEC: &str = "generic:2";
-/// When `is_pixel_backend` is true (SDL2), named fonts without an explicit mode suffix
-/// default to `raster` (shade-char bitmaps look best once SDL blends them).
-pub fn resolve_font_spec(
+
+/// Capability descriptor consumed by font resolution policy.
+///
+/// This replaces direct backend booleans in policy decisions while preserving
+/// compatibility through adapter helpers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FontPolicyCapabilities {
+    /// If true, named fonts without explicit mode default to `raster`.
+    pub prefer_raster_named_fonts: bool,
+}
+
+impl FontPolicyCapabilities {
+    pub const fn new(prefer_raster_named_fonts: bool) -> Self {
+        Self {
+            prefer_raster_named_fonts,
+        }
+    }
+
+    pub const fn from_pixel_backend(is_pixel_backend: bool) -> Self {
+        Self::new(is_pixel_backend)
+    }
+}
+
+/// Resolves font spec using a capability descriptor.
+pub fn resolve_font_spec_with_capabilities(
     font: Option<&str>,
     force_font_mode: Option<&str>,
-    is_pixel_backend: bool,
+    capabilities: FontPolicyCapabilities,
     default_font: Option<&str>,
 ) -> Option<String> {
     let authored = font?.trim();
@@ -37,9 +59,9 @@ pub fn resolve_font_spec(
     Some(match force_font_mode {
         Some(mode) => apply_named_font_mode(base, normalize_named_font_mode(mode)),
         None => {
-            // Named font without an explicit mode: default to `raster` on pixel backends
+            // Named font without an explicit mode: default to `raster` on raster-friendly outputs
             // so shade-char glyphs render with proper alpha blending.
-            if is_pixel_backend && !base.contains(':') {
+            if capabilities.prefer_raster_named_fonts && !base.contains(':') {
                 apply_named_font_mode(base, "raster")
             } else {
                 base.to_string()
@@ -48,12 +70,12 @@ pub fn resolve_font_spec(
     })
 }
 
-/// Resolves the font spec for a text sprite, deriving a generic mode from `size` when appropriate.
-pub fn resolve_text_font_spec(
+/// Resolves text font spec using a capability descriptor.
+pub fn resolve_text_font_spec_with_capabilities(
     font: Option<&str>,
     force_font_mode: Option<&str>,
     size: Option<SpriteSizePreset>,
-    is_pixel_backend: bool,
+    capabilities: FontPolicyCapabilities,
     default_font: Option<&str>,
 ) -> Option<String> {
     let sized_font = match (font.map(str::trim).filter(|f| !f.is_empty()), size) {
@@ -65,10 +87,45 @@ pub fn resolve_text_font_spec(
         (None, None) => None,
     };
 
-    resolve_font_spec(
+    resolve_font_spec_with_capabilities(
         sized_font.as_deref(),
         force_font_mode,
-        is_pixel_backend,
+        capabilities,
+        default_font,
+    )
+}
+
+/// Compatibility wrapper for older call sites that still pass a backend bool.
+///
+/// When `is_pixel_backend` is true (SDL2-era semantics), named fonts without an
+/// explicit mode suffix default to `raster`.
+pub fn resolve_font_spec(
+    font: Option<&str>,
+    force_font_mode: Option<&str>,
+    is_pixel_backend: bool,
+    default_font: Option<&str>,
+) -> Option<String> {
+    resolve_font_spec_with_capabilities(
+        font,
+        force_font_mode,
+        FontPolicyCapabilities::from_pixel_backend(is_pixel_backend),
+        default_font,
+    )
+}
+
+/// Resolves the font spec for a text sprite, deriving a generic mode from `size` when appropriate.
+pub fn resolve_text_font_spec(
+    font: Option<&str>,
+    force_font_mode: Option<&str>,
+    size: Option<SpriteSizePreset>,
+    is_pixel_backend: bool,
+    default_font: Option<&str>,
+) -> Option<String> {
+    resolve_text_font_spec_with_capabilities(
+        font,
+        force_font_mode,
+        size,
+        FontPolicyCapabilities::from_pixel_backend(is_pixel_backend),
         default_font,
     )
 }
@@ -106,7 +163,10 @@ fn normalize_named_font_mode(mode: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_font_spec, resolve_text_font_spec, ENGINE_DEFAULT_FONT_SPEC};
+    use super::{
+        resolve_font_spec, resolve_font_spec_with_capabilities, resolve_text_font_spec,
+        resolve_text_font_spec_with_capabilities, FontPolicyCapabilities, ENGINE_DEFAULT_FONT_SPEC,
+    };
     use engine_core::scene::SpriteSizePreset;
 
     #[test]
@@ -176,5 +236,40 @@ mod tests {
         let resolved =
             resolve_font_spec(Some("default"), None, false, None).expect("font should resolve");
         assert_eq!(resolved, ENGINE_DEFAULT_FONT_SPEC);
+    }
+
+    #[test]
+    fn capabilities_based_resolution_matches_legacy_bool_path() {
+        let legacy = resolve_font_spec(Some("Abril Fatface"), None, true, None)
+            .expect("legacy should resolve");
+        let capabilities = resolve_font_spec_with_capabilities(
+            Some("Abril Fatface"),
+            None,
+            FontPolicyCapabilities::new(true),
+            None,
+        )
+        .expect("capabilities should resolve");
+        assert_eq!(legacy, capabilities);
+    }
+
+    #[test]
+    fn capabilities_based_text_resolution_matches_legacy_bool_path() {
+        let legacy = resolve_text_font_spec(
+            Some("Abril Fatface"),
+            None,
+            Some(SpriteSizePreset::Small),
+            true,
+            None,
+        )
+        .expect("legacy should resolve");
+        let capabilities = resolve_text_font_spec_with_capabilities(
+            Some("Abril Fatface"),
+            None,
+            Some(SpriteSizePreset::Small),
+            FontPolicyCapabilities::new(true),
+            None,
+        )
+        .expect("capabilities should resolve");
+        assert_eq!(legacy, capabilities);
     }
 }

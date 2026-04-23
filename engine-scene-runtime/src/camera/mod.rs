@@ -107,7 +107,7 @@ impl FreeLookCameraState {
     pub fn from_controls(controls: &FreeLookCameraControls) -> Self {
         Self {
             active: false,
-            pending_activate: false,
+            pending_activate: controls.start_active,
             drag_hold: false,
             toggle_key: normalize_toggle_key_name(&controls.toggle_key),
             toggle_with_ctrl: controls.toggle_with_ctrl,

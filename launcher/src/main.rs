@@ -11,7 +11,7 @@ use clap::Parser;
 use cli::{Cli, Command};
 
 fn main() -> Result<()> {
-    // Load platform env vars early (reads Windows registry for RUSTFLAGS, SDL2_LIB_DIR, etc.)
+    // Load platform env hints early (used by backend-specific launch paths).
     env::detect_platform_env();
 
     let cli = Cli::parse();

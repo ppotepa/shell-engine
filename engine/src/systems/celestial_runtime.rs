@@ -107,6 +107,10 @@ pub fn resolve_clock(world: &engine_core::world::World) -> ResolvedCelestialCloc
 
 pub fn resolve_query_context(world: &engine_core::world::World) -> CelestialQueryContext {
     assert_celestial_world_model(world, "celestial query context");
+    resolve_runtime_query_context(world)
+}
+
+fn resolve_runtime_query_context(world: &engine_core::world::World) -> CelestialQueryContext {
     let clock = resolve_clock(world);
     CelestialQueryContext::from_elapsed_sec(clock.elapsed_sec)
         .with_scene_meters_per_world_unit(scene_meters_per_world_unit(world))
@@ -145,6 +149,19 @@ pub fn gravity_sample(
         .gravity_sample_in_context(body_id, point, resolve_query_context(world))
 }
 
+pub fn gravity_sample_runtime(
+    catalogs: &ModCatalogs,
+    body_id: Option<&str>,
+    point: WorldPoint3,
+    world: &engine_core::world::World,
+) -> Option<GravitySample3> {
+    let body_id = resolve_body_id(catalogs, body_id)?;
+    catalogs
+        .celestial
+        .gravity_sample_in_context(body_id, point, resolve_runtime_query_context(world))
+}
+
+#[allow(dead_code)]
 pub fn atmosphere_sample(
     catalogs: &ModCatalogs,
     body_id: Option<&str>,
@@ -155,6 +172,18 @@ pub fn atmosphere_sample(
     catalogs
         .celestial
         .atmosphere_sample_in_context(body_id, point, resolve_query_context(world))
+}
+
+pub fn atmosphere_sample_runtime(
+    catalogs: &ModCatalogs,
+    body_id: Option<&str>,
+    point: WorldPoint3,
+    world: &engine_core::world::World,
+) -> Option<AtmosphereSample> {
+    let body_id = resolve_body_id(catalogs, body_id)?;
+    catalogs
+        .celestial
+        .atmosphere_sample_in_context(body_id, point, resolve_runtime_query_context(world))
 }
 
 pub fn local_frame(
@@ -235,11 +264,16 @@ pub fn system_query(
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_clock, resolve_query_context, system_query};
+    use super::{
+        atmosphere_sample_runtime, gravity_sample_runtime, resolve_clock, resolve_query_context,
+        system_query,
+    };
     use crate::systems::scene_bootstrap::{ResolvedSceneBootstrap, SceneSimulationBootstrap};
     use engine_animation::Animator;
     use engine_behavior::catalog::{BodyDef, ModCatalogs, SiteDef, SystemDef};
-    use engine_celestial::{CAMPAIGN_CLOCK_MS_PATH, CAMPAIGN_CLOCK_SEC_PATH, FIXED_CLOCK_SEC_PATH};
+    use engine_celestial::{
+        CAMPAIGN_CLOCK_MS_PATH, CAMPAIGN_CLOCK_SEC_PATH, FIXED_CLOCK_SEC_PATH, WorldPoint3,
+    };
     use engine_core::game_state::GameState;
     use engine_core::scene::CelestialClockSource;
     use engine_core::scene::Scene;
@@ -568,5 +602,60 @@ layers: []
         let query = system_query(&catalogs, "sol", &world).expect("system query");
         assert_eq!(query.star_body_id.as_deref(), Some("sun"));
         assert_eq!(query.sites, vec!["station".to_string()]);
+    }
+
+    #[test]
+    fn runtime_sampling_context_allows_non_celestial_scene_spatial_scale() {
+        let world = world_with_scene(
+            r#"
+id: physical-scene
+title: Physical
+world-model: euclidean-3d
+spatial:
+  meters-per-world-unit: 2000.0
+layers: []
+"#,
+        );
+
+        let mut catalogs = ModCatalogs::default();
+        catalogs.celestial.bodies.insert(
+            "planet".into(),
+            BodyDef {
+                center_x: 0.0,
+                center_y: 0.0,
+                surface_radius: 90.0,
+                radius_px: 90.0,
+                gravity_mu_km3_s2: Some(1000.0),
+                atmosphere_top_km: Some(10.0),
+                atmosphere_drag_max: Some(0.0),
+                ..BodyDef::default()
+            },
+        );
+
+        let gravity = gravity_sample_runtime(
+            &catalogs,
+            Some("planet"),
+            WorldPoint3 {
+                x: 10.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            &world,
+        )
+        .expect("runtime gravity sample");
+        assert!(gravity.accel.x < -1.2);
+
+        let atmosphere = atmosphere_sample_runtime(
+            &catalogs,
+            Some("planet"),
+            WorldPoint3 {
+                x: 91.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            &world,
+        )
+        .expect("runtime atmosphere sample");
+        assert!(atmosphere.density > 0.75);
     }
 }

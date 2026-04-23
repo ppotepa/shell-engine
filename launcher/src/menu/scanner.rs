@@ -6,7 +6,7 @@ pub struct MenuMod {
     pub name: String,
     pub dir: String,
     pub colors: u16,
-    pub render_size: String,
+    pub world_render_size: String,
     pub policy: String,
     pub scenes: Vec<MenuScene>,
 }
@@ -28,7 +28,7 @@ pub fn scan_menu_entries(workspace_root: &Path) -> Result<Vec<MenuMod>> {
 
 fn convert_to_menu_mod(entry: ModEntry) -> MenuMod {
     let colors = entry.manifest.display.min_colours;
-    let render_size = entry.manifest.display.render_size.clone();
+    let world_render_size = entry.manifest.display.world_render_size.clone();
     let policy = entry.manifest.display.presentation_policy.clone();
 
     let scenes = entry
@@ -46,7 +46,7 @@ fn convert_to_menu_mod(entry: ModEntry) -> MenuMod {
         name: entry.manifest.name,
         dir: entry.dir.to_string_lossy().to_string(),
         colors,
-        render_size,
+        world_render_size,
         policy,
         scenes,
     }

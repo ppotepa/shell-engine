@@ -1,43 +1,16 @@
-use crate::{env, workspace};
+use crate::workspace;
 use anyhow::Result;
 use std::path::Path;
 
 pub fn run(workspace_root: &Path) -> Result<()> {
     println!("Shell Engine Doctor\n");
-
-    let platform = env::detect_platform_env();
+    println!("Launcher diagnostics:");
+    println!("  - launch path: cargo workspace packages");
+    println!("  - environment assumptions: backend-neutral\n");
 
     check_command("cargo", &["--version"]);
     check_command("rustc", &["--version"]);
     check_command("dotnet", &["--version"]);
-
-    if platform.is_windows {
-        println!("\nSDL2 (Windows):");
-        if let Some(ref lib_dir) = platform.sdl2_lib_dir {
-            if lib_dir.exists() {
-                println!("  ✓ SDL2_LIB_DIR = {}", lib_dir.display());
-            } else {
-                println!(
-                    "  ✗ SDL2_LIB_DIR set but path doesn't exist: {}",
-                    lib_dir.display()
-                );
-            }
-        } else {
-            println!("  ✗ SDL2_LIB_DIR not set");
-        }
-
-        if let Some(ref flags) = platform.rustflags {
-            println!("  ✓ RUSTFLAGS = {}", flags);
-        } else {
-            println!("  ✗ RUSTFLAGS not set (needed for SDL2 linking)");
-        }
-    } else {
-        if which::which("sdl2-config").is_ok() {
-            println!("\n  ✓ SDL2 available (sdl2-config found)");
-        } else {
-            println!("\n  ✗ SDL2 not found (sdl2-config missing)");
-        }
-    }
 
     println!("\nMods:");
     match workspace::scan_mods(workspace_root) {

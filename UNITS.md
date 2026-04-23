@@ -6,11 +6,11 @@ This is the project-wide unit contract for Shell Engine.
 
 1. `screen_px`
 - Final output/window pixels.
-- UI and presentation only.
+- UI and presentation only (independent of software or hardware backend).
 
 2. `virtual_px`
 - Authored 2D canvas space.
-- Used by raster composition and output scaling.
+- Used by composition and output scaling across backend paths.
 
 3. `world_units` (`wu`)
 - Runtime gameplay/scene space.

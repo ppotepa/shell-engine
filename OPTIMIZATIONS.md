@@ -64,11 +64,11 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 
 | #  | ID                     | Status             | Notes                              |
 |----|------------------------|--------------------|------------------------------------|
-| 1  | opt-term-bufwrite      | Removed            | Terminal I/O removed (SDL2-only)   |
-| 2  | opt-term-colorstate    | Removed            | Terminal I/O removed (SDL2-only)   |
-| 3  | opt-term-ansibuf       | Removed            | Terminal I/O removed (SDL2-only)   |
+| 1  | opt-term-bufwrite      | Removed            | Legacy terminal I/O path removed (software backend era) |
+| 2  | opt-term-colorstate    | Removed            | Legacy terminal I/O path removed (software backend era) |
+| 3  | opt-term-ansibuf       | Removed            | Legacy terminal I/O path removed (software backend era) |
 | 4  | opt-comp-layerscratch  | Gated --opt-comp   | Direct render when no effects      |
-| 5  | opt-comp-halfblock     | Removed            | Halfblock packing removed (SDL2-only) |
+| 5  | opt-comp-halfblock     | Removed            | Halfblock packing removed (legacy terminal/early software path) |
 | 6  | opt-comp-effectsref    | Always on          | Raw pointer avoids Vec clone       |
 | 7  | opt-postfx-swap        | Always on          | copy_back_from skips front copy    |
 | 8  | opt-postfx-passes      | Always on          | All passes use copy_back_from      |

@@ -6,5 +6,5 @@ display:
   min_width: 640
   min_height: 360
   default_font: "generic:2"
-  world_render_size: 1280x720
+  world_render_size: 480x270
   presentation_policy: fit

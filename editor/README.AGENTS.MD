@@ -1,10 +1,10 @@
-﻿# Editor Subsystem
+# Editor Subsystem
 
 ## Architecture Overview
 
-The editor is an SDL2-backed stub for authoring shell-engine scenes. The original
-terminal TUI (crossterm/ratatui) has been replaced; a full SDL2 editor UI is not
-yet implemented.
+The editor is currently a runtime stub for authoring shell-engine scenes. The
+original terminal TUI (crossterm/ratatui) has been replaced, and a full editor
+UI path is not yet implemented.
 
 **7 main modules:**
 
@@ -36,9 +36,9 @@ yet implemented.
 6. Engine loads new version
 
 **Asset preview:**
-- Editor can preview GIFs, sprites inline
-- Uses engine's rendering pipeline
-- Shows composition result real-time
+- Preview integration is currently limited because the editor UI is still a stub
+- Existing preview paths should be treated as software-preview oriented
+- Future preview can remain software-only or become backend-selectable
 
 ## Key Subsystems
 
@@ -59,7 +59,7 @@ yet implemented.
 - Dispatch: key → command → state change
 
 ### UI Rendering (ui/)
-- **Renderer**: Drawing layer (SDL2-backed stub)
+- **Renderer**: Drawing layer (stubbed)
 - **Layout**: Viewport grid (left panel: tree, right panel: editor/preview)
 - **Theme**: Color scheme (light/dark)
 - **FocusTarget**: Currently focused element (tree item, text input, etc.)

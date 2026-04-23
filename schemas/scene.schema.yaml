@@ -81,7 +81,7 @@ properties:
     pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
     description: >
       Optional scene-local render canvas override in WIDTHxHEIGHT form (e.g. 320x240).
-      Compatibility-only: prefer a single mod-level `display.world_render_size` so the whole mod
+      Compatibility-only: prefer canonical mod-level `display.world_render_size` so the whole mod
       shares one authored canvas and presentation remains a backend concern.
   bg_colour:
     $ref: "#/$defs/colour"
@@ -845,6 +845,10 @@ $defs:
     type: object
     additionalProperties: false
     properties:
+      start-active:
+        type: boolean
+        default: false
+        description: Start free-look active immediately on scene load.
       move-speed:
         type: number
         exclusiveMinimum: 0
@@ -897,6 +901,8 @@ $defs:
         default: 0.8
         description: Vertical climb/descent speed for Q/E in world units per second.
     patternProperties:
+      "^start_active$":
+        $ref: "#/$defs/free_look_camera_controls/properties/start-active"
       "^move_speed$":
         $ref: "#/$defs/free_look_camera_controls/properties/move-speed"
       "^mouse_sensitivity$":

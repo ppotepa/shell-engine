@@ -209,7 +209,8 @@ fn collect_behavior_jumps(
     src: Option<&str>,
     current_mod_name: Option<&str>,
 ) -> Vec<String> {
-    let source_path = src.and_then(|src| resolve_script_src_path(ctx.mod_source(), scene_path, src));
+    let source_path =
+        src.and_then(|src| resolve_script_src_path(ctx.mod_source(), scene_path, src));
     let owned_script = script
         .is_none()
         .then(|| src.and_then(|src| load_script_from_src(ctx.mod_source(), scene_path, src)))
@@ -241,7 +242,9 @@ fn resolve_script_src_path(mod_source: &Path, scene_path: &str, src: &str) -> Op
         mod_source.join(src.trim_start_matches('/'))
     } else {
         let scene_rel = scene_path.trim_start_matches('/');
-        let scene_parent = Path::new(scene_rel).parent().unwrap_or_else(|| Path::new(""));
+        let scene_parent = Path::new(scene_rel)
+            .parent()
+            .unwrap_or_else(|| Path::new(""));
         mod_source.join(scene_parent).join(src)
     };
     Some(normalize_behavior_src_path(target))
@@ -353,7 +356,8 @@ fn collect_script_jumps_recursive(
     jumps.extend(collect_literal_game_jump_mods(script, current_mod_name));
 
     for import_ref in collect_literal_import_refs(script) {
-        let Some(import_path) = resolve_import_src_path(mod_source, source_path, &import_ref) else {
+        let Some(import_path) = resolve_import_src_path(mod_source, source_path, &import_ref)
+        else {
             continue;
         };
         if !visited.insert(import_path.clone()) {

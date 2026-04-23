@@ -23,6 +23,37 @@ pub struct LaunchFlags {
     pub dev: bool,
     #[serde(default)]
     pub all_opt: bool,
+    #[serde(default)]
+    pub render_backend: RenderBackendSetting,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RenderBackendSetting {
+    Software,
+    Hardware,
+}
+
+impl RenderBackendSetting {
+    pub fn as_cli_value(self) -> &'static str {
+        match self {
+            Self::Software => "software",
+            Self::Hardware => "hardware",
+        }
+    }
+
+    pub fn toggle(&mut self) {
+        *self = match self {
+            Self::Software => Self::Hardware,
+            Self::Hardware => Self::Software,
+        };
+    }
+}
+
+impl Default for RenderBackendSetting {
+    fn default() -> Self {
+        Self::Hardware
+    }
 }
 
 fn default_true() -> bool {
@@ -38,6 +69,7 @@ impl Default for LaunchFlags {
             release: false,
             dev: false,
             all_opt: false,
+            render_backend: RenderBackendSetting::Hardware,
         }
     }
 }
@@ -65,4 +97,18 @@ pub fn save_config(workspace_root: &Path, config: &LauncherConfig) -> Result<()>
     fs::write(&config_path, full).context("failed to write .se.toml")?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LaunchFlags, RenderBackendSetting};
+
+    #[test]
+    fn launch_flags_default_to_hardware_backend() {
+        let flags = LaunchFlags::default();
+        assert!(matches!(
+            flags.render_backend,
+            RenderBackendSetting::Hardware
+        ));
+    }
 }

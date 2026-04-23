@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 engine-core.workspace = true
+engine-plugin-api.workspace = true
 engine-game = { path = "../engine-game" }
 engine-vehicle = { path = "../engine-vehicle" }
 engine-physics = { path = "../engine-physics" }

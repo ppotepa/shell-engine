@@ -7,6 +7,12 @@ staged file change triggers a rebuild. It embeds the git hash as
 `BUILD_GIT_HASH`, printed in the startup banner:
 `ShellEngine [a1b2c3d] initialized with mod source: …`
 
+## Cargo Features (Backend Split)
+
+- Default build (`cargo run -p app`) enables `hardware-backend`, which forwards to the hardware presenter/platform path.
+- `software-backend` feature wiring is retained only as migration compatibility surface; runtime selection of software backend is rejected in `app` (`Render backend \`software\` is deprecated and unavailable because SDL2 runtime support was removed`).
+- Features are app-level switches and only control forwarded engine backend features.
+
 ## CLI Flags
 
 All flags passed via command-line or environment variables:
@@ -14,9 +20,10 @@ All flags passed via command-line or environment variables:
 | Flag | Purpose | Type |
 |------|---------|------|
 | `--mod-source <PATH>` | Load mod from directory instead of built-in | String |
-| `--sdl-window-ratio <RATIO>` | SDL startup ratio (`16:9`, `4:3`, `free`) | String |
-| `--sdl-pixel-scale <N>` | SDL startup logical pixel scale | Number |
-| `--no-sdl-vsync` | Disable SDL VSync | Boolean |
+| `--render-backend <software|hardware>` | Select render backend family (`software` currently rejected; `hardware` is default) | String |
+| `--compat-window-ratio <RATIO>` | Legacy compatibility arg; ignored on hardware (`16:9`, `4:3`, `free`) | String |
+| `--compat-pixel-scale <N>` | Legacy compatibility arg; ignored on hardware | Number |
+| `--no-compat-vsync` | Legacy compatibility arg; ignored on hardware | Boolean |
 | `--bench <SECS>` | Benchmark mode, run for N seconds | Number |
 | `--capture-frames <DIR>` | Capture binary frames to directory | String |
 | `--audio` | Enable audio output (default: off) | Boolean |
@@ -56,7 +63,7 @@ pub struct EngineConfig {
 **Mod manifest display settings**:
 ```yaml
 display:
-  render_size: 320x180
+  world_render_size: 320x180
 ```
 
 **PipelineFlags** (optimization toggles):
@@ -78,6 +85,7 @@ pub struct PipelineFlags {
 
 2. **Optional startup validation** (`--check-scenes`)
    - Run scene graph, level config, Rhai script, effect/font/image, and audio sequencer checks
+   - Current compatibility behavior: scene checks still emit `StartupOutputSetting::Sdl2`
    - Print report and exit before engine boot
 
 3. **Initialize audio**
@@ -103,9 +111,14 @@ pub struct PipelineFlags {
 
 - `SHELL_ENGINE_MOD_SOURCE` — Same as `--mod-source` (CLI takes precedence)
 
+## Validation Notes (2026-04-23)
+
+- `app/src/main.rs` validates that `--render-backend software` is rejected (`validate_render_backend_selection`, tests `software_backend_is_rejected_by_backend_validation` and `software_backend_compat_options_return_unavailable_error`).
+- `app/src/main.rs` still hardcodes `StartupOutputSetting::Sdl2` for scene checks (`output_for_scene_checks`, test `scene_checks_use_compat_output_setting`).
+
 ## Engine Integration Points
 
 - **PipelineStrategies**: Created via `PipelineFlags::from_cli()` → strategies chosen per flag
 - **BenchmarkState**: Registered once, populated per frame
 - **World setup**: Subsystems added via `app.register_system()`
-- **Event loop**: Routed through `InputBackend` (`Sdl2InputBackend`), frame pacing via sleep
+- **Event loop**: Routed through backend-specific `InputBackend` implementation, frame pacing via sleep

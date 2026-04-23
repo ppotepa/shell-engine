@@ -1,6 +1,7 @@
 use clap::Parser;
 use engine::behavior::init_behavior_system;
-use engine::{logging, EngineConfig, ShellEngine};
+use engine::runtime_settings::RuntimeSettings;
+use engine::{logging, EngineConfig, RenderBackendKind, ShellEngine};
 use engine_mod::startup::checks::{
     AudioSequencerCheck, CatalogsCheck, EffectRegistryCheck, FontGlyphCoverageCheck,
     FontManifestCheck, GuiWidgetBindingsCheck, ImageAssetsCheck, LevelConfigCheck,
@@ -12,8 +13,23 @@ use engine_mod::startup::{
 use engine_mod::{load_mod_manifest, StartupOutputSetting};
 use std::path::{Path, PathBuf};
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Eq, PartialEq)]
+enum CliRenderBackend {
+    Software,
+    Hardware,
+}
+
+impl From<CliRenderBackend> for RenderBackendKind {
+    fn from(value: CliRenderBackend) -> Self {
+        match value {
+            CliRenderBackend::Software => RenderBackendKind::Software,
+            CliRenderBackend::Hardware => RenderBackendKind::Hardware,
+        }
+    }
+}
+
 #[derive(Parser, Debug)]
-#[command(name = "shell-engine", about = "Shell Engine SDL2 launcher")]
+#[command(name = "shell-engine", about = "Shell Engine launcher")]
 struct Cli {
     /// Mod to load by name (resolves to mods/<name>/). When omitted, the interactive launcher starts.
     #[arg(long = "mod")]
@@ -21,16 +37,23 @@ struct Cli {
     /// Full mod source path (directory or .zip). Overrides --mod when set.
     #[arg(long = "mod-source", hide = true)]
     mod_source: Option<String>,
-    /// SDL window ratio for startup window sizing (e.g. 16:9, 4:3, free).
-    #[arg(long = "sdl-window-ratio", default_value = "16:9")]
-    sdl_window_ratio: String,
-    /// SDL startup pixel scale multiplier for logical render surface.
-    /// `0` resolves automatically from the mod `display.render_size`.
-    #[arg(long = "sdl-pixel-scale", default_value_t = 0)]
-    sdl_pixel_scale: u32,
-    /// Disable SDL VSync (can reduce latency, may increase tearing).
-    #[arg(long = "no-sdl-vsync")]
-    no_sdl_vsync: bool,
+    /// Deprecated compatibility (software backend): startup window ratio (e.g. 16:9, 4:3, free).
+    /// Ignored unless `--render-backend software` is selected.
+    #[arg(long = "compat-window-ratio", alias = "sdl-window-ratio")]
+    compat_window_ratio: Option<String>,
+    /// Deprecated compatibility (software backend): startup pixel scale for logical render surface.
+    /// `0` resolves automatically from the mod `display` runtime render settings.
+    /// Ignored unless `--render-backend software` is selected.
+    #[arg(long = "compat-pixel-scale", alias = "sdl-pixel-scale")]
+    compat_pixel_scale: Option<u32>,
+    /// Select the render backend family (`hardware` routes through the active winit+wgpu path).
+    /// `software` is deprecated and unavailable at runtime.
+    #[arg(long = "render-backend", value_enum, default_value_t = CliRenderBackend::Hardware)]
+    render_backend: CliRenderBackend,
+    /// Deprecated compatibility (software backend): disable VSync.
+    /// Ignored unless `--render-backend software` is selected.
+    #[arg(long = "no-compat-vsync", alias = "no-sdl-vsync")]
+    no_compat_vsync: bool,
     /// Enable dev helpers (F1 overlay, F3/F4 scene navigation, debug controls).
     ///
     /// Defaults:
@@ -114,6 +137,10 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
+    if let Err(error) = validate_render_backend_selection(&cli) {
+        eprintln!("{error}");
+        std::process::exit(2);
+    }
     let debug_feature = resolve_dev_mode(&cli);
     let logs_enabled = resolve_logs_enabled(&cli);
     let opt_comp = resolve_opt_comp(&cli);
@@ -142,6 +169,7 @@ fn main() {
     }
     let mod_source = cli
         .mod_source
+        .clone()
         .or_else(|| cli.mod_name.as_ref().map(|name| format!("mods/{}/", name)));
 
     let mod_source = match mod_source {
@@ -174,14 +202,13 @@ fn main() {
         std::process::exit(1);
     });
 
-    let requested_output = StartupOutputSetting::Sdl2;
     if cli.check_scenes {
         let entrypoint = cli
             .start_scene
             .as_deref()
             .or_else(|| manifest.get("entrypoint").and_then(|value| value.as_str()))
             .unwrap_or("");
-        let check_output = output_for_scene_checks(requested_output);
+        let check_output = output_for_scene_checks();
         let report = run_scene_checks(Path::new(&mod_source), &manifest, entrypoint, check_output)
             .unwrap_or_else(|error| {
                 logging::error("app.main", format!("scene checks failed: {error}"));
@@ -193,14 +220,15 @@ fn main() {
         return;
     }
 
-    let sdl_window_ratio = parse_ratio_arg(&cli.sdl_window_ratio).unwrap_or_else(|error| {
+    let software_compat = resolve_software_compat_options(&cli, &manifest).unwrap_or_else(|error| {
         logging::error("app.main", error.as_str());
-        eprintln!("Invalid --sdl-window-ratio: {error}");
+        eprintln!("{error}");
         std::process::exit(2);
     });
     let config = EngineConfig {
         debug_feature,
         audio: cli.audio,
+        render_backend_kind: cli.render_backend.into(),
         start_scene: cli.start_scene,
         skip_splash: cli.skip_splash || cli.bench.is_some(),
         opt_comp,
@@ -212,15 +240,15 @@ fn main() {
         bench_secs: cli.bench,
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
         target_fps_override: cli.target_fps,
-        sdl_window_ratio,
-        sdl_pixel_scale: resolve_sdl_pixel_scale(&manifest, cli.sdl_pixel_scale),
-        sdl_vsync: !cli.no_sdl_vsync,
+        sdl_window_ratio: software_compat.window_ratio,
+        sdl_pixel_scale: software_compat.pixel_scale,
+        sdl_vsync: software_compat.vsync,
     };
     logging::debug(
         "app.main",
         format!(
-            "engine config: dev={} audio={} output=sdl2",
-            config.debug_feature, config.audio,
+            "engine config: dev={} audio={} render_backend={:?}",
+            config.debug_feature, config.audio, config.render_backend_kind,
         ),
     );
 
@@ -274,17 +302,6 @@ fn parse_ratio_arg(raw: &str) -> Result<Option<(u32, u32)>, String> {
     Ok(Some((width, height)))
 }
 
-fn parse_render_size(raw: &str) -> Option<(u32, u32)> {
-    let (width, height) = raw.split_once('x')?;
-    let w = width.trim().parse::<u32>().ok()?;
-    let h = height.trim().parse::<u32>().ok()?;
-    if w > 0 && h > 0 {
-        Some((w, h))
-    } else {
-        None
-    }
-}
-
 const SDL_AUTO_SCALE_TARGET_W: u32 = 1600;
 const SDL_AUTO_SCALE_TARGET_H: u32 = 900;
 
@@ -299,13 +316,62 @@ fn resolve_sdl_pixel_scale(manifest: &serde_yaml::Value, cli_scale: u32) -> u32 
         return cli_scale;
     }
 
-    manifest
-        .get("display")
-        .and_then(|display| display.get("render_size"))
-        .and_then(serde_yaml::Value::as_str)
-        .and_then(parse_render_size)
+    // Use canonical runtime settings parsing so CLI auto-scale follows the
+    // same render-size contract as the engine runtime.
+    RuntimeSettings::from_manifest(manifest)
+        .fixed_render_size()
+        .map(|(w, h)| (u32::from(w), u32::from(h)))
         .map(|(w, h)| auto_pixel_scale(w, h))
         .unwrap_or(8)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SoftwareCompatOptions {
+    window_ratio: Option<(u32, u32)>,
+    pixel_scale: u32,
+    vsync: bool,
+}
+
+const SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE: &str =
+    "Render backend `software` is deprecated and unavailable because SDL2 runtime support was removed. Use `--render-backend hardware` (default).";
+
+fn validate_render_backend_selection(cli: &Cli) -> Result<(), String> {
+    if cli.render_backend == CliRenderBackend::Software {
+        return Err(String::from(SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE));
+    }
+    Ok(())
+}
+
+fn resolve_software_compat_options(
+    cli: &Cli,
+    manifest: &serde_yaml::Value,
+) -> Result<SoftwareCompatOptions, String> {
+    validate_render_backend_selection(cli)?;
+
+    if cli.render_backend != CliRenderBackend::Software {
+        if cli.compat_window_ratio.is_some()
+            || cli.compat_pixel_scale.is_some()
+            || cli.no_compat_vsync
+        {
+            logging::warn(
+                "app.main",
+                "compatibility options were provided but ignored because --render-backend=hardware",
+            );
+        }
+        return Ok(SoftwareCompatOptions {
+            window_ratio: None,
+            pixel_scale: 1,
+            vsync: false,
+        });
+    }
+
+    let ratio = parse_ratio_arg(cli.compat_window_ratio.as_deref().unwrap_or("16:9"))?;
+    let pixel_scale = resolve_sdl_pixel_scale(manifest, cli.compat_pixel_scale.unwrap_or(0));
+    Ok(SoftwareCompatOptions {
+        window_ratio: ratio,
+        pixel_scale,
+        vsync: !cli.no_compat_vsync,
+    })
 }
 
 fn resolve_dev_mode(cli: &Cli) -> bool {
@@ -349,8 +415,9 @@ fn env_flag_enabled(key: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn output_for_scene_checks(setting: StartupOutputSetting) -> StartupOutputSetting {
-    setting
+fn output_for_scene_checks() -> StartupOutputSetting {
+    // Startup checks still consume a compatibility backend token.
+    StartupOutputSetting::compatibility_default()
 }
 
 fn run_scene_checks(
@@ -442,16 +509,38 @@ fn print_scene_check_report(report: &StartupReport) {
 #[cfg(test)]
 mod tests {
     use super::{
-        output_for_scene_checks, parse_ratio_arg, resolve_dev_mode, resolve_opt_comp,
-        resolve_opt_rowdiff, Cli,
+        output_for_scene_checks, parse_ratio_arg, resolve_dev_mode, resolve_opt_comp, resolve_opt_rowdiff,
+        resolve_sdl_pixel_scale, resolve_software_compat_options, validate_render_backend_selection, Cli,
+        CliRenderBackend, SoftwareCompatOptions, SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE,
     };
     use clap::Parser;
+    use engine::RenderBackendKind;
     use engine_mod::StartupOutputSetting;
 
     #[test]
     fn dev_flag_enables_mode() {
         let cli = Cli::parse_from(["shell-engine", "--dev"]);
         assert!(resolve_dev_mode(&cli));
+    }
+
+    #[test]
+    fn parses_render_backend_flag() {
+        let cli = Cli::parse_from(["shell-engine", "--render-backend", "hardware"]);
+        assert_eq!(cli.render_backend, CliRenderBackend::Hardware);
+        assert_eq!(
+            RenderBackendKind::from(cli.render_backend),
+            RenderBackendKind::Hardware
+        );
+    }
+
+    #[test]
+    fn hardware_backend_is_default_path_semantics() {
+        let cli = Cli::parse_from(["shell-engine"]);
+        assert_eq!(cli.render_backend, CliRenderBackend::Hardware);
+        assert_eq!(
+            RenderBackendKind::from(cli.render_backend),
+            RenderBackendKind::Hardware
+        );
     }
 
     #[test]
@@ -467,10 +556,79 @@ mod tests {
     }
 
     #[test]
-    fn scene_checks_preserve_sdl2_output() {
+    fn scene_checks_use_compat_output_setting() {
         assert_eq!(
-            output_for_scene_checks(StartupOutputSetting::Sdl2),
-            StartupOutputSetting::Sdl2
+            output_for_scene_checks(),
+            StartupOutputSetting::Compatibility
+        );
+    }
+
+    #[test]
+    fn hardware_backend_ignores_compat_flags() {
+        let cli = Cli::parse_from([
+            "shell-engine",
+            "--render-backend",
+            "hardware",
+            "--compat-window-ratio",
+            "this-would-fail-on-software",
+            "--compat-pixel-scale",
+            "9",
+            "--no-compat-vsync",
+        ]);
+        let manifest: serde_yaml::Value = serde_yaml::from_str("{}").expect("manifest");
+        assert_eq!(
+            resolve_software_compat_options(&cli, &manifest).expect("compat options"),
+            SoftwareCompatOptions {
+                window_ratio: None,
+                pixel_scale: 1,
+                vsync: false,
+            }
+        );
+    }
+
+    #[test]
+    fn software_backend_is_rejected_by_backend_validation() {
+        let cli = Cli::parse_from(["shell-engine", "--render-backend", "software"]);
+        assert_eq!(
+            validate_render_backend_selection(&cli),
+            Err(String::from(SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE))
+        );
+    }
+
+    #[test]
+    fn software_backend_compat_options_return_unavailable_error() {
+        let cli = Cli::parse_from([
+            "shell-engine",
+            "--render-backend",
+            "software",
+            "--compat-window-ratio",
+            "bad-ratio",
+        ]);
+        let manifest: serde_yaml::Value = serde_yaml::from_str("{}").expect("manifest");
+        assert_eq!(
+            resolve_software_compat_options(&cli, &manifest),
+            Err(String::from(SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE))
+        );
+    }
+
+    #[test]
+    fn legacy_sdl_flag_aliases_still_parse() {
+        let cli = Cli::parse_from([
+            "shell-engine",
+            "--sdl-window-ratio",
+            "4:3",
+            "--sdl-pixel-scale",
+            "3",
+            "--no-sdl-vsync",
+        ]);
+        let manifest: serde_yaml::Value = serde_yaml::from_str("{}").expect("manifest");
+        assert_eq!(
+            resolve_software_compat_options(&cli, &manifest).expect("compat options"),
+            SoftwareCompatOptions {
+                window_ratio: None,
+                pixel_scale: 1,
+                vsync: false,
+            }
         );
     }
 
@@ -520,5 +678,29 @@ mod tests {
     fn parses_check_scenes_flag() {
         let cli = Cli::parse_from(["shell-engine", "--check-scenes"]);
         assert!(cli.check_scenes);
+    }
+
+    #[test]
+    fn auto_pixel_scale_uses_runtime_settings_world_size() {
+        let manifest: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+display:
+  world_render_size: 320x180
+"#,
+        )
+        .expect("manifest");
+        assert_eq!(resolve_sdl_pixel_scale(&manifest, 0), 5);
+    }
+
+    #[test]
+    fn auto_pixel_scale_falls_back_to_default_when_unknown() {
+        let manifest: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+display:
+  world_render_size: match-output
+"#,
+        )
+        .expect("manifest");
+        assert_eq!(resolve_sdl_pixel_scale(&manifest, 0), 8);
     }
 }

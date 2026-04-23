@@ -26,7 +26,6 @@ pub struct Selection {
     pub mod_name: String,
     pub mod_dir: String,
     pub scene_path: Option<String>,
-    pub render_size: String,
 }
 
 impl MenuState {
@@ -184,6 +183,7 @@ impl MenuState {
             4 => self.flags.release = !self.flags.release,
             5 => self.flags.dev = !self.flags.dev,
             6 => self.flags.all_opt = !self.flags.all_opt,
+            7 => self.flags.render_backend.toggle(),
             _ => return MenuAction::None,
         }
         MenuAction::FlagsChanged
@@ -199,7 +199,6 @@ impl MenuState {
         Some(Selection {
             mod_name: m.name.clone(),
             mod_dir: m.dir.clone(),
-            render_size: m.render_size.clone(),
             scene_path: scene_idx.map(|si| {
                 let scene = &m.scenes[si];
                 let rel = scene.path.strip_prefix(&m.dir).unwrap_or(&scene.path);
@@ -207,5 +206,25 @@ impl MenuState {
                 format!("/{}", rel.replace('\\', "/"))
             }),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MenuAction, MenuState};
+    use crate::config::LaunchFlags;
+
+    #[test]
+    fn toggle_backend_flag_switches_between_software_and_hardware() {
+        let mut state = MenuState::new(Vec::new(), LaunchFlags::default());
+        assert_eq!(state.flags.render_backend.as_cli_value(), "hardware");
+
+        let action = state.toggle_flag(7);
+        assert!(matches!(action, MenuAction::FlagsChanged));
+        assert_eq!(state.flags.render_backend.as_cli_value(), "software");
+
+        let action = state.toggle_flag(7);
+        assert!(matches!(action, MenuAction::FlagsChanged));
+        assert_eq!(state.flags.render_backend.as_cli_value(), "hardware");
     }
 }

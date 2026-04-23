@@ -3,8 +3,13 @@ name = "app"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["hardware-backend"]
+software-backend = ["engine/software-backend"]
+hardware-backend = ["engine/hardware-backend"]
+
 [dependencies]
-engine = { path = "../engine" }
+engine = { path = "../engine", default-features = false }
 engine-mod = { path = "../engine-mod" }
 clap = { workspace = true }
 serde_yaml = { workspace = true }

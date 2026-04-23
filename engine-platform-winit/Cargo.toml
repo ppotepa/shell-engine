@@ -1,0 +1,13 @@
+[package]
+name = "engine-platform-winit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+engine-events = { path = "../engine-events" }
+winit = "0.30"

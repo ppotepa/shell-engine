@@ -1,39 +1,27 @@
 use anyhow::{Context, Result};
 use std::env;
-use std::path::PathBuf;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PlatformEnv {
     pub is_windows: bool,
-    pub sdl2_lib_dir: Option<PathBuf>,
-    pub sdl2_include_dir: Option<PathBuf>,
-    pub rustflags: Option<String>,
 }
 
 pub fn detect_platform_env() -> PlatformEnv {
     let is_windows = cfg!(target_os = "windows");
 
-    let mut env = PlatformEnv {
-        is_windows,
-        sdl2_lib_dir: None,
-        sdl2_include_dir: None,
-        rustflags: None,
-    };
+    let env = PlatformEnv { is_windows };
 
     if is_windows {
         reload_user_env_vars();
     }
-
-    env.sdl2_lib_dir = env::var("SDL2_LIB_DIR").ok().map(PathBuf::from);
-    env.sdl2_include_dir = env::var("SDL2_INCLUDE_DIR").ok().map(PathBuf::from);
-    env.rustflags = env::var("RUSTFLAGS").ok();
 
     env
 }
 
 #[cfg(target_os = "windows")]
 fn reload_user_env_vars() {
-    let var_names = ["RUSTFLAGS", "SDL2_LIB_DIR", "SDL2_INCLUDE_DIR"];
+    let var_names = ["PATH"];
 
     for var_name in &var_names {
         if let Ok(value) = read_registry_string("HKEY_CURRENT_USER\\Environment", var_name) {
@@ -67,12 +55,3 @@ fn read_registry_string(key_path: &str, value_name: &str) -> Result<String> {
 
 #[cfg(not(target_os = "windows"))]
 fn reload_user_env_vars() {}
-
-#[allow(dead_code)]
-pub fn check_sdl2_available(env: &PlatformEnv) -> bool {
-    if env.is_windows {
-        env.sdl2_lib_dir.as_ref().is_some_and(|p| p.exists())
-    } else {
-        which::which("sdl2-config").is_ok()
-    }
-}

@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["sdl2", "render-3d"]
-sdl2 = ["dep:engine-render-sdl2"]
+default = ["hardware-backend"]
 render-3d = ["dep:engine-render-3d", "engine-compositor/render-3d"]
+# Scaffold gate for the upcoming hardware presenter crate path.
+hardware-presenter = ["dep:engine-render-wgpu"]
+hardware-platform = ["dep:engine-platform-winit"]
+software-backend = ["render-3d"]
+hardware-backend = ["render-3d", "hardware-presenter", "hardware-platform"]
 
 [dependencies]
 engine-api = { workspace = true }
@@ -21,7 +25,8 @@ engine-game = { path = "../engine-game" }
 engine-render = { path = "../engine-render" }
 engine-render-3d = { path = "../engine-render-3d", optional = true }
 engine-render-2d = { path = "../engine-render-2d" }
-engine-render-sdl2 = { path = "../engine-render-sdl2", optional = true }
+engine-render-wgpu = { path = "../engine-render-wgpu", optional = true }
+engine-platform-winit = { path = "../engine-platform-winit", optional = true }
 engine-render-policy = { path = "../engine-render-policy" }
 engine-runtime = { path = "../engine-runtime" }
 engine-pipeline = { path = "../engine-pipeline" }

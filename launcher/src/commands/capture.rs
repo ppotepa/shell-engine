@@ -57,6 +57,7 @@ fn capture_frames(
     std::fs::create_dir_all(output_dir)?;
 
     let mut cmd = CargoCommand::new("app")
+        .feature("app/software-backend")
         .app_arg("--mod-source")
         .app_arg(mod_source)
         .app_arg("--capture-frames")

@@ -1,5 +1,6 @@
 use super::scanner::{MenuMod, MenuScene};
 use super::state::MenuState;
+use crate::config::RenderBackendSetting;
 use anyhow::Result;
 use console::Term;
 use std::io::{stdout, Write};
@@ -51,10 +52,11 @@ pub fn render_menu(state: &mut MenuState) -> Result<()> {
     push_line(
         &mut out,
         &format!(
-            "           {}  {}  {}",
+            "           {}  {}  {}  {}",
             fmt_flag(4, "Release", f.release),
             fmt_flag(5, "Dev", f.dev),
             fmt_flag(6, "AllOpt", f.all_opt),
+            fmt_backend_flag(7, f.render_backend),
         ),
         term_w,
     );
@@ -77,7 +79,7 @@ pub fn render_menu(state: &mut MenuState) -> Result<()> {
             term_w,
         );
     } else {
-        push_line(&mut out, "  \x1b[2m↑↓/jk navigate   → expand   Enter launch   ← collapse   / search   1-6 flags   q quit\x1b[0m", term_w);
+        push_line(&mut out, "  \x1b[2m↑↓/jk navigate   → expand   Enter launch   ← collapse   / search   1-7 flags   q quit\x1b[0m", term_w);
     }
 
     push_blank(&mut out, term_w);
@@ -151,6 +153,19 @@ fn fmt_flag(n: u8, label: &str, checked: bool) -> String {
     format!("[{}] \x1b[0m{}\x1b[2m({})\x1b[0m", box_char, label, n)
 }
 
+fn fmt_backend_flag(n: u8, backend: RenderBackendSetting) -> String {
+    match backend {
+        RenderBackendSetting::Hardware => format!(
+            "[\x1b[32m✓\x1b[0m] \x1b[0mBackend:\x1b[1mhardware\x1b[0m\x1b[2m({})\x1b[0m",
+            n
+        ),
+        RenderBackendSetting::Software => format!(
+            "[\x1b[33m!\x1b[0m] \x1b[0mBackend:\x1b[1msoftware\x1b[0m \x1b[33m(deprecated/unavailable)\x1b[0m\x1b[2m({})\x1b[0m",
+            n
+        ),
+    }
+}
+
 fn fmt_mod(m: &MenuMod, expanded: bool, selected: bool, _term_w: usize) -> String {
     let arrow = if expanded { "▼" } else { "▶" };
 
@@ -160,11 +175,15 @@ fn fmt_mod(m: &MenuMod, expanded: bool, selected: bool, _term_w: usize) -> Strin
         } else {
             String::new()
         };
-        let parts: Vec<&str> = [colors.as_str(), m.render_size.as_str(), m.policy.as_str()]
-            .iter()
-            .filter(|s: &&&str| !s.is_empty())
-            .copied()
-            .collect();
+        let parts: Vec<&str> = [
+            colors.as_str(),
+            m.world_render_size.as_str(),
+            m.policy.as_str(),
+        ]
+        .iter()
+        .filter(|s: &&&str| !s.is_empty())
+        .copied()
+        .collect();
         parts.join("  ")
     };
 
@@ -250,5 +269,12 @@ fn build_status(state: &MenuState, viewport_height: usize) -> String {
         String::new()
     };
 
-    format!("  \x1b[2m{}\x1b[0m{}", location, scroll_info)
+    let backend = match state.flags.render_backend {
+        RenderBackendSetting::Hardware => "hardware",
+        RenderBackendSetting::Software => "software (deprecated/unavailable)",
+    };
+    format!(
+        "  \x1b[2m{}\x1b[0m\x1b[2m  backend:\x1b[0m \x1b[1m{}\x1b[0m{}",
+        location, backend, scroll_info
+    )
 }

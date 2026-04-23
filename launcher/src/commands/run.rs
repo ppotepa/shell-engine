@@ -1,41 +1,37 @@
-﻿use crate::cargo::CargoCommand;
-use crate::cli::RunArgs;
-use crate::workspace;
+use crate::cargo::CargoCommand;
+use crate::cli::{RenderBackendArg, RunArgs};
 use anyhow::Result;
 use std::path::Path;
 
-/// Resolve effective pixel scale: 0 means auto-compute from mod's render_size.
-fn effective_pixel_scale(user_scale: u32, render_size_str: &str) -> u32 {
-    if user_scale > 0 {
-        return user_scale;
-    }
-    if let Some((w, h)) = workspace::parse_render_size(render_size_str) {
-        workspace::auto_pixel_scale(w, h)
-    } else {
-        8 // fallback for "match-output" or unparseable
-    }
-}
+const SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE: &str =
+    "[se] software backend is deprecated and unavailable because SDL2 runtime support was removed. Use hardware backend (default) or pass --hardware.";
 
 pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
+    let selected_backend = args.selected_render_backend();
+    ensure_backend_supported(selected_backend)?;
+
+    let cmd = build_run_command(args);
+
+    if args.with_sidecar {
+        println!("Building cognitOS sidecar...");
+        build_sidecar(workspace_root)?;
+    }
+
+    let status = cmd.exec(workspace_root)?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+fn build_run_command(args: &RunArgs) -> CargoCommand {
     let mod_source = if let Some(ref source) = args.mod_source {
         source.clone()
     } else {
         format!("mods/{}/", args.mod_name)
     };
-
-    // Resolve mod name for manifest lookup
-    let mod_dir_name = args.mod_source.as_deref().unwrap_or(&args.mod_name);
-    let mod_name = std::path::Path::new(mod_dir_name)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or(&args.mod_name)
-        .trim_end_matches('/');
-
-    let render_size_str = workspace::read_mod_manifest(workspace_root, mod_name)
-        .map(|m| m.display.render_size)
-        .unwrap_or_default();
-
-    let pixel_scale = effective_pixel_scale(args.sdl_pixel_scale, &render_size_str);
 
     let profile = args
         .profile
@@ -43,14 +39,19 @@ pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
         .or(if args.release { Some("release") } else { None });
 
     let mut cmd = CargoCommand::new("app");
+    let selected_backend = args.selected_render_backend();
+    debug_assert!(matches!(selected_backend, RenderBackendArg::Hardware));
 
     if let Some(p) = profile {
         cmd = cmd.profile(p);
     }
 
-    cmd = cmd.feature("engine/sdl2");
+    cmd = cmd.no_default_features().feature("app/hardware-backend");
 
     cmd = cmd.app_arg("--mod-source").app_arg(&mod_source);
+    cmd = cmd
+        .app_arg("--render-backend")
+        .app_arg(selected_backend.as_cli_value());
 
     if let Some(ref scene) = args.start_scene {
         cmd = cmd.app_arg("--start-scene").app_arg(scene);
@@ -119,30 +120,19 @@ pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
         }
     }
 
-    cmd = cmd
-        .app_arg("--sdl-window-ratio")
-        .app_arg(&args.sdl_window_ratio);
-    cmd = cmd
-        .app_arg("--sdl-pixel-scale")
-        .app_arg(pixel_scale.to_string());
-
     if args.no_sdl_vsync {
-        cmd = cmd.app_arg("--no-sdl-vsync");
+        println!(
+            "[se] note: --no-sdl-vsync only applies to software backend; ignoring for hardware."
+        );
     }
 
-    cmd = cmd.app_args(args.extra_args.iter().cloned());
+    cmd.app_args(args.extra_args.iter().cloned())
+}
 
-    if args.with_sidecar {
-        println!("Building cognitOS sidecar...");
-        build_sidecar(workspace_root)?;
+fn ensure_backend_supported(selected_backend: RenderBackendArg) -> Result<()> {
+    if matches!(selected_backend, RenderBackendArg::Software) {
+        anyhow::bail!(SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE);
     }
-
-    let status = cmd.exec(workspace_root)?;
-
-    if !status.success() {
-        std::process::exit(status.code().unwrap_or(1));
-    }
-
     Ok(())
 }
 
@@ -168,4 +158,46 @@ fn build_sidecar(workspace_root: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_run_command, ensure_backend_supported, SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE};
+    use crate::cli::{Cli, Command};
+    use clap::Parser;
+
+    #[test]
+    fn hardware_run_omits_software_presenter_args() {
+        let cli = Cli::parse_from(["se", "run", "--hardware", "--mod", "playground"]);
+        let Command::Run(args) = cli.command.expect("run command") else {
+            panic!("expected run command");
+        };
+
+        let built = build_run_command(&args).build_args();
+        assert!(built
+            .windows(2)
+            .any(|pair| { pair[0] == "--features" && pair[1].contains("app/hardware-backend") }));
+        assert!(!built
+            .windows(2)
+            .any(|pair| pair[0] == "--sdl-window-ratio" || pair[0] == "--sdl-pixel-scale"));
+    }
+
+    #[test]
+    fn software_run_is_rejected() {
+        let cli = Cli::parse_from([
+            "se",
+            "run",
+            "--software",
+            "--mod",
+            "playground",
+            "--sdl-pixel-scale",
+            "5",
+        ]);
+        let Command::Run(args) = cli.command.expect("run command") else {
+            panic!("expected run command");
+        };
+
+        let error = ensure_backend_supported(args.selected_render_backend()).expect_err("backend error");
+        assert_eq!(error.to_string(), SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE);
+    }
 }

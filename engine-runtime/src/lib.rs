@@ -74,6 +74,82 @@ pub struct BufferLayout {
     pub output_height: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RenderSurfaceKind {
+    #[default]
+    CharacterGrid,
+    PixelSurface,
+    GpuSurface,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TextPresentationKind {
+    #[default]
+    CellGlyphs,
+    RasterGlyphs,
+    GpuText,
+}
+
+/// Runtime-facing capability descriptor used instead of one-off backend booleans.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeRenderCapabilities {
+    pub world_surface: RenderSurfaceKind,
+    pub ui_surface: RenderSurfaceKind,
+    pub text_presentation: TextPresentationKind,
+    pub supports_native_vectors: bool,
+    pub supports_cursor_capture: bool,
+    pub supports_relative_mouse: bool,
+}
+
+impl RuntimeRenderCapabilities {
+    pub fn character_grid() -> Self {
+        Self::default()
+    }
+
+    pub fn software_presenter() -> Self {
+        Self {
+            world_surface: RenderSurfaceKind::PixelSurface,
+            ui_surface: RenderSurfaceKind::PixelSurface,
+            text_presentation: TextPresentationKind::RasterGlyphs,
+            supports_native_vectors: true,
+            supports_cursor_capture: false,
+            supports_relative_mouse: false,
+        }
+    }
+
+    pub fn hardware_presenter() -> Self {
+        Self {
+            world_surface: RenderSurfaceKind::GpuSurface,
+            ui_surface: RenderSurfaceKind::GpuSurface,
+            text_presentation: TextPresentationKind::RasterGlyphs,
+            supports_native_vectors: true,
+            supports_cursor_capture: true,
+            supports_relative_mouse: true,
+        }
+    }
+
+    pub fn uses_pixel_output(self) -> bool {
+        !matches!(self.world_surface, RenderSurfaceKind::CharacterGrid)
+    }
+
+    pub fn prefers_raster_fonts(self) -> bool {
+        matches!(self.text_presentation, TextPresentationKind::RasterGlyphs)
+    }
+}
+
+impl Default for RuntimeRenderCapabilities {
+    fn default() -> Self {
+        Self {
+            world_surface: RenderSurfaceKind::CharacterGrid,
+            ui_surface: RenderSurfaceKind::CharacterGrid,
+            text_presentation: TextPresentationKind::CellGlyphs,
+            supports_native_vectors: false,
+            supports_cursor_capture: false,
+            supports_relative_mouse: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeSettings {
     pub world_render_size: RenderSize,
@@ -87,8 +163,12 @@ pub struct RuntimeSettings {
     /// Optional mod-level default text font used when sprite `font` is set to
     /// `default`. Supports both generic specs and named bitmap fonts.
     pub default_font: Option<String>,
+    /// Backend-neutral capability description consumed by runtime systems.
+    pub render_capabilities: RuntimeRenderCapabilities,
     /// True when rendering to a pixel backend (SDL2), false for terminal.
     /// Used by the compositor to select backend-appropriate font modes.
+    /// Transitional compatibility surface; new code should prefer
+    /// `render_capabilities`.
     pub is_pixel_backend: bool,
 }
 
@@ -110,12 +190,34 @@ impl Default for RuntimeSettings {
             ui_layout_size: None,
             presentation_policy: PresentationPolicy::Fit,
             default_font: None,
+            render_capabilities: RuntimeRenderCapabilities::default(),
             is_pixel_backend: false,
         }
     }
 }
 
 impl RuntimeSettings {
+    pub fn set_render_capabilities(&mut self, render_capabilities: RuntimeRenderCapabilities) {
+        self.render_capabilities = render_capabilities;
+        self.is_pixel_backend = render_capabilities.uses_pixel_output();
+    }
+
+    pub fn inherit_render_capabilities(&mut self, other: &RuntimeSettings) {
+        self.set_render_capabilities(other.render_capabilities);
+    }
+
+    pub fn apply_character_grid_defaults(&mut self) {
+        self.set_render_capabilities(RuntimeRenderCapabilities::character_grid());
+    }
+
+    pub fn apply_software_presenter_defaults(&mut self) {
+        self.set_render_capabilities(RuntimeRenderCapabilities::software_presenter());
+    }
+
+    pub fn apply_hardware_presenter_defaults(&mut self) {
+        self.set_render_capabilities(RuntimeRenderCapabilities::hardware_presenter());
+    }
+
     pub fn from_manifest(manifest: &Value) -> Self {
         let mut settings = Self::default();
 
@@ -215,6 +317,43 @@ impl RuntimeSettings {
 
     pub fn resolved_world_render_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
         self.world_render_size.resolve(output_width, output_height)
+    }
+
+    /// Capability-first view of the active renderer contract.
+    /// Transitional fallback: if only legacy `is_pixel_backend` is set, infer
+    /// pixel/raster defaults so runtime systems can consume capabilities.
+    pub fn effective_render_capabilities(&self) -> RuntimeRenderCapabilities {
+        let mut capabilities = self.render_capabilities;
+        if self.is_pixel_backend {
+            if !capabilities.uses_pixel_output() {
+                capabilities.world_surface = RenderSurfaceKind::PixelSurface;
+                capabilities.ui_surface = RenderSurfaceKind::PixelSurface;
+            }
+            if !capabilities.prefers_raster_fonts() {
+                capabilities.text_presentation = TextPresentationKind::RasterGlyphs;
+            }
+        }
+        capabilities
+    }
+
+    pub fn uses_pixel_output(&self) -> bool {
+        self.effective_render_capabilities().uses_pixel_output()
+    }
+
+    pub fn prefers_raster_fonts(&self) -> bool {
+        self.effective_render_capabilities().prefers_raster_fonts()
+    }
+
+    pub fn render_surface_kind(&self) -> RenderSurfaceKind {
+        self.effective_render_capabilities().world_surface
+    }
+
+    pub fn ui_surface_kind(&self) -> RenderSurfaceKind {
+        self.effective_render_capabilities().ui_surface
+    }
+
+    pub fn text_presentation_kind(&self) -> TextPresentationKind {
+        self.effective_render_capabilities().text_presentation
     }
 
     fn resolve_ui_render_size_from_world(
@@ -441,7 +580,8 @@ pub fn parse_render_size(raw: &str) -> Option<RenderSize> {
 mod tests {
     use super::{
         compute_presentation_layout, BufferLayout, PresentationLayout, PresentationPolicy,
-        RenderSize, RuntimeSettings,
+        RenderSize, RenderSurfaceKind, RuntimeRenderCapabilities, RuntimeSettings,
+        TextPresentationKind,
     };
 
     #[test]
@@ -553,6 +693,7 @@ mod tests {
             }),
             presentation_policy: PresentationPolicy::Stretch,
             default_font: None,
+            render_capabilities: RuntimeRenderCapabilities::default(),
             is_pixel_backend: false,
         };
 
@@ -652,5 +793,40 @@ mod tests {
         assert_eq!(settings.resolved_render_size(160, 120), (640, 480));
         // Square terminal → height = width = 640
         assert_eq!(settings.resolved_render_size(100, 100), (640, 640));
+    }
+
+    #[test]
+    fn effective_capabilities_use_explicit_capabilities_first() {
+        let mut settings = RuntimeSettings::default();
+        settings.is_pixel_backend = true;
+        settings.set_render_capabilities(RuntimeRenderCapabilities::hardware_presenter());
+        settings.is_pixel_backend = false;
+
+        let effective = settings.effective_render_capabilities();
+        assert_eq!(effective.world_surface, RenderSurfaceKind::GpuSurface);
+        assert_eq!(effective.ui_surface, RenderSurfaceKind::GpuSurface);
+        assert_eq!(effective.text_presentation, TextPresentationKind::RasterGlyphs);
+        assert!(settings.uses_pixel_output());
+        assert!(settings.prefers_raster_fonts());
+    }
+
+    #[test]
+    fn effective_capabilities_fallback_to_legacy_pixel_backend() {
+        let mut settings = RuntimeSettings::default();
+        settings.is_pixel_backend = true;
+        settings.render_capabilities = RuntimeRenderCapabilities::character_grid();
+
+        let effective = settings.effective_render_capabilities();
+        assert_eq!(effective.world_surface, RenderSurfaceKind::PixelSurface);
+        assert_eq!(effective.ui_surface, RenderSurfaceKind::PixelSurface);
+        assert_eq!(effective.text_presentation, TextPresentationKind::RasterGlyphs);
+        assert_eq!(settings.render_surface_kind(), RenderSurfaceKind::PixelSurface);
+        assert_eq!(settings.ui_surface_kind(), RenderSurfaceKind::PixelSurface);
+        assert_eq!(
+            settings.text_presentation_kind(),
+            TextPresentationKind::RasterGlyphs
+        );
+        assert!(settings.uses_pixel_output());
+        assert!(settings.prefers_raster_fonts());
     }
 }

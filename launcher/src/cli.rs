@@ -1,4 +1,4 @@
-﻿use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(name = "se", about = "Shell Engine launcher", version)]
@@ -17,7 +17,7 @@ pub enum Command {
     Capture(CaptureArgs),
     /// Regenerate schema fragments
     Schemas(SchemasArgs),
-    /// Platform toolchain & SDL2 setup
+    /// Platform setup helpers (backend-aware)
     Setup(SetupArgs),
     /// Verify toolchain & environment
     Doctor,
@@ -32,6 +32,18 @@ pub enum Command {
 
 #[derive(Parser, Debug)]
 pub struct RunArgs {
+    /// Deprecated: request software backend (currently unavailable)
+    #[arg(long = "software", conflicts_with = "hardware")]
+    pub software: bool,
+
+    /// Force hardware backend (shortcut for --render-backend hardware)
+    #[arg(long = "hardware", conflicts_with = "software")]
+    pub hardware: bool,
+
+    /// Render backend path (`software` is deprecated and unavailable)
+    #[arg(long = "render-backend", value_enum, default_value_t = RenderBackendArg::Hardware)]
+    pub render_backend: RenderBackendArg,
+
     /// Mod name (resolves to mods/<name>/)
     #[arg(short = 'm', long = "mod", default_value = "asteroids")]
     pub mod_name: String,
@@ -128,15 +140,15 @@ pub struct RunArgs {
     #[arg(long = "opt-async")]
     pub opt_async: bool,
 
-    /// SDL window ratio
+    /// Deprecated software presenter window ratio (ignored unless software backend is selected)
     #[arg(long = "sdl-window-ratio", default_value = "16:9")]
     pub sdl_window_ratio: String,
 
-    /// SDL pixel scale (0 = auto based on mod render_size)
+    /// Deprecated software presenter pixel scale (0 = auto based on mod world_render_size)
     #[arg(long = "sdl-pixel-scale", default_value_t = 0)]
     pub sdl_pixel_scale: u32,
 
-    /// Disable SDL VSync
+    /// Deprecated: disable presenter VSync for software backend
     #[arg(long = "no-sdl-vsync")]
     pub no_sdl_vsync: bool,
 
@@ -147,6 +159,75 @@ pub struct RunArgs {
     /// Extra args passed to app binary
     #[arg(last = true)]
     pub extra_args: Vec<String>,
+}
+
+impl RunArgs {
+    pub fn selected_render_backend(&self) -> RenderBackendArg {
+        if self.hardware {
+            RenderBackendArg::Hardware
+        } else if self.software {
+            RenderBackendArg::Software
+        } else {
+            self.render_backend
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum RenderBackendArg {
+    Software,
+    Hardware,
+}
+
+impl RenderBackendArg {
+    pub fn as_cli_value(self) -> &'static str {
+        match self {
+            Self::Software => "software",
+            Self::Hardware => "hardware",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Command, RenderBackendArg};
+    use clap::Parser;
+
+    #[test]
+    fn run_defaults_to_hardware_backend() {
+        let cli = Cli::parse_from(["se", "run"]);
+        let Command::Run(args) = cli.command.expect("run command") else {
+            panic!("expected run command");
+        };
+        assert_eq!(args.selected_render_backend(), RenderBackendArg::Hardware);
+    }
+
+    #[test]
+    fn run_render_backend_flag_selects_hardware() {
+        let cli = Cli::parse_from(["se", "run", "--render-backend", "hardware"]);
+        let Command::Run(args) = cli.command.expect("run command") else {
+            panic!("expected run command");
+        };
+        assert_eq!(args.selected_render_backend(), RenderBackendArg::Hardware);
+    }
+
+    #[test]
+    fn run_hardware_shortcut_selects_hardware() {
+        let cli = Cli::parse_from(["se", "run", "--hardware"]);
+        let Command::Run(args) = cli.command.expect("run command") else {
+            panic!("expected run command");
+        };
+        assert_eq!(args.selected_render_backend(), RenderBackendArg::Hardware);
+    }
+
+    #[test]
+    fn run_software_shortcut_selects_software() {
+        let cli = Cli::parse_from(["se", "run", "--software"]);
+        let Command::Run(args) = cli.command.expect("run command") else {
+            panic!("expected run command");
+        };
+        assert_eq!(args.selected_render_backend(), RenderBackendArg::Software);
+    }
 }
 
 #[derive(Parser, Debug)]

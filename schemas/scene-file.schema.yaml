@@ -72,7 +72,8 @@ properties:
     pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
     description: >
       Optional scene-local render canvas override in WIDTHxHEIGHT form.
-      Compatibility-only: prefer setting `display.world_render_size` once at the mod level.
+      Compatibility-only: prefer canonical mod-level `display.world_render_size` so scenes
+      share one authored world canvas and presentation remains a backend concern.
   bg_colour:
     $ref: "./scene.schema.yaml#/$defs/colour"
   bg:

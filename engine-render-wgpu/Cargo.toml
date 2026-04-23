@@ -1,0 +1,12 @@
+[package]
+name = "engine-render-wgpu"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-render = { path = "../engine-render" }
+engine-core = { path = "../engine-core" }
+engine-platform-winit = { path = "../engine-platform-winit" }
+winit = "0.30"

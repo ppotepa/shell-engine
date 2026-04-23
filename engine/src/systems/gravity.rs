@@ -29,7 +29,7 @@ pub fn gravity_system(world: &mut engine_core::world::World, dt_ms: u64) {
         let (ax, ay, az) = match gravity.mode {
             GravityMode2D::Flat => (gravity.flat_ax, gravity.flat_ay, 0.0),
             GravityMode2D::Point => {
-                let Some(sample) = super::celestial_runtime::gravity_sample(
+                let Some(sample) = super::celestial_runtime::gravity_sample_runtime(
                     catalogs,
                     gravity.body_id.as_deref(),
                     engine_celestial::WorldPoint3 {
@@ -73,7 +73,7 @@ pub fn gravity_system(world: &mut engine_core::world::World, dt_ms: u64) {
         let Some(mut body) = gameplay_world.physics3d(id) else {
             continue;
         };
-        let Some(sample) = super::celestial_runtime::gravity_sample(
+        let Some(sample) = super::celestial_runtime::gravity_sample_runtime(
             catalogs,
             binding.body_id.as_deref(),
             engine_celestial::WorldPoint3 {

@@ -1,8 +1,13 @@
 # Shell Engine
 
-Shell Engine is an SDL2-first scene engine built around YAML authoring, Rhai
-runtime scripting, a software-rendered 2D/3D compositor, and mod-local content
-packages.
+Shell Engine is a scene engine in active runtime migration from legacy SDL2
+paths toward a `winit + wgpu` runtime, built around YAML authoring, Rhai
+runtime scripting, and mod-local content packages.
+
+Current migration checkpoint: hardware-first defaults are active in `app` and
+`engine`, backend-neutral `FrameSubmission` is wired in the engine render
+system, and hardware submit currently keeps a compatibility fallback to
+software presentation on failure.
 
 The repo is currently used as a reusable engine playground. The bundled mods
 focus on renderer development, UI experiments, and procedural world/planet
@@ -84,6 +89,7 @@ cargo run -p editor
 ### Root docs
 
 - [README.md](README.md) — overview
+- [wgpu.migration.md](wgpu.migration.md) — active runtime migration source of truth (`winit + wgpu`)
 - [ARCHITECTURE.md](ARCHITECTURE.md) — crate boundaries, system order, rendering flow
 - [AUTHORING.md](AUTHORING.md) — authored scene contract, assets, sprites, Rhai
 - [MODS.md](MODS.md) — bundled mods and mod structure
@@ -124,3 +130,15 @@ Latest highlights (April 2026):
 - generated-world performance pass landed for cloud-heavy planet rendering,
 - benchmark workflow now includes a dedicated cloud stress scene:
   `mods/asteroids/scenes/bench-cloud/scene.yml`.
+
+Runtime migration snapshot (2026-04-23):
+- runtime defaults: `app` + `engine` now default to `hardware-backend`
+- `FrameSubmission` seam is live in runtime path
+- SDL2 runtime bootstrap is removed from active/default wiring (software path is explicit compatibility-only selection)
+- launcher SDL helper tooling removal landed (no `SDL2_LIB_DIR`/`SDL2_INCLUDE_DIR`/DLL-copy helper paths in `launcher/src`)
+- explicit `StartupOutputSetting::Sdl2` variant usage is gone from active code; scene checks use `StartupOutputSetting::Compatibility`
+- full SDL2 compatibility removal is still gated by:
+  - removing remaining `software-backend` / `is_pixel_backend` / `cfg(feature = "sdl2")` compatibility branches
+  - removing legacy startup alias parsing for `"sdl2"`/`"sdl"` that is still present in `engine-mod`
+  - removing active-path `FrameSubmission <-> HardwareFrame` compatibility bridging
+- canonical migration status and acceptance gates: [wgpu.migration.md](wgpu.migration.md) and [STATUS.md](STATUS.md)

@@ -7,15 +7,18 @@ Shared rendering abstractions and helper utilities.
 `engine-render` provides cross-crate rendering primitives that are not tied to
 the main engine orchestrator or to a single backend implementation.
 
-It defines the backend-facing traits used to present frames and also hosts
-shared helpers used by extracted renderers, including rasterization and asset
-loading support.
+It defines backend-facing presentation traits for the `software|hardware` split
+and also hosts shared helpers used by extracted renderers, including
+rasterization and asset loading support.
 
 ## Key types and modules
 
-- `RenderBackend` — trait for presenting composed frames
-- `OutputBackend` — live runtime backend contract for diffed cell output
-- `RenderFrame` — frame payload passed to a backend
+- `RenderBackend` — legacy software-present trait for composed `Buffer` frames
+- `PresentationBackend` — shared backend lifecycle contract
+- `SoftwareRendererBackend` — software backend contract
+- `HardwareRendererBackend` — hardware backend contract
+- `HardwareFrame` — hardware frame payload passed to a backend
+- `RenderFrame` — legacy frame payload used by older backend APIs
 - `RenderCaps`, `ColorDepth`, `PresentMode` — backend capability and present semantics
 - `rasterizer` — shared text/font rasterization helpers
 - `generic` — renderer-agnostic helper utilities
@@ -23,9 +26,15 @@ loading support.
 
 ## Integration points
 
-- `engine-render-sdl2` implements an SDL2 `OutputBackend`
+- `engine-render-sdl2` currently implements the software backend path
 - `engine-compositor` uses shared rasterization and loader helpers
-- the engine runtime presents final buffers through a boxed `OutputBackend`
+- the runtime can select `software` or `hardware` backend paths at startup
+
+## Naming notes
+
+- `RenderBackendKind` is the canonical backend family selector used by runtime startup.
+- `RendererBackend` and `RenderBackend` remain in this crate as compatibility-era traits
+  for existing software pipeline wiring.
 
 ## Working with this crate
 

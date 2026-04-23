@@ -3,23 +3,29 @@
   sprites:
     - type: obj
       id: terrain-mesh
-      source: "terrain-plane://96?amp=1.45&freq=2.2&oct=4&rough=0.62&seedx=11&seedz=19"
+      source: "terrain-plane://96?amp=0.1&freq=2.2&oct=4&rough=0.62&seedx=11&seedz=19"
+      scale: 500.0
       at: cc
-      width: 1280
-      height: 720
+      width: 480
+      height: 270
       camera-source: scene
+      rotate-y-deg-per-sec: 0.0
       fov-degrees: 65
       near-clip: 0.01
       smooth-shading: true
-      ambient: 0.2
+      ambient: 0.08
       light-direction-x: -0.6
       light-direction-y: 0.8
       light-direction-z: -0.3
+      light-2-direction-x: 0.45
+      light-2-direction-y: 0.45
+      light-2-direction-z: 0.55
+      light-2-intensity: 0.2
       fg: "#6f8f65"
       prerender: false
 
 - name: hud
   z_index: 10
   sprites:
-    - { type: text, content: "QWACK-3D  |  WASD MOVE  |  ESC EXIT", at: ct, y: 8, font: "generic:2", fg: "#a8d5b2" }
-    - { type: text, id: player-pos, content: "POS 0.0,0.0", at: cb, y: -8, font: "generic:2", fg: "#7fa89a" }
+    - { type: text, content: "QWACK-3D  |  F FREELOOK  |  WASD STRAFE  |  MOUSE LOOK  |  ESC EXIT", at: ct, y: 8, font: "generic:2", fg: "#a8d5b2" }
+    - { type: text, id: crosshair, content: "+", at: cc, font: "generic:2", fg: "#d8f5dd" }

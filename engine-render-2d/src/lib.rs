@@ -12,7 +12,8 @@ pub mod text;
 pub mod vector;
 
 pub use api::{
-    layer_has_timed_sprites, sprites_have_timed_visibility, Render2dInput, Render2dPipeline,
+    layer_has_timed_sprites, sprites_have_timed_visibility, PreparedRender2dPacket,
+    PreparedRender2dPacketBuilder, Render2dInput, Render2dPipeline, RenderTargetSize,
 };
 pub use containers::render_children_in_cells;
 pub use image::{image_sprite_dimensions, render_image_content};

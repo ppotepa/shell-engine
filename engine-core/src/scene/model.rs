@@ -733,6 +733,10 @@ fn default_free_look_toggle_with_ctrl() -> bool {
     true
 }
 
+fn default_free_look_start_active() -> bool {
+    false
+}
+
 fn default_free_look_surface_mode() -> bool {
     false
 }
@@ -786,6 +790,13 @@ pub struct FreeLookCameraControls {
         alias = "toggle_with_ctrl"
     )]
     pub toggle_with_ctrl: bool,
+    /// Start free-look camera active when the scene loads (no toggle needed).
+    #[serde(
+        default = "default_free_look_start_active",
+        rename = "start-active",
+        alias = "start_active"
+    )]
+    pub start_active: bool,
     /// Camera translation speed in scene-world units per second.
     #[serde(
         default = "default_free_look_move_speed",
@@ -872,6 +883,7 @@ impl Default for FreeLookCameraControls {
         Self {
             toggle_key: default_free_look_toggle_key(),
             toggle_with_ctrl: default_free_look_toggle_with_ctrl(),
+            start_active: default_free_look_start_active(),
             move_speed: default_free_look_move_speed(),
             mouse_sensitivity: default_free_look_mouse_sensitivity(),
             surface_mode: default_free_look_surface_mode(),

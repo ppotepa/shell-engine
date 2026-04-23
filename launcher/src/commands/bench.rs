@@ -38,6 +38,7 @@ fn run_single_combo(
 ) -> Result<()> {
     let mut cmd = CargoCommand::new("app")
         .profile("release")
+        .feature("app/software-backend")
         .app_arg("--mod-source")
         .app_arg(mod_source)
         .app_arg("--bench")
@@ -72,7 +73,14 @@ fn run_all_combos(workspace_root: &Path, mod_source: &str, duration: f32) -> Res
 
     println!("Building release binary first...");
     let build_status = std::process::Command::new("cargo")
-        .args(["build", "--release", "-p", "app"])
+        .args([
+            "build",
+            "--release",
+            "-p",
+            "app",
+            "--features",
+            "app/software-backend",
+        ])
         .current_dir(workspace_root)
         .status()?;
 
@@ -88,6 +96,7 @@ fn run_all_combos(workspace_root: &Path, mod_source: &str, duration: f32) -> Res
 
         let mut cmd = CargoCommand::new("app")
             .profile("release")
+            .feature("app/software-backend")
             .app_arg("--mod-source")
             .app_arg(mod_source)
             .app_arg("--bench")

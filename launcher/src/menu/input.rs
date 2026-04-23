@@ -25,12 +25,12 @@ pub fn wait_for_input(state: &mut MenuState) -> Result<MenuAction> {
         Key::Escape | Key::Char('q') => MenuAction::Quit,
         Key::Char(c) if c.is_ascii_digit() && c != '0' => {
             let n = (c as u8 - b'0') as usize;
-            if n <= state.filtered_indices.len() {
+            if n <= 7 {
+                // Flag toggles (1-7)
+                state.toggle_flag(n as u8)
+            } else if n <= state.filtered_indices.len() {
                 state.cursor = n - 1;
                 state.enter_action()
-            } else if n <= 6 {
-                // Flag toggles (1-6)
-                state.toggle_flag(n as u8)
             } else {
                 MenuAction::Redraw
             }

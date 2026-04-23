@@ -16,6 +16,14 @@ pub mod scene;
 pub mod testing;
 pub mod vehicle;
 
+pub use engine_plugin_api::{
+    AssetHandle, AssetImporterDescriptor, AudioAsset, CapabilitySet, CapabilityValue,
+    CommandHandlerDescriptor, EngineService, ExtensionDescriptor, ExtensionPointKind, ImageAsset,
+    MaterialAsset, MeshAsset, NativeEnginePlugin, PluginDescriptor, PluginLayer,
+    RendererFeatureDescriptor, ScriptAsset, ServiceDescriptor, ServiceKind,
+    SystemExtensionDescriptor, SystemOrdering,
+};
+
 // Re-export key types and functions for easy access
 pub use audio::{register_audio_api, ScriptAudioApi};
 pub use collision::{

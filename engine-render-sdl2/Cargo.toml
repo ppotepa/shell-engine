@@ -2,6 +2,12 @@
 name = "engine-render-sdl2"
 version = "0.1.0"
 edition = "2021"
+description = "DEPRECATED/INACTIVE: legacy SDL2 backend retained on disk for reference"
+publish = false
+
+[package.metadata]
+status = "deprecated-inactive"
+note = "Not part of the active workspace and not wired into engine runtime features."
 
 [dependencies]
 engine-core = { path = "../engine-core" }

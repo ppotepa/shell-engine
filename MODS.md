@@ -66,7 +66,8 @@ display:
 ```
 
 `world_render_size` defines the authored world canvas. `presentation_policy`
-controls how that canvas is shown in the SDL2 window.
+controls how that canvas is presented by the active runtime backend (software
+today; hardware path in progress).
 
 When a mod needs sharper HUD/UI than the world pass, also set:
 

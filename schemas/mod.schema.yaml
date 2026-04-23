@@ -52,7 +52,7 @@ properties:
     type: object
     description: |
       Optional display requirements and render presentation settings.
-      Rendering uses separate world and UI targets that are presented by the SDL2
+      Rendering uses separate world and UI targets presented by the active runtime
       backend according to `presentation_policy`.
     additionalProperties: false
     properties:
@@ -80,7 +80,7 @@ properties:
           - type: string
             enum: [match-output, max-available]
         description: |
-          World/3D render canvas in WIDTHxHEIGHT form
+          Canonical mod-level world/3D render canvas in WIDTHxHEIGHT form
           (for example 180x30, 320x180, or 640x360).
           "match-output" tracks the current output size. `max-available`
           remains an alias for `match-output`.

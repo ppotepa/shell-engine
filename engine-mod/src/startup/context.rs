@@ -34,6 +34,8 @@ pub struct StartupContext<'a> {
     mod_source: &'a Path,
     manifest: &'a Value,
     entrypoint: &'a str,
+    // Compatibility-era startup backend token used by checks that still branch
+    // on legacy output naming.
     selected_output: StartupOutputSetting,
     scene_cache: OnceLock<Vec<StartupSceneFile>>,
     scene_loader: &'a SceneLoaderFn,
@@ -63,7 +65,7 @@ impl<'a> StartupContext<'a> {
             mod_source,
             manifest,
             entrypoint,
-            selected_output: StartupOutputSetting::Sdl2,
+            selected_output: StartupOutputSetting::compatibility_default(),
             scene_cache: OnceLock::new(),
             scene_loader,
             font_asset_checker: None,
@@ -73,9 +75,12 @@ impl<'a> StartupContext<'a> {
         }
     }
 
-    /// Records the resolved startup output backend selected by the launcher.
+    /// Records the resolved startup backend token selected by the launcher.
+    ///
+    /// Transitional note: naming keeps `output` for compatibility with existing
+    /// startup checks. Canonical backend selection lives in runtime/CLI wiring.
     pub fn with_selected_output(mut self, selected_output: StartupOutputSetting) -> Self {
-        self.selected_output = selected_output;
+        self.selected_output = selected_output.to_compatibility_token();
         self
     }
 
@@ -120,7 +125,10 @@ impl<'a> StartupContext<'a> {
         self.entrypoint
     }
 
-    /// Returns the resolved startup output backend selected by the launcher.
+    /// Returns the resolved startup backend token selected by the launcher.
+    ///
+    /// Transitional note: this remains compatibility-oriented and does not mean
+    /// backend choice is manifest-driven.
     pub fn selected_output(&self) -> StartupOutputSetting {
         self.selected_output
     }
@@ -164,5 +172,45 @@ impl<'a> StartupContext<'a> {
     ) -> Result<(), String> {
         self.rhai_script_validator
             .map_or(Ok(()), |f| f(script, src, scene))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use serde_yaml::Value;
+
+    use crate::{startup::StartupContext, StartupOutputSetting};
+
+    fn empty_scene_loader(
+        _mod_source: &Path,
+    ) -> Result<Vec<crate::startup::StartupSceneFile>, engine_error::EngineError> {
+        Ok(Vec::new())
+    }
+
+    #[test]
+    fn new_context_defaults_to_backend_neutral_compatibility_token() {
+        let manifest = Value::Mapping(Default::default());
+        let ctx = StartupContext::new(
+            Path::new("."),
+            &manifest,
+            "/scenes/main.yml",
+            &empty_scene_loader,
+        );
+        assert_eq!(ctx.selected_output(), StartupOutputSetting::Compatibility);
+    }
+
+    #[test]
+    fn selected_output_stores_compatibility_token() {
+        let manifest = Value::Mapping(Default::default());
+        let ctx = StartupContext::new(
+            Path::new("."),
+            &manifest,
+            "/scenes/main.yml",
+            &empty_scene_loader,
+        )
+        .with_selected_output(StartupOutputSetting::Compatibility);
+        assert_eq!(ctx.selected_output(), StartupOutputSetting::Compatibility);
     }
 }

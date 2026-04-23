@@ -441,10 +441,9 @@ fn switch_active_mod(
         .map(|options| options.audio_enabled)
         .unwrap_or(false);
     let mut runtime_settings = crate::runtime_settings::RuntimeSettings::from_manifest(&manifest);
-    runtime_settings.is_pixel_backend = world
-        .runtime_settings()
-        .map(|settings| settings.is_pixel_backend)
-        .unwrap_or(runtime_settings.is_pixel_backend);
+    if let Some(settings) = world.runtime_settings() {
+        runtime_settings.set_render_capabilities(settings.effective_render_capabilities());
+    }
 
     world.register(AssetRoot::new(mod_source.clone()));
     world.register(loader);

@@ -1,0 +1,31 @@
+kind: object
+name: sphere
+exports:
+  id: sphere-template
+  source: /assets/3d/sphere.obj
+  scale: 6.0
+  world_x: 0.0
+  world_y: 0.0
+  world_z: 0.0
+  fg: "#8ebf72"
+sprites:
+  - type: obj
+    id: "$id"
+    source: "$source"
+    at: cc
+    camera-source: scene
+    scale: "$scale"
+    ambient: 0.12
+    smooth-shading: true
+    light-direction-x: -0.6
+    light-direction-y: 0.8
+    light-direction-z: -0.3
+    light-2-direction-x: 0.4
+    light-2-direction-y: 0.55
+    light-2-direction-z: 0.5
+    light-2-intensity: 0.22
+    rotate-y-deg-per-sec: 0.0
+    world-x: "$world_x"
+    world-y: "$world_y"
+    world-z: "$world_z"
+    fg: "$fg"

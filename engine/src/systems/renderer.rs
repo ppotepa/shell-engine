@@ -10,9 +10,10 @@ use engine_core::scene::{
     Scene, Sprite, SpriteSizePreset, TextOverflowMode, TextTransform, TextWrapMode,
 };
 use engine_debug::DebugOverlayMode;
-use engine_render::{OverlayData, OverlayLine};
+use engine_render::RenderBackendKind;
+use engine_render::{FrameSubmission, OverlayData, OverlayLine, PreparedOverlay, PreparedUi, PreparedWorld};
 use engine_render_2d::text_sprite_dimensions;
-use engine_render_policy::resolve_text_font_spec;
+use engine_render_policy::{resolve_text_font_spec_with_capabilities, FontPolicyCapabilities};
 use engine_runtime::{PresentationPolicy, RenderSize, RuntimeSettings};
 use serde_json::Value as JsonValue;
 use std::cell::RefCell;
@@ -60,12 +61,41 @@ pub fn renderer_system(world: &mut World) {
                 renderer.present_vectors(vectors);
             }
             let buffer = unsafe { &*buffer_ptr };
-            renderer.present_frame(buffer);
+            present_active_frame(renderer, buffer);
         }
     }
 
     if let Some(buffer) = world.get_mut::<Buffer>() {
         buffer.swap();
+    }
+}
+
+fn present_active_frame(renderer: &mut dyn engine_render::RendererBackend, buffer: &Buffer) {
+    if renderer.backend_kind() != RenderBackendKind::Hardware {
+        renderer.present_frame(buffer);
+        return;
+    }
+
+    let submission = FrameSubmission {
+        output_size: renderer.output_size(),
+        present_mode: engine_render::PresentMode::VSync,
+        world: PreparedWorld { ready: true },
+        ui: PreparedUi { ready: true },
+        overlay: PreparedOverlay {
+            ready: true,
+            line_count: 0,
+            primitive_count: 0,
+        },
+    };
+
+    if let Err(err) = renderer.submit_frame(&submission) {
+        if renderer.backend_kind() == RenderBackendKind::Hardware {
+            logging::warn(
+                "renderer.hardware_fallback",
+                format!("hardware submit failed ({err}); falling back to software frame"),
+            );
+        }
+        renderer.present_frame(buffer);
     }
 }
 
@@ -528,10 +558,10 @@ fn collect_layout_overlay_snapshot(world: &mut World) -> LayoutOverlaySnapshot {
     let mod_source = world
         .asset_root()
         .map(|asset_root| asset_root.mod_source().to_path_buf());
-    let (default_font, is_pixel_backend) = world
+    let (default_font, font_policy_caps) = world
         .runtime_settings()
-        .map(|settings| (settings.default_font.clone(), settings.is_pixel_backend))
-        .unwrap_or((None, false));
+        .map(|settings| (settings.default_font.clone(), runtime_font_policy_capabilities(settings)))
+        .unwrap_or((None, FontPolicyCapabilities::default()));
 
     if let Some(runtime) = world.scene_runtime_mut() {
         snapshot.scene_id = runtime.scene().id.clone();
@@ -572,7 +602,7 @@ fn collect_layout_overlay_snapshot(world: &mut World) -> LayoutOverlaySnapshot {
                 measure_text_layout(
                     mod_source.as_deref(),
                     default_font.as_deref(),
-                    is_pixel_backend,
+                    font_policy_caps,
                     content,
                     font_override,
                     cfg.clone(),
@@ -729,16 +759,16 @@ fn collect_authored_text_layout_configs(
 fn measure_text_layout(
     mod_source: Option<&std::path::Path>,
     default_font: Option<&str>,
-    is_pixel_backend: bool,
+    font_policy_caps: FontPolicyCapabilities,
     content: &str,
     runtime_font: Option<&str>,
     cfg: AuthoredTextLayoutConfig,
 ) -> LayoutTextMeasurement {
-    let resolved_font = resolve_text_font_spec(
+    let resolved_font = resolve_text_font_spec_with_capabilities(
         runtime_font.or(cfg.font.as_deref()),
         cfg.force_font_mode.as_deref(),
         cfg.size,
-        is_pixel_backend,
+        font_policy_caps,
         default_font,
     )
     .unwrap_or_else(|| "-".to_string());
@@ -855,6 +885,12 @@ fn measure_text_layout(
     }
 }
 
+fn runtime_font_policy_capabilities(settings: &RuntimeSettings) -> FontPolicyCapabilities {
+    // RuntimeSettings::prefers_raster_fonts() is capability-first and retains
+    // legacy compatibility fallback internally.
+    FontPolicyCapabilities::new(settings.prefers_raster_fonts())
+}
+
 fn apply_perf_hud(world: &mut World) {
     use crate::rasterizer::generic::{generic_dimensions, rasterize_generic};
     use engine_core::scene::sprite::TextTransform;
@@ -966,4 +1002,120 @@ fn format_render_info(settings: Option<&RuntimeSettings>) -> String {
         .unwrap_or_else(|| "ui".to_string());
 
     format!("world:{world} ui:{ui} layout:{ui_layout} ({policy})")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{present_active_frame, runtime_font_policy_capabilities};
+    use crate::buffer::Buffer;
+    use engine_core::color::Color;
+    use engine_runtime::{RuntimeRenderCapabilities, RuntimeSettings, TextPresentationKind};
+    use engine_render::{
+        HardwareFrame, OverlayData, RenderBackendKind, RenderError, RendererBackend, VectorOverlay,
+    };
+
+    #[derive(Default)]
+    struct RendererProbe {
+        backend_kind: RenderBackendKind,
+        software_calls: usize,
+        hardware_calls: usize,
+        hardware_ok: bool,
+    }
+
+    impl RendererBackend for RendererProbe {
+        fn present_frame(&mut self, _buffer: &Buffer) {
+            self.software_calls += 1;
+        }
+
+        fn backend_kind(&self) -> RenderBackendKind {
+            self.backend_kind
+        }
+
+        fn present_hardware_frame(&mut self, _frame: &HardwareFrame) -> Result<(), RenderError> {
+            self.hardware_calls += 1;
+            if self.hardware_ok {
+                Ok(())
+            } else {
+                Err(RenderError::PresentFailed("probe".to_string()))
+            }
+        }
+
+        fn present_overlay(&mut self, _overlay: &OverlayData) {}
+
+        fn present_vectors(&mut self, _vectors: &VectorOverlay) {}
+
+        fn output_size(&self) -> (u16, u16) {
+            (160, 90)
+        }
+
+        fn clear(&mut self) -> Result<(), RenderError> {
+            Ok(())
+        }
+
+        fn shutdown(&mut self) -> Result<(), RenderError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn software_backend_uses_software_present_path() {
+        let mut renderer = RendererProbe::default();
+        let mut buffer = Buffer::new(2, 2);
+        buffer.fill(Color::Black);
+
+        present_active_frame(&mut renderer, &buffer);
+
+        assert_eq!(renderer.software_calls, 1);
+        assert_eq!(renderer.hardware_calls, 0);
+    }
+
+    #[test]
+    fn hardware_present_failure_falls_back_to_software_frame() {
+        let mut renderer = RendererProbe {
+            backend_kind: RenderBackendKind::Hardware,
+            ..RendererProbe::default()
+        };
+        let mut buffer = Buffer::new(2, 2);
+        buffer.fill(Color::Black);
+
+        present_active_frame(&mut renderer, &buffer);
+
+        assert_eq!(renderer.hardware_calls, 1);
+        assert_eq!(renderer.software_calls, 1);
+    }
+
+    #[test]
+    fn hardware_present_success_does_not_fallback_to_software_frame() {
+        let mut renderer = RendererProbe {
+            backend_kind: RenderBackendKind::Hardware,
+            hardware_ok: true,
+            ..RendererProbe::default()
+        };
+        let mut buffer = Buffer::new(2, 2);
+        buffer.fill(Color::Black);
+
+        present_active_frame(&mut renderer, &buffer);
+
+        assert_eq!(renderer.hardware_calls, 1);
+        assert_eq!(renderer.software_calls, 0);
+    }
+
+    #[test]
+    fn font_policy_uses_capability_descriptor_when_available() {
+        let mut settings = RuntimeSettings::default();
+        settings.set_render_capabilities(RuntimeRenderCapabilities::hardware_presenter());
+
+        let caps = runtime_font_policy_capabilities(&settings);
+        assert!(caps.prefer_raster_named_fonts);
+    }
+
+    #[test]
+    fn font_policy_falls_back_to_legacy_bool_for_compatibility() {
+        let mut settings = RuntimeSettings::default();
+        settings.render_capabilities.text_presentation = TextPresentationKind::CellGlyphs;
+        settings.is_pixel_backend = true;
+
+        let caps = runtime_font_policy_capabilities(&settings);
+        assert!(caps.prefer_raster_named_fonts);
+    }
 }

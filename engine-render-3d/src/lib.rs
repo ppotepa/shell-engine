@@ -19,9 +19,10 @@ pub use frame_profiles::{
 };
 pub use obj_render_params::ObjRenderParams;
 pub use pipeline::{
-    prepare_render3d_item, render_prepared_render3d_item_to_buffer, GeneratedWorldFrameProducer,
-    MeshFrameProducer, PreparedRender3dItem, PreparedRender3dRuntime, PreparedRender3dSource,
-    Render3dProducer, SceneClipFrameProducer,
+    prepare_render3d_item, prepare_render3d_packet, render_prepared_render3d_item_to_buffer,
+    GeneratedWorldFrameProducer, MeshFrameProducer, PreparedRender3dItem, PreparedRender3dKind,
+    PreparedRender3dPacket, PreparedRender3dPacketBuilder, PreparedRender3dRuntime,
+    PreparedRender3dSource, Render3dProducer, SceneClipFrameProducer,
 };
 pub use raster::{
     blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,

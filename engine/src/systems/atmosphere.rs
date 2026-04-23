@@ -31,7 +31,7 @@ pub fn atmosphere_system(world: &mut engine_core::world::World, dt_ms: u64) {
         let Some(mut phys) = gameplay_world.physics(id) else {
             continue;
         };
-        let Some(sample) = super::celestial_runtime::atmosphere_sample(
+        let Some(sample) = super::celestial_runtime::atmosphere_sample_runtime(
             catalogs,
             Some(body_id),
             WorldPoint3 {
@@ -102,7 +102,7 @@ pub fn atmosphere_system(world: &mut engine_core::world::World, dt_ms: u64) {
             continue;
         };
 
-        let Some(sample) = super::celestial_runtime::atmosphere_sample(
+        let Some(sample) = super::celestial_runtime::atmosphere_sample_runtime(
             catalogs,
             Some(body_id),
             WorldPoint3 {

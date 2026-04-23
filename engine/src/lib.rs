@@ -1,6 +1,7 @@
 //! Root crate for Shell Engine — initialises a mod, runs startup checks, and drives the game loop.
 
 pub mod bench;
+mod backend_bootstrap;
 pub mod debug_features;
 pub mod debug_log;
 mod error;
@@ -55,7 +56,6 @@ mod scene_loader;
 pub mod scene_pipeline;
 pub mod scene_runtime;
 mod services;
-mod splash;
 pub mod strategy;
 pub mod systems;
 pub mod world;
@@ -71,7 +71,7 @@ pub fn behavior_catalog() -> Vec<(
 
 use std::path::{Path, PathBuf};
 
-use engine_render::RendererBackend;
+pub use engine_render::RenderBackendKind;
 use mod_loader::load_mod_manifest;
 use serde_yaml::Value;
 use services::EngineWorldAccess;
@@ -89,6 +89,8 @@ pub struct ShellEngine {
 pub struct EngineConfig {
     pub debug_feature: bool,
     pub audio: bool,
+    /// Selected render backend family for engine startup.
+    pub render_backend_kind: RenderBackendKind,
     /// Override the mod's entrypoint — jump straight to this scene path.
     pub start_scene: Option<String>,
     /// Skip the engine splash screen on startup.
@@ -126,17 +128,17 @@ pub(crate) struct RuntimeSwitchOptions {
     pub audio_enabled: bool,
 }
 
-const SDL_DEFAULT_OUTPUT_WIDTH: u16 = 120;
-const SDL_DEFAULT_OUTPUT_HEIGHT: u16 = 40;
+const STARTUP_DEFAULT_OUTPUT_WIDTH: u16 = 120;
+const STARTUP_DEFAULT_OUTPUT_HEIGHT: u16 = 40;
 
-fn sdl_startup_output_size(manifest: &Value) -> (u16, u16) {
+fn startup_output_size(manifest: &Value) -> (u16, u16) {
     use engine_runtime::RuntimeSettings;
     let settings = RuntimeSettings::from_manifest(manifest);
     // For a fixed final render target, the startup window can match it directly.
     if let Some((w, h)) = settings.fixed_render_size() {
         return (w, h);
     }
-    (SDL_DEFAULT_OUTPUT_WIDTH, SDL_DEFAULT_OUTPUT_HEIGHT)
+    (STARTUP_DEFAULT_OUTPUT_WIDTH, STARTUP_DEFAULT_OUTPUT_HEIGHT)
 }
 
 impl Default for EngineConfig {
@@ -144,6 +146,7 @@ impl Default for EngineConfig {
         Self {
             debug_feature: false,
             audio: false,
+            render_backend_kind: RenderBackendKind::Hardware,
             start_scene: None,
             skip_splash: false,
             opt_comp: true,
@@ -188,7 +191,6 @@ impl ShellEngine {
         use engine_animation::Animator;
         use engine_asset::SceneRepository;
         use engine_behavior::init_behavior_system;
-        use engine_events::InputBackend;
         use engine_mod::display_config::target_fps_from_manifest;
         use engine_mod::startup::{
             StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile,
@@ -256,7 +258,7 @@ impl ShellEngine {
             entrypoint,
             &scene_loader_fn,
         )
-        .with_selected_output(StartupOutputSetting::Sdl2)
+        .with_selected_output(StartupOutputSetting::Compatibility)
         .with_font_asset_checker(&font_checker)
         .with_glyph_coverage_checker(&glyph_checker)
         .with_image_asset_checker(&image_checker)
@@ -280,17 +282,10 @@ impl ShellEngine {
             .config
             .target_fps_override
             .unwrap_or_else(|| target_fps_from_manifest(&self.mod_manifest));
-        let window_title = self
-            .mod_manifest
-            .get("name")
-            .and_then(serde_yaml::Value::as_str)
-            .filter(|name| !name.trim().is_empty())
-            .map(|name| format!("{name} - Shell Engine"))
-            .unwrap_or_else(|| "Shell Engine".to_string());
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
-        runtime_settings.is_pixel_backend = true;
+        let selected_backend = self.config.render_backend_kind;
 
-        let (output_w, output_h) = sdl_startup_output_size(&self.mod_manifest);
+        let (output_w, output_h) = startup_output_size(&self.mod_manifest);
         let layout = runtime_settings::buffer_layout_for_scene(
             &runtime_settings,
             &scene,
@@ -301,7 +296,7 @@ impl ShellEngine {
             "engine.runtime",
             format!(
                 "output={} output_size={}x{} world_size={}x{} ui_size={}x{} ui_layout={}x{} policy={:?} scene_override={}",
-                "sdl2",
+                backend_bootstrap::runtime_output_label(selected_backend),
                 output_w,
                 output_h,
                 layout.world_width,
@@ -316,7 +311,6 @@ impl ShellEngine {
         );
 
         let mut world = world::World::new();
-        let presentation_policy = runtime_settings.presentation_policy;
         world.register(EventQueue::new());
         world.register(buffer::Buffer::new(layout.ui_width, layout.ui_height));
         let synth_cues =
@@ -333,7 +327,6 @@ impl ShellEngine {
         world.register(audio_sequencer::AudioSequencerState::from_mod_source(
             &self.mod_source,
         ));
-        world.register(runtime_settings);
         world.register(debug_features::DebugFeatures::from_enabled(
             self.config.debug_feature,
         ));
@@ -430,55 +423,28 @@ impl ShellEngine {
             ));
         }
 
-        let splash_bg = scene
-            .bg_colour
-            .as_ref()
-            .map(engine_core::color::Color::from)
-            .unwrap_or(engine_core::color::Color::Black);
-        let splash_config = splash::config_from_manifest(&self.mod_source, &self.mod_manifest);
-        let splash_enabled = !self.config.skip_splash && splash_config.enabled;
-        let splash_scene_path = splash_config.scene_path.as_deref();
-
-        let mut input_backend: Box<dyn InputBackend> = {
-            #[cfg(feature = "sdl2")]
-            {
-                let (mut renderer, input) = engine_render_sdl2::renderer::Sdl2Backend::new_pair(
-                    layout.ui_width,
-                    layout.ui_height,
-                    presentation_policy,
-                    self.config.sdl_window_ratio,
-                    self.config.sdl_pixel_scale,
-                    self.config.sdl_vsync,
-                    window_title,
-                )
-                .map_err(|error| EngineError::Render(std::io::Error::other(error)))?;
-                renderer.clear().map_err(|error| {
-                    EngineError::Render(std::io::Error::other(error.to_string()))
-                })?;
-                if splash_enabled {
-                    renderer.set_splash_mode(true).map_err(|error| {
-                        EngineError::Render(std::io::Error::other(error.to_string()))
-                    })?;
-                    splash::show_splash_on_output(
-                        &mut renderer,
-                        splash_bg,
-                        (output_w, output_h),
-                        splash_scene_path,
-                    );
-                    renderer.set_splash_mode(false).map_err(|error| {
-                        EngineError::Render(std::io::Error::other(error.to_string()))
-                    })?;
-                }
-                world.register(Box::new(renderer) as Box<dyn RendererBackend>);
-                Box::new(input)
-            }
-            #[cfg(not(feature = "sdl2"))]
-            {
-                return Err(EngineError::Render(std::io::Error::other(
-                    "SDL2 backend requested but engine was built without the `sdl2` feature",
-                )));
-            }
-        };
+        let mut bootstrapped = backend_bootstrap::bootstrap_runtime_backends(
+            &mut world,
+            backend_bootstrap::BackendBootstrapParams {
+                selected_backend,
+                ui_size: (layout.ui_width, layout.ui_height),
+            },
+        )?;
+        if bootstrapped.active_backend != selected_backend {
+            logging::warn(
+                "engine.runtime",
+                format!(
+                    "selected backend '{}' resolved to '{}' at runtime",
+                    backend_bootstrap::render_backend_name(selected_backend),
+                    backend_bootstrap::render_backend_name(bootstrapped.active_backend)
+                ),
+            );
+        }
+        match bootstrapped.active_backend {
+            RenderBackendKind::Software => runtime_settings.apply_software_presenter_defaults(),
+            RenderBackendKind::Hardware => runtime_settings.apply_hardware_presenter_defaults(),
+        }
+        world.register(runtime_settings);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
         // Register the scene preparation pipeline as a world resource so that
@@ -504,7 +470,7 @@ impl ShellEngine {
         let result = game_loop::game_loop(
             &mut world,
             target_fps,
-            input_backend.as_mut(),
+            bootstrapped.input_backend.as_mut(),
             &mut frame_capture,
         );
 
@@ -551,11 +517,13 @@ impl ShellEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::sdl_startup_output_size;
+    use super::startup_output_size;
+    use super::EngineConfig;
     use super::ShellEngine;
     use crate::scene_loader;
     use crate::EngineError;
     use engine_asset::{create_scene_repository, SceneRepository};
+    use engine_render::RenderBackendKind;
     use engine_mod::startup::checks::{
         EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
         SceneGraphCheck,
@@ -638,11 +606,45 @@ mod tests {
     }
 
     #[test]
-    fn sdl_startup_output_uses_default_render_size_when_no_display_block() {
+    fn startup_output_uses_default_render_size_when_no_display_block() {
         let manifest = serde_yaml::from_str::<Value>("name: demo\n").expect("manifest");
 
         // No display block → RuntimeSettings uses default render size (320x240)
-        assert_eq!(sdl_startup_output_size(&manifest), (320, 240));
+        assert_eq!(startup_output_size(&manifest), (320, 240));
+    }
+
+    #[test]
+    fn engine_config_defaults_to_hardware_backend() {
+        let config = EngineConfig::default();
+        assert_eq!(config.render_backend_kind, RenderBackendKind::Hardware);
+    }
+
+    #[test]
+    fn backend_name_mapping_is_stable() {
+        assert_eq!(
+            super::backend_bootstrap::render_backend_name(RenderBackendKind::Software),
+            "software"
+        );
+        assert_eq!(
+            super::backend_bootstrap::render_backend_name(RenderBackendKind::Hardware),
+            "hardware"
+        );
+    }
+
+    #[test]
+    fn backend_unavailable_messages_are_precise() {
+        let software =
+            super::backend_bootstrap::backend_unavailable_message(RenderBackendKind::Software);
+        let hardware =
+            super::backend_bootstrap::backend_unavailable_message(RenderBackendKind::Hardware);
+        assert!(
+            software.contains("SDL2 runtime bootstrap has been removed"),
+            "software message should explain software bootstrap removal, got: {software}"
+        );
+        assert!(
+            hardware.contains("hardware render backend is unavailable"),
+            "hardware message should identify unavailable hardware backend, got: {hardware}"
+        );
     }
 
     fn assert_real_mod_starts(mod_name: &str) {

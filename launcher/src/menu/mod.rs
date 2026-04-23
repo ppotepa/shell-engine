@@ -67,8 +67,11 @@ fn menu_loop(
 
 use crate::cargo::CargoCommand;
 use crate::config::LaunchFlags;
-use crate::workspace;
+use crate::config::RenderBackendSetting;
 use state::Selection;
+
+const SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE: &str =
+    "[se] software backend is deprecated and unavailable because SDL2 runtime support was removed. Switch backend to hardware.";
 
 fn launch_selection(
     workspace_root: &Path,
@@ -84,14 +87,41 @@ fn launch_selection(
     }
     println!();
 
+    let cmd = build_launch_command(selection, flags)?;
+
+    let status = cmd.exec(workspace_root)?;
+
+    if !status.success() {
+        eprintln!(
+            "\n\x1b[33m[se] process exited with code {}\x1b[0m",
+            status.code().unwrap_or(1)
+        );
+    }
+
+    Ok(())
+}
+
+fn build_launch_command(selection: &Selection, flags: &LaunchFlags) -> Result<CargoCommand> {
+    ensure_backend_supported(flags.render_backend)?;
+
     let mut cmd = CargoCommand::new("app");
 
     if flags.release {
         cmd = cmd.profile("release");
     }
-    cmd = cmd.feature("engine/sdl2");
+    match flags.render_backend {
+        crate::config::RenderBackendSetting::Software => {
+            unreachable!("software backend must be rejected before launch command is built");
+        }
+        crate::config::RenderBackendSetting::Hardware => {
+            cmd = cmd.no_default_features().feature("app/hardware-backend");
+        }
+    }
 
     cmd = cmd.app_arg("--mod-source").app_arg(&selection.mod_dir);
+    cmd = cmd
+        .app_arg("--render-backend")
+        .app_arg(flags.render_backend.as_cli_value());
 
     if let Some(ref scene) = selection.scene_path {
         cmd = cmd.app_arg("--start-scene").app_arg(scene);
@@ -113,25 +143,53 @@ fn launch_selection(
         cmd = cmd.app_arg("--opt");
     }
 
-    // Auto-compute pixel scale from mod's render_size
-    let pixel_scale = if let Some((w, h)) = workspace::parse_render_size(&selection.render_size) {
-        workspace::auto_pixel_scale(w, h)
-    } else {
-        8
-    };
-    cmd = cmd.app_arg("--sdl-window-ratio").app_arg("16:9");
-    cmd = cmd
-        .app_arg("--sdl-pixel-scale")
-        .app_arg(pixel_scale.to_string());
+    Ok(cmd)
+}
 
-    let status = cmd.exec(workspace_root)?;
+fn ensure_backend_supported(render_backend: RenderBackendSetting) -> Result<()> {
+    if matches!(render_backend, RenderBackendSetting::Software) {
+        anyhow::bail!(SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE);
+    }
+    Ok(())
+}
 
-    if !status.success() {
-        eprintln!(
-            "\n\x1b[33m[se] process exited with code {}\x1b[0m",
-            status.code().unwrap_or(1)
-        );
+#[cfg(test)]
+mod tests {
+    use super::{build_launch_command, SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE, Selection};
+    use crate::config::{LaunchFlags, RenderBackendSetting};
+
+    fn selection_fixture() -> Selection {
+        Selection {
+            mod_name: "qwack-3d".to_string(),
+            mod_dir: "mods/qwack-3d".to_string(),
+            scene_path: Some("/scenes/main/scene.yml".to_string()),
+        }
     }
 
-    Ok(())
+    #[test]
+    fn hardware_launch_uses_hardware_feature_and_disables_defaults() {
+        let mut flags = LaunchFlags::default();
+        flags.render_backend = RenderBackendSetting::Hardware;
+        let args = build_launch_command(&selection_fixture(), &flags)
+            .expect("hardware command")
+            .build_args();
+
+        assert!(args.iter().any(|arg| arg == "--no-default-features"));
+        assert!(args
+            .windows(2)
+            .any(|pair| { pair[0] == "--features" && pair[1].contains("app/hardware-backend") }));
+        assert!(args
+            .windows(2)
+            .any(|pair| { pair[0] == "--render-backend" && pair[1] == "hardware" }));
+    }
+
+    #[test]
+    fn software_launch_is_rejected() {
+        let mut flags = LaunchFlags::default();
+        flags.render_backend = RenderBackendSetting::Software;
+        match build_launch_command(&selection_fixture(), &flags) {
+            Ok(_) => panic!("expected backend error"),
+            Err(error) => assert_eq!(error.to_string(), SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE),
+        }
+    }
 }

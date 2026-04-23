@@ -3,11 +3,120 @@ title: Qwack 3D Terrain
 bg: "#070b11"
 render-space: 3d
 world-model: euclidean-3d
+spatial:
+  meters-per-world-unit: 1.0
+  virtual-pixels-per-world-unit: 1.0
 controller-defaults:
   camera-preset: free-look-camera
 camera-rig:
   preset: free-look-camera
-  free-look-camera: {}
+  free-look-camera:
+    start-active: true
+    move-speed: 8.0
+    mouse-sensitivity: 1.15
+    toggle-key: f
+    toggle-with-ctrl: false
+objects:
+  - { ref: sphere, as: sphere-000, with: { id: sphere-000, visible: true, scale: 7.36, world_x: 445.4, world_y: 5.02, world_z: 391.2, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-001, with: { id: sphere-001, visible: true, scale: 5.45, world_x: 55.9, world_y: 5.31, world_z: 80.9, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-002, with: { id: sphere-002, visible: true, scale: 7.59, world_x: 335.1, world_y: 5.26, world_z: 313.4, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-003, with: { id: sphere-003, visible: true, scale: 4.5, world_x: -235, world_y: 4.65, world_z: -287.9, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-004, with: { id: sphere-004, visible: true, scale: 8.44, world_x: 485.1, world_y: 6.32, world_z: -282.8, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-005, with: { id: sphere-005, visible: true, scale: 4.34, world_x: -146.2, world_y: 4.3, world_z: -262.4, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-006, with: { id: sphere-006, visible: true, scale: 6.83, world_x: 200.5, world_y: 6.68, world_z: -368.4, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-007, with: { id: sphere-007, visible: true, scale: 6.87, world_x: -452.7, world_y: 7.41, world_z: -465.6, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-008, with: { id: sphere-008, visible: true, scale: 8.4, world_x: -288.9, world_y: 5, world_z: -162.3, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-009, with: { id: sphere-009, visible: true, scale: 7.56, world_x: 286.3, world_y: 7.89, world_z: 349.2, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-010, with: { id: sphere-010, visible: true, scale: 3.67, world_x: 138.8, world_y: 2.25, world_z: 145.7, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-011, with: { id: sphere-011, visible: true, scale: 7.25, world_x: 6.4, world_y: 7.91, world_z: -330.8, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-012, with: { id: sphere-012, visible: true, scale: 7.11, world_x: -176.7, world_y: 6.41, world_z: -132.6, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-013, with: { id: sphere-013, visible: true, scale: 8.53, world_x: 259.4, world_y: 6.76, world_z: -174.1, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-014, with: { id: sphere-014, visible: true, scale: 3.7, world_x: 226, world_y: 3.4, world_z: -405.8, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-015, with: { id: sphere-015, visible: true, scale: 8.76, world_x: -417, world_y: 8.43, world_z: 272.3, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-016, with: { id: sphere-016, visible: true, scale: 9.42, world_x: 197.2, world_y: 9.31, world_z: -388.7, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-017, with: { id: sphere-017, visible: true, scale: 6.17, world_x: 212.3, world_y: 4.18, world_z: -42.7, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-018, with: { id: sphere-018, visible: true, scale: 8.23, world_x: -280.1, world_y: 4.95, world_z: -131.4, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-019, with: { id: sphere-019, visible: true, scale: 10.14, world_x: -416.7, world_y: 5.97, world_z: 360.9, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-020, with: { id: sphere-020, visible: true, scale: 9.72, world_x: 312.8, world_y: 7.77, world_z: 485.5, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-021, with: { id: sphere-021, visible: true, scale: 5.01, world_x: 362.6, world_y: 3.61, world_z: -265.6, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-022, with: { id: sphere-022, visible: true, scale: 6.94, world_x: -297.1, world_y: 6.94, world_z: -312.4, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-023, with: { id: sphere-023, visible: true, scale: 8.85, world_x: -339.4, world_y: 9.72, world_z: 447.9, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-024, with: { id: sphere-024, visible: true, scale: 10.24, world_x: -155.1, world_y: 10.09, world_z: 280.3, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-025, with: { id: sphere-025, visible: true, scale: 9.8, world_x: -483.9, world_y: 5.86, world_z: 409.8, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-026, with: { id: sphere-026, visible: true, scale: 10.18, world_x: -255.4, world_y: 10.87, world_z: 35, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-027, with: { id: sphere-027, visible: true, scale: 5.72, world_x: 385.9, world_y: 4.66, world_z: -161.4, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-028, with: { id: sphere-028, visible: true, scale: 4.04, world_x: 127.1, world_y: 2.8, world_z: -483.8, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-029, with: { id: sphere-029, visible: true, scale: 4.37, world_x: 363.4, world_y: 2.47, world_z: 118.4, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-030, with: { id: sphere-030, visible: true, scale: 8.97, world_x: -232.6, world_y: 4.97, world_z: 343.2, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-031, with: { id: sphere-031, visible: true, scale: 6.75, world_x: -25.6, world_y: 7.23, world_z: -5.3, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-032, with: { id: sphere-032, visible: true, scale: 4.76, world_x: 392.9, world_y: 4.32, world_z: 92.6, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-033, with: { id: sphere-033, visible: true, scale: 10.12, world_x: 460.2, world_y: 10.81, world_z: 237.3, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-034, with: { id: sphere-034, visible: true, scale: 5.91, world_x: -70.9, world_y: 4.31, world_z: -141.9, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-035, with: { id: sphere-035, visible: true, scale: 7.08, world_x: -232, world_y: 7.08, world_z: 297.7, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-036, with: { id: sphere-036, visible: true, scale: 6.99, world_x: -4.4, world_y: 5.43, world_z: -334.3, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-037, with: { id: sphere-037, visible: true, scale: 4.58, world_x: -418.3, world_y: 3.89, world_z: 268.6, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-038, with: { id: sphere-038, visible: true, scale: 4.21, world_x: -493, world_y: 2.88, world_z: -117.6, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-039, with: { id: sphere-039, visible: true, scale: 8.05, world_x: 373.2, world_y: 4.61, world_z: 258, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-040, with: { id: sphere-040, visible: true, scale: 7.06, world_x: 171.7, world_y: 7.46, world_z: 263.1, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-041, with: { id: sphere-041, visible: true, scale: 6.5, world_x: -92.3, world_y: 3.7, world_z: -197.4, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-042, with: { id: sphere-042, visible: true, scale: 4.77, world_x: -95, world_y: 4.44, world_z: 449.1, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-043, with: { id: sphere-043, visible: true, scale: 7.6, world_x: 400.7, world_y: 7.29, world_z: 338.5, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-044, with: { id: sphere-044, visible: true, scale: 7.1, world_x: 461, world_y: 4.83, world_z: 151.8, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-045, with: { id: sphere-045, visible: true, scale: 4.66, world_x: 435.3, world_y: 2.75, world_z: 492.3, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-046, with: { id: sphere-046, visible: true, scale: 7.68, world_x: -365.1, world_y: 7.14, world_z: -217.3, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-047, with: { id: sphere-047, visible: true, scale: 7.48, world_x: 174, world_y: 4.88, world_z: 98.9, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-048, with: { id: sphere-048, visible: true, scale: 7.29, world_x: 318.1, world_y: 7.91, world_z: 203.3, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-049, with: { id: sphere-049, visible: true, scale: 10.04, world_x: 17.2, world_y: 7.69, world_z: -312.6, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-050, with: { id: sphere-050, visible: true, scale: 8.06, world_x: 174.8, world_y: 5.18, world_z: -228.5, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-051, with: { id: sphere-051, visible: true, scale: 8.92, world_x: 109.4, world_y: 7.97, world_z: -18.8, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-052, with: { id: sphere-052, visible: true, scale: 4.55, world_x: -396, world_y: 2.77, world_z: -468.4, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-053, with: { id: sphere-053, visible: true, scale: 4.44, world_x: 28.2, world_y: 2.45, world_z: -201.4, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-054, with: { id: sphere-054, visible: true, scale: 9.04, world_x: -260.8, world_y: 7.6, world_z: 179.3, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-055, with: { id: sphere-055, visible: true, scale: 4.03, world_x: 161.2, world_y: 3.76, world_z: 65, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-056, with: { id: sphere-056, visible: true, scale: 9.17, world_x: -134.6, world_y: 5.53, world_z: 460.7, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-057, with: { id: sphere-057, visible: true, scale: 5.08, world_x: 318.8, world_y: 4.7, world_z: -433.5, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-058, with: { id: sphere-058, visible: true, scale: 3.8, world_x: 247.5, world_y: 2.65, world_z: -190.9, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-059, with: { id: sphere-059, visible: true, scale: 4.32, world_x: -223, world_y: 3.44, world_z: 47.2, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-060, with: { id: sphere-060, visible: true, scale: 9.84, world_x: 321.4, world_y: 10.06, world_z: -145.5, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-061, with: { id: sphere-061, visible: true, scale: 5.3, world_x: 50.8, world_y: 5.02, world_z: 79.7, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-062, with: { id: sphere-062, visible: true, scale: 6.06, world_x: 172.2, world_y: 4.37, world_z: 2.8, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-063, with: { id: sphere-063, visible: true, scale: 5.13, world_x: 446.6, world_y: 5.55, world_z: -361.4, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-064, with: { id: sphere-064, visible: true, scale: 8.47, world_x: 247.3, world_y: 6.41, world_z: 234.5, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-065, with: { id: sphere-065, visible: true, scale: 4.38, world_x: -79.6, world_y: 2.62, world_z: 147.2, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-066, with: { id: sphere-066, visible: true, scale: 7.61, world_x: 286, world_y: 6.95, world_z: -332.1, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-067, with: { id: sphere-067, visible: true, scale: 8.04, world_x: -22.6, world_y: 7.52, world_z: 27.1, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-068, with: { id: sphere-068, visible: true, scale: 4.34, world_x: 47.1, world_y: 4.62, world_z: 412.7, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-069, with: { id: sphere-069, visible: true, scale: 6.58, world_x: 165.3, world_y: 4.07, world_z: 330.1, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-070, with: { id: sphere-070, visible: true, scale: 10.25, world_x: -269.2, world_y: 11.27, world_z: 465.2, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-071, with: { id: sphere-071, visible: true, scale: 4.72, world_x: -153.9, world_y: 5.05, world_z: -90.8, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-072, with: { id: sphere-072, visible: true, scale: 4.19, world_x: 298, world_y: 3.13, world_z: -381.2, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-073, with: { id: sphere-073, visible: true, scale: 7.5, world_x: -427.2, world_y: 6.83, world_z: 182.3, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-074, with: { id: sphere-074, visible: true, scale: 9.81, world_x: 29, world_y: 5.72, world_z: -386.1, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-075, with: { id: sphere-075, visible: true, scale: 3.6, world_x: -358.5, world_y: 2.08, world_z: -391, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-076, with: { id: sphere-076, visible: true, scale: 6.61, world_x: -420.4, world_y: 4.03, world_z: 164.5, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-077, with: { id: sphere-077, visible: true, scale: 5.3, world_x: -345.4, world_y: 4.87, world_z: 475.1, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-078, with: { id: sphere-078, visible: true, scale: 6.71, world_x: 251.7, world_y: 5.96, world_z: -359.1, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-079, with: { id: sphere-079, visible: true, scale: 8.4, world_x: 253.5, world_y: 6.75, world_z: -203.5, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-080, with: { id: sphere-080, visible: true, scale: 8.83, world_x: 203.6, world_y: 6.91, world_z: -416.2, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-081, with: { id: sphere-081, visible: true, scale: 4.8, world_x: -38.8, world_y: 4.15, world_z: 473.1, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-082, with: { id: sphere-082, visible: true, scale: 9.76, world_x: 408.7, world_y: 8.43, world_z: 296.7, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-083, with: { id: sphere-083, visible: true, scale: 4.65, world_x: -431.8, world_y: 3.04, world_z: -335.7, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-084, with: { id: sphere-084, visible: true, scale: 3.55, world_x: 382.3, world_y: 2.1, world_z: 46.6, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-085, with: { id: sphere-085, visible: true, scale: 8.91, world_x: -143.2, world_y: 7.23, world_z: 440.8, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-086, with: { id: sphere-086, visible: true, scale: 10.12, world_x: 104.7, world_y: 9.78, world_z: 288.5, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-087, with: { id: sphere-087, visible: true, scale: 5.32, world_x: -118.8, world_y: 2.98, world_z: 33.5, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-088, with: { id: sphere-088, visible: true, scale: 9.1, world_x: 136.8, world_y: 7.79, world_z: 389.3, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-089, with: { id: sphere-089, visible: true, scale: 4.59, world_x: -101.8, world_y: 2.96, world_z: -250.9, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-090, with: { id: sphere-090, visible: true, scale: 5.74, world_x: -344.8, world_y: 5.2, world_z: 13.8, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-091, with: { id: sphere-091, visible: true, scale: 5.61, world_x: -197.4, world_y: 3.57, world_z: -427.1, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-092, with: { id: sphere-092, visible: true, scale: 10.38, world_x: -202.1, world_y: 10.66, world_z: -257.5, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-093, with: { id: sphere-093, visible: true, scale: 5.72, world_x: -474.5, world_y: 5.08, world_z: -234.2, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-094, with: { id: sphere-094, visible: true, scale: 3.7, world_x: 318.4, world_y: 3.47, world_z: -479.9, fg: '#b48bd9' } }
+  - { ref: sphere, as: sphere-095, with: { id: sphere-095, visible: true, scale: 4.54, world_x: -104.6, world_y: 4.04, world_z: 221.8, fg: '#8ebf72' } }
+  - { ref: sphere, as: sphere-096, with: { id: sphere-096, visible: true, scale: 8.03, world_x: -270.9, world_y: 8.4, world_z: -286.4, fg: '#74a85c' } }
+  - { ref: sphere, as: sphere-097, with: { id: sphere-097, visible: true, scale: 8.46, world_x: 169.2, world_y: 8.82, world_z: -16.2, fg: '#a5c98b' } }
+  - { ref: sphere, as: sphere-098, with: { id: sphere-098, visible: true, scale: 4.94, world_x: 363, world_y: 5.27, world_z: -81.2, fg: '#d2e1a7' } }
+  - { ref: sphere, as: sphere-099, with: { id: sphere-099, visible: true, scale: 10.4, world_x: 475.1, world_y: 8.64, world_z: 395.1, fg: '#b48bd9' } }
 layers:
   - ref: main
 logic:

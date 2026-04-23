@@ -40,6 +40,7 @@ concat-report.txt
 /logs/
 /saves/
 /reports/
+/tmp/
 
 # Raw authored asset sources stay local
 !mods/*/assets/raw/.gitignore

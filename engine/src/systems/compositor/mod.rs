@@ -17,9 +17,9 @@ use engine_core::scene::{environment_policy_uses_environment_background, Resolve
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
-    let (is_pixel_backend, default_font) = world
+    let (uses_pixel_output, default_font) = world
         .runtime_settings()
-        .map(|s| (s.is_pixel_backend, s.default_font.clone()))
+        .map(|s| (s.uses_pixel_output(), s.default_font.clone()))
         .unwrap_or((true, None));
 
     // Extract raw pointer to PipelineStrategies to avoid a long-lived borrow that would
@@ -286,7 +286,7 @@ pub fn compositor_system(world: &mut World) {
     };
 
     // Enable pixel canvas for direct SDL2 pixel output (bypass Cell encoding).
-    if is_pixel_backend {
+    if uses_pixel_output {
         buffer.enable_pixel_canvas(buffer.width, buffer.height);
     }
 
@@ -324,7 +324,7 @@ pub fn compositor_system(world: &mut World) {
             scene_effect_progress,
             asset_root: asset_root.as_ref(),
             celestial_catalogs,
-            is_pixel_backend,
+            is_pixel_backend: uses_pixel_output,
             default_font: default_font.as_deref(),
             ui_logical_width: ui_layout_width.max(1),
             ui_logical_height: ui_layout_height.max(1),
@@ -341,7 +341,7 @@ pub fn compositor_system(world: &mut World) {
         let mut world_scratch =
             engine_compositor::acquire_buffer(world_render_width, world_render_height);
         let world_buffer: &mut Buffer = world_scratch.as_mut();
-        if is_pixel_backend {
+        if uses_pixel_output {
             world_buffer.enable_pixel_canvas(world_render_width, world_render_height);
         }
         #[cfg(feature = "render-3d")]
@@ -1015,9 +1015,9 @@ layers: []
             64,
             36,
         );
-        assert_eq!(orbit_realistic, 1504792110987001759);
-        assert_eq!(orbit_cinematic, 16388289090597487831);
-        assert_eq!(deep_space_harsh, 13086957773771883252);
+        assert_eq!(orbit_realistic, 11863724858480269257);
+        assert_eq!(orbit_cinematic, 4485946547585456785);
+        assert_eq!(deep_space_harsh, 14149459300253876071);
     }
 
     #[test]

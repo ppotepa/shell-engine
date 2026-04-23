@@ -1380,7 +1380,8 @@ Important runtime rules:
   clone target name for both parent and child lookups.
 - For camera-follow and parallax logic, keep values in float space inside Rhai
   and let the runtime perform the final rounding pass. Pre-truncating in script
-  makes near layers and particle-bound visuals step more visibly on SDL2.
+  makes near layers and particle-bound visuals step more visibly in the current
+  software presentation path (including SDL2).
 - `runtime.scene.objects.find(...).set(...)` is the primary per-object write
   path; `scene.object(target).set(...)` is the concise root-scene shorthand.
   New authoring guidance should lead with runtime handles, not with compatibility
