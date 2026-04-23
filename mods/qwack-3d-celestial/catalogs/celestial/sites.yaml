@@ -1,7 +1,0 @@
-sites:
-  qwack-celestial-demo-orbit:
-    kind: orbit
-    display-name: Demo Orbit
-    system: qwack-celestial-system
-    body: qwack-celestial-demo-world
-    orbit-altitude-km: 120.0

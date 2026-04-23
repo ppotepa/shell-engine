@@ -1,0 +1,7 @@
+profiles:
+  default:
+    bindings:
+      move_forward: ["w", "W", "Up", "ArrowUp"]
+      move_back: ["s", "S", "Down", "ArrowDown"]
+      move_left: ["a", "A", "Left", "ArrowLeft"]
+      move_right: ["d", "D", "Right", "ArrowRight"]

@@ -1,8 +1,0 @@
-regions:
-  qwack-celestial-local:
-    kind: sector
-    display-name: Qwack Celestial Local
-    children: [qwack-celestial-system]
-    map-position:
-      x: 0.0
-      y: 0.0

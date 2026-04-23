@@ -1,0 +1,20 @@
+prefabs:
+  player_capsule:
+    kind: player
+    default_tags: [player]
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 6.0
+        max_speed: 120.0
+        mass: 90.0
+        restitution: 0.0
+      collider:
+        shape: circle
+        radius: 8.0
+        layer: 1
+        mask: 65535
+      lifecycle: Persistent
+      extra_data:
+        role: player

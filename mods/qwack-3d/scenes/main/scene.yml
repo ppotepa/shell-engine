@@ -1,25 +1,24 @@
-# yaml-language-server: $schema=../../../schemas/scene.yaml
 id: qwack-3d-main
-title: Qwack 3D
-bg: black
-render-size: 640x360
+title: Qwack 3D Terrain
+bg: "#070b11"
 render-space: 3d
 world-model: euclidean-3d
 controller-defaults:
-  camera-preset: qwack-fps
-  player-preset: qwack-walker
-  ui-preset: qwack-hud
+  camera-preset: free-look-camera
 camera-rig:
-  preset: qwack-fps
+  preset: free-look-camera
+  free-look-camera: {}
 layers:
-  - ref: main/layers/main.yml
+  - ref: main
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./player.rhai
 stages:
   on_enter:
     steps:
-      - { effects: [{ name: fade-in, duration: 250 }] }
+      - { duration: 1 }
   on_idle:
-    trigger: any-key
     looping: true
     steps:
-      - pause: 1200ms
-next: qwack-3d-hooks
+      - pause: 16ms
