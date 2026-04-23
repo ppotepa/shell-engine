@@ -222,6 +222,7 @@ Percent completion:
 Checklist by crate:
 - `app`
   - [x] CLI backend switch (`software|hardware`)
+  - [x] neutral backend-first CLI naming is active; legacy `--sdl-*` aliases are compatibility-only where still exposed
   - [x] Canonical render-size read path in auto scale
   - [ ] Cargo feature gating (`software-backend`/`hardware-backend`) as build-time split
 - `launcher`
@@ -246,7 +247,7 @@ Checklist by crate:
   - [x] hardware input bridge wired for hardware runtime path
 - `engine-runtime`
   - [x] canonical runtime settings used by app/launcher flow
-  - [ ] finish final compatibility cleanup (`is_pixel_backend`/legacy surfaces)
+  - [ ] finish final authored-settings compatibility cleanup (`is_pixel_backend` field naming still present in runtime settings model)
 - `engine-compositor`
   - [x] software-only ownership explicitly isolated
 - `engine-render-2d`
@@ -269,7 +270,7 @@ Checklist by crate:
 
 1. Finalize backend-neutral world packet contract from `engine-render-3d` to GPU backend.
 2. Finalize overlay/HUD parity path across both backends.
-3. Remove remaining compatibility surfaces (`StartupOutputSetting`, `is_pixel_backend`) and close warning/deprecation cleanup.
+3. Remove remaining authored/runtime compatibility surfaces (`StartupOutputSetting`, runtime-settings `is_pixel_backend` naming) and close warning/deprecation cleanup.
 
 ## P0 Cleanup Checklist
 
@@ -280,7 +281,7 @@ Checklist by crate:
 - [x] Scope SDL diagnostics/setup text to software backend explicitly
 - [x] Align `app`/`launcher` manifest display parsing to canonical runtime settings
 - [ ] Replace/remove `engine-mod` `StartupOutputSetting` (final compatibility cleanup)
-- [ ] Remove `is_pixel_backend` from authored runtime settings (final compatibility cleanup)
+- [ ] Remove `is_pixel_backend` from authored runtime settings (final step; render/compositor/policy call sites are already moving to neutral naming)
 - [ ] Decide and enforce one canonical policy for `README.AGENTS.MD` filename casing
 - [ ] Resolve duplicate architecture docs naming (`ARCH.MD` vs `ARCHITECTURE.md`)
 
@@ -785,7 +786,7 @@ Current role:
 Must change:
 - keep `--render-backend`
 - stop reading old `display.render_size`
-- rename `--sdl-*` to neutral flags with legacy aliases if needed
+- neutral flags are in place; keep/remove `--sdl-*` aliases as explicit compatibility policy only
 - stop hardcoding `StartupOutputSetting::Sdl2`
 
 Key files:

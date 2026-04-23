@@ -9,7 +9,6 @@ render-3d = ["dep:engine-render-3d", "engine-compositor/render-3d"]
 # Scaffold gate for the upcoming hardware presenter crate path.
 hardware-presenter = ["dep:engine-render-wgpu"]
 hardware-platform = ["dep:engine-platform-winit"]
-software-backend = ["render-3d"]
 hardware-backend = ["render-3d", "hardware-presenter", "hardware-platform"]
 
 [dependencies]

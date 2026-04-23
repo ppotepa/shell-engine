@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::path::Path;
 
 const SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE: &str =
-    "[se] software backend is deprecated and unavailable because SDL2 runtime support was removed. Use hardware backend (default) or pass --hardware.";
+    "[se] software backend is deprecated and unavailable because SDL2 runtime support was removed. Switch backend to hardware.";
 
 pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
     let selected_backend = args.selected_render_backend();
@@ -120,12 +120,6 @@ fn build_run_command(args: &RunArgs) -> CargoCommand {
         }
     }
 
-    if args.no_sdl_vsync {
-        println!(
-            "[se] note: --no-sdl-vsync only applies to software backend; ignoring for hardware."
-        );
-    }
-
     cmd.app_args(args.extra_args.iter().cloned())
 }
 
@@ -177,9 +171,6 @@ mod tests {
         assert!(built
             .windows(2)
             .any(|pair| { pair[0] == "--features" && pair[1].contains("app/hardware-backend") }));
-        assert!(!built
-            .windows(2)
-            .any(|pair| pair[0] == "--sdl-window-ratio" || pair[0] == "--sdl-pixel-scale"));
     }
 
     #[test]
@@ -190,8 +181,6 @@ mod tests {
             "--software",
             "--mod",
             "playground",
-            "--sdl-pixel-scale",
-            "5",
         ]);
         let Command::Run(args) = cli.command.expect("run command") else {
             panic!("expected run command");

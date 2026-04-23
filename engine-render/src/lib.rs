@@ -116,60 +116,6 @@ pub struct FrameSubmission {
     pub overlay: PreparedOverlay,
 }
 
-/// Minimal metadata handed to a future hardware presentation path.
-///
-/// Stage 1 keeps this intentionally small. The real GPU path will grow this
-/// into world/UI/postfx attachments once `wgpu` is wired in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HardwareFrame {
-    pub output_size: (u16, u16),
-    pub world_ready: bool,
-    pub ui_ready: bool,
-}
-
-impl From<HardwareFrame> for FrameSubmission {
-    fn from(frame: HardwareFrame) -> Self {
-        Self {
-            output_size: frame.output_size,
-            // Compatibility default for legacy callers that never provided present mode.
-            present_mode: PresentMode::VSync,
-            world: PreparedWorld {
-                ready: frame.world_ready,
-            },
-            ui: PreparedUi {
-                ready: frame.ui_ready,
-            },
-            overlay: PreparedOverlay {
-                ready: false,
-                line_count: 0,
-                primitive_count: 0,
-            },
-        }
-    }
-}
-
-impl From<&HardwareFrame> for FrameSubmission {
-    fn from(frame: &HardwareFrame) -> Self {
-        (*frame).into()
-    }
-}
-
-impl From<FrameSubmission> for HardwareFrame {
-    fn from(submission: FrameSubmission) -> Self {
-        Self {
-            output_size: submission.output_size,
-            world_ready: submission.world.ready,
-            ui_ready: submission.ui.ready,
-        }
-    }
-}
-
-impl From<&FrameSubmission> for HardwareFrame {
-    fn from(submission: &FrameSubmission) -> Self {
-        (*submission).into()
-    }
-}
-
 /// Abstract trait for full render backends (software or hardware).
 ///
 /// Implementations handle all rendering details; the engine calls these methods
@@ -253,11 +199,7 @@ impl<T: RendererBackend + ?Sized> SoftwareRendererBackend for T {
 
 /// Hardware presentation path backed by GPU-rendered attachments or command buffers.
 pub trait HardwareRendererBackend: PresentationBackend {
-    fn present_hardware_frame(&mut self, frame: &HardwareFrame) -> Result<(), RenderError>;
-
-    fn submit_frame(&mut self, submission: &FrameSubmission) -> Result<(), RenderError> {
-        self.present_hardware_frame(&HardwareFrame::from(submission))
-    }
+    fn submit_frame(&mut self, submission: &FrameSubmission) -> Result<(), RenderError>;
 }
 
 /// Minimal presentation backend interface used by the live engine loop.
@@ -275,19 +217,14 @@ pub trait RendererBackend: Send {
     fn backend_kind(&self) -> RenderBackendKind {
         RenderBackendKind::Software
     }
-    /// Present a hardware frame payload.
-    ///
-    /// Software renderers can ignore this path and keep using `present_frame`.
-    fn present_hardware_frame(&mut self, _frame: &HardwareFrame) -> Result<(), RenderError> {
-        Err(RenderError::PresentFailed(
-            "hardware frame path is not supported by this renderer".to_string(),
-        ))
-    }
     /// Present a backend-neutral frame submission payload.
     ///
-    /// Default compatibility implementation maps to `present_hardware_frame`.
-    fn submit_frame(&mut self, submission: &FrameSubmission) -> Result<(), RenderError> {
-        self.present_hardware_frame(&HardwareFrame::from(submission))
+    /// Default software behavior rejects submission explicitly; hardware-capable
+    /// renderers should override this method directly.
+    fn submit_frame(&mut self, _submission: &FrameSubmission) -> Result<(), RenderError> {
+        Err(RenderError::PresentFailed(
+            "frame submission path is not supported by this renderer".to_string(),
+        ))
     }
     /// Render a debug overlay on top of the last presented frame.
     ///
@@ -410,75 +347,14 @@ mod tests {
         );
     }
 
-    #[test]
-    fn renderer_backend_default_hardware_frame_returns_error() {
-        let mut renderer = DummyRenderer::default();
-        let err = RendererBackend::present_hardware_frame(
-            &mut renderer,
-            &HardwareFrame {
-                output_size: (64, 36),
-                world_ready: true,
-                ui_ready: true,
-            },
-        )
-        .expect_err("software default should reject hardware frame payload");
-
-        match err {
-            RenderError::PresentFailed(msg) => {
-                assert!(msg.contains("not supported"));
-            }
-            other => panic!("unexpected error variant: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn hardware_frame_converts_to_frame_submission() {
-        let frame = HardwareFrame {
-            output_size: (100, 50),
-            world_ready: true,
-            ui_ready: false,
-        };
-        let submission: FrameSubmission = frame.into();
-        assert_eq!(submission.output_size, (100, 50));
-        assert_eq!(submission.present_mode, PresentMode::VSync);
-        assert!(submission.world.ready);
-        assert!(!submission.ui.ready);
-    }
-
-    #[test]
-    fn frame_submission_converts_to_hardware_frame() {
-        let submission = FrameSubmission {
-            output_size: (128, 72),
-            present_mode: PresentMode::Immediate,
-            world: PreparedWorld { ready: true },
-            ui: PreparedUi { ready: true },
-            overlay: PreparedOverlay {
-                ready: true,
-                line_count: 5,
-                primitive_count: 7,
-            },
-        };
-        let frame: HardwareFrame = submission.into();
-        assert_eq!(frame.output_size, (128, 72));
-        assert!(frame.world_ready);
-        assert!(frame.ui_ready);
-    }
-
     #[derive(Default)]
-    struct DummyHardwareRenderer {
-        last_frame: Option<HardwareFrame>,
-    }
+    struct DummyLegacyHardwareRenderer;
 
-    impl RendererBackend for DummyHardwareRenderer {
+    impl RendererBackend for DummyLegacyHardwareRenderer {
         fn present_frame(&mut self, _buffer: &Buffer) {}
 
         fn backend_kind(&self) -> RenderBackendKind {
             RenderBackendKind::Hardware
-        }
-
-        fn present_hardware_frame(&mut self, frame: &HardwareFrame) -> Result<(), RenderError> {
-            self.last_frame = Some(*frame);
-            Ok(())
         }
 
         fn present_overlay(&mut self, _overlay: &OverlayData) {}
@@ -497,8 +373,8 @@ mod tests {
     }
 
     #[test]
-    fn renderer_backend_submit_frame_defaults_to_hardware_path() {
-        let mut renderer = DummyHardwareRenderer::default();
+    fn renderer_backend_submit_frame_does_not_bridge_to_hardware_frame() {
+        let mut renderer = DummyLegacyHardwareRenderer::default();
         let submission = FrameSubmission {
             output_size: (64, 36),
             present_mode: PresentMode::VSync,
@@ -510,20 +386,19 @@ mod tests {
                 primitive_count: 0,
             },
         };
-        RendererBackend::submit_frame(&mut renderer, &submission).expect("submit frame");
-        assert_eq!(
-            renderer.last_frame,
-            Some(HardwareFrame {
-                output_size: (64, 36),
-                world_ready: true,
-                ui_ready: true,
-            })
-        );
+        let err = RendererBackend::submit_frame(&mut renderer, &submission)
+            .expect_err("default submit_frame should reject unsupported submission path");
+        match err {
+            RenderError::PresentFailed(msg) => {
+                assert!(msg.contains("submission path"));
+            }
+            other => panic!("unexpected error variant: {other:?}"),
+        }
     }
 
     #[test]
     fn presentation_backend_submit_frame_delegates() {
-        let mut renderer = DummyHardwareRenderer::default();
+        let mut renderer = DummyRenderer::default();
         let submission = FrameSubmission {
             output_size: (80, 45),
             present_mode: PresentMode::VSync,
@@ -535,15 +410,12 @@ mod tests {
                 primitive_count: 0,
             },
         };
-        PresentationBackend::submit_frame(&mut renderer, &submission).expect("submit frame");
-        assert_eq!(
-            renderer.last_frame,
-            Some(HardwareFrame {
-                output_size: (80, 45),
-                world_ready: false,
-                ui_ready: true,
-            })
-        );
+        let err = PresentationBackend::submit_frame(&mut renderer, &submission)
+            .expect_err("software backend should reject submission by default");
+        match err {
+            RenderError::PresentFailed(msg) => assert!(msg.contains("not supported")),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
     }
 
     #[test]

@@ -5,7 +5,6 @@ edition = "2021"
 
 [features]
 default = ["hardware-backend"]
-software-backend = ["engine/software-backend"]
 hardware-backend = ["engine/hardware-backend"]
 
 [dependencies]

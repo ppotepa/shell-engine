@@ -324,7 +324,7 @@ pub fn compositor_system(world: &mut World) {
             scene_effect_progress,
             asset_root: asset_root.as_ref(),
             celestial_catalogs,
-            is_pixel_backend: uses_pixel_output,
+            uses_pixel_output,
             default_font: default_font.as_deref(),
             ui_logical_width: ui_layout_width.max(1),
             ui_logical_height: ui_layout_height.max(1),

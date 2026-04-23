@@ -152,8 +152,7 @@ playground-3d-scene              102     62.1    120.3      0.0    131.5      2.
 ```
 
 System columns: Compositor (sprite compositing), PostFX (CRT/glow passes),
-Renderer (active backend present path; SDL2 diff/present in software mode),
-Behavior (Rhai script execution).
+Renderer (active backend present path), Behavior (Rhai script execution).
 
 ### 3D Object Pass Breakdown
 
@@ -179,10 +178,13 @@ pass-level timings:
 | Color divergence | Run both captures under the same runtime settings; prefer deterministic scenes |
 | CSV empty | Verify `ls reports/benchmark/*.txt`; run `python3 collect-benchmarks.py` |
 
-### Software Backend Profiling (SDL2 Implementation)
+### Software Backend Profiling (Legacy SDL2 Path)
 
-For software backend stage timings (diff/build, runtime apply, texture upload,
-present), enable profiling logs:
+Historical note: this section applies only to legacy SDL2 software presenter
+investigation. It is not part of the active default runtime path.
+
+For historical software backend stage timings (diff/build, runtime apply,
+texture upload, present), enable profiling logs:
 
 ```bash
 SHELL_ENGINE_SDL_PROFILE=1 cargo run -p app --

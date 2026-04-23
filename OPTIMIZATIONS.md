@@ -240,16 +240,16 @@ if is_sprite_offscreen(draw_x as i32, draw_y as i32, sprite_width, sprite_height
 - Simple i32 comparisons in composite_layers loop
 - No additional allocations
 
-### OPT-42: Color Space Optimization (Always On)
+### OPT-42: Color Space Optimization (Legacy SDL2 Path)
 
-**Location:** `engine-render-sdl2/src/runtime.rs`
+**Location:** `engine-render-sdl2/src/runtime.rs` (historical implementation)
 
-**What it does:**
+**What it did:**
 - Caches engine Color conversions in the active presentation path
 - Uses compact color keys for fast lookup
 - Avoids repeated per-frame color conversion work on color-heavy scenes
 
-**Expected impact:** 5-7% latency reduction on color-heavy scenes, especially with many unique RGB values
+**Expected impact (historical):** 5-7% latency reduction on color-heavy scenes, especially with many unique RGB values
 
 **Implementation:**
 ```rust
@@ -283,11 +283,9 @@ if is_sprite_offscreen(draw_x as i32, draw_y as i32, sprite_width, sprite_height
 ```bash
 # Verify compilation
 cargo check -p engine-compositor
-cargo check -p engine-render-sdl2
 
 # Run test suite
 cargo test -p engine-compositor
-cargo test -p engine-render-sdl2
 
 # Benchmark sprite-heavy scene
 cargo run -p app -- --mod-source=mods/playground --start-scene=/scenes/3d-scene/scene.yml --bench 5

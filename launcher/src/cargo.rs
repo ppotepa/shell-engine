@@ -115,15 +115,15 @@ mod tests {
     }
 
     #[test]
-    fn build_args_keep_default_features_for_software_path() {
+    fn build_args_keep_default_features_for_generic_feature_path() {
         let args = CargoCommand::new("app")
-            .feature("app/software-backend")
+            .feature("app/telemetry")
             .build_args();
 
         assert!(!args.iter().any(|arg| arg == "--no-default-features"));
         assert!(args
             .windows(2)
-            .any(|pair| { pair[0] == "--features" && pair[1].contains("app/software-backend") }));
+            .any(|pair| { pair[0] == "--features" && pair[1].contains("app/telemetry") }));
     }
 
     #[test]

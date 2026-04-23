@@ -24,11 +24,10 @@ impl StartupOutputSetting {
         Self::Compatibility
     }
 
-    /// Parse compatibility aliases from a startup string like `"sdl2"`.
+    /// Parse backend-neutral compatibility aliases from a startup string.
     pub fn parse(s: &str) -> Option<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
             "compat" | "compatibility" | "default" => Some(Self::Compatibility),
-            "sdl2" | "sdl" => Some(Self::Compatibility),
             _ => None,
         }
     }
@@ -59,15 +58,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_accepts_legacy_sdl_aliases() {
-        assert_eq!(
-            StartupOutputSetting::parse("sdl2"),
-            Some(StartupOutputSetting::Compatibility)
-        );
-        assert_eq!(
-            StartupOutputSetting::parse("SDL"),
-            Some(StartupOutputSetting::Compatibility)
-        );
+    fn parse_rejects_legacy_sdl_aliases() {
+        assert_eq!(StartupOutputSetting::parse("sdl2"), None);
+        assert_eq!(StartupOutputSetting::parse("SDL"), None);
     }
 
     #[test]

@@ -134,11 +134,10 @@ Latest highlights (April 2026):
 Runtime migration snapshot (2026-04-23):
 - runtime defaults: `app` + `engine` now default to `hardware-backend`
 - `FrameSubmission` seam is live in runtime path
-- SDL2 runtime bootstrap is removed from active/default wiring (software path is explicit compatibility-only selection)
-- launcher SDL helper tooling removal landed (no `SDL2_LIB_DIR`/`SDL2_INCLUDE_DIR`/DLL-copy helper paths in `launcher/src`)
-- explicit `StartupOutputSetting::Sdl2` variant usage is gone from active code; scene checks use `StartupOutputSetting::Compatibility`
-- full SDL2 compatibility removal is still gated by:
-  - removing remaining `software-backend` / `is_pixel_backend` / `cfg(feature = "sdl2")` compatibility branches
-  - removing legacy startup alias parsing for `"sdl2"`/`"sdl"` that is still present in `engine-mod`
-  - removing active-path `FrameSubmission <-> HardwareFrame` compatibility bridging
+- SDL2 runtime bootstrap is detached from active/default runtime path
+- app CLI is compat-only for legacy software knobs (`--compat-window-ratio`, `--compat-pixel-scale`, `--no-compat-vsync`), and `--render-backend software` is rejected
+- no active `--sdl-*` CLI aliases remain in `app`/`launcher` sources (`rg -n "sdl-window-ratio|sdl-pixel-scale|no-sdl-vsync" app/src launcher/src -g "*.rs"` returns no matches)
+- no active `is_pixel_backend` usage remains in runtime/policy hot path (`rg -n "is_pixel_backend" engine-runtime/src engine-render-policy/src -g "*.rs"` returns no matches)
+- active migration blockers are:
+  - migration closure gates outside renderer bridge cleanup (verification artifacts and PERF/DOD completion)
 - canonical migration status and acceptance gates: [wgpu.migration.md](wgpu.migration.md) and [STATUS.md](STATUS.md)

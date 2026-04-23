@@ -5,7 +5,7 @@
 ```
 shell-engine/
 ├── app/                       CLI launcher
-├── editor/                    Authoring tool / stub (current preview path uses software backend)
+├── editor/                    Authoring tool / stub
 ├── engine/                    Runtime orchestrator (re-exports all subsystems)
 ├── engine-core/               Scene model, buffer, effects, metadata
 ├── engine-terrain/            Procedural world generation (noise, climate, biomes)
@@ -31,7 +31,7 @@ shell-engine/
 ├── engine-render/             Shared render backend contracts and presentation abstractions
 ├── engine-render-policy/      Render scheduling policies
 ├── engine-scene-runtime/      Mutable scene instance state + runtime cloning
-├── engine-render-sdl2/        Software presenter + input backend (SDL2 implementation)
+├── engine-render-sdl2/        Historical software presenter/input backend (SDL2 legacy path)
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
 ├── mods/                      Content mods
 │   ├── playground/            Development sandbox
@@ -154,7 +154,7 @@ Executed in this fixed order every frame inside `game_loop.rs`:
 
 | # | System | Timing Field | Purpose |
 |---|--------|-------------|---------|
-| 1 | input | `input_us` | Active `InputBackend` polling (software path currently uses SDL2) |
+| 1 | input | `input_us` | Active `InputBackend` polling |
 | 2 | lifecycle | `lifecycle_us` | Scene transitions, event drain |
 | 3 | animator | `animator_us` | Stage/step advancement via elapsed time |
 | 4 | hot_reload | `hot_reload_us` | Dev-mode file change scanning |
@@ -261,22 +261,22 @@ The rendering pipeline uses a double-buffer with dirty tracking:
                      │
               dirty cells list
                      │
-              Active software present (GlyphPatch upload via SDL2 today)
+              Active presenter path (GlyphPatch upload via runtime backend)
 ```
 
 - **Double buffer**: back (current frame) vs front (previous frame).
 - **Dirty tracking**: bounding-box region + per-row `BitSet`.
 - **Diff strategies**: `FullScanDiff` scans every cell; `DirtyRegionDiff`
   restricts to tracked bounding box; `RowSkipDiff` skips clean rows entirely.
-- **Software backend output (current)**: dirty cells are uploaded as `GlyphPatch`
-  records to the SDL2 worker thread, which renders glyphs to a pixel canvas and
-  presents the texture. Future hardware backends can replace this presentation path
-  without changing scene authoring.
+- **Presenter output path**: dirty cells are uploaded as `GlyphPatch` records to
+  the active runtime presenter, which rasterizes/presents the frame according to
+  backend capabilities.
+- **Historical**: legacy software mode used an SDL2 worker thread and pixel canvas.
 
-## 7. Software Pixel Rendering (SDL2 Backend Today)
+## 7. Pixel Presentation Path
 
-The current software backend (SDL2 implementation) renders the virtual cell
-buffer to a pixel canvas:
+Runtime presentation renders the virtual cell buffer through the active presenter
+backend:
 
 ```
 Virtual Buffer  W x H     (cell-based in-memory canvas)
@@ -288,10 +288,10 @@ Diff scan       (DiffStrategy)
 GlyphPatch list (dirty cells only)
     │
     ▼
-SDL2 pixel canvas  (glyph rasterization per patch)
+Presenter surface  (glyph rasterization per patch)
     │
     ▼
-SDL2 texture present
+Frame present
 ```
 
 Virtual render sizes are authored in `mod.yaml` under the `display:` block and
@@ -313,10 +313,10 @@ layer or stage start). Key rules:
 ### Event pipeline
 
 ```
-Backend input events (SDL2 in software path today)
+Backend input events (active runtime backend)
     │
     ▼
-engine-render-sdl2 (runtime.rs, software backend)
+active InputBackend implementation
     │  maps backend events to EngineEvent variants
     │  KeyDown { key, repeat } / KeyUp { key }
     │  MouseMoved { x: f32, y: f32 }
@@ -438,7 +438,7 @@ validation in editors.
 
 The editor is a YAML-first authoring tool built on `engine-core` and
 `engine-authoring`. The terminal TUI has been replaced with a software-preview
-stub (currently SDL2-based); full editor UI is not yet implemented.
+stub; full editor UI is not yet implemented.
 
 **Current modules** (`editor/src/`):
 
@@ -543,7 +543,7 @@ Scripts adjust planet parameters through live scene handles such as
 | Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `AUTHORING.md`, regression tests in `engine-behavior` |
 | World generation params | `engine-terrain` params, `engine-core` authored world fields, `engine-worldgen` URI/build-key layer, `engine-render-3d` generated-world specs, `engine-scene-runtime` runtime mutation mapping, `engine-behavior` world module |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |
-| Input events | `engine-events` variants + `as_input_event()`, active input producer (currently `engine-render-sdl2/runtime.rs` in software mode), `scene_lifecycle::classify_events`, all pattern-match sites (`game_loop.rs`, `editor/state/scene_run.rs`); **Rhai scripts do not need changes** (they use `input.down/just_pressed` which reads `keys_down` HashSet) |
+| Input events | `engine-events` variants + `as_input_event()`, active input producer implementation, `scene_lifecycle::classify_events`, all pattern-match sites (`game_loop.rs`, `editor/state/scene_run.rs`); **Rhai scripts do not need changes** (they use `input.down/just_pressed` which reads `keys_down` HashSet) |
 | GUI widget types | `engine-gui` control trait / state / system, `engine-core` `SceneGuiWidgetDef` YAML enum, `engine-scene-runtime` construction + `sync_widget_visuals`, `engine-authoring` compile path, schema, `ScriptGuiApi` in `engine-behavior` |
 
 When changing gameplay wrapping or bounds behavior, also verify the Rhai-facing
@@ -560,9 +560,9 @@ the underlying runtime order.
 | `--mod-source <PATH>` | Full mod source path (dir or .zip), overrides `--mod` |
 | `--dev` | Enable dev helpers (overlays, scene nav). Auto in debug builds |
 | `--no-dev` | Disable dev helpers even in debug builds |
-| `--sdl-window-ratio <RATIO>` | SDL startup window ratio (`16:9`, `4:3`, `free`) |
-| `--sdl-pixel-scale <N>` | SDL startup pixel scale multiplier |
-| `--no-sdl-vsync` | Disable SDL VSync |
+| `--compat-window-ratio <RATIO>` | Legacy compatibility arg (`16:9`, `4:3`, `free`); ignored on hardware path |
+| `--compat-pixel-scale <N>` | Legacy compatibility arg; ignored on hardware path |
+| `--no-compat-vsync` | Legacy compatibility arg; ignored on hardware path |
 | `--audio` | Enable audio playback |
 | `--logs` | Force-enable run logging |
 | `--no-logs` | Force-disable run logging |

@@ -23,8 +23,13 @@ impl FontPolicyCapabilities {
         }
     }
 
-    pub const fn from_pixel_backend(is_pixel_backend: bool) -> Self {
-        Self::new(is_pixel_backend)
+    pub const fn from_uses_pixel_output(uses_pixel_output: bool) -> Self {
+        Self::new(uses_pixel_output)
+    }
+
+    #[deprecated(note = "Use FontPolicyCapabilities::from_uses_pixel_output instead")]
+    pub const fn from_pixel_backend(uses_pixel_output: bool) -> Self {
+        Self::from_uses_pixel_output(uses_pixel_output)
     }
 }
 
@@ -95,20 +100,20 @@ pub fn resolve_text_font_spec_with_capabilities(
     )
 }
 
-/// Compatibility wrapper for older call sites that still pass a backend bool.
+/// Compatibility wrapper for call sites that still pass an output boolean.
 ///
-/// When `is_pixel_backend` is true (SDL2-era semantics), named fonts without an
+/// When `uses_pixel_output` is true (SDL2-era semantics), named fonts without an
 /// explicit mode suffix default to `raster`.
 pub fn resolve_font_spec(
     font: Option<&str>,
     force_font_mode: Option<&str>,
-    is_pixel_backend: bool,
+    uses_pixel_output: bool,
     default_font: Option<&str>,
 ) -> Option<String> {
     resolve_font_spec_with_capabilities(
         font,
         force_font_mode,
-        FontPolicyCapabilities::from_pixel_backend(is_pixel_backend),
+        FontPolicyCapabilities::from_uses_pixel_output(uses_pixel_output),
         default_font,
     )
 }
@@ -118,14 +123,14 @@ pub fn resolve_text_font_spec(
     font: Option<&str>,
     force_font_mode: Option<&str>,
     size: Option<SpriteSizePreset>,
-    is_pixel_backend: bool,
+    uses_pixel_output: bool,
     default_font: Option<&str>,
 ) -> Option<String> {
     resolve_text_font_spec_with_capabilities(
         font,
         force_font_mode,
         size,
-        FontPolicyCapabilities::from_pixel_backend(is_pixel_backend),
+        FontPolicyCapabilities::from_uses_pixel_output(uses_pixel_output),
         default_font,
     )
 }
@@ -211,14 +216,14 @@ mod tests {
     }
 
     #[test]
-    fn pixel_backend_adds_raster_mode_to_bare_named_font() {
+    fn pixel_output_adds_raster_mode_to_bare_named_font() {
         let resolved = resolve_font_spec(Some("Abril Fatface"), None, true, None)
             .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:raster");
     }
 
     #[test]
-    fn pixel_backend_does_not_override_explicit_mode() {
+    fn pixel_output_does_not_override_explicit_mode() {
         let resolved = resolve_font_spec(Some("Abril Fatface:ascii"), None, true, None)
             .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");

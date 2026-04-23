@@ -25,7 +25,7 @@ pub struct PreparedRender2dPacket {
     pub scene_elapsed_ms: u64,
     pub step_idx: usize,
     pub elapsed_ms: u64,
-    pub is_pixel_backend: bool,
+    pub uses_pixel_output: bool,
     pub ui_font_scale: f32,
     pub ui_layout_scale_x: f32,
     pub ui_layout_scale_y: f32,
@@ -43,7 +43,7 @@ impl PreparedRender2dPacket {
             scene_elapsed_ms: input.scene_elapsed_ms,
             step_idx: input.step_idx,
             elapsed_ms: input.elapsed_ms,
-            is_pixel_backend: input.is_pixel_backend,
+            uses_pixel_output: input.uses_pixel_output,
             ui_font_scale: input.ui_font_scale,
             ui_layout_scale_x: input.ui_layout_scale_x,
             ui_layout_scale_y: input.ui_layout_scale_y,
@@ -89,7 +89,7 @@ pub struct Render2dInput<'a> {
     pub current_stage: &'a SceneStage,
     pub step_idx: usize,
     pub elapsed_ms: u64,
-    pub is_pixel_backend: bool,
+    pub uses_pixel_output: bool,
     pub default_font: Option<&'a str>,
     pub ui_font_scale: f32,
     /// Logical-to-target layout scale on X axis.
@@ -201,7 +201,7 @@ sprites: []
             current_stage: &current_stage,
             step_idx: 2,
             elapsed_ms: 120,
-            is_pixel_backend: true,
+            uses_pixel_output: true,
             default_font: None,
             ui_font_scale: 1.25,
             ui_layout_scale_x: 1.5,
@@ -220,7 +220,7 @@ sprites: []
         assert_eq!(packet.scene_elapsed_ms, 1500);
         assert_eq!(packet.step_idx, 2);
         assert_eq!(packet.elapsed_ms, 120);
-        assert!(packet.is_pixel_backend);
+        assert!(packet.uses_pixel_output);
         assert_eq!(packet.ui_font_scale, 1.25);
         assert_eq!(packet.ui_layout_scale_x, 1.5);
         assert_eq!(packet.ui_layout_scale_y, 0.8);

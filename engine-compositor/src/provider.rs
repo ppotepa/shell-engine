@@ -132,7 +132,7 @@ impl Render2dPipeline for DefaultCompositorRender2dPipeline<'_> {
             self.scene_camera_3d,
             self.spatial_context,
             self.celestial_catalogs,
-            input.is_pixel_backend,
+            input.uses_pixel_output,
             input.default_font,
             input.ui_font_scale,
             input.ui_layout_scale_x,

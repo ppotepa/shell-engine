@@ -6,8 +6,8 @@
 use engine_core::buffer::Buffer;
 use engine_platform_winit::PlatformWindowConfig;
 use engine_render::{
-    FrameSubmission, HardwareFrame, HardwareRendererBackend, OverlayData, RenderBackendKind,
-    RenderError, RendererBackend, VectorOverlay,
+    FrameSubmission, HardwareRendererBackend, OverlayData, RenderBackendKind, RenderError,
+    RendererBackend, VectorOverlay,
 };
 use std::fmt::{Display, Formatter};
 use std::collections::VecDeque;
@@ -585,7 +585,6 @@ fn run_window_runtime(
 #[derive(Debug)]
 pub struct WgpuPresenter {
     output_size: (u16, u16),
-    last_frame: Option<HardwareFrame>,
     last_submission: Option<FrameSubmission>,
     overlay_line_count: usize,
     vector_primitive_count: usize,
@@ -608,7 +607,6 @@ impl WgpuPresenter {
 
         Ok(Self {
             output_size,
-            last_frame: None,
             last_submission: None,
             overlay_line_count: 0,
             vector_primitive_count: 0,
@@ -619,11 +617,6 @@ impl WgpuPresenter {
             runtime_spawn_enabled: !cfg!(test),
             input_queue: WgpuInputQueue::new(),
         })
-    }
-
-    /// Return the most recent hardware frame seen by this presenter.
-    pub fn last_frame(&self) -> Option<HardwareFrame> {
-        self.last_frame
     }
 
     /// Return the most recent backend-neutral submission seen by this presenter.
@@ -704,13 +697,8 @@ impl RendererBackend for WgpuPresenter {
         RenderBackendKind::Hardware
     }
 
-    fn present_hardware_frame(&mut self, frame: &HardwareFrame) -> Result<(), RenderError> {
-        RendererBackend::submit_frame(self, &FrameSubmission::from(frame))
-    }
-
     fn submit_frame(&mut self, submission: &FrameSubmission) -> Result<(), RenderError> {
         self.last_submission = Some(*submission);
-        self.last_frame = Some(HardwareFrame::from(submission));
         self.send_runtime_command(RuntimeCommand::SetClearColor(Self::submission_color(submission)))
     }
 
@@ -745,10 +733,6 @@ impl RendererBackend for WgpuPresenter {
 }
 
 impl HardwareRendererBackend for WgpuPresenter {
-    fn present_hardware_frame(&mut self, frame: &HardwareFrame) -> Result<(), RenderError> {
-        RendererBackend::present_hardware_frame(self, frame)
-    }
-
     fn submit_frame(&mut self, submission: &FrameSubmission) -> Result<(), RenderError> {
         RendererBackend::submit_frame(self, submission)
     }
@@ -779,23 +763,11 @@ mod tests {
         let mut buffer = Buffer::new(2, 2);
         buffer.fill(Color::Black);
         RendererBackend::present_frame(&mut presenter, &buffer);
-        assert_eq!(presenter.last_frame(), None);
+        assert_eq!(presenter.last_submission(), None);
     }
 
     #[test]
-    fn renderer_backend_stores_last_hardware_frame() {
-        let mut presenter = WgpuPresenter::new((800, 600)).expect("presenter");
-        let frame = HardwareFrame {
-            output_size: (800, 600),
-            world_ready: true,
-            ui_ready: false,
-        };
-        RendererBackend::present_hardware_frame(&mut presenter, &frame).expect("hardware frame");
-        assert_eq!(presenter.last_frame(), Some(frame));
-    }
-
-    #[test]
-    fn renderer_backend_submit_frame_stores_submission_and_derived_hardware_frame() {
+    fn renderer_backend_submit_frame_stores_submission() {
         let mut presenter = WgpuPresenter::new((800, 600)).expect("presenter");
         let submission = FrameSubmission {
             output_size: (800, 600),
@@ -810,14 +782,6 @@ mod tests {
         };
         RendererBackend::submit_frame(&mut presenter, &submission).expect("submission frame");
         assert_eq!(presenter.last_submission(), Some(submission));
-        assert_eq!(
-            presenter.last_frame(),
-            Some(HardwareFrame {
-                output_size: (800, 600),
-                world_ready: true,
-                ui_ready: false,
-            })
-        );
     }
 
     #[test]
@@ -856,18 +820,6 @@ mod tests {
     }
 
     #[test]
-    fn hardware_renderer_backend_path_matches_renderer_backend() {
-        let mut presenter = WgpuPresenter::new((640, 360)).expect("presenter");
-        let frame = HardwareFrame {
-            output_size: (640, 360),
-            world_ready: true,
-            ui_ready: true,
-        };
-        HardwareRendererBackend::present_hardware_frame(&mut presenter, &frame).expect("present");
-        assert_eq!(presenter.last_frame(), Some(frame));
-    }
-
-    #[test]
     fn hardware_renderer_backend_submit_frame_path_is_supported() {
         let mut presenter = WgpuPresenter::new((640, 360)).expect("presenter");
         let submission = FrameSubmission {
@@ -883,14 +835,6 @@ mod tests {
         };
         HardwareRendererBackend::submit_frame(&mut presenter, &submission).expect("submit");
         assert_eq!(presenter.last_submission(), Some(submission));
-        assert_eq!(
-            presenter.last_frame(),
-            Some(HardwareFrame {
-                output_size: (640, 360),
-                world_ready: false,
-                ui_ready: true,
-            })
-        );
     }
 
     #[test]

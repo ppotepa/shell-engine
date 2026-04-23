@@ -11,11 +11,15 @@ Owner: Codex session
   - `engine` default feature switched to `hardware-backend`.
   - CLI default backend is `hardware`.
   - SDL2 runtime path is removed from active/default wiring (`app` + `launcher` launch hardware unless software is explicitly requested).
+  - `software-backend` name usage is removed from active non-doc code paths (`rg -n --hidden --glob '!target/**' --glob '!**/*.md' "software-backend" .` returns no matches).
   - K1 follow-up: explicit `StartupOutputSetting::Sdl2` variant usage is removed from active code paths; startup scene checks now use `StartupOutputSetting::Compatibility`.
+  - K2 follow-up: legacy startup output aliases are removed (`engine-mod/src/output_backend.rs` asserts `StartupOutputSetting::parse("sdl2") == None`).
+  - Deprecated `--sdl-window-ratio` / `--sdl-pixel-scale` / `--no-sdl-vsync` aliases are removed from active CLI code paths (`rg -n "sdl-window-ratio|sdl-pixel-scale|no-sdl-vsync" app/src launcher/src` returns no matches).
+  - `is_pixel_backend` compatibility usage is removed from active runtime/policy code paths (`rg -n "is_pixel_backend" engine-runtime/src engine-render-policy/src` returns no matches).
+  - Compat-only runtime flags are active in `app` (`rg -n "compat-" app/src launcher/src` matches `app/src/main.rs` for `--compat-window-ratio`, `--compat-pixel-scale`, `--no-compat-vsync`).
   - `FrameSubmission` seam remains active in runtime (`submit_frame` first, software fallback on submit failure).
 - Remaining core blockers:
-  - SDL2/software compatibility gates remain (`software-backend` wiring, `cfg(feature = "sdl2")` compatibility code, and legacy alias parsing such as `"sdl2"` in startup token parsing).
-  - runtime/compositor still carries `is_pixel_backend` compatibility branches.
+  - no active renderer bridge blocker remains for `FrameSubmission` contract adoption.
 
 ## Validation Snapshot (2026-04-23)
 
@@ -31,6 +35,12 @@ Gate impact (dated):
 Targeted blocker validations (2026-04-23):
 - launcher SDL helper removal: `rg -n "SDL2_LIB_DIR|SDL2_INCLUDE_DIR|SDL2\\.dll|sdl2-config|inject_sdl2_rustflags|ensure_sdl2_dll" launcher/src` returns no helper-code matches.
 - explicit `StartupOutputSetting::Sdl2` variant usage: `rg -n -F "StartupOutputSetting::Sdl2" app/src engine/src launcher/src engine-mod/src` returns no matches.
+- startup alias removal evidence: `rg -n -F 'parse("sdl2")' engine-mod/src/output_backend.rs` shows test assertion `StartupOutputSetting::parse("sdl2") == None`.
+- no active `sdl2` feature-gate wiring in runtime/app/launcher code: `rg -n -F 'feature = "sdl2"' engine/src app/src launcher/src engine-mod/src engine/Cargo.toml app/Cargo.toml launcher/Cargo.toml` returns no matches.
+- active non-doc `software-backend` usage: `rg -n --hidden --glob '!target/**' --glob '!**/*.md' "software-backend" .` returns no matches.
+- active `is_pixel_backend` usage in runtime/policy paths: `rg -n "is_pixel_backend" engine-runtime/src engine-render-policy/src` returns no matches.
+- active engine renderer path uses `FrameSubmission` directly (`engine/src/systems/renderer.rs`).
+- renderer crates no longer contain `HardwareFrame` / `present_hardware_frame` bridge symbols: `rg -n "HardwareFrame|present_hardware_frame\\(" engine-render/src/lib.rs engine-render-wgpu/src/lib.rs` returns no matches.
 - workspace membership check: `rg -n "engine-render-sdl2" --glob "Cargo.toml"` matches only `engine-render-sdl2/Cargo.toml` crate metadata and an `engine/Cargo.toml` comment (no root workspace member entry).
 
 ## H4 Engine-Lib Failure Buckets (H1/H2/H3)
@@ -70,23 +80,22 @@ takes precedence.
 - `engine/Cargo.toml` default is `hardware-backend`
 - app CLI `--render-backend` default is `hardware`
 
-4. In progress: hardware renderer contract cleanup
-- keep submit path intact while removing compatibility-only `HardwareFrame` bridging from active hot paths
+4. Done: hardware renderer contract cleanup
+- submit path is primary (`FrameSubmission`) and legacy `HardwareFrame` bridge symbols are removed from active renderer crates
 
-5. In progress: full SDL2 compatibility removal gates
-- remove remaining SDL2/software compatibility branches/tooling and `is_pixel_backend` fallback paths
+5. Done: active SDL2 compatibility removal gates
+- deprecated `--sdl-*` CLI aliases removed from active `app`/`launcher` code paths
+- `is_pixel_backend` compatibility usage removed from active `engine-runtime`/`engine-render-policy` paths
 
 ## Active Blockers
 
-- `engine-render` still carries compatibility conversion (`FrameSubmission <-> HardwareFrame`).
-- runtime/compositor still depends on `is_pixel_backend` compatibility state.
-- SDL2/software compatibility wiring is still present (`software-backend`, `cfg(feature = "sdl2")`, legacy alias parsing tokens).
+- no active blockers in renderer contract cleanup lane; remaining migration closure items are outside this bridge-removal scope (verification artifacts/perf gates).
 
 ## Next Execution Batch
 
-1. M1 Contract adoption cutover
+1. M1 Contract adoption cutover (DONE)
 - acceptance: `cargo check -p engine -p engine-render` and no new runtime-side `HardwareFrame` construction.
-2. M2 Native wgpu present path
-- acceptance: `engine-render-wgpu` consumes `FrameSubmission` directly in runtime path without re-materializing `HardwareFrame`, and `cargo check -p engine-render-wgpu` passes.
-3. M3 Runtime compatibility cleanup
-- acceptance: no SDL2/software compatibility branches remain in active runtime path (`is_pixel_backend`, `cfg(feature = "sdl2")`, and legacy software-compat wiring removed from hot paths).
+2. M2 Native wgpu present path (DONE)
+- acceptance met: no `HardwareFrame` / `present_hardware_frame` symbols in active `engine-render` + `engine-render-wgpu` paths; `cargo check -p engine-render -p engine-render-wgpu` passes.
+3. M3 Runtime compatibility cleanup (DONE)
+- acceptance met: `rg -n "is_pixel_backend" engine-runtime/src engine-render-policy/src` returns no matches; `rg -n "sdl-window-ratio|sdl-pixel-scale|no-sdl-vsync" app/src launcher/src` returns no matches.

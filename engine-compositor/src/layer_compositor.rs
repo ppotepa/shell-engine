@@ -50,7 +50,7 @@ pub struct PreparedLayerRenderInputs<'a> {
     pub scene_camera_3d: &'a SceneCamera3D,
     pub spatial_context: SpatialContext,
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
-    pub is_pixel_backend: bool,
+    pub uses_pixel_output: bool,
     pub default_font: Option<&'a str>,
     pub ui_font_scale: f32,
     pub ui_layout_scale_x: f32,
@@ -461,7 +461,7 @@ pub fn composite_layers(
     let scene_camera_3d = inputs.render.scene_camera_3d;
     let spatial_context = inputs.render.spatial_context;
     let celestial_catalogs = inputs.render.celestial_catalogs;
-    let is_pixel_backend = inputs.render.is_pixel_backend;
+    let uses_pixel_output = inputs.render.uses_pixel_output;
     let default_font = inputs.render.default_font;
     let resolved_render_pipeline = resolve_render_2d_pipeline(
         inputs.render.render_2d_pipeline,
@@ -642,7 +642,7 @@ pub fn composite_layers(
                         current_stage,
                         step_idx,
                         elapsed_ms,
-                        is_pixel_backend,
+                        uses_pixel_output,
                         default_font,
                         ui_font_scale: if layer.ui {
                             inputs.render.ui_font_scale
@@ -696,7 +696,7 @@ pub fn composite_layers(
                     current_stage,
                     step_idx,
                     elapsed_ms,
-                    is_pixel_backend,
+                    uses_pixel_output,
                     default_font,
                     ui_font_scale: if layer.ui {
                         inputs.render.ui_font_scale

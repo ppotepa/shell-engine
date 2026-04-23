@@ -8,8 +8,9 @@ Shared rendering abstractions and helper utilities.
 the main engine orchestrator or to a single backend implementation.
 
 It defines backend-facing presentation traits for the `software|hardware` split
-and also hosts shared helpers used by extracted renderers, including
-rasterization and asset loading support.
+with a `FrameSubmission`-first contract for renderer submission paths. It also
+hosts shared helpers used by extracted renderers, including rasterization and
+asset loading support.
 
 ## Key types and modules
 
@@ -17,7 +18,8 @@ rasterization and asset loading support.
 - `PresentationBackend` — shared backend lifecycle contract
 - `SoftwareRendererBackend` — software backend contract
 - `HardwareRendererBackend` — hardware backend contract
-- `HardwareFrame` — hardware frame payload passed to a backend
+- `FrameSubmission` — primary backend-neutral frame envelope submitted by runtime renderer paths
+- `PreparedWorld`, `PreparedUi`, `PreparedOverlay` — backend-neutral payload parts carried by `FrameSubmission`
 - `RenderFrame` — legacy frame payload used by older backend APIs
 - `RenderCaps`, `ColorDepth`, `PresentMode` — backend capability and present semantics
 - `rasterizer` — shared text/font rasterization helpers
@@ -26,7 +28,8 @@ rasterization and asset loading support.
 
 ## Integration points
 
-- `engine-render-sdl2` currently implements the software backend path
+- engine runtime renderer systems submit `FrameSubmission` first through `RendererBackend::submit_frame`
+- `HardwareRendererBackend::submit_frame` is the preferred hardware contract entrypoint
 - `engine-compositor` uses shared rasterization and loader helpers
 - the runtime can select `software` or `hardware` backend paths at startup
 
@@ -35,6 +38,7 @@ rasterization and asset loading support.
 - `RenderBackendKind` is the canonical backend family selector used by runtime startup.
 - `RendererBackend` and `RenderBackend` remain in this crate as compatibility-era traits
   for existing software pipeline wiring.
+- renderer integration should use `FrameSubmission` as the only hardware-facing submission envelope.
 
 ## Working with this crate
 

@@ -39,12 +39,12 @@ struct Cli {
     mod_source: Option<String>,
     /// Deprecated compatibility (software backend): startup window ratio (e.g. 16:9, 4:3, free).
     /// Ignored unless `--render-backend software` is selected.
-    #[arg(long = "compat-window-ratio", alias = "sdl-window-ratio")]
+    #[arg(long = "compat-window-ratio")]
     compat_window_ratio: Option<String>,
     /// Deprecated compatibility (software backend): startup pixel scale for logical render surface.
     /// `0` resolves automatically from the mod `display` runtime render settings.
     /// Ignored unless `--render-backend software` is selected.
-    #[arg(long = "compat-pixel-scale", alias = "sdl-pixel-scale")]
+    #[arg(long = "compat-pixel-scale")]
     compat_pixel_scale: Option<u32>,
     /// Select the render backend family (`hardware` routes through the active winit+wgpu path).
     /// `software` is deprecated and unavailable at runtime.
@@ -52,7 +52,7 @@ struct Cli {
     render_backend: CliRenderBackend,
     /// Deprecated compatibility (software backend): disable VSync.
     /// Ignored unless `--render-backend software` is selected.
-    #[arg(long = "no-compat-vsync", alias = "no-sdl-vsync")]
+    #[arg(long = "no-compat-vsync")]
     no_compat_vsync: bool,
     /// Enable dev helpers (F1 overlay, F3/F4 scene navigation, debug controls).
     ///
@@ -608,27 +608,6 @@ mod tests {
         assert_eq!(
             resolve_software_compat_options(&cli, &manifest),
             Err(String::from(SOFTWARE_BACKEND_UNAVAILABLE_MESSAGE))
-        );
-    }
-
-    #[test]
-    fn legacy_sdl_flag_aliases_still_parse() {
-        let cli = Cli::parse_from([
-            "shell-engine",
-            "--sdl-window-ratio",
-            "4:3",
-            "--sdl-pixel-scale",
-            "3",
-            "--no-sdl-vsync",
-        ]);
-        let manifest: serde_yaml::Value = serde_yaml::from_str("{}").expect("manifest");
-        assert_eq!(
-            resolve_software_compat_options(&cli, &manifest).expect("compat options"),
-            SoftwareCompatOptions {
-                window_ratio: None,
-                pixel_scale: 1,
-                vsync: false,
-            }
         );
     }
 

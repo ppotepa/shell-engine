@@ -268,7 +268,7 @@ pub(crate) fn render_sprites<'a>(
     scene_camera_3d: &SceneCamera3D,
     spatial_context: SpatialContext,
     celestial_catalogs: Option<&CelestialCatalogs>,
-    is_pixel_backend: bool,
+    uses_pixel_output: bool,
     default_font: Option<&str>,
     ui_font_scale: f32,
     ui_layout_scale_x: f32,
@@ -289,7 +289,7 @@ pub(crate) fn render_sprites<'a>(
         scene_camera_3d,
         spatial_context,
         celestial_catalogs,
-        is_pixel_backend,
+        uses_pixel_output,
         default_font,
         ui_font_scale,
         ui_layout_scale_x,
@@ -312,7 +312,7 @@ pub(crate) fn render_sprites<'a>(
     // Reuse one path Vec across sprites; Grid extends/truncates it in-place per child.
     let mut sprite_path: Vec<usize> = Vec::with_capacity(8);
     with_render_context(
-        is_pixel_backend,
+        uses_pixel_output,
         default_font,
         ui_font_scale,
         ui_layout_scale_x,
@@ -548,7 +548,7 @@ fn render_text_sprite(
         font.as_deref(),
         force_font_mode.as_deref(),
         *size,
-        ctx.is_pixel_backend,
+        ctx.uses_pixel_output,
         ctx.default_font,
     );
     let mod_source = ctx.asset_root.map(|root| root.mod_source());

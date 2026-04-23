@@ -7,11 +7,11 @@ staged file change triggers a rebuild. It embeds the git hash as
 `BUILD_GIT_HASH`, printed in the startup banner:
 `ShellEngine [a1b2c3d] initialized with mod source: …`
 
-## Cargo Features (Backend Split)
+## Cargo Features (Hardware-Only)
 
-- Default build (`cargo run -p app`) enables `hardware-backend`, which forwards to the hardware presenter/platform path.
-- `software-backend` feature wiring is retained only as migration compatibility surface; runtime selection of software backend is rejected in `app` (`Render backend \`software\` is deprecated and unavailable because SDL2 runtime support was removed`).
-- Features are app-level switches and only control forwarded engine backend features.
+- Default build (`cargo run -p app`) enables `hardware-backend`.
+- `hardware-backend` forwards to `engine/hardware-backend`.
+- No software backend Cargo feature is available.
 
 ## CLI Flags
 
@@ -85,7 +85,7 @@ pub struct PipelineFlags {
 
 2. **Optional startup validation** (`--check-scenes`)
    - Run scene graph, level config, Rhai script, effect/font/image, and audio sequencer checks
-   - Current compatibility behavior: scene checks still emit `StartupOutputSetting::Sdl2`
+   - Current compatibility behavior: scene checks emit `StartupOutputSetting::Compatibility` via `StartupOutputSetting::compatibility_default()`
    - Print report and exit before engine boot
 
 3. **Initialize audio**
@@ -114,7 +114,11 @@ pub struct PipelineFlags {
 ## Validation Notes (2026-04-23)
 
 - `app/src/main.rs` validates that `--render-backend software` is rejected (`validate_render_backend_selection`, tests `software_backend_is_rejected_by_backend_validation` and `software_backend_compat_options_return_unavailable_error`).
-- `app/src/main.rs` still hardcodes `StartupOutputSetting::Sdl2` for scene checks (`output_for_scene_checks`, test `scene_checks_use_compat_output_setting`).
+- `app/src/main.rs` exposes compat-only legacy knobs (`--compat-window-ratio`, `--compat-pixel-scale`, `--no-compat-vsync`) and does not expose `--sdl-*` aliases.
+- `app/src/main.rs` uses `StartupOutputSetting::compatibility_default()` for scene checks (`output_for_scene_checks`, test `scene_checks_use_compat_output_setting`).
+- `rg -n -F "StartupOutputSetting::Sdl2" app/src engine/src launcher/src engine-mod/src` returns no matches.
+- `rg -n "sdl-window-ratio|sdl-pixel-scale|no-sdl-vsync" app/src launcher/src -g "*.rs"` returns no matches.
+- `rg -n "is_pixel_backend" engine-runtime/src engine-render-policy/src -g "*.rs"` returns no matches.
 
 ## Engine Integration Points
 

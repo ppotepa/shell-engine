@@ -23,7 +23,7 @@ The present structure already gives us most of the needed boundaries:
 - `engine-render-2d` owns reusable 2D draw logic.
 - `engine-render-3d` owns reusable 3D domain logic, software raster helpers, and 3D effect kernels.
 - `engine-compositor` assembles the final frame from layers, sprites, and postfx.
-- `engine-render-sdl2` is the current SDL2 presentation backend.
+- `engine-render-sdl2` was the SDL2 presentation backend in the legacy path.
 
 That means the software path is already separated enough to be treated as the
 baseline implementation. The hardware path should be introduced as a parallel

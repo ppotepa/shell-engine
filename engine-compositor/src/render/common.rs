@@ -34,7 +34,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) scene_camera_3d: &'a SceneCamera3D,
     pub(crate) spatial_context: SpatialContext,
     pub(crate) celestial_catalogs: Option<&'a CelestialCatalogs>,
-    pub(crate) is_pixel_backend: bool,
+    pub(crate) uses_pixel_output: bool,
     pub(crate) default_font: Option<&'a str>,
     pub(crate) ui_font_scale: f32,
     pub(crate) ui_layout_scale_x: f32,

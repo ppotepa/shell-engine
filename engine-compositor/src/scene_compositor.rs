@@ -74,7 +74,7 @@ pub struct PreparedCompositeInputs<'a> {
     pub scene_effect_progress: f32,
     pub asset_root: Option<&'a AssetRoot>,
     pub celestial_catalogs: Option<&'a CelestialCatalogs>,
-    pub is_pixel_backend: bool,
+    pub uses_pixel_output: bool,
     pub default_font: Option<&'a str>,
     /// UI logical width used for coordinate scaling when final render target is denser
     /// than world render size.

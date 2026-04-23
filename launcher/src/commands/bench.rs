@@ -38,7 +38,8 @@ fn run_single_combo(
 ) -> Result<()> {
     let mut cmd = CargoCommand::new("app")
         .profile("release")
-        .feature("app/software-backend")
+        .no_default_features()
+        .feature("app/hardware-backend")
         .app_arg("--mod-source")
         .app_arg(mod_source)
         .app_arg("--bench")
@@ -78,8 +79,9 @@ fn run_all_combos(workspace_root: &Path, mod_source: &str, duration: f32) -> Res
             "--release",
             "-p",
             "app",
+            "--no-default-features",
             "--features",
-            "app/software-backend",
+            "app/hardware-backend",
         ])
         .current_dir(workspace_root)
         .status()?;
@@ -96,7 +98,8 @@ fn run_all_combos(workspace_root: &Path, mod_source: &str, duration: f32) -> Res
 
         let mut cmd = CargoCommand::new("app")
             .profile("release")
-            .feature("app/software-backend")
+            .no_default_features()
+            .feature("app/hardware-backend")
             .app_arg("--mod-source")
             .app_arg(mod_source)
             .app_arg("--bench")

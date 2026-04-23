@@ -173,7 +173,7 @@ fn composite_scene(
             scene_camera_3d: params.prepared.camera.scene_camera_3d,
             spatial_context: params.prepared.camera.spatial_context,
             celestial_catalogs: params.prepared.celestial_catalogs,
-            is_pixel_backend: params.prepared.is_pixel_backend,
+            uses_pixel_output: params.prepared.uses_pixel_output,
             default_font: params.prepared.default_font,
             ui_font_scale: params.prepared.ui_font_scale,
             ui_layout_scale_x,

@@ -1011,15 +1011,16 @@ mod tests {
     use engine_core::color::Color;
     use engine_runtime::{RuntimeRenderCapabilities, RuntimeSettings, TextPresentationKind};
     use engine_render::{
-        HardwareFrame, OverlayData, RenderBackendKind, RenderError, RendererBackend, VectorOverlay,
+        FrameSubmission, OverlayData, RenderBackendKind, RenderError, RendererBackend,
+        VectorOverlay,
     };
 
     #[derive(Default)]
     struct RendererProbe {
         backend_kind: RenderBackendKind,
         software_calls: usize,
-        hardware_calls: usize,
-        hardware_ok: bool,
+        submit_calls: usize,
+        submit_ok: bool,
     }
 
     impl RendererBackend for RendererProbe {
@@ -1031,9 +1032,9 @@ mod tests {
             self.backend_kind
         }
 
-        fn present_hardware_frame(&mut self, _frame: &HardwareFrame) -> Result<(), RenderError> {
-            self.hardware_calls += 1;
-            if self.hardware_ok {
+        fn submit_frame(&mut self, _submission: &FrameSubmission) -> Result<(), RenderError> {
+            self.submit_calls += 1;
+            if self.submit_ok {
                 Ok(())
             } else {
                 Err(RenderError::PresentFailed("probe".to_string()))
@@ -1066,7 +1067,7 @@ mod tests {
         present_active_frame(&mut renderer, &buffer);
 
         assert_eq!(renderer.software_calls, 1);
-        assert_eq!(renderer.hardware_calls, 0);
+        assert_eq!(renderer.submit_calls, 0);
     }
 
     #[test]
@@ -1080,7 +1081,7 @@ mod tests {
 
         present_active_frame(&mut renderer, &buffer);
 
-        assert_eq!(renderer.hardware_calls, 1);
+        assert_eq!(renderer.submit_calls, 1);
         assert_eq!(renderer.software_calls, 1);
     }
 
@@ -1088,7 +1089,7 @@ mod tests {
     fn hardware_present_success_does_not_fallback_to_software_frame() {
         let mut renderer = RendererProbe {
             backend_kind: RenderBackendKind::Hardware,
-            hardware_ok: true,
+            submit_ok: true,
             ..RendererProbe::default()
         };
         let mut buffer = Buffer::new(2, 2);
@@ -1096,7 +1097,7 @@ mod tests {
 
         present_active_frame(&mut renderer, &buffer);
 
-        assert_eq!(renderer.hardware_calls, 1);
+        assert_eq!(renderer.submit_calls, 1);
         assert_eq!(renderer.software_calls, 0);
     }
 
@@ -1110,12 +1111,13 @@ mod tests {
     }
 
     #[test]
-    fn font_policy_falls_back_to_legacy_bool_for_compatibility() {
+    fn font_policy_respects_capability_text_presentation() {
         let mut settings = RuntimeSettings::default();
-        settings.render_capabilities.text_presentation = TextPresentationKind::CellGlyphs;
-        settings.is_pixel_backend = true;
+        let mut capabilities = RuntimeRenderCapabilities::software_presenter();
+        capabilities.text_presentation = TextPresentationKind::CellGlyphs;
+        settings.set_render_capabilities(capabilities);
 
         let caps = runtime_font_policy_capabilities(&settings);
-        assert!(caps.prefer_raster_named_fonts);
+        assert!(!caps.prefer_raster_named_fonts);
     }
 }

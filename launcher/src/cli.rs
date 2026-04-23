@@ -32,16 +32,21 @@ pub enum Command {
 
 #[derive(Parser, Debug)]
 pub struct RunArgs {
-    /// Deprecated: request software backend (currently unavailable)
-    #[arg(long = "software", conflicts_with = "hardware")]
+    /// Compatibility-only legacy flag: request software backend (unavailable)
+    #[arg(long = "software", hide = true, conflicts_with = "hardware")]
     pub software: bool,
 
-    /// Force hardware backend (shortcut for --render-backend hardware)
-    #[arg(long = "hardware", conflicts_with = "software")]
+    /// Compatibility-only legacy flag: force hardware backend
+    #[arg(long = "hardware", hide = true, conflicts_with = "software")]
     pub hardware: bool,
 
-    /// Render backend path (`software` is deprecated and unavailable)
-    #[arg(long = "render-backend", value_enum, default_value_t = RenderBackendArg::Hardware)]
+    /// Compatibility-only legacy flag: render backend selector
+    #[arg(
+        long = "render-backend",
+        hide = true,
+        value_enum,
+        default_value_t = RenderBackendArg::Hardware
+    )]
     pub render_backend: RenderBackendArg,
 
     /// Mod name (resolves to mods/<name>/)
@@ -139,18 +144,6 @@ pub struct RunArgs {
     /// Async display sink
     #[arg(long = "opt-async")]
     pub opt_async: bool,
-
-    /// Deprecated software presenter window ratio (ignored unless software backend is selected)
-    #[arg(long = "sdl-window-ratio", default_value = "16:9")]
-    pub sdl_window_ratio: String,
-
-    /// Deprecated software presenter pixel scale (0 = auto based on mod world_render_size)
-    #[arg(long = "sdl-pixel-scale", default_value_t = 0)]
-    pub sdl_pixel_scale: u32,
-
-    /// Deprecated: disable presenter VSync for software backend
-    #[arg(long = "no-sdl-vsync")]
-    pub no_sdl_vsync: bool,
 
     /// Build cognitOS C# sidecar first
     #[arg(long = "with-sidecar")]
